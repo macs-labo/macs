@@ -1,0 +1,22 @@
+{* 対象作物選択テンプレート *}
+{include file='header.html'}
+<div id="main">
+<form id="next" action="{$toppage.url}" method="{$method}">
+<input type="hidden" name="func" value="{$func + 1}" />
+<p class="node"><button class="help" type="button" onclick="flip('cp11')">１</button>対象作物…{$count}</p>
+<p class="item"><select name="cno">
+{foreach from=$crops item=crop name=c}
+{* <option value="{$smarty.foreach.c.index}"{if $crop.idsaku == $cid || $crop.idsaku == $def} selected="selected"{/if}><span class="sf">{$ccat[$crop.cat]}{$mark[$crop.toroku]}</span>{'.....'|substr:0:$crop.class}<em>{$crop.sakumotsu}</em><span class="sf"> | {$crop.shukakubui}{if $crop.betsumei} | {$crop.betsumei}{/if}</span></option> *}
+<option value="{$smarty.foreach.c.index}"{if $crop.idsaku == $cid || $crop.idsaku == $def} selected="selected"{/if}>{$ccat[$crop.cat]}{$mark[$crop.toroku]}{'.....'|substr:0:$crop.class}{$crop.sakumotsu} | {$crop.shukakubui}{if $crop.betsumei} | {$crop.betsumei}{/if}</option>
+{/foreach}
+</select></p>
+<p class="item"><input type="checkbox" name="cgrp" value="1" {if $cgrp}checked="checked" {/if}/>作物群一括検索</p>
+<p class="node"><button class="help" type="button" onclick="flip('cp12')">2</button>対象病害虫区分</p>
+<p class="item"><select name="pcno">
+{foreach from=$pcats item=pcat name=p}
+<option value="{$smarty.foreach.p.index}"{if $pcid == $pcat.cid} selected="selected"{/if}>{$pcat.cname}</option>
+{/foreach}
+</select></p>
+</form>
+</div>
+{include file='footer.html'}

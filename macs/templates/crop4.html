@@ -1,0 +1,74 @@
+{* 適用表示テンプレート *}
+{include file='header.html'}
+<div id="main">
+<h4>剤の概要</h4>
+{foreach from=$bases item=basis name=b}
+<ul>
+{if !$smarty.foreach.b.index}
+<li>種類: {$basis.shurui}</li>
+<li>剤型: {$basis.zaikei}</li>
+<li>用途: {$basis.yoto} [{$basis.koka}]</li>
+{/if}
+{if $count1 > 1}<li>製品: {$basis.seihin}</li>{/if}
+{if $basis.toxic}<li>毒性: {$basis.toxic}</li>{/if}
+{if $basis.comp1}<li>{$basis.comp1}</li>{/if}
+{if $basis.classifire1}<ul><li>{$basis.classifire1|replace:'#':'</li><li>'}</li></ul>{/if}
+{if $basis.comp2}<li>{$basis.comp2}</li>{/if}
+{if $basis.classifire2}<ul><li>{$basis.classifire2|replace:'#':'</li><li>'}</li></ul>{/if}
+{if $basis.comp3}<li>{$basis.comp3}</li>{/if}
+{if $basis.classifire3}<ul><li>{$basis.classifire3|replace:'#':'</li><li>'}</li></ul>{/if}
+{if $basis.comp4}<li>{$basis.comp4}</li>{/if}
+{if $basis.classifire4}<ul><li>{$basis.classifire4|replace:'#':'</li><li>'}</li></ul>{/if}
+{if $basis.comp5}<li>{$basis.comp5}</li>{/if}
+{if $basis.classifire5}<ul><li>{$basis.classifire5|replace:'#':'</li><li>'}</li></ul>{/if}
+{if $basis.chuijiko && $basis.chuijiko != 'この登録に係る使用方法では該当がない。'}<li>注意事項</li><ul><li>{$basis.chuijiko|replace:'#':'</li><li>'}</li></ul>{/if}
+</ul>
+{/foreach}
+{$tcrop = ''}
+{foreach from=$times item=time name=t}
+{if $tcrop != $time.sakumotsu}{$tcrop = $time.sakumotsu}<h4>「{$tcrop}」の成分使用回数</h4>{/if}
+<ul>
+{if $count2 > 1}<li>製品: {$time.seihin}</li>{/if}
+{if $time.kaisu1}<li>{$time.seibun1}</li><ul><li>回数: {$time.kaisu1}</li>{if $time.others1}<li>{$time.others1}</li>{/if}</ul>{else}<li>成分: 設定無し</li>{/if}
+{if $time.kaisu2}<li>{$time.seibun2}</li><ul><li>回数: {$time.kaisu2}</li>{if $time.others2}<li>{$time.others2}</li>{/if}</ul>{/if}
+{if $time.kaisu3}<li>{$time.seibun3}</li><ul><li>回数: {$time.kaisu3}</li>{if $time.others3}<li>{$time.others3}</li>{/if}</ul>{/if}
+{if $time.kaisu4}<li>{$time.seibun4}</li><ul><li>回数: {$time.kaisu4}</li>{if $time.others4}<li>{$time.others4}</li>{/if}</ul>{/if}
+{if $time.kaisu5}<li>{$time.seibun5}</li><ul><li>回数: {$time.kaisu5}</li>{if $time.others5}<li>{$time.others5}</li>{/if}</ul>{/if}
+</ul>
+{/foreach}
+{$tcrop = ''}
+{foreach from=$apps item=app name=a}
+{if $tcrop != $app.sakumotsu}{$tcrop = $app.sakumotsu}<h4>「{$tcrop}」の対象病害虫の適用</h4>{/if}
+<ul>
+<li>{$app.byochu}</li>
+<ul>
+{if $app.kaisu}<li>回数: {$app.kaisu}</li>{/if}
+{if $app.jiki}<li>時期: {$app.jiki}</li>{/if}
+{if $app.baisu}<li>{$app.unit}: {$app.baisu|escape:'html':'UTF-8'}</li>{/if}
+{if $app.ekiryo || $app.hoho}<li>方法: {$app.ekiryo}{$app.hoho|escape:'html':'UTF-8'}</li>{/if}
+{if $app.etc}<li>その他: {$app.etc|escape:'html':'UTF-8'}</li>{/if}
+</ul>
+</ul>
+{/foreach}
+{if $count3}
+<h4>対象作物のその他の適用</h4>
+{$tcrop = ''}
+{foreach from=$others item=other name=o}
+<ul>
+{if $tcrop != $other.sakumotsu}{$tcrop = $other.sakumotsu}<li>{$other.sakumotsu}</li>{/if}
+<ul><li>{$other.pest}: {$other.jiki} {$other.baisu|escape:'html':'UTF-8'} {$other.ekiryo}{$other.hoho|escape:'html':'UTF-8'}</li></ul>
+</ul>
+{/foreach}
+{/if}
+<h4>その他の登録</h4>
+<ul>
+<li>登録のある{$cname}</li>
+<ul>
+<li>{$crops}</li>
+</ul>
+<li>登録のある病害虫</li>
+<ul>
+<li>{$pests}</li>
+</ul>
+</div>
+{include file='footer.html'}

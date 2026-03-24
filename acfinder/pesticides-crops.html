@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
+<title></title>
+<!-- 本プロジェクト専用ライブラリ -->
+<script type="text/javascript" src="./header.js"></script>
+<script type="text/javascript" src="./custom.js"></script>
+<script type="text/javascript" src="./loader.js"></script>
+<script type="text/javascript" src="./table.js"></script>
+<script type="text/javascript" src="./crop.js"></script>
+<link rel="stylesheet" type="text/css" href="./common.css" />
+<link rel="stylesheet" type="text/css" href="./loader.css" />
+<link rel="stylesheet" type="text/css" href="./crop.css" />
+<!-- 本プロジェクト共通外部ライブラリ -->
+<!-- SQL.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.min.js"></script>
+<!-- JSZip.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<!-- ExcelJS ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- FileSaver ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<!-- Handsontable ライブラリ -->
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/handsontable.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/ht-theme-classic.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/handsontable.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/languages/ja-JP.js"></script>
+<link rel="stylesheet" type="text/css" href="./table.css" />
+<!-- infinit-tree ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css">
+<!-- タブ専用外部ライブラリ -->
+<!-- romaji-conv ライブラリ / 作物タブ・病害虫タブ・薬剤タブ -->
+<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.32/dist/romaji-conv.js"></script>
+<!--	タブ専用スタイル -->
+<style>
+#cropTree {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+}
+
+.infinite-tree-scroll {
+	min-height: 230px;
+	max-height: calc(100vh - 304px);
+}
+
+</style>
+<!--	タブ専用の view や table の設定 -->
+<script type="text/plain" id="views_or_tables">
+</script>
+<!--	タブ専用の script -->
+<script>
+
+let currentListing;
+
+async function searchCrop() {
+	const title = document.querySelector('#title');
+	tables = resetTables(tables);
+	if (checkedCrops.length === 0) {
+		title.innerHTML = '';
+		title.classList.add('hidden');
+		if (excluderChanged) setupCropTree();
+		return;
+	}
+	const crops = checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
+	title.innerHTML = crops.join(',');
+	title.classList.remove('hidden');
+	let sql = `
+		select distinct
+			seizaiyoto, tsusho, seizaidokusei, hoho,
+	`;
+	crops.forEach(crop => {
+		sql += `max(if(${expandCrops(crop)}, ${currentListing}, '')) as ${crop},\n`;
+	});
+	sql += `
+			gn_concat(', ',  n_concat('/', byochu, mokuteki)) as byochu,
+			seibun1, kaisu1, mid1, keito1, rem1, risk1,
+			seibun2, kaisu2, mid2, keito2, rem2, risk2,
+			seibun3, kaisu3, mid3, keito3, rem3, risk3,
+			seibun4, kaisu4, mid4, keito4, rem4, risk4,
+			seibun5, kaisu5, mid5, keito5, rem5, risk5,
+			kongo, shurui, zaikei, seizaikoka, seizaiojas
+		from tv_tsushoTekiyo left join m_sakumotsu using(sakumotsu) left join sakuhojo using(idsaku) where
+			sakumotsu in (${makeCropCondition(crops)}) ${excludeCondition}
+		group by tsusho, hoho;
+	`;
+	//console.log(sql);
+	await new Promise((resolve) => {
+		// ローディング画面を確実に表示
+		waiting(true, 'データベース検索中');
+		// UI更新を反映させるためにsetTimeoutを使用
+		setTimeout(() => {
+			requestAnimationFrame(() => {
+				try {
+					let searchTime = -performance.now();
+					let result = db.exec(sql);
+					searchTime += performance.now();
+					tables = outputTable('#result', result, { caption: `「${crops.join('」「')}」で使用可能な薬剤の適用`, hideFooterU20: false });
+				} catch (error) {
+					console.error(`エラー: ${error.message}`);
+				} finally {
+					// クエリ実行後にローディング画面を非表示
+					waiting(false);
+				}
+				resolve();
+			});
+		}, 0); // 0msで次のイベントループに処理を移す
+	});
+}
+
+function handleListingChange(event) {
+	currentListing = event.target.value;
+	if (tables) searchCrop(); // 検索を実行
+}
+
+// DOM読込完了時の初期設定
+window.addEventListener('DOMContentLoaded', async function() {
+	//データベース読込
+	if (db === null) await fetchDB();
+
+	// 除外薬剤セレクタの生成とイベントハンドラ設定
+	makeExcludeSelector();
+
+	// currentListing を 表示項目セレクタから取得
+	currentListing = document.querySelector('#listing').value;
+
+	// 作物ツリーの生成とイベントハンドラ設定
+	setupCropTree();
+
+	// firefox のリロード時 checkbox 状態復元対策
+	clearAllReset();
+});
+</script>
+</head>
+<body>
+<iframe name="dummyFrame" style="display:none;"></iframe>
+<!--	全タブ共通ヘッダ -->
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div id="title-bar"></div><!--	タイトル表示領域確保 -->
+<!--	このタブの表示内容 -->
+<div class="tab_content">
+	<div class="flex_container">
+		<div id="conditionPane">
+			<div id="excluder"></div>
+			<div class="selector">
+				<h3>表示形式</h3>
+				<select id="listing" onchange="handleListingChange(event)">
+					<option value="'●'" selected>登録有(●)無</option>
+					<option value="d_concat('／',ifnullstr(jiki,'-'),ifnullstr(kaisu,'-'))">使用時期／回数</option>
+					<option value="d_concat('／',ifnullstr(jiki,'-'),ifnullstr(kaisu,'-'),baisu)">使用時期／回数／希釈倍数</option>
+				</select>
+			</div>
+			<div id="cropTree"></div>
+		</div>
+		<div id="resultPane">
+			<h3 id="title" class="hidden"></h3>
+			<div id="result"></div>
+		</div>
+	</div>
+</div><!-- End of tab-content -->
+<!--  タブ内容読込後に実行する script -->
+<script>
+</script>
+</body>
+</html>

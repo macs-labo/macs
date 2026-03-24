@@ -1,0 +1,20 @@
+{* 病害虫選択後の作物選択テンプレート *}
+{include file='header.html'}
+<div id="main">
+<form id="next" action="{$toppage.url}" method="{$method}">
+<input type="hidden" name="func" value="{$func + 1}" />
+<p class="node"><button type="button" class="help" onclick="flip('pt21')">１</button>対象作物…{$count}</p>
+<p class="item"><select name="cno">
+{foreach from=$crops item=crop name=c}
+<option value="{$smarty.foreach.c.index}"{if $cid == $crop.idsaku} selected="selected"{/if}>{'.....'|substr:0:$crop.class}{$crop.sakumotsu}</option>
+{/foreach}
+</select></p>
+<p class="node"><button type="button" class="help" onclick="flip('cp22')">２</button>絞込条件</p>
+<p class="item"><select name="fno">
+{foreach from=$filts item=filt name=f}
+<option value="{$smarty.foreach.f.index}"{if $fname == $filt.name} selected="selected"{/if}>{$filt.name}</option>
+{/foreach}
+</select></p>
+</form>
+</div>
+{include file='footer.html'}

@@ -1,0 +1,18 @@
+{* 検索語入力画面テンプレート *}
+{include file='header.html'}
+<div id="main">
+<form id="next" action="{$toppage.url}" method="{$method}">
+<input type="hidden" name="func" value="{$func + 1}" />
+<p class="node"><button class="help" type="button" onclick="flip('ix1')">１</button>検索モード</p>
+<p class="item"><select name="mode" id="modesel">
+{foreach from=$modes key=m item=i}
+{if $i.valid}
+<option value="{$m}"{if $m == $mode} selected="selected"{/if}>{$i.title}から検索</option>
+{/if}
+{/foreach}
+</select></p>
+<p class="node"><button class="help" type="button" onclick="flip('ix2')">２</button>検索語</p>
+<p class="item"><input type="text" name="kw" size="20" maxlength="50" value="" class="line" /></p>
+</form>
+</div>
+{include file='footer.html'}

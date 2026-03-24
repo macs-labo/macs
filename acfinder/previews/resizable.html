@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>列幅調整可能プレビュー：</title>
+<link rel="stylesheet" href="../common.css">
+<link rel="stylesheet" href="./preview.css">
+<script src="./preview.js"></script>
+<script>
+window.addEventListener('DOMContentLoaded', () => {
+
+	initializeResizableTable();
+
+});
+</script>
+</head>
+<body>
+<div id="settings">
+	<div>
+		<label for="previewSelect">プレビュー形式:</label>
+		<select id="previewSelect"></select>
+		<input type="file" id="fileInput" accept=".html" style="display: none;">
+		<span id="selectedPreview"></span>
+	</div>
+	<div>
+		<label for="caption-text">キャプション:</label>
+		<input type="text" id="caption-text">
+	</div>
+	<div>
+		<label for="zoom-slider">表示倍率:</label>
+		<input type="range" id="zoom-slider" min="0.1" max="1.5" step="0.01" value="1">
+		<span id="zoom-value">100%</span>
+	</div>
+</div>
+<div id="preview">
+	<div id="previewContent">
+		<h1></h1>
+		<table>
+			<colgroup>
+			</colgroup>
+			<thead>
+			</thead>
+			<tbody>
+			</tbody>
+			</table>
+	</div>
+</div>
+</body>
+</html>

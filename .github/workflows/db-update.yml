@@ -1,0 +1,170 @@
+name: Manual and Scheduled Database Update
+
+on:
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Update Target'
+        required: true
+        default: 'spec'
+        type: choice
+        options: [spec, acis, both]
+      force_update:
+        description: 'Force update (add update=1)'
+        type: boolean
+        default: false
+      sync_mode:
+        description: 'Remote Sync Mode'
+        required: true
+        default: 'fully_sync'
+        type: choice
+        options: [fully_sync, dbupdate_only, site_sync_only]
+
+  schedule:
+    - cron: '2 0-6 * * 1-5'
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  update-db:
+    runs-on: ubuntu-latest
+    outputs:
+      acis_changed: ${{ steps.commit.outputs.acis_changed }}
+      force_update: ${{ steps.vars.outputs.FORCE_UPDATE }}
+      sync_mode: ${{ steps.vars.outputs.SYNC_MODE }}
+      tag: ${{ steps.info.outputs.tag }}
+      title: ${{ steps.info.outputs.title }}
+      date: ${{ steps.info.outputs.date }}
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore timestamps
+        uses: chetan/git-restore-mtime-action@v2
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, sqlite3, pdo_sqlite
+
+      - name: Set Global Environment Variables
+        id: vars
+        run: |
+          if [[ "${{ github.event.inputs.force_update }}" == "true" ]]; then
+            echo "FORCE_UPDATE=true" >> $GITHUB_OUTPUT
+          else
+            echo "FORCE_UPDATE=false" >> $GITHUB_OUTPUT
+          fi
+          
+          SMODE="fully_sync"
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            SMODE="${{ github.event.inputs.sync_mode }}"
+          fi
+          echo "SYNC_MODE=$SMODE" >> $GITHUB_OUTPUT
+
+      - name: Update spec.db
+        if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'spec' || github.event.inputs.target == 'both') }}
+        run: |
+          cd cron
+          [[ "${{ steps.vars.outputs.FORCE_UPDATE }}" == "true" ]] && php .make.spec.php "update=1" || php .make.spec.php
+
+      - name: Update acis.db
+        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both')) }}
+        run: |
+          cd cron
+          [[ "${{ steps.vars.outputs.FORCE_UPDATE }}" == "true" ]] && php .make.acis.php "update=1" || php .make.acis.php
+
+      - name: Commit and Push changes
+        id: commit
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          
+          # 生成された *.db を data フォルダへコピー（既に cron 内でやっていれば不要）
+          cp cron/*.db data/ 2>/dev/null || true
+          
+          # data フォルダ内をすべてステージング（*.db も含める）
+          git add data/
+          
+          ACIS_CHANGED=false
+          # acis.zip が更新されたかチェック（リリース判定用）
+          if git diff --cached --name-only | grep -q "data/acis.zip"; then
+            ACIS_CHANGED=true
+          fi
+          echo "acis_changed=$ACIS_CHANGED" >> $GITHUB_OUTPUT
+
+          if ! git diff --staged --quiet; then
+            git commit -m "Update distribution files and databases [skip ci]"
+            git push origin main
+          else
+            echo "No changes detected"
+          fi
+
+      - name: Read update info
+        id: info
+        if: steps.commit.outputs.acis_changed == 'true'
+        run: |
+          echo "tag=$(jq -r '.version_tag' cron/update.json)" >> $GITHUB_OUTPUT
+          echo "title=$(jq -r '.raw_title' cron/update.json)" >> $GITHUB_OUTPUT
+          echo "date=$(jq -r '.update_date' cron/update.json)" >> $GITHUB_OUTPUT
+
+  # 並列ジョブ1: Release の作成（過去データ保存用）
+  create-release:
+    needs: update-db
+    if: needs.update-db.outputs.acis_changed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code (for assets)
+        uses: actions/checkout@v4
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.update-db.outputs.tag }}
+          name: ${{ needs.update-db.outputs.title }}
+          body: |
+            自動更新によるデータベースアップデート
+            更新日時: ${{ needs.update-db.outputs.date }}
+          files: data/acis.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # 並列ジョブ2: 外部サイトの同期（各拠点の .sync.data.php を叩く）
+  sync-remote:
+    needs: update-db
+    # acisが変わった、または強制更新の場合
+    if: needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.force_update == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Remote Sync
+        run: |
+          echo "Waiting 120 seconds for GitHub CDN to reflect changes..."
+          sleep 120
+
+          QUERY=""
+          case "${{ needs.update-db.outputs.sync_mode }}" in
+            "dbupdate_only")   QUERY="mode=dbupdate" ;;
+            "site_sync_only")  QUERY="mode=sitesync" ;;
+          esac
+
+          if [[ "${{ needs.update-db.outputs.force_update }}" == "true" ]]; then
+            [[ -z "$QUERY" ]] && QUERY="update=1" || QUERY="${QUERY}&update=1"
+          fi
+
+          OPT=$([[ -n "$QUERY" ]] && echo "?$QUERY" || echo "")
+          echo "Triggering sync with URL suffix: $OPT"
+
+          CURL_OPTS=(-s -u "${{ secrets.SYNC_USER }}:${{ secrets.SYNC_PASS }}" -H "X-GitHub-Token: ${{ secrets.GITHUB_TOKEN }}")
+          curl "${CURL_OPTS[@]}" "https://macs.xii.jp/cron/.sync.data.php$OPT"
+          curl "${CURL_OPTS[@]}" "https://macs.kabe.info/cron/.sync.data.php$OPT"
+          curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/cron/.sync.data.php$OPT"
+          curl "${CURL_OPTS[@]}" "https://macs.coresv.net/cron/.sync.data.php$OPT"

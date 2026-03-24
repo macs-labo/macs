@@ -1,0 +1,14 @@
+{* 作物->病害虫->農薬選択テンプレート *}
+{include file='header.html'}
+<div id="main">
+<form id="next" action="{$toppage.url}" method="{$method}">
+<input type="hidden" name="func" value="{$func + 1}" />
+<p class="node"><button class="help" type="button" onclick="flip('cp31')">１</button>適用農薬…{$count}</p>
+<p class="item"><select name="tno">
+{foreach from=$chems item=chem name=c}
+<option value="{$smarty.foreach.c.index}"{if $smarty.foreach.c.index == $tno} selected="selected"{/if}>{$chem.tsusho|escape:'html':'UTF-8'}｜{$chem.jiki|escape:'html':'UTF-8'}｜{$chem.rac|escape:'html':'UTF-8'}</option>
+{/foreach}
+</select></p>
+</form>
+</div>
+{include file='footer.html'}

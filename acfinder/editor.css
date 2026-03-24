@@ -1,0 +1,83 @@
+
+/* CodeMirror 共通設定 */
+.CodeMirror {
+	width: 100%;
+	border: 1px solid var(--border-color-strong);
+	border-radius: 4px;
+	resize: vertical;  /* 縦方向のリサイズを有効化 */
+	overflow: hidden;  /* コンテナ自体の不要なスクロールバーを非表示 */
+	min-height: 110px; /* 約5行分の高さ */
+	max-height: 836px; /* 約40行分の高さ */
+	height: 213px;     /* デフォルトの高さ 約10行分 */
+	font-family: monospace;
+	color: var(--text-color);
+	background: var(--bg-color) !important;
+}
+
+.CodeMirror-focused {
+	outline: 2px solid var(--border-color-focus);
+	outline-offset: -1px;
+}
+
+.CodeMirror-line {
+	line-height: 1.5 !important; /* 行間を広げる */
+}
+
+.CodeMirror-scroll {
+	overflow-y: scroll !important; /* 垂直スクロールは常に表示 */
+	overflow-x: scroll !important; /* 水平スクロール hidden だと最終行が水平スクロールバーの高さ分表示されない、scroll にしても行折り返しなら表示されない */
+}
+
+.cm-s-eclipse .CodeMirror-activeline-background,
+.CodeMirror-activeline-background {
+	background-color: transparent;
+}
+.CodeMirror-focused .CodeMirror-activeline-background { background-color: var(--bg-color-button) }
+.CodeMirror-gutter { background-color: var(--bg-color-header); }
+.CodeMirror-linenumber { color: var(--icon-color); }
+/*
+.CodeMirror-activeline .CodeMirror-linenumber {
+	color: var(--icon-color-hover);
+	background-color: var(--bg-color-icon-hover);
+}
+*/
+.CodeMirror-hints.darcula,
+.CodeMirror-hints {
+	font-family: monospace !important;
+	color: var(--text-color);
+	background-color: var(--bg-color) !important;
+	border-color: var(--border-color);
+}
+
+.CodeMirror-hints.darcula .CodeMirror-hint {
+	color: var(--text-color);
+}
+
+.CodeMirror-hints.darcula .CodeMirror-hint-active,
+.CodeMirror-hints .CodeMirror-hint-active {
+	background-color: var(--bg-color-icon-hover) !important;
+	color: var(--text-color-dark) !important;
+}
+
+.cm-s-eclipse span.cm-comment { color: #005c00; }
+.cm-s-eclipse span.cm-string { color: #7e2b05; }
+.cm-s-eclipse span.cm-bracket { color: #055e86; }
+.cm-s-eclipse .CodeMirror-matchingbracket { background-color: #80808054; font-weight: bold; }
+.cm-s-darcula span.cm-comment { color: #65af53 ; font-style: normal; }
+.cm-s-darcula span.cm-string { color: #d3a200; }
+.cm-s-darcula span.cm-bracket { color: #8d8fe4; }
+
+/* 改行文字を可視化するためのスタイル */
+.CodeMirror-line {
+	/* はみ出した改行記号を隠すため */
+	overflow: hidden !important;
+}
+.cm-newline-char {
+	font-size: 14px;
+	color: var(--border-color);
+	position: relative;
+	margin-left: 1px;
+	display: inline-block;
+	/* 行の高さより少し大きい高さを持つことで、最終行以外では overflow:hidden で隠される */
+	height: 1.6rem;
+}

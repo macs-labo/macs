@@ -1,0 +1,66 @@
+{* テンプレートフッタ *}
+<div id="navi">
+{if $func}
+<form id="back" action="{$toppage.url}" method="{$method}">
+<input type="hidden" name="func" value="{$func - 1}" />
+</form>
+{/if}
+<p>
+{if $func}
+<button form="back" type="submit" class="back">≪ 戻る</button>
+{*<button form="back" type="submit" class="back">{$titles.$mode.{$func - 1}}に戻る</button>*}
+{else}
+<button type="button" class="back" disabled>≪ 戻る</button>
+{/if}
+{if $func < count($titles.$mode)}
+<button form="next" type="submit" class="next" onclick="waiting()">次へ ≫</button>
+{else}
+<button type="button" class="next" disabled>次へ ≫</button>
+{/if}
+</p>
+{if $func == 1 || $errormsg}
+<p><button type="button" class="jump" disabled>⋘ {$toppage.title}に戻る</button></p>
+{elseif $func > 1}
+<p><button type="button" class="jump" onclick="location.href='{$toppage.url}'">⋘ {$toppage.title}に戻る</button></p>
+{else}
+<p class="left"><button type="button" class="jump" onclick="location.href='{$home.url}'">☜ {$home.title}</button></p>
+<p class="right"><button type="button" class="right" onclick="setting(this)">{if $smarty.cookies.scale}▽{else}△{/if}</button></p>
+{/if}
+</div>
+{if !$func}
+<div id="setting">
+<p class="scaler">
+<span class="small">小</span>
+<input type="range" min="0.874" max="1.315" step="0.063" value="{if $smarty.cookies.scale}{$smarty.cookies.scale}{else}1{/if}" class="scale" oninput="document.getElementById('rsize').style.fontSize = this.value + 'rem'" onchange="resize(value)" />
+<span class="large">大</span> <span class="ssize">標準</span><span id="rsize">実寸</span>
+</p>
+<p class="spiner">
+<button type="button" id="naviup" onclick="navipos(-1)">▲</button>
+<button type="button" id="navidn" onclick="navipos(1)">▼</button>
+<input type="number" min="0" max="10" step="1" id="pnavi" value="{if $smarty.cookies.navipos}{$smarty.cookies.navipos}{else}0{/if}" onchange="navipos(0)" />
+</p>
+</div>
+{/if}
+<div id="footer" onclick="off()">
+{if $func < count($titles.$mode)}
+<p><button class="help" type="button">数字</button>ボタンをタップ(PCではクリック)すると、その項目のヘルプがここに表示されます。</p>
+{if !$func}
+<p id="setopen"><button class="bset">▽</button>をタップすると、文字サイズと操作バー表示位置を調整する設定バーを開きます。</p>
+<p id="setclose"><button class="bset">△</button>をタップすると、文字サイズと操作バー表示位置を変更する設定バーを閉じます。</p>
+{/if}
+{else}
+<h3>{$title}</h3>
+{/if}
+</div>
+<footer>
+<p>MACS: Mobile Agricultural Chemicals Searcher</p>
+<p>&copy; 2010-{$smarty.now|date_format:'%Y'} MACS Lab. / MIT License</p>
+</footer>
+<div id="wait">
+<div class="loader"></div>
+{*<img class="wait" src="wait.apng" alt="データベース問い合わせ中" />*}
+<p>しばらくお待ちください</p>
+</div>
+</body>
+</html>
+	

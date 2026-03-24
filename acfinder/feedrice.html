@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
+<title></title>
+<!-- 本プロジェクト専用ライブラリ -->
+<script type="text/javascript" src="./header.js"></script>
+<script type="text/javascript" src="./custom.js"></script>
+<script type="text/javascript" src="./loader.js"></script>
+<script type="text/javascript" src="./table.js"></script>
+<script type="text/javascript" src="./crop.js"></script>
+<link rel="stylesheet" type="text/css" href="./common.css" />
+<link rel="stylesheet" type="text/css" href="./loader.css" />
+<link rel="stylesheet" type="text/css" href="./crop.css" />
+<!-- 本プロジェクト共通外部ライブラリ -->
+<!-- SQL.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.min.js"></script>
+<!-- JSZip.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<!-- ExcelJS ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- FileSaver ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<!-- Handsontable ライブラリ -->
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/handsontable.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/ht-theme-classic.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/handsontable.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/languages/ja-JP.js"></script>
+<link rel="stylesheet" type="text/css" href="./table.css" />
+<!-- infinit-tree ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css">
+<!-- タブ専用外部ライブラリ -->
+<!--	タブ専用スタイル -->
+<style>
+
+</style>
+<!--	タブ専用の view や table の設定 -->
+<script type="text/plain" id="views_or_tables">
+</script>
+<!--	タブ専用の script -->
+<script>
+
+let currentListing;
+let currentCat;
+let currentMomiYoto;
+let currentIneYoto;
+let currentMomiMethod;
+let currentIneMethod;
+let currentExclude4hppd;
+
+async function search() {
+	const catSelect = document.getElementById("catSelect");
+	const crop = catSelect.options[catSelect.selectedIndex].textContent;
+	let yoto = currentMomiYoto;
+	if (currentCat === "ine") yoto = currentIneYoto;
+	yoto = yoto.replaceAll("'", '');
+	const title = document.getElementById("title");
+	title.innerHTML = `${crop} ／ ${yoto}`;
+	title.classList.remove("hidden");
+	tables = resetTables(tables);
+
+	let sql;
+	if (currentCat === "momi") {
+		const momiMethod = currentMomiYoto === "'除草剤'" ? currentMomiMethod : '';
+		sql = `
+			with feedTekiyo as (
+				select * from tv_tsushoTekiyo left join feedrice using(shurui) left join tsushoruby using(tsusho) where
+				momi = 1 and
+				seizaiyoto in (${currentMomiYoto}) and
+				sakumotsu in (select sakumotsu from m_sakumotsu where idsaku regexp (select '^('||n_concat('|',substr(idsaku,1,12),substr(idsaku,1,6)||'000000',substr(idsaku,1,4)||'00000000')||')' from m_sakumotsu where sakumotsu = '${momiMethod}水稲')) and
+				sakumotsu not like '%苗%' and jiki not regexp '種前|種時|緑化|耕起|移植時' and
+				tsusho not in (select tsusho from feedrice left join kihon using(shurui) where ippanmei = jogaiseibun and extnum('%', nodo) > jogainodo)
+			)
+		`;
+	} else {
+		let cropCond;
+		switch (currentIneMethod) {
+			case "湛水直播":
+				cropCond = "sakumotsu not like '%乾田%' and hoho not like '%育苗箱%' and jiki not regexp '移植|田植|苗代|乾田' and chokuha = 1";
+				break;
+			case "乾田直播":
+				cropCond = "sakumotsu not like '%湛水%' and hoho not regexp '育苗箱|種同時' and jiki not regexp '移植|田植|苗代|湛水直播' and chokuha = 1";
+				break;
+			default:
+				cropCond = "jiki not like '%直播%' and not(jiki like '%種時' and baisu like '%/10a') and ishoku = 1";
+		}
+		const _4hppd = currentIneYoto !== "'除草剤'" ? '' : currentExclude4hppd === "" ? '' : "tsusho not in (select tsusho from feedrice left join kihon using(shurui) where mid like '%H:27%') and";
+		sql = `
+			with feedTekiyo as (
+				select * from tv_tsushoTekiyo left join feedrice using(shurui) left join tsushoruby using(tsusho) where
+				ine = 1 and ${_4hppd}
+				seizaiyoto in (${currentIneYoto}) and
+				sakumotsu in (select sakumotsu from m_sakumotsu where idsaku regexp (select '^('||n_concat('|',substr(idsaku,1,12),substr(idsaku,1,6)||'000000',substr(idsaku,1,4)||'00000000')||')' from m_sakumotsu where sakumotsu = '${currentIneMethod}水稲')) and
+				${cropCond} and
+				tsusho not in (select tsusho from feedrice left join kihon using(shurui) where ippanmei = jogaiseibun and extnum('%', nodo) > jogainodo)
+			)
+		`;
+	}
+	const listing = currentListing ? "gn_concat(', ', ifnull(if(byochu = '-', null, byochu), mokuteki))" : "ifnull(if(byochu = '-', null, byochu), mokuteki)";
+	sql += `
+		select
+			tsusho, shurui, zaikei, seizaidokusei, sakumotsu, ${listing} as byochu, baisu, ekiryo, jiki, kaisu, hoho,
+			basho, jikan, ondo, dojo, chitai, tekiyaku,
+			seibun1, kaisu1, mid1, keito1, rem1, risk1,
+			seibun2, kaisu2, mid2, keito2, rem2, risk2,
+			seibun3, kaisu3, mid3, keito3, rem3, risk3,
+			seibun4, kaisu4, mid4, keito4, rem4, risk4,
+			seibun5, kaisu5, mid5, keito5, rem5, risk5,
+			kongo, seizaiyoto, seizaikoka, seizaiojas
+		from feedTekiyo
+	`;
+	if (currentListing) sql += "group by tsusho, jiki, baisu, ekiryo, hoho ";
+	sql += "order by ruby;";
+
+	await new Promise((resolve) => {
+		// ローディング画面を確実に表示
+		waiting(true, 'データベース検索中');
+		// UI更新を反映させるためにsetTimeoutを使用
+		setTimeout(() => {
+			requestAnimationFrame(() => {
+				try {
+					let searchTime = -performance.now();
+					let result = db.exec(sql);
+					searchTime += performance.now();
+					tables = outputTable('#result', result, { caption: `${crop}に使用可能な「${yoto}」の適用`, hideFooterU20: false });
+				} catch (error) {
+					console.error(`エラー: ${error.message}`);
+				} finally {
+					// クエリ実行後にローディング画面を非表示
+					waiting(false);
+				}
+				resolve();
+			});
+		}, 0); // 0msで次のイベントループに処理を移す
+	});
+}
+
+function setupCondition() {
+	const momi = currentCat === "momi";
+	document.getElementById("momiCond").classList.toggle("hidden", !momi);
+	document.getElementById("ineCond").classList.toggle("hidden", momi);
+	const harbicide = currentMomiYoto === "'除草剤'";
+	document.getElementById("momiAddition").classList.toggle("hidden", currentMomiYoto !== "'除草剤'");
+	document.getElementById("4hppd").classList.toggle("hidden", currentIneYoto !== "'除草剤'");
+}
+
+function listingChange(event) {
+	currentListing = event.target.value;
+}
+
+function catChange(event) {
+	currentCat = event.target.value;
+	setupCondition();
+}
+
+function momiYotoChange(event) {
+	currentMomiYoto = event.target.value;
+	setupCondition();
+}
+
+function momiMethodChange(event) {
+	currentMomiMethod = event.target.value;
+}
+
+function ineYotoChange(event) {
+	currentIneYoto = event.target.value;
+	setupCondition();
+}
+
+function ineMethodChange(event) {
+	currentIneMethod = event.target.value;
+}
+
+function exclude4hppdChange(event) {
+	currentExclude4hppd = event.target.value;
+}
+
+// DOM読込完了時の初期設定
+window.addEventListener('DOMContentLoaded', async function() {
+	//データベース読込
+	if (db === null) await fetchDB();
+
+	// 各セレクタ現在値取得
+	currentListing = document.getElementById("listing").value;
+	currentCat = document.getElementById("catSelect").value;
+	currentMomiYoto = document.getElementById("momiYotoSelect").value;
+	currentMomiMethod = document.getElementById("momiMethod").value;
+	currentIneYoto = document.getElementById("ineYotoSelect").value;
+	currentIneMethod = document.getElementById("ineMethod").value;
+	currentExclude4hppd = document.getElementById("4hppdSelect").value;
+	setupCondition();
+
+});
+</script>
+</head>
+<body>
+<!--	全タブ共通ヘッダ -->
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div id="title-bar"></div><!--	タイトル表示領域確保 -->
+<!--	このタブの表示内容 -->
+<div class="tab_content">
+	<div class="flex_container">
+		<div id="conditionPane">
+			<div class="selector">
+				<h3>表示形式</h3>
+				<select id="listing" onchange="listingChange(event)">
+					<option value="" selected>標準(集約無し)</option>
+					<option value="byochu">病害虫名を集約</option>
+				</select>
+			</div>
+			<div class="selector">
+				<h3>飼料種別</h3>
+				<select id="catSelect" onchange="catChange(event)">
+					<option value="ine">WCS用稲</option>
+					<option value="momi" selected>籾米(出穂期以降)</option>
+				</select>
+			</div>
+			<div id="momiCond">
+				<div class="selector">
+					<h3>薬剤種別</h3>
+					<select id="momiYotoSelect" onchange="momiYotoChange(event)">
+						<option value="'殺虫剤','殺菌剤','殺虫殺菌剤'" selected>殺虫剤・殺菌剤</option>
+						<option value="'殺虫剤','殺虫殺菌剤'">殺虫剤</option>
+						<option value="'殺菌剤','殺虫殺菌剤'">殺菌剤</option>
+						<option value="'除草剤'">除草剤</option>
+					</select>
+				</div>
+				<div id="momiAddition" class="selector hidden">
+					<h3>栽培様式</h3>
+					<select id="momiMethod" onchange="momiMethodChange(event)">
+						<option value="移植" selected>移植</option>
+						<option value="直播">直播</option>
+					</select>
+				</div>
+			</div>
+			<div id="ineCond" class="hidden">
+				<div class="selector">
+					<h3>薬剤種別</h3>
+					<select id="ineYotoSelect" onchange="ineYotoChange(event)">
+						<option value="'殺虫剤','殺菌剤','殺虫殺菌剤'" selected>殺虫剤・殺菌剤</option>
+						<option value="'殺虫剤','殺虫殺菌剤'">殺虫剤</option>
+						<option value="'殺菌剤','殺虫殺菌剤'">殺菌剤</option>
+						<option value="'除草剤'">除草剤</option>
+						<option value="'農薬肥料','植物成長調整剤'">農薬肥料・植調剤</option>
+					</select>
+				</div>
+				<div class="selector">
+					<h3>栽培様式</h3>
+					<select id="ineMethod" onchange="ineMethodChange(event)">
+						<option value="移植" selected>移植</option>
+						<option value="湛水直播">湛水直播</option>
+						<option value="乾田直播">乾田直播</option>
+					</select>
+				</div>
+				<div id="4hppd" class="selector hidden">
+					<h3>4-HPPD阻害剤</h3>
+					<select id="4hppdSelect" onchange="exclude4hppdChange(event)">
+						<option value="" selected>含む</option>
+						<option value="1">除く</option>
+					</select>
+				</div>
+			</div>
+			<div class="inputbar">
+				<button onclick="search()">検索</button>
+			</div>
+		</div>
+		<div id="resultPane">
+			<h3 id="title" class="hidden"></h3>
+			<div id="result"></div>
+		</div>
+	</div>
+</div><!-- End of tab-content -->
+<!--  タブ内容読込後に実行する script -->
+<script>
+</script>
+</body>
+</html>

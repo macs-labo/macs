@@ -1,0 +1,84 @@
+.treebox {
+	display: flex;
+	flex: 1;
+	flex-direction: column;
+	min-height: 0; /* Flexアイテムが親より小さくなれるようにする 2026.1.26 追加 */
+	height: fit-content; /* 2026.1.26 追加 */
+}
+
+/*
+.treebox span {
+	padding-left: 0.5rem;
+	margin: 0;
+	top: -4px;
+}
+*/
+
+#tree {
+	/* display: flex; 2026.1.26 削除 */
+	flex: 1;
+	/* flex-direction: column; 2026.1.26 削除 */
+	width: 100%;
+	overflow: hidden;
+	/* background-color: var(--bg-color-button); */
+	min-height: 0; /* Flexアイテムが親より小さくなれるようにする 2026.1.26 追加 */
+}
+
+label[for="clearAll"] {
+	position: relative;
+	top: -3px;
+	left: 0.5rem;
+}
+
+input[type="checkbox"]:not(:disabled) + label[for="clearAll"] {
+	cursor: pointer;
+}
+
+.infinite-tree-item {
+	transition: var(--list-mouse-out-transition); 
+}
+
+.infinite-tree-item:hover {
+	transition: var(--mouse-in-transition); 
+}
+
+.infinite-tree-node span, .infinite-tree-node label {
+	position: relative;
+	top: -5px;
+	margin: 0;
+	line-height: 1;
+}
+
+div.infinite-tree-node {
+	position: relative;
+}
+
+.infinite-tree-node input[type="checkbox"] {
+	top: -2px;
+	left: 3px;
+}
+
+.infinite-tree-node label.infinite-tree-title {
+	/* top: -20px; */
+	margin-left: 4px;
+	padding-right: 0.5rem;
+	color: var(--text-color);
+	cursor: default;
+}
+
+/*
+.infinite-tree-node input[type="checkbox"]:not(:disabled) + .infinite-tree-node label.infinite-tree-title {
+	cursor: pointer;
+}
+*/
+
+.infinite-tree-node label.selectable {
+	cursor: pointer;
+}
+
+.infinite-tree-node span {
+	font-size: 12px;
+	padding: 0 0.5rem;
+	border-left: 1px dotted var(--border-color);
+	color: color-mix(in srgb,var(--text-color-light) 75%, transparent);
+}

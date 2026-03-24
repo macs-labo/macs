@@ -1,0 +1,301 @@
+<svg width="0" height="0" fill="none" style="visibility: hidden; position: absolute;" aria-hidden="true">
+	<symbol id="check" xmlns="http://www.w3.org/2000/svg" viewBox="2 2 22 22" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M5 12l5 5l10 -10"/>
+	</symbol>
+	<symbol id="plus" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-plus">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M12 6l0 12" />
+		<path d="M6 12l12 0" />
+	</symbol>
+	<symbol id="refresh" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-refresh">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
+		<path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
+	</symbol>
+	<symbol id="browser-plus" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-browser-plus">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M4 8h16" />
+		<path d="M12 20h-6a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v6" />
+		<path d="M8 4v4" />
+		<path d="M16 19h6" />
+		<path d="M19 16v6" />
+	</symbol>
+	<symbol id="file-download" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-download">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />
+		<path d="M12 17v-6" />
+		<path d="M9.5 14.5l2.5 2.5l2.5 -2.5" />
+	</symbol>
+	<symbol id="file-upload" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-upload">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />
+		<path d="M12 11v6" />
+		<path d="M9.5 13.5l2.5 -2.5l2.5 2.5" />
+	</symbol>
+	<symbol id="file-export" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-export">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M11.5 21h-4.5a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v5m-5 6h7m-3 -3l3 3l-3 3" />
+	</symbol>
+	<symbol id="file-import" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-import">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M5 13v-8a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2h-5.5m-9.5 -2h7m-3 -3l3 3l-3 3" />
+	</symbol>
+	<symbol id="table-export" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-table-export">
+	<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M12.5 21h-7.5a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v7.5" />
+		<path d="M3 10h18" />
+		<path d="M10 3v18" />
+		<path d="M16 19h6" />
+		<path d="M19 16l3 3l-3 3" />
+	</symbol>
+	<symbol id="table-download" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-table-down">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M12.5 21h-7.5a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v7.5" />
+		<path d="M3 10h18" /><path d="M10 3v18" />
+		<path d="M19 16v6" /><path d="M22 19l-3 3l-3 -3" />
+	</symbol>
+	<symbol id="filter-x" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-filter-x">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M13.758 19.414l-4.758 1.586v-8.5l-4.48 -4.928a2 2 0 0 1 -.52 -1.345v-2.227h16v2.172a2 2 0 0 1 -.586 1.414l-4.414 4.414v1.5" />
+		<path d="M22 22l-5 -5" />
+		<path d="M17 22l5 -5" />
+	</symbol>
+	<symbol id="printer" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-printer">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M17 17h2a2 2 0 0 0 2 -2v-4a2 2 0 0 0 -2 -2h-14a2 2 0 0 0 -2 2v4a2 2 0 0 0 2 2h2" />
+		<path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" />
+		<path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" />
+	</symbol>
+	<symbol id="clipboard-copy" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-clipboard-copy">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h3m9 -9v-5a2 2 0 0 0 -2 -2h-2"/>
+		<path d="M13 17v-1a1 1 0 0 1 1 -1h1m3 0h1a1 1 0 0 1 1 1v1m0 3v1a1 1 0 0 1 -1 1h-1m-3 0h-1a1 1 0 0 1 -1 -1v-1"/>
+		<path d="M9 3m0 2a2 2 0 0 1 2 -2h2a2 2 0 0 1 2 2v0a2 2 0 0 1 -2 2h-2a2 2 0 0 1 -2 -2z"/>
+	</symbol>
+	<symbol id="file-csv" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-type-csv">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+		<path d="M5 12v-7a2 2 0 0 1 2 -2h7l5 5v4"/>
+		<path d="M7 16.5a1.5 1.5 0 0 0 -3 0v3a1.5 1.5 0 0 0 3 0"/>
+		<path d="M10 20.25c0 .414 .336 .75 .75 .75h1.25a1 1 0 0 0 1 -1v-1a1 1 0 0 0 -1 -1h-1a1 1 0 0 1 -1 -1v-1a1 1 0 0 1 1 -1h1.25a.75 .75 0 0 1 .75 .75"/>
+		<path d="M16 15l2 6l2 -6"/>
+	</symbol>
+	<symbol id="file-xls" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-type-xls">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+		<path d="M5 12v-7a2 2 0 0 1 2 -2h7l5 5v4"/>
+		<path d="M4 15l4 6"/>
+		<path d="M4 21l4 -6"/>
+		<path d="M17 20.25c0 .414 .336 .75 .75 .75h1.25a1 1 0 0 0 1 -1v-1a1 1 0 0 0 -1 -1h-1a1 1 0 0 1 -1 -1v-1a1 1 0 0 1 1 -1h1.25a.75 .75 0 0 1 .75 .75"/>
+		<path d="M11 15v6h3"/>
+	</symbol>
+	<symbol id="file-type-sql" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-type-sql">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M5 20.25c0 .414 .336 .75 .75 .75h1.25a1 1 0 0 0 1 -1v-1a1 1 0 0 0 -1 -1h-1a1 1 0 0 1 -1 -1v-1a1 1 0 0 1 1 -1h1.25a.75 .75 0 0 1 .75 .75" />
+		<path d="M5 12v-7a2 2 0 0 1 2 -2h7l5 5v4" />
+		<path d="M18 15v6h2" />
+		<path d="M13 15a2 2 0 0 1 2 2v2a2 2 0 1 1 -4 0v-2a2 2 0 0 1 2 -2z" />
+		<path d="M14 20l1.5 1.5" />
+	</symbol>
+	<symbol id="file-type-txt" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-type-txt">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M16.5 15h3" />
+		<path d="M5 12v-7a2 2 0 0 1 2 -2h7l5 5v4" />
+		<path d="M4.5 15h3" />
+		<path d="M6 15v6" />
+		<path d="M18 15v6" />
+		<path d="M10 15l4 6" />
+		<path d="M10 21l4 -6" />
+	</symbol>
+	<symbol id="file-type-html" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-type-html">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M5 12v-7a2 2 0 0 1 2 -2h7l5 5v4" />
+		<path d="M2 21v-6" />
+		<path d="M5 15v6" />
+		<path d="M2 18h3" />
+		<path d="M20 15v6h2" />
+		<path d="M13 21v-6l2 3l2 -3v6" />
+		<path d="M7.5 15h3" />
+		<path d="M9 15v6" />
+	</symbol>
+	<symbol id="file-type-json" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-type-json">
+		<path stroke="none" d="M0 0h24v24h0z" fill="none"/>
+		<path d="m 14,3 v 4 a 1,1 0 0 0 1,1 h 4"/>
+		<path d="M 5,12 V 5 A 2,2 0 0 1 7,3 h 7 l 5,5 v 4"/>
+		<path d="m 14.691595,14.936805 a 1.5,1.5 0 0 1 1.5,1.5 v 3 a 1.5,1.5 0 0 1 -3,0 v -3 a 1.5,1.5 0 0 1 1.5,-1.5 z"/>
+		<path d="m 2.07911,14.936805 h 3 v 4.5 a 1.5,1.5 0 0 1 -3,0"/>
+		<path d="m 7.6563659,20.186805 c 0,0.414 0.336,0.75 0.75,0.75 h 1.25 a 1,1 0 0 0 1.0000011,-1 v -1 a 1,1 0 0 0 -1.0000011,-1 h -1 a 1,1 0 0 1 -1,-1 v -1 a 1,1 0 0 1 1,-1 h 1.25 a 0.75,0.75 0 0 1 0.7500011,0.75"/>
+		<path d="m 18.899877,20.936805 v -6 l 3,6 v -6"/>
+	</symbol>
+	<symbol id="open-json" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-open-json">
+		<path stroke="none" d="M0 0h24v24h0z" fill="none"/>
+		<path d="m 14.721261,16.420118 a 1.5,1.5 0 0 1 1.5,1.5 v 3 a 1.5,1.5 0 0 1 -3,0 v -3 a 1.5,1.5 0 0 1 1.5,-1.5 z"/>
+		<path d="m 2.1087763,16.420118 h 3 v 4.5 a 1.5,1.5 0 0 1 -3,0"/>
+		<path d="m 7.6860322,21.670118 c 0,0.414 0.336,0.75 0.75,0.75 h 1.25 a 1,1 0 0 0 1.0000008,-1 v -1 a 1,1 0 0 0 -1.0000008,-1 h -1 a 1,1 0 0 1 -1,-1 v -1 a 1,1 0 0 1 1,-1 h 1.25 a 0.75,0.75 0 0 1 0.7500008,0.75"/>
+		<path d="m 18.929543,22.420118 v -6 l 3,6 v -6"/>
+		<path d="M 5.524333,14.027486 8.1167491,7.9010637 A 0.94030329,0.83341355 0 0 1 8.996873,7.3601783 h 11.572312 a 0.94030329,0.83341355 0 0 1 0.927139,0.9700934 l -0.936542,4.3429173 a 1.8806066,1.6668271 0 0 1 -1.846755,1.354297 H 5.524333 A 1.8806066,1.6668271 0 0 1 3.6437264,12.360659 V 3.1931106 A 1.8806066,1.6668271 0 0 1 5.524333,1.5262834 h 3.7612131 l 2.8209099,2.5002407 h 6.582123 a 1.8806066,1.6668271 0 0 1 1.880606,1.6668271 v 1.6668271"/>
+	</symbol>
+	<symbol id="library" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-library">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 3m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" />
+		<path d="M4.012 7.26a2.005 2.005 0 0 0 -1.012 1.737v10c0 1.1 .9 2 2 2h10c.75 0 1.158 -.385 1.5 -1" />
+		<path d="M11 7h5" /><path d="M11 10h6" />
+		<path d="M11 13h3" />
+	</symbol>
+	<symbol id="source-code" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-source-code">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14.5 4h2.5a3 3 0 0 1 3 3v10a3 3 0 0 1 -3 3h-10a3 3 0 0 1 -3 -3v-5" />
+		<path d="M6 5l-2 2l2 2" />
+		<path d="M10 9l2 -2l-2 -2" />
+	</symbol>
+	<symbol id="text-clear" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-input-x">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M20 13v-4a2 2 0 0 0 -2 -2h-12a2 2 0 0 0 -2 2v5a2 2 0 0 0 2 2h7"/>
+		<path d="M22 22l-5 -5"/>
+		<path d="M17 22l5 -5"/>
+	</symbol>
+	<symbol id="text-edit" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-pencil">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4"/>
+		<path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z"/>
+		<path d="M10 18l5 -5a1.414 1.414 0 0 0 -2 -2l-5 5v2h2z"/>
+	</symbol>
+	<symbol id="database-cog" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-database-cog">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3" />
+		<path d="M4 6v6c0 1.657 3.582 3 8 3c.21 0 .42 -.003 .626 -.01" />
+		<path d="M20 11.5v-5.5" />
+		<path d="M4 12v6c0 1.657 3.582 3 8 3" />
+		<path d="M19.001 19m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+		<path d="M19.001 15.5v1.5" />
+		<path d="M19.001 21v1.5" />
+		<path d="M22.032 17.25l-1.299 .75" />
+		<path d="M17.27 20l-1.3 .75" />
+		<path d="M15.97 17.25l1.3 .75" />
+		<path d="M20.733 20l1.3 .75" />
+	</symbol>
+	<symbol id="database-search" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-database-search">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<rect width="24" height="24" fill="transparent" stroke="none"/>
+		<path d="M4 6c0 1.657 3.582 3 8 3s8 -1.343 8 -3s-3.582 -3 -8 -3s-8 1.343 -8 3"/>
+		<path d="M4 6v6c0 1.657 3.582 3 8 3m8 -3.5v-5.5"/>
+		<path d="M4 12v6c0 1.657 3.582 3 8 3"/>
+		<path d="M18 18m-3 0a3 3 0 1 0 6 0a3 3 0 1 0 -6 0"/>
+		<path d="M20.2 20.2l1.8 1.8"/>
+	</symbol>
+	<symbol id="floppy-disk" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-device-floppy">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M6 4h10l4 4v10a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2"/>
+		<path d="M12 14m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"/>
+		<path d="M14 4l0 4l-6 0l0 -4"/>
+	</symbol>
+	<symbol id="folder-open" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-folder-open">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M5 19l2.757 -7.351a1 1 0 0 1 .936 -.649h12.307a1 1 0 0 1 .986 1.164l-.996 5.211a2 2 0 0 1 -1.964 1.625h-14.026a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2h4l3 3h7a2 2 0 0 1 2 2v2"/>
+	</symbol>
+	<symbol id="folder-close" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-folder">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M5 4h4l3 3h7a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-11a2 2 0 0 1 2 -2"/>
+	</symbol>
+	<symbol id="down-right" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-corner-down-right">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="m19.5 15.75l3.5-3.5l-3.5-3.5"/><path d="M23 12h-6a4 4 0 0 1-4-4v-7"/>
+		<!-- <path d="M10 2v6a3 3 0 0 0 3 3h10l-4 -4m0 8l4 -4"/> -->
+	</symbol>
+	<symbol id="file-code" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-code">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />
+		<path d="M10 13l-1 2l1 2" />
+		<path d="M14 13l1 2l-1 2" />
+	</symbol>
+	<symbol id="file-text" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-file-text">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M14 3v4a1 1 0 0 0 1 1h4" />
+		<path d="M17 21h-10a2 2 0 0 1 -2 -2v-14a2 2 0 0 1 2 -2h7l5 5v11a2 2 0 0 1 -2 2z" />
+		<path d="M9 9l1 0" /><path d="M9 13l6 0" /><path d="M9 17l6 0" />
+	</symbol>
+	<symbol id="trash" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-trash">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M4 7l16 0" />
+		<path d="M10 11l0 6" />
+		<path d="M14 11l0 6" />
+		<path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+		<path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+	</symbol>
+	<symbol id="trash-x" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-trash-x">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M4 7h16" />
+		<path d="M5 7l1 12a2 2 0 0 0 2 2h8a2 2 0 0 0 2 -2l1 -12" />
+		<path d="M9 7v-3a1 1 0 0 1 1 -1h4a1 1 0 0 1 1 1v3" />
+		<path d="M10 12l4 4m0 -4l-4 4" />
+	</symbol>
+	<symbol id="square-plus" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-square-plus">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M9 12h6" />
+		<path d="M12 9v6" />
+		<path d="M3 5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-14z" />
+	</symbol>
+	<symbol id="square-arrow-up" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-square-arrow-up">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M16 12l-4 -4l-4 4" /><path d="M12 16v-8" />
+		<path d="M3 3m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
+	</symbol>
+	<symbol id="square-arrow-down" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-square-arrow-down">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M8 12l4 4l4 -4" />
+		<path d="M12 8v8" />
+		<path d="M3 3m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
+	</symbol>
+	<symbol id="arrow-up" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-arrow-narrow-up">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M12 5l0 14" />
+		<path d="M16 9l-4 -4" />
+		<path d="M8 9l4 -4" />
+	</symbol>
+	<symbol id="arrow-down" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-arrow-narrow-down">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M12 5l0 14" />
+		<path d="M16 15l-4 4" />
+		<path d="M8 15l4 4" />
+	</symbol>
+	<symbol id="chevrons-up" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-chevrons-up">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M7 11l5 -5l5 5" />
+		<path d="M7 17l5 -5l5 5" />
+	</symbol>
+	<symbol id="chevrons-down" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-chevrons-down">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M7 7l5 5l5 -5" />
+		<path d="M7 13l5 5l5 -5" />
+	</symbol>
+	<symbol id="code-plus" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-code-plus">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M9 12h6" />
+		<path d="M12 9v6" />
+		<path d="M6 19a2 2 0 0 1 -2 -2v-4l-1 -1l1 -1v-4a2 2 0 0 1 2 -2" />
+		<path d="M18 19a2 2 0 0 0 2 -2v-4l1 -1l-1 -1v-4a2 2 0 0 0 -2 -2" />
+	</symbol>
+	<symbol id="code-minus" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-code-minus">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M9 12h6" />
+		<path d="M6 19a2 2 0 0 1 -2 -2v-4l-1 -1l1 -1v-4a2 2 0 0 1 2 -2" />
+		<path d="M18 19a2 2 0 0 0 2 -2v-4l1 -1l-1 -1v-4a2 2 0 0 0 -2 -2" />
+	</symbol>
+	<symbol id="code-dots" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-code-dots">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path d="M15 12h.01" />
+		<path d="M12 12h.01" />
+		<path d="M9 12h.01" />
+		<path d="M6 19a2 2 0 0 1 -2 -2v-4l-1 -1l1 -1v-4a2 2 0 0 1 2 -2" />
+		<path d="M18 19a2 2 0 0 0 2 -2v-4l1 -1l-1 -1v-4a2 2 0 0 0 -2 -2" />
+	</symbol>
+</svg>

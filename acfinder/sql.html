@@ -1,0 +1,1127 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
+<!--	タブの名前、専用の zip 及び sql ファイルの設定 -->
+<title>SQL</title>
+<meta name="zip" content="stdsql.zip">
+<script type="text/plain" id="views_or_tables" src="stdviews.sql"></script>
+<!-- 本プロジェクト専用ライブラリ -->
+<script type="text/javascript" src="./header.js"></script>
+<script type="text/javascript" src="./custom.js"></script>
+<script type="text/javascript" src="./loader.js"></script>
+<script type="text/javascript" src="./table.js"></script>
+<script type="text/javascript" src="./filer.js"></script>
+<link rel="stylesheet" type="text/css" href="./common.css" />
+<link rel="stylesheet" type="text/css" href="./loader.css" />
+<link rel="stylesheet" type="text/css" href="./filer.css" />
+<!-- 本プロジェクト共通外部ライブラリ -->
+<!-- SQL.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.min.js"></script>
+<!-- JSZip.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<!-- ExcelJS ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- FileSaver ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<!-- Handsontable ライブラリ -->
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/handsontable.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/ht-theme-classic.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/handsontable.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/languages/ja-JP.js"></script>
+<link rel="stylesheet" type="text/css" href="./table.css" />
+<!-- infinit-tree ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css">
+<!-- タブ専用外部ライブラリ -->
+<!-- CodeMirror ライブラリ -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/theme/eclipse.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/theme/darcula.css" />
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/mode/sql/sql.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/edit/matchbrackets.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/hint/show-hint.css">
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/hint/show-hint.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/hint/sql-hint.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/selection/active-line.js"></script>
+<link rel="stylesheet" type="text/css" href="./editor.css" />
+<!--	タブ専用スタイル -->
+<style>
+/*
+#resultPane {
+	flex: 1;
+	min-width: 0;
+	width: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+#result {
+	flex: 1;
+	width: 100%;
+	position: relative;
+}
+*/
+
+.sql_container {
+	width: 100%;
+	position: relative;
+	flex-shrink: 0;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+select#queryDropdown {
+	width: 100%;
+	margin-bottom: 20px;
+	overflow-x: auto;
+}
+
+.toolbar_text {
+	font-size: 14px;
+	padding-left: 1rem;
+	white-space: nowrap;
+	overflow: hidden;
+	flex-grow: 1; /* 残りのスペースをすべて埋める */
+}
+
+.caution {
+	color: #e61;
+}
+
+.success {
+	color: #2a2;
+}
+
+.error {
+	color: #f22;
+}
+
+#fileSelect {
+	margin-right: 0.5rem;
+}
+
+label svg {
+	position: relative;
+	top: 3px;
+}
+
+.infinite-tree-scroll {
+	min-height: 200px;
+	max-height: calc(100vh - 206px);
+}
+
+#sqlFile {
+	display: flex;
+}
+
+.svg_button {
+	width: 26px;
+	height: 26px;
+}
+
+#sqlFile h3 {
+	display: inline-block;
+	flex: 1;
+}
+
+textarea#sqlInput {
+	display: none;
+}
+
+#var_editor {
+	margin-top: 15px;
+	min-width: 0; /* flexアイテムがコンテンツによって拡大されるのを防ぐ */
+}
+
+#var_editor.closed {
+	display: none;
+}
+
+textarea#varInput {
+	display: none;
+}
+
+.cm-s-eclipse span.cm-variable-3 { color: #d1235d;}
+.cm-s-darcula span.cm-variable-3 { color: #b362df; }
+span.cm-variable-3 { font-weight: bold;  }
+
+/* 全角スペース等を可視化するためのスタイル */
+.cm-visible-zenkaku {
+	border: 1px dotted var(--border-color);
+	border-radius: 2px;
+	display: inline-block;
+	line-height: 1;
+	opacity: 0.8;
+}
+
+/* タブ文字を可視化するためのスタイル */
+.cm-tab {
+	position: relative;
+}
+.cm-tab::before {
+	content: "→";
+	position: absolute;
+	/* left: 1px; */
+	font-size: 10px;
+	color: var(--border-color);
+	opacity: 0.8;
+	pointer-events: none;
+}
+
+/* 改行文字を可視化するためのスタイル */
+.cm-newline-char {
+	font-size: 11px;
+	color: var(--border-color);
+	opacity: 0.8;
+}
+
+</style>
+<!--	タブ専用の script -->
+<script>
+
+let editor; // CodeMirror instance
+let varEditor; // CodeMirror instance for variables
+
+function loadLocalFile(event) {
+	const file = event.target.files[0];
+	if (!file) return;
+
+	const filename = file.name;
+	const extension = filename.split('.').pop().toLowerCase();
+
+	if (extension === 'sql') {
+		const reader = new FileReader();
+		reader.onload = function () {
+			editor.setValue(reader.result);
+			editor.refresh();
+		};
+		reader.readAsText(file);
+	} else if (extension === 'var') {
+		const reader = new FileReader();
+		reader.onload = async function () {
+			varEditor.setValue(reader.result);
+			toggleVarEditor(false);
+			// @ownersql の読込
+			if (window.currentZip) {
+				const fileOwnersql = getFilename(reader.result, 'ownersql');
+				if (fileOwnersql) {
+					// zip 内にファイルが存在するか確認してからロード（エラーメッセージ抑制のため）
+					const filePath = fileOwnersql.startsWith('/') ? fileOwnersql.substring(1) : fileOwnersql;
+					if (window.currentZip.file(filePath)) {
+						const sqlOwnersql = await loadFileFromZip(fileOwnersql);
+						if (sqlOwnersql) editor.setValue(sqlOwnersql);
+					}
+				}
+			}
+		};
+		reader.readAsText(file);
+	} else if (extension === 'zip') {
+		const reader = new FileReader();
+		reader.onload = async function (e) {
+			const zipFile = new File([e.target.result], filename, { type: 'application/zip' });
+			await setupFileTree(zipFile);
+		};
+		reader.readAsArrayBuffer(file);
+		const reloadIcon = document.querySelector('#sqlFile svg');
+		reloadIcon.classList.remove('hidden');
+	} else {
+		alert('サポートされていないファイル形式です。SQL, VAR または ZIPファイルを選択してください。');
+	}
+	event.target.value = ''; // 同じファイルを選択できるようにリセット
+}
+
+function getFilename(target, command, ext = '.sql') {
+	// @command: を検索 (複数ある場合は最後のものを優先)
+	const matches = target.match(new RegExp(`@${command}:\\s*(.*)`, 'g'));
+	let filename = "";
+	if (matches) {
+		// 最後のマッチからファイル名部分を抽出
+		let rawFilename = matches[matches.length - 1].replace(new RegExp(`@${command}:\\s*`, ''), '').trim();
+
+		// クォートで囲まれていれば中身を、そうでなければそのまま使用
+		if (rawFilename.startsWith('"') || rawFilename.startsWith("'")) {
+			const quote = rawFilename.charAt(0);
+			const endQuoteIndex = rawFilename.indexOf(quote, 1);
+			if (endQuoteIndex > -1) {
+				filename = rawFilename.substring(1, endQuoteIndex);
+			} else {
+				filename = rawFilename;
+			}
+		} else {
+			filename = rawFilename;
+		}
+		if (filename) {
+			if (command === 'filename') {
+				// filename コマンドの場合はパス区切り文字'/'を不許可
+				filename = filename.replace(/[\\/:*?"<>|]/g, '');
+			} else {
+				// filename コマンド以外の場合はパス区切り文字'/'を許可
+				filename = filename.replace(/[\\:*?"<>|]/g, '');
+			}
+			if (!filename.endsWith(ext)) filename += ext;
+		}
+	}
+	return filename;
+}
+
+function saveTextFile(filename, content) {
+	const blob = new Blob([content], { type: "text/plain" });
+	const a = document.createElement("a");
+	a.href = URL.createObjectURL(blob);
+	a.download = filename;
+	a.click();
+	URL.revokeObjectURL(a.href);
+}
+
+function saveSQLFile() {
+	const sqlText = editor.getValue();
+	if (!sqlText) {
+		setToolbarText('<span class="caution">保存する SQL がありません</span>', 3000);
+		return;
+	}
+	const downloadFilename = getFilename(sqlText, 'filename') || 'query.sql';
+	saveTextFile(downloadFilename, sqlText);
+}
+
+function saveVarFile() {
+	const varText = varEditor.getValue();
+	if (!varText) {
+		setToolbarText('<span class="caution">保存する変数定義がありません</span>', 3000);
+		return;
+	}
+	const downloadFilename = getFilename(varText, 'filename', '.var') || 'define.var';
+	saveTextFile(downloadFilename, varText);
+}
+
+function clearText(inputId) {
+	if (inputId === 'varInput') {
+		varEditor.setValue('');
+		varEditor.focus();
+	} else {
+		editor.setValue('');
+		editor.focus();
+	}
+}
+
+function setToolbarText(msg, autoClose = 0) {
+	const sqlToolbar = document.getElementById('sql_toolbar');
+	const toolbarText = document.getElementsByClassName('toolbar_text')[0];
+	return new Promise(resolve => {
+		// ブラウザに制御を返すために setTimeout を使用
+		// 描画を保証するために requestAnimationFrame を使用
+		requestAnimationFrame(() => {
+			toolbarText.innerHTML = msg;
+			requestAnimationFrame(() => {
+				if (autoClose) {
+					setTimeout(() => {
+						toolbarText.innerHTML = '';
+						resolve();
+					}, autoClose);
+				} else {
+					resolve();
+				}
+			});
+		});
+	});
+}
+
+function clearToolbarText() {
+	setToolbarText('');
+}
+
+async function loadFileFromZip(path) {
+	if (!path) return;
+	const zip = window.currentZip;
+	if (!zip) {
+		alert("zip ファイルがロードされていません。");
+		return;
+	}
+	//zipから path を読み込む
+	const filePath = path.startsWith('/') ? path.substring(1) : path;
+	const fileObject = zip.file(filePath);
+	if (!fileObject) {
+		alert(`zip ファイルに ${filePath} がありません。`);
+		return;
+	}
+	try {
+		return await fileObject.async('text');
+	} catch (e) {
+		alert(`${filePath} の読み込みまたは実行に失敗しました: ${e.message}`);
+		return;
+	}
+}
+
+async function sequentialExecSQL(sql) {
+	// コメント削除
+	sql = sql.replace(/--.*?$/gm, '');
+	sql = sql.replace(/\/\*.*?\*\//gs, '');
+
+	// セミコロン `;` で分割し、各コマンドを適切に連結
+	let queries = [];
+	let currentQuery = "";
+
+	sql.split("\n").forEach(line => {
+		line = line.trim();
+		if (line === "") return; // 空行はスキップ
+
+		currentQuery += (currentQuery.length > 0 ? " " : "") + line; // 前の行とつなげる
+
+		if (line.endsWith(";")) { // セミコロンで終わったらクエリ確定
+			queries.push(currentQuery);
+			currentQuery = "";
+		}
+	});
+
+	if (currentQuery.length > 0) { // 最後にセミコロンがなくても 1 つのクエリとして処理
+		queries.push(currentQuery);
+	}
+
+	if (!queries.length) {
+		setToolbarText('<span class="caution">有効な SQL がありません</span>', 3000);
+		return;
+	}
+
+	// テーブルインスタンスをクリア
+	tables = resetTables(tables);
+
+	try {
+		// クエリを逐次実行
+		for (const [index, query] of queries.entries()) {
+			await new Promise((resolve, reject) => {
+				// ローディング画面を確実に表示
+				waiting(true, `クエリ ${index + 1}/${queries.length} 実行中`);
+				// UI更新を反映させるためにsetTimeoutを使用
+				setTimeout(() => {
+					requestAnimationFrame(() => {
+						try {
+							let searchTime = -performance.now();
+							let result = db.exec(query);
+							searchTime += performance.now();
+
+							// 結果を表示
+							const option = { query: query, searchTime: searchTime, hideFooterU20: false };
+							const table = outputTable('#result', result, option);
+							// テーブルインスタンスを保存
+							if (table) tables.push(table);
+						} catch (error) {
+							// クエリごとのエラーをキャッチ
+							reject(new Error(`クエリ${index + 1}: ${error.message}`));
+							return; // rejectしたので以降の処理は不要
+						} finally {
+							// 各クエリ実行後にローディング画面を非表示
+							waiting(false);
+						}
+						resolve(); // 成功した場合のみ resolve
+					});
+				}, 0); // 0msで次のイベントループに処理を移す
+			});
+		}
+
+		// すべてのクエリ実行後に結果をチェック
+		if (tables.length === 0 && !tabExecuted) {
+			setToolbarText('<span class="success">実行成功（結果なし）</span>');
+		}
+
+	} catch (error) {
+		// 全体のエラーハンドリング
+		waiting(false);
+		setToolbarText(`<span class="error">エラー: ${error.message}</span>`);
+	}
+}
+
+async function batchExecSQL(sql) {
+	// テーブルインスタンスをクリア
+	tables = resetTables(tables);
+
+	// ローディング画面を表示
+	waiting(true, `クエリを一括実行中`);
+
+	// UIの更新を待ってから重い処理を実行
+	await new Promise(resolve => setTimeout(resolve, 0));
+
+	try {
+		let searchTime = -performance.now();
+		const results = db.exec(sql); // sql.jsは複数のステートメントを一度に実行できる
+		searchTime += performance.now();
+
+		let message = `<span class="success">一括実行成功</span>`;
+
+		if (results.length > 0) {
+			// 複数の結果セットをそれぞれテーブルとして表示
+			results.forEach((result, index) => {
+				const option = {
+					caption: `結果 ${index + 1}`,
+					// 最後の結果セットにのみ合計実行時間を表示
+					searchTime: (index === results.length - 1) ? searchTime : undefined,
+					hideFooterU20: false
+				};
+				const table = outputTable('#result', [result], option);
+				if (table) tables.push(table);
+			});
+			message += ` (${results.length}個の結果)`;
+		} else {
+			message += '（結果セットなし）';
+		}
+		setToolbarText(message);
+	} catch (error) {
+		setToolbarText(`<span class="error">エラー: ${error.message}</span>`);
+	} finally {
+		waiting(false);
+	}
+}
+
+function parseVariables(varText) {
+	const variables = new Map();
+	if (!varText) {
+		return variables;
+	}
+
+	// 変数定義をパース: $name = {value}
+	// gフラグで全体検索、mフラグで複数行モード（^と$が各行の始端/終端にマッチ）
+	const varRegex = /^\s*\$([a-zA-Z0-9_]+)\s*=\s*\{([\s\S]*?)\}\s*$/gm;
+	let match;
+	while ((match = varRegex.exec(varText)) !== null) {
+		const varName = match[1];
+		const varValue = match[2];
+		variables.set(varName, varValue);
+	}
+	return variables;
+}
+
+function replaceSqlVariables(sql, variables) {
+	if (variables.size === 0) {
+		return sql;
+	}
+
+	return sql.replace(/\{\$([a-zA-Z0-9_]+)\}/g, (match, varName) => {
+		if (variables.has(varName)) {
+			return variables.get(varName);
+		}
+		// 変数が定義されていない場合は、元の文字列をそのまま返す
+		return match;
+	});
+}
+
+async function dispatchSQLExecution() {
+	if (!db) {
+		alert("データベースがロードされていません。");
+		return;
+	}
+	clearToolbarText(); // ツールバーメッセージクリア
+
+	let sql = editor.getValue();
+
+	// 使用変数のチェック
+	const usedVars = new Set();
+	const varRegex = /\{\$([a-zA-Z0-9_]+)\}/g;
+	let match;
+	while ((match = varRegex.exec(sql)) !== null) {
+		usedVars.add(match[1]);
+	}
+
+	// 使用変数があって、#varInput が空の場合は、変数テンプレート読込
+	//const varInput = document.getElementById('varInput');
+	if (usedVars.size && !varEditor.getValue()) {
+		let filename = getFilename(sql, 'filename');
+		if (filename) {
+			//拡張子を .sql から .var に変更
+			filename = filename.replace(/\.sql$/i, '.var');
+			const varTemplate = await loadFileFromZip(filename);
+			if (varTemplate) {
+				varEditor.setValue(varTemplate);
+				toggleVarEditor(false);
+			}
+		}
+	}
+
+	// 定義済み変数のチェック
+	const variables = parseVariables(varEditor.getValue());
+
+	// 未定義変数のチェック
+	const missingVars = [];
+	const emptyVars = [];
+	for (const varName of usedVars) {
+		if (!variables.has(varName)) {
+			missingVars.push(varName);
+		} else if (!variables.get(varName).trim()) {
+			emptyVars.push(varName);
+		}
+	}
+
+	if (missingVars.length > 0) {
+		let currentVal = varEditor.getValue();
+		if (currentVal && !currentVal.endsWith('\n')) {
+			currentVal += '\n';
+		}
+		missingVars.forEach(varName => {
+			currentVal += `$${varName} = {}\n`;
+		});
+		varEditor.setValue(currentVal);
+		toggleVarEditor(false);
+		alert(`$${missingVars.join(', $')} を定義してください`);
+		return;
+	}
+
+	if (emptyVars.length > 0) {
+		toggleVarEditor(false);
+		alert(`$${emptyVars.join(', $')} の値を定義してください`);
+		return;
+	}
+
+	// 変数置換
+	sql = replaceSqlVariables(sql, variables);
+	sql = sql.trim();
+
+	if (!sql) {
+		setToolbarText('<span class="caution">有効な SQL がありません</span>', 3000);
+		return;
+	}
+
+	// @prerun の事前実行
+	const filePrerun = getFilename(sql, 'prerun');
+	if (filePrerun) {
+			const sqlPrerun = await loadFileFromZip(filePrerun);
+			if (sqlPrerun) db.run(sqlPrerun);
+	}
+
+	// @execmode:batch コマンドがあるかチェック
+	if (/@execmode:\s*batch/.test(sql)) {
+		batchExecSQL(sql);
+	} else {
+		sequentialExecSQL(sql);
+	}
+}
+
+// zipファイルからファイルツリーを生成して表示
+async function setupFileTree(zipFile = null) {
+	let zip, selectTitle;
+	if (zipFile) {
+        zip = await JSZip.loadAsync(zipFile, {
+	        decodeFileName: function (bytes) {
+	    	    return smartDecode(bytes);
+    	    }
+        });
+		selectTitle = basename(zipFile.name);
+	} else {
+		const fcDB = await openDB('fileCacheDB');
+		let zipname;
+		const metaZip = document.querySelector('meta[name="zip"]');
+		if (metaZip && metaZip.content) {
+			zipname = metaZip.content;
+		} else {
+			// metaタグがない、またはcontentが空の場合は既存のロジックにフォールバック
+			const path = document.body.dataset.filename || window.location.pathname;
+			const baseName = basename(path);
+			zipname = baseName === 'sql' ? 'stdsql.zip' : baseName + '.zip';
+		}
+		let blob = await fetchOrLoadFile(fcDB, zipname, zipname);
+		fcDB.close();
+		if (!blob) {
+			console.warn(`fetchOrLoadFile failed for ${zipname}, trying direct fetch.`);
+			try {
+				const response = await fetch(zipname);
+				if (!response.ok) {
+					alert(`サーバー上のファイルにアクセスできません: ${zipname} (Status: ${response.status})`);
+					return;
+				}
+				blob = await response.blob();
+				// 9バイト問題対策
+				if (blob.size < 22) {
+					throw new Error(`Invalid file content (too small): ${await blob.text()}`);
+				}
+			} catch (e) {
+				alert(`ZIPファイルの読み込みに失敗しました: ${zipname}\n${e.message}`);
+				return;
+			}
+		}
+        zip = await JSZip.loadAsync(blob, {
+        	decodeFileName: function (bytes) {
+		        return smartDecode(bytes);
+	        }
+        });
+		//#tab-header から active タブ名を取得
+		// iframe内で実行されているかを判定
+		let activeTitle;
+		const isIframe = window.self !== window.top;
+		if (isIframe && document.title) {
+			activeTitle = document.title;
+		} else {
+			const targetDocument = isIframe ? window.parent.document : document;
+			const tabHeader = targetDocument.getElementById('tab-header');
+			const activeTab = tabHeader ? tabHeader.querySelector('button.active') : null;
+			activeTitle = activeTab ? activeTab.textContent : 'SQL';
+		}
+		selectTitle = (activeTitle === 'SQL' ? '標準SQL' : activeTitle + '独自');
+		const selectIcon = document.querySelector('#sqlFile svg title');
+		selectIcon.textContent = `${selectTitle}ファイルに戻す`;
+	}
+	const selectH3 = document.querySelector('#sqlFile h3');
+	selectH3.innerHTML = `${selectTitle}ファイル選択`;
+
+	makeFileTree('#fileTree', zip, handleFileSelection, { hiddenComma: !debug, hiddenExt: !debug});
+
+}
+
+function cleanString(str) {
+	if (!str) return '';
+
+	return str
+		// BOM除去
+		.replace(/^\uFEFF/, '')
+
+		// 先頭の制御文字・NULL・空白除去
+		.replace(/^[\u0000-\u001F\s]+/, '')
+
+		// 末尾の制御文字・空白除去
+		.replace(/[\u0000-\u001F\s]+$/, '')
+
+		// パス区切りの正規化（念のため）
+		.replace(/\\/g, '/')
+
+		// 連続スラッシュ除去
+		.replace(/\/{2,}/g, '/');
+}
+
+function smartDecode(bytes) {
+	// まず UTF-8 (Strict) でデコードを試みる
+	try {
+		let utf8 = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+		// UTF-8 の場合のみ Unicode 正規化 (NFC) を適用 (Mac対策)
+		utf8 = utf8.normalize('NFC');
+		return cleanString(utf8);
+	} catch (e) {
+		// UTF-8 でなければ Shift_JIS としてデコード
+	}
+
+	// Shift_JIS (Fallback)
+	try {
+		const sjis = new TextDecoder('shift_jis').decode(bytes);
+		return cleanString(sjis);
+	} catch (e) {}
+
+	return '';
+}
+
+async function handleFileSelection(path) {
+	const zip = window.currentZip;
+	if (!path || !zip) {
+		return;
+	}	
+
+	try {
+		const content = await zip.file(path).async('text');
+		if (path.endsWith('.sql')) {
+			editor.setValue(content);
+			editor.refresh();
+		} else if (path.endsWith('.var')) {
+			varEditor.setValue(content);
+			toggleVarEditor(false);
+			// @ownersql の読込
+			const fileOwnersql = getFilename(content, 'ownersql');
+			if (fileOwnersql) {
+				const sqlOwnersql = await loadFileFromZip(fileOwnersql);
+				if (sqlOwnersql) editor.setValue(sqlOwnersql);
+			}
+		} else {
+			alert('サポートされていないファイル形式です。');
+		}
+	} catch (error) {
+		console.error(`ファイルの解凍エラー (${path}):`, error);
+		alert('ファイルの解凍に失敗しました。');
+	}
+}
+
+function reloadStdSQL(obj) {
+	setupFileTree();
+	obj.classList.add('hidden');
+}
+
+// クエリをテキストエリアに挿入する関数
+function insertQueryToTextarea(selectedValue) {
+	if (selectedValue) {
+		// テキストエリアの現在の内容を取得
+		let currentText = editor.getValue();
+
+		// テキストエリアが空でない場合は改行を追加
+		if (currentText && !currentText.endsWith('\n')) currentText += '\n';
+
+		// エディタに選択されたクエリを追加
+		editor.setValue(currentText + selectedValue + ' ');
+		editor.refresh();
+
+		// ドロップダウンを最初の選択肢にリセット
+		document.getElementById('queryDropdown').selectedIndex = 0;
+	}
+}
+
+function loadAutoSavedSQL() {
+	const savedSQL = localStorage.getItem('sqlText');
+	if (savedSQL) {
+		// editor にテキストがある場合は、confirm ダイアログ表示
+		let loadEnabled = editor.getValue() === '';
+		if (!loadEnabled) {
+			loadEnabled = window.confirm('エディタが空ではありません。自動保存されたSQLで上書きしてもよいですか？');
+		}
+		if (loadEnabled) {
+			editor.setValue(savedSQL);
+			editor.refresh();
+		}
+	} else {
+		alert('自動保存されたSQLは見つかりませんでした。');
+	}
+}
+
+function toggleVarEditor(sw = '') {
+	const varEditorDiv = document.getElementById('var_editor');
+	if (sw === '') {
+		sw = !varEditorDiv.classList.contains('closed');
+	}
+	varEditorDiv.classList.toggle('closed', sw);
+	if (!sw && varEditor) {
+		setTimeout(() => varEditor.refresh(), 0);
+	}
+}
+
+// DOM読込完了時の初期設定
+window.addEventListener('DOMContentLoaded', async function() {
+	//データベース読込
+	if (db === null) await fetchDB();
+
+	// コード補完のためのテーブル・ビュー情報を取得
+	const tablesForHint = {};
+	try {
+		const allTablesQuery = `
+			SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'
+			UNION
+			SELECT if(name == 'info', 'spec.info', name) as name FROM spec.sqlite_master WHERE type IN ('table', 'view')
+			UNION
+			SELECT name FROM sqlite_temp_master WHERE type IN ('table', 'view')
+			ORDER BY name
+		`;
+		const result = db.exec(allTablesQuery);
+		if (result.length > 0) {
+			result[0].values.forEach(row => {
+				const tableName = row[0];
+				if (tableName.includes('.')) return; // スキーマ付きテーブル名はスキップ
+				if (!tablesForHint[tableName]) {
+					tablesForHint[tableName] = [];
+					try {
+						const columnsResult = db.exec(`PRAGMA table_info(${tableName})`);
+						if (columnsResult.length > 0) {
+							columnsResult[0].values.forEach(colRow => {
+								tablesForHint[tableName].push(colRow[1]); // カラム名
+							});
+						}
+					} catch (e) { console.warn(`Could not get columns for table ${tableName}:`, e); }
+				}
+			});
+		}
+	} catch (e) { console.error(`Failed to get table list for hint:`, e); }
+
+	// CodeMirrorのSQLモードにキーワードを追加
+	(function() {
+		const keywords = "abort action add after all alter always analyze and as asc attach autoincrement before begin between by cascade case cast check collate column commit conflict constraint create cross current current_date current_time current_timestamp database default deferrable deferred delete desc detach distinct do drop each else end escape except exclude exclusive exists explain fail filter first following for foreign from full generated glob group groups having if ignore immediate in index indexed initially inner insert instead intersect into is isnull join key last left like limit match materialized natural no not nothing notnull null nulls of offset on or order others outer over partition plan pragma preceding primary query raise range recursive references regexp reindex release rename replace restrict returning right rollback row rows savepoint select set table temp temporary then ties to transaction trigger unbounded union unique update using vacuum values view virtual when where window with without".split(" ");
+		const sqlKeywords = CodeMirror.resolveMode("text/x-sql").keywords;
+		for (let i = 0; i < keywords.length; i++) {
+			sqlKeywords[keywords[i]] = true;
+		}
+	})();
+
+	// CodeMirrorのSQLモードに組み込み関数を追加
+	(function() {
+		try {
+			const result = db.exec("pragma function_list;");
+			if (result.length > 0) {
+				const sqlBuiltin = CodeMirror.resolveMode("text/x-sql").builtin;
+				const functions = new Set();
+				result[0].values.forEach(row => {
+					functions.add(row[0].toLowerCase()); // 関数名を小文字でセットに追加
+				});
+				functions.forEach(funcName => {
+					sqlBuiltin[funcName] = true;
+				});
+			}
+		} catch (e) {
+			console.error("Failed to get function list for CodeMirror builtin:", e);
+		}
+	})();
+
+	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
+
+	// SQLキーワードがテーブル名より先に表示されるように、標準のヒント関数をオーバーライド
+	const originalSqlHint = CodeMirror.hint.sql;
+	CodeMirror.hint.sql = function(editor, options) {
+		const result = originalSqlHint(editor, options);
+		if (result) {
+			const keywords = [];
+			const tables = [];
+			result.list.forEach(item => {
+				// className でキーワードかテーブル/カラムかを判別
+				if (item.className === 'CodeMirror-hint-keyword') {
+					keywords.push(item);
+				} else {
+					tables.push(item);
+				}
+			});
+			result.list = keywords.concat(tables); // キーワードを先に結合
+		}
+		return result;
+	};
+
+	// 変数エディタ用モード定義
+	CodeMirror.defineMode("varMode", function() {
+		return {
+			token: function(stream, state) {
+				if (state.inBlockComment) {
+					if (stream.match(/.*?\*\//)) {
+						state.inBlockComment = false;
+					} else {
+						stream.skipToEnd();
+					}
+					return "comment";
+				}
+				if (stream.eatSpace()) return null;
+				if (stream.match("//")) {
+					stream.skipToEnd();
+					return "comment";
+				}
+				if (stream.match("/*")) {
+					state.inBlockComment = true;
+					return "comment";
+				}
+				if (stream.match(/^\$[a-zA-Z0-9_]+/)) {
+					return "variable-3";
+				}
+				if (stream.match(/^"([^"\\]|\\.)*"/)) {
+					return "string";
+				}
+				if (stream.match(/^'([^'\\]|\\.)*'/)) {
+					return "string";
+				}
+				stream.next();
+				return null;
+			},
+			startState: function() {
+				return { inBlockComment: false };
+			}
+		};
+	});
+
+	// CodeMirrorの初期化
+	editor = CodeMirror.fromTextArea(document.getElementById('sqlInput'), {
+		mode: 'text/x-sql',
+		theme: theme,		
+		styleActiveLine: true,
+		lineNumbers: true,
+		lineWrapping: true,
+		tabSize: 2,
+		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
+		extraKeys: {"Ctrl-Space": "autocomplete"}, // "autocomplete" は CodeMirror.hint.sql を呼び出す
+		hintOptions: { tables: tablesForHint },
+		autofocus: true,
+		// 可視化したい全角文字を定義
+		specialChars: /[　（）；]/, // 全角スペース、全角括弧、全角セミコロンを対象にする
+		specialCharPlaceholder: function(char) {
+			// 上記 specialChars で定義した文字にマッチした場合に呼び出される
+			const span = document.createElement('span');
+
+			// 常にマッチした文字自身を表示し、スタイルを適用する
+			span.textContent = char;
+			span.className = 'cm-visible-zenkaku';
+
+			// 念のため、他の文字が来た場合のフォールバックは不要になりますが、
+			// もし特定の文字だけ除外したい場合は if 文で分岐させます。
+			return span;
+		},
+		matchBrackets: true
+	});
+
+	// SQLエディタで {$変数} をハイライトするオーバーレイ定義
+	editor.addOverlay({
+		token: function(stream) {
+			if (stream.match(/^\{\$[a-zA-Z0-9_]+\}/)) {
+				return "variable-3";
+			}
+			if (stream.peek() === '{') {
+				stream.next();
+			} else {
+				stream.skipTo('{') || stream.skipToEnd();
+			}
+			return null;
+		}
+	});
+
+	// 改行文字を表示するための処理
+	editor.on("renderLine", function(cm, line, element) {
+		// 最終行には表示しない
+		if (line.lineNo() === cm.lastLine()) return;
+
+		const newlineChar = document.createElement('div');
+		newlineChar.textContent = '↲';
+		newlineChar.className = 'cm-newline-char';
+		element.appendChild(newlineChar);
+	});
+
+	// 変数エディタの初期化
+	varEditor = CodeMirror.fromTextArea(document.getElementById('varInput'), {
+		mode: 'varMode',
+		theme: theme,
+		styleActiveLine: true,
+		lineNumbers: true,
+		lineWrapping: true,
+		tabSize: 2,
+		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
+		matchBrackets: true
+	});
+	varEditor.on("renderLine", function(cm, line, element) {
+		if (line.lineNo() === cm.lastLine()) return;
+		const newlineChar = document.createElement('div');
+		newlineChar.textContent = '↲';
+		newlineChar.className = 'cm-newline-char';
+		element.appendChild(newlineChar);
+	});
+
+	editor.on("focus", () => clearToolbarText());
+	// 文字入力時に自動で補完候補を表示する
+	editor.on("inputRead", function(cm, change) {
+		// 入力が1文字の英数字または'.'の場合に補完をトリガー
+		if (/[\w.]/.test(change.text[0])) {
+			// completeSingle: false は、候補が1つの場合に自動で補完しないようにする設定
+			cm.showHint({ completeSingle: false });
+		}
+	});
+
+	// sql, var をクリアする(firefox 対策)
+	editor.setValue('');
+	varEditor.setValue('');
+
+	// ドロップダウンの変更イベントを監視
+	document.getElementById('queryDropdown').addEventListener('change', function() {
+		insertQueryToTextarea(this.value);
+	});
+
+	// topToggler のヒント設定
+	const topToggler = document.getElementById('topToggler');
+	if (topToggler) topToggler.title = 'SQLエディタを開閉';
+
+	// ファイルツリーを生成
+	setupFileTree();
+
+	// unload 前に sql を localStorage に保存
+	window.addEventListener('beforeunload', function() {
+		localStorage.setItem('sqlText', editor.getValue());
+	});
+});
+</script>
+</head>
+<body>
+<!--	全タブ共通ヘッダ -->
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div id="title-bar"></div><!--	タイトル表示領域確保 -->
+<!--	このタブの表示内容 -->
+<div class="tab_content">
+	<div class="flex_container">
+		<div id="conditionPane">
+			<!-- クエリーセレクタ -->
+			<select id="queryDropdown">
+				<option value="" disabled selected>-- 汎用クエリ選択 --</option>
+				<optgroup label="DB Info">
+					<option value="pragma database_list;">plagma database_list;</option>
+					<option value="pragma function_list;">pragma function_list;</option>
+					<option value="pragma table_list;">pragma table_list;</option>
+					<option value="pragma table_info();">pragma table_info();</option>
+					<option value="select * from main.sqlite_master;">select * from main.sqlite_master;</option>
+					<option value="select * from spec.sqlite_master;">select * from spec.sqlite_master;</option>
+					<option value="select * from sqlite_temp_master where type in ('table','view') and name <> 'info';">テンポラリテーブル・ビュー一覧</option>
+				</optgroup>
+				<optgroup label="基本テーブル">
+					<option value="select * from m_kihon;">select * from m_kihon;</option>
+					<option value="select * from m_tekiyo;">select * from m_tekiyo;</option>
+					<option value="select * from m_sakumotsu;">select * from m_sakumotsu;</option>
+					<option value="select * from m_byochu;">select * from m_byochu;</option>
+				</optgroup>
+			</select>
+			<div id="sqlFile">
+				<h3>標準SQLファイル選択</h3>
+				<svg onclick="reloadStdSQL(this)" class="svg_button hidden">
+					<title>標準SQLファイルに戻す</title>
+					<use href="icons.svg#refresh"></use>
+				</svg>
+			</div>
+			<div id="fileTree"></div>
+		</div>
+		<div id="resultPane">
+			<div id="resultTop">
+				<div id="sql_editor"><!-- SQLエディタ部 -->
+					<div id="sql_toolbar" class="toolbar"><!-- SQLツールバー配置 -->
+						<input type="file" id="fileInputSQL" accept=".sql,.zip,.var" onchange="loadLocalFile(event)" class="hidden">
+						<svg class="icon" onclick="loadAutoSavedSQL()">
+							<title>自動保存SQL読込</title>
+							<use href="icons.svg#library"></use>
+						</svg>
+						<label for="fileInputSQL">
+							<svg class="icon">
+								<title>SQL/ZIPファイル読込</title>
+								<use href="icons.svg#folder-open"></use>
+							</svg>
+						</label>
+						<svg class="icon" onclick="saveSQLFile()">
+							<title>SQLファイル保存</title>
+							<use href="icons.svg#floppy-disk"></use>
+						</svg>
+						<svg class="icon" onclick="clearText('sqlInput')">
+							<title>テキスト消去</title>
+							<use href="icons.svg#text-clear"></use>
+						</svg>
+						<svg class="icon" onclick="toggleVarEditor()">
+							<title>変数エディタ開閉</title>
+							<use href="icons.svg#source-code"></use>
+						</svg>
+						<svg class="icon" onclick="dispatchSQLExecution()">
+							<title>クエリー実行</title>
+							<use href="icons.svg#database-search"></use>
+						</svg>
+						<span class="toolbar_text"></span>
+					</div>
+					<textarea id="sqlInput"></textarea><!--	SQL エディタ -->
+				</div>
+				<div id="var_editor" class="closed"><!-- 変数エディタ部 -->
+					<div id="var_toolbar" class="toolbar"><!-- 変数ツールバー配置 -->
+						<input type="file" id="fileInputVar" accept=".var" onchange="loadLocalFile(event)" class="hidden">
+						<label for="fileInputVar">
+							<svg class="icon">
+								<title>変数ファイル読込</title>
+								<use href="icons.svg#folder-open"></use>
+							</svg>
+						</label>
+						<svg class="icon" onclick="saveVarFile()">
+							<title>変数ファイル保存</title>
+							<use href="icons.svg#floppy-disk"></use>
+						</svg>
+						<svg class="icon" onclick="clearText('varInput')">
+							<title>テキスト消去</title>
+							<use href="icons.svg#text-clear"></use>
+						</svg>
+						<svg class="icon" onclick="toggleVarEditor()">
+							<title>変数エディタ開閉</title>
+							<use href="icons.svg#source-code"></use>
+						</svg>
+					</div>
+					<textarea id="varInput"></textarea><!--	変数エディタ -->
+				</div>
+			</div>
+			<div id="result"></div>
+		</div>
+	</div>
+</div><!-- End of tab-content -->
+<!--	タブ内容読込後に実行する script -->
+<script>
+</script>
+</body>
+</html>

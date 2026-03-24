@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
+<title></title>
+<!-- 本プロジェクト専用ライブラリ -->
+<script type="text/javascript" src="./header.js"></script>
+<script type="text/javascript" src="./custom.js"></script>
+<script type="text/javascript" src="./loader.js"></script>
+<link rel="stylesheet" type="text/css" href="./common.css" />
+<link rel="stylesheet" type="text/css" href="./loader.css" />
+<!-- 本プロジェクト共通外部ライブラリ -->
+<!-- SQL.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.12.0/dist/sql-wasm.min.js"></script>
+<!-- JSZip.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<!-- タブ専用外部ライブラリ -->
+<!-- CodeMirror ライブラリ -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/theme/eclipse.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/theme/darcula.css" />
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/mode/css/css.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/codemirror-colorpicker@1.9.80/dist/codemirror-colorpicker.css" />
+<script src="https://cdn.jsdelivr.net/npm/codemirror-colorpicker@1.9.80/dist/codemirror-colorpicker.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/selection/active-line.js"></script>
+<link rel="stylesheet" type="text/css" href="./editor.css" />
+<!--	タブ専用スタイル -->
+<style>
+div.tab_content {
+	padding: 15px;
+}
+
+div.tab_content > div {
+	margin-bottom: 15px;
+	width: 100%;
+	vertical-align: middle;
+}
+
+div.tab_content > div > span{
+	display: inline-block;
+	width: 12rem;
+	margin-right: 0.5rem;
+	text-align: right;
+}
+
+div.tab_content > div > p {
+	display: inline-block;
+	flex: 1;
+	font-size: 12px;
+	margin-left: 0.5rem;
+	color: var(--text-color-light);
+	white-space: wrap;
+}
+
+button#customize-btn {
+	margin: 0 0.5rem 0 1rem;
+	padding: 0.2rem 0.5rem;
+}
+
+/* 追加：CSSエディタ（ポップアップ）のスタイル */
+#custom-css-editor {
+	position: fixed;
+	top: 90px;
+	width: 90%;
+	max-width: 800px;
+	background-color: var(--bg-color-listbox);
+	color: var(--text-color);
+	padding: 15px;
+	box-shadow: 0 0 0 100vmax rgba(0,0,0,0.4);
+	border-radius: 10px;
+	border: 1px solid var(--border-color);
+	z-index: 10;
+}
+
+#custom-css-editor h3 {
+	color: var(--text-color-dark);
+	line-height: 1.0;
+	margin-bottom: 15px;
+}
+
+textarea#user-css-input {
+	display: none;
+}
+
+.editor-buttons {
+	padding: 15px 1rem 0px;
+	display: flex;
+	gap: 10px;
+	justify-content: flex-end;
+}
+
+.editor-buttons button {
+	padding: 0.2rem 0.5rem;
+}
+
+.cm-s-eclipse span.cm-atom { color: #2915af; }
+.cm-s-eclipse span.cm-variable-2 { color: #7f0055; }
+
+/* カラーピッカーのプレビューを拡大 */
+div.codemirror-colorview {
+	top: -1px;
+	width: 16px;
+	height: 16px;
+}
+</style>
+<!--	タブ専用の view や table の設定 -->
+<script type="text/plain" id="views_or_tables">
+</script>
+<!--	タブ専用の script -->
+<script>
+// テーマの定義データ
+const colorThemes = [
+	{ name: 'light', title: '標準ライトテーマ', css: '' },
+	{ name: 'light-cyan-stripe', title: 'シアン・ストライプ(簿記ソフト準拠)',
+css: `:root {
+	/* シアン・ストライプ（簿記ソフト準拠・偶数行青色強調） */
+	--bg-color-title-bar: #ecf7f7;       /* タイトルバー背景色 */
+	--bg-color: #ffffff;                 /* 基本背景色 */
+	--bg-color-even-row: #e4efef;        /* 偶数行背景色 */
+	--bg-color-filter-header: #70D0D0b0; /* フィルター列背景色（視認性向上のため少し濃く修正） */
+	--bg-color-fixed-header: #70d0d050;  /* 固定列背景色 */
+	--selection-border-color: #008b8b;   /* 選択罫線色 */
+}` },
+	{ name: 'light-soft-sepia', title: 'UDソフトセピア(眼精疲労軽減)',
+css: `:root {
+	/* UD ソフトセピア (眼精疲労軽減・光過敏配慮) */
+	--bg-color-title-bar: #FFFCFA;      /* タイトルバー背景色（ほぼ白に近いセピア） */
+	--bg-color: #f9f5f0;                /* 背景色（明るくクリアなセピア） */
+	--text-color: #5d5045;              /* 通常文字色（柔らかい濃茶） */
+	--text-color-dark: #3e352e;         /* 表頭文字色等の濃文字色 */
+	--text-color-light: #8e8071;        /* タイトルバークレジット等の淡文字色 */
+	--bg-color-disabled: #e8ded3;       /* 選択不可チェックボックス背景色 */
+	--bg-color-button: #f1e9e0;         /* ボタン等の背景色 */
+	--border-color: #d8cdbf;            /* 枠線色（主張しすぎないベージュ） */
+	--border-color-strong: #bcae9f;     /* チェックボックス等枠線色 */
+	--border-color-focus: #a6917c;      /* 入力中テキスト入力枠線色 */
+	--bg-color-header: #f2e9df;         /* キャプション背景色 */
+	--border-color-header: #d8cdbf;     /* キャプション枠線色 */
+	--icon-color: #9c8b7c;              /* アイコン色 */
+	--icon-color-hover: #5d5045;        /* ホバー中アイコン色 */
+	--bg-color-icon-hover: #e8ded3;     /* ホバー中アイコン、ボタン背景色 */
+	--border-color-ht-common: #e0d5c8;  /* 表枠線色 */
+	--bg-color-ht-header: #ede2d5;      /* 表頭・ページネーション背景色 */
+	--bg-color-even-row: #f2ece4;       /* 偶数行背景色（薄い縞模様） */
+	--bg-color-filter-header: #EBD4C4;  /* フィルター列背景色（違和感解消のため調整） */
+	--bg-color-fixed-header: #E8DBC0;   /* 固定列背景色（違和感解消のため調整） */
+	--bg-color-highlighted-header: #e0d1c1; /* カーソル列表頭背景色 */
+	--bg-color-active-header: #d9c5b0;  /* 操作中表頭背景色 */
+	--selection-border-color: #a6917c;  /* 選択セル枠線色 */
+	--scrollbar-track-color: #EDE2D5CC; /* スクロールバーの背景色 */
+	--scrollbar-tumb-color: #A6917CCC;  /* スクロールバーのつまみ色 */
+}` },
+	{ name: 'light-sandbeige', title: 'UDサンドベージュ(眼精疲労軽減)',
+css: `:root {
+	/* UD サンドベージュ (眼精疲労軽減・光過敏配慮) */
+	--bg-color-title-bar: #FAF3EB;      /* タイトルバー背景色 */
+	--bg-color: #f4ece4;                /* 背景色（落ち着いたセピア） */
+	--text-color: #544230;              /* 通常文字色 */
+	--text-color-dark: #4F3E2D;         /* 表頭文字色等の濃文字色 */
+	--text-color-light: #584633;        /* タイトルバークレジット等の淡文字色 */
+	--bg-color-disabled: #d1b89d;       /* 選択不可チェックボックス背景色 */
+	--bg-color-button: #ece0d1;         /* ボタン等の背景色 */
+	--border-color: #9c846b;            /* 枠線色 */
+	--border-color-strong: #886E4C;     /* チェックボックス等枠線色 */
+	--border-color-focus: #6E593C;      /* 入力中テキスト入力枠線色 */
+	--bg-color-header: #e3d5c5;         /* キャプション背景色 */
+	--border-color-header: #9c846b;     /* キャプション枠線色 */
+	--icon-color: #776043;              /* アイコン色 */
+	--icon-color-hover: #413525;        /* ホバー中アイコン色 */
+	--bg-color-icon-hover: #D4B78F;     /* ホバー中アイコン、ボタン背景色 */
+	--border-color-ht-common: #BDAC99;  /* 表枠線色 */
+	--bg-color-ht-header: #DFD0BF;      /* 表頭・ページネーション背景色 */
+	--bg-color-even-row: #ece0d1;       /* 偶数行背景色 */
+	--bg-color-highlighted-header: #C9B9A8; /* カーソル列表頭背景色 */
+	--bg-color-active-header: #AD967E;  /* 操作中表頭背景色 */
+	--bg-color-filter-header: #BCA288;  /* フィルター列表頭背景色 */
+	--bg-color-fixed-header: #D5C0AB;   /* 固定列背景色 */
+	--selection-border-color: #826948;  /* 選択セル枠線色 */
+	--scrollbar-track-color: #DFD0BFCC; /* スクロールバーの背景色 */
+	--scrollbar-tumb-color: #886E4CCC;  /* スクロールバーのつまみ色 */
+}` },
+	{ name: 'light-bule-orange', title: 'UDブルーオレンジ(P/D型色覚)',
+css: `:root {
+	/* UD ブルー・オレンジ (P/D型(1/2型)色覚配慮) / 反転文字使用禁止 */
+	--bg-color-title-bar: #fffdf3;      /* タイトルバー背景色 */
+	--bg-color-header: #fffdf3;         /* キャプション背景色 */
+	--bg-color-even-row: #fff9e6;       /* 偶数行背景色 */
+	--bg-color-filter-header: #ffd54f;  /* フィルター列背景色（P/D型向きの黄色） */
+	--bg-color-fixed-header: #B9E7B0;   /* 固定列背景色 */
+	--selection-border-color: #005aff;  /* 選択罫線色 */
+	--db-update-text-color: #0041b0;    /* 更新文字色 */
+}` },
+	{ name: 'light-green-positive', title: 'UD ポジティブ・グリーン(T型色覚)',
+css: `:root {
+	/* UD ポジティブ・グリーン (T型(3型)色覚配慮) */
+	--bg-color-title-bar: #F7FDF5;      /* タイトルバー背景色 */
+	--bg-color-header: #e2f2d9;         /* キャプション背景色（視認性のため濃く修正） */
+	--bg-color-even-row: #f0f9eb;       /* 偶数行背景色（視認性のため濃く修正） */
+	--bg-color-filter-header: #c2e7b0;  /* フィルター列背景色（視認性のため濃く修正） */
+	--bg-color-fixed-header: #d0eac0;   /* 固定列背景色 */
+	--selection-border-color: #67c23a;  /* 選択罫線色 */
+	--db-update-text-color: #1e7e34;    /* 更新文字色 */
+}` },
+	{ name: 'light-mono', title: 'UDモノクローム(明暗差重視)',
+css: `:root {
+	/* UD モノクローム (明度差重視・色彩完全排除) */
+	--bg-color-title-bar: #F9F9F9;      /* タイトルバー背景色（極薄グレー） */
+	--bg-color: #ffffff;                /* 基本背景色（白） */
+	--icon-color: #555555;              /* アイコン色 */
+	--text-color: #000000;              /* 通常文字色（黒） */
+	--icon-color-hover: #000000;        /* ホバー中アイコン色 */
+	--bg-color-icon-hover: #b0b0b0;     /* ホバー中アイコン、ボタン背景色 */
+	--border-color: #000000;            /* 境界線（最大コントラスト） */
+	--bg-color-header: #EBEBEB;         /* キャプション背景色（薄いグレー） */
+	--bg-color-ht-header: #F0F0F0;      /* 表頭背景色（濃すぎないグレー） */
+	--bg-color-even-row: #FAFAFA;       /* 偶数行背景色（僅かな差） */
+	--border-color: #D1D1D1;            /* 汎用枠線色 */
+	--border-color-ht-common: #E0E0E0;  /* 表枠線色（濃すぎないグレー） */
+	--selection-border-color: #000000;  /* 選択罫線色 */
+	--bg-color-fixed-header: #F8F8F8;   /* 固定列背景色 */
+	--bg-color-filter-header: #C9C9C9;  /* フィルター列背景色 */
+	--bg-color-highlighted-header: #DDDDDD; /* カーソル列背景色（色排除） */
+	--bg-color-active-header: #DCDCDC;      /* 操作中列背景色（色排除） */
+	--border-color-focus: #000000;      /* フォーカス枠線色 */
+}` },
+	{ name: 'light-high-contrast', title: 'UD ハイコントラスト(明瞭度重視)',
+css: `:root {
+	/* UD ハイコントラスト (明瞭度重視・弱視配慮) */
+	--bg-color-title-bar: #FFFFFF;      /* タイトルバー背景色（純白） */
+	--bg-color: #ffffff;                /* 背景色（純白） */
+	--text-color: #000000;              /* 通常文字色（純黒） */
+	--text-color-light: #222222;        /* 補助文字色 */
+	--icon-color: #444444;              /* アイコン色 */
+	--icon-color-hover: #000000;        /* ホバー中アイコン色 */
+	--bg-color-icon-hover: #a8a8a8;     /* ホバー中アイコン、ボタン背景色 */
+	--border-color: #000000;            /* 境界線（最大コントラスト） */
+	--border-color-strong: #000000;     /* 強調境界線 */
+	--border-color-ht-common: #000000;  /* 表枠線（明瞭化） */
+	--bg-color-header: #d0d0d0;         /* キャプション（濃いグレーで明示） */
+	--bg-color-ht-header: #d0d0d0;      /* 表頭（濃いグレーで明示） */
+	--bg-color-even-row: #e8e8e8;       /* 偶数行（認識しやすい薄グレー） */
+	--selection-border-color: #0000ff;  /* 選択罫線色（鮮明な青） */
+	--border-color-focus: #0000ff;      /* フォーカス枠（明瞭化） */
+	--db-update-text-color: #d00000;    /* 更新箇所（高彩度赤） */
+}` },
+	{ name: 'dark', title: '標準ダークテーマ', css: '' },
+	{ name: 'dark-soft-night', title: 'UDダークソフトナイト(眼精疲労軽減)',
+css: `[data-theme="dark"] {
+	/* UD ダーク・ソフトナイト (眼精疲労・光過敏配慮) */
+	--bg-color-title-bar: #24292B;      /* タイトルバー背景色 */
+	--bg-color: #1c2022;                /* 基本背景色 */
+	--text-color: #b8c1c4;              /* 通常文字色 */
+	--bg-color-header: #2d3336;         /* キャプション背景色 */
+	--bg-color-fixed-header: #354a43;   /* 固定列背景色 */
+	--selection-border-color: #6a96a3;  /* 選択罫線色 */
+	--db-update-text-color: #9cdcfe;    /* 更新文字色 */
+	--bg-color-even-row: #23282b;       /* 偶数行背景色 */
+	--border-color: #454d50;            /* 枠線色 */
+}` },
+	{ name: 'dark-blue-orange', title: 'UDダークブルーオレンジ(P/D型色覚)',
+css: `[data-theme="dark"] {
+	/* UD ダーク・ブルーオレンジ (P/D型(1/2型)色覚配慮) */
+	--bg-color-title-bar: #22252A;      /* タイトルバー背景色 */
+	--bg-color: #1a1b1e;                /* 基本背景色 */
+	--text-color: #dcdcdc;              /* 通常文字色 */
+	--bg-color-header: #2c3e50;         /* キャプション背景色 */
+	--bg-color-filter-header: #1a4a80;  /* フィルター列背景色 */
+	--bg-color-fixed-header: #455a64;   /* 固定列背景色（P/D型向き調整） */
+	--bg-color-pagesize-over: #8a4b00;  /* 上限超過背景色 */
+	--selection-border-color: #ff9d00;  /* 選択罫線色 */
+	--db-update-text-color: #7abaff;    /* 更新文字色 */
+	--bg-color-even-row: #22252a;       /* 偶数行背景色 */
+}` },
+	{ name: 'dark-high-contrast', title: 'UDダークハイコントラスト(明瞭度重視)',
+css: `[data-theme="dark"] {
+	/* UD ダーク・高コントラスト (明瞭度重視・弱視配慮) */
+	--bg-color-title-bar: #1A1A1A;      /* タイトルバー背景色 */
+	--bg-color: #0d0d0d;                /* 基本背景色 */
+	--text-color: #eeeeee;              /* 通常文字色 */
+	--text-color-dark: #ffffff;         /* 表頭文字色等の濃文字色 */
+	--text-color-light: #d0d0d0;        /* 補助文字色 */
+	--border-color: #bbbbbb;            /* 汎用枠線 */
+	--border-color-strong: #ffffff;     /* 強調境界線（純白） */
+	--border-color-ht-common: #eeeeee;  /* 表枠線（明瞭化） */
+	--border-color-focus: #ffff00;      /* フォーカス枠（黄色） */
+	--icon-color: #bbbbbb;              /* アイコン色 */
+	--icon-color-hover: #ffffff;        /* ホバー中アイコン色 */
+	--bg-color-icon-hover: #888888;     /* ホバー中アイコン、ボタン背景色 */
+	--bg-color-header: #2a2a2a;         /* キャプション背景色 */
+	--bg-color-ht-header: #444444;      /* 表頭（コントラスト強化） */
+	--bg-color-fixed-header: #FFFF00BA;   /* 固定列背景色（黄色反転表示） */
+	--text-color-fixed-header: #000000; /* 固定列文字色（黒） */
+	--selection-border-color: #ffff00;  /* 選択罫線色 */
+	--db-update-text-color: #ffff00;    /* 更新文字色 */
+	--bg-color-even-row: #222222;       /* 偶数行背景色（明確化） */
+}` },
+];
+
+let editor;
+let savedState = null;
+
+// CSSを適用するヘルパー関数
+function updateCustomCss(cssText) {
+	let style = document.getElementById('user-custom-css-tag');
+	if (!style) {
+		style = document.createElement('style');
+		style.id = 'user-custom-css-tag';
+		document.head.appendChild(style);
+	}
+	style.textContent = cssText;
+}
+
+function toggleCssEditor() {
+	const dialog = document.getElementById('custom-css-editor');
+	if (!dialog.classList.contains('hidden')) {
+		dialog.classList.add('hidden');
+	} else {
+		// Opening: Save current state
+		savedState = {
+			userCustomCss: localStorage.getItem('user_custom_css_save'),
+			selectedTheme: localStorage.getItem('selected_theme_name'),
+			activeCss: localStorage.getItem('active_theme_css'),
+			baseTheme: localStorage.getItem('theme'),
+			editorValue: document.getElementById('user-css-input').value
+		};
+
+		dialog.classList.remove('hidden');
+		if (!editor) {
+			initCodeMirror();
+		} else {
+			editor.refresh();
+		}
+		editor.focus();
+	}
+}
+
+function cancelEdit() {
+	if (savedState) {
+		// Restore localStorage
+		if (savedState.userCustomCss !== null) {
+			localStorage.setItem('user_custom_css_save', savedState.userCustomCss);
+		} else {
+			localStorage.removeItem('user_custom_css_save');
+		}
+
+		if (savedState.selectedTheme) {
+			localStorage.setItem('selected_theme_name', savedState.selectedTheme);
+		} else {
+			localStorage.removeItem('selected_theme_name');
+		}
+
+		if (savedState.activeCss !== null) {
+			localStorage.setItem('active_theme_css', savedState.activeCss);
+		} else {
+			localStorage.removeItem('active_theme_css');
+		}
+
+		if (savedState.baseTheme) {
+			localStorage.setItem('theme', savedState.baseTheme);
+			document.documentElement.setAttribute('data-theme', savedState.baseTheme);
+		}
+
+		// Restore Appearance
+		updateCustomCss(savedState.activeCss || '');
+
+		// Restore UI controls
+		const themeSelect = document.getElementById('theme-select');
+		if (savedState.selectedTheme === 'custom') {
+			themeSelect.value = 'custom';
+		} else if (savedState.selectedTheme) {
+			const idx = colorThemes.findIndex(t => t.name === savedState.selectedTheme);
+			if (idx !== -1) themeSelect.value = idx;
+		} else {
+			themeSelect.value = 0;
+		}
+
+		const cssToRestore = savedState.editorValue;
+		document.getElementById('user-css-input').value = cssToRestore;
+		if (editor) {
+			editor.setValue(cssToRestore);
+			editor.setOption('theme', savedState.baseTheme === 'dark' ? 'darcula' : 'eclipse');
+		}
+	}
+	toggleCssEditor();
+}
+
+function applyUserCSS() {
+	const cssText = document.getElementById('user-css-input').value;
+	// カスタムCSSとして保存
+	localStorage.setItem('user_custom_css_save', cssText);
+	// 現在のテーマとして適用・保存
+	updateCustomCss(cssText);
+	localStorage.setItem('active_theme_css', cssText);
+	localStorage.setItem('selected_theme_name', 'custom');
+}
+
+function applyAndSaveUserCSS() {
+	applyUserCSS();
+
+	// セレクトボックス更新
+	const themeSelect = document.getElementById('theme-select');
+	if (!themeSelect.querySelector('option[value="custom"]')) {
+		const option = document.createElement('option');
+		option.value = 'custom';
+		option.textContent = 'ユーザカスタムテーマ';
+		themeSelect.appendChild(option);
+	}
+	themeSelect.value = 'custom';
+
+	toggleCssEditor()
+}
+
+function deleteFileCacheDB() {
+	if (!confirm(`キャッシュDBを本当に削除しますか？`)) return;
+	const DBDeleteRequest = window.indexedDB.deleteDatabase('fileCacheDB');
+	if (DBDeleteRequest) {
+		DBDeleteRequest.onsuccess = () => {
+			alert('キャッシュDBの削除が完了しました。');
+			const cachedFilesSelect = document.getElementById('cachedFiles');
+			cachedFilesSelect.innerHTML = '<option value="" disabled selected>-- 削除できるファイルはありません --</option>';
+		};
+		DBDeleteRequest.onerror = () => {	alert('キャッシュDBの削除に失敗しました。'); };
+		DBDeleteRequest.onblocked = () => {	alert('キャッシュDBの削除がブロックされました。'); };
+	}
+}
+
+// キャッシュファイル一覧を読み込む関数
+async function populateCachedFiles(cachedFilesSelect) {
+	cachedFilesSelect.innerHTML = '<option value="" disabled selected>-- 削除するファイルを選択 --</option>';
+	try {
+		const cacheDB = await openDB('fileCacheDB');
+		const transaction = cacheDB.transaction('files', 'readonly');
+		const store = transaction.objectStore('files');
+		const getKeysRequest = store.getAllKeys();
+
+		getKeysRequest.onsuccess = () => {
+			const fileNames = getKeysRequest.result;
+			fileNames.sort().forEach(fileName => {
+				const option = document.createElement('option');
+				option.value = fileName;
+				option.textContent = fileName;
+				cachedFilesSelect.appendChild(option);
+			});
+			cacheDB.close();
+			const deleteOption = document.createElement('option');
+			deleteOption.value = 'fileCacheDB';
+			deleteOption.textContent = 'キャッシュDB';
+			cachedFilesSelect.appendChild(deleteOption);
+		};
+		getKeysRequest.onerror = (event) => {
+			console.error('キャッシュファイルのキー取得に失敗しました:', event.target.error);
+			cacheDB.close();
+		};
+	} catch (error) {
+		console.error('キャッシュDBのオープンに失敗しました:', error);
+	}
+}
+
+// 選択されたキャッシュファイルを削除する関数
+async function deleteSelectedCache(target) {
+	const fileNameToDelete = target.value;
+	if (!fileNameToDelete) {
+		alert('削除するファイルを選択してください。');
+		return;
+	}
+
+	if (fileNameToDelete === 'fileCacheDB') {
+		deleteFileCacheDB();
+		return;
+	}
+
+	if (confirm(`キャッシュファイル「${fileNameToDelete}」を本当に削除しますか？`)) {
+		const cacheDB = await openDB('fileCacheDB');
+		const transaction = cacheDB.transaction('files', 'readwrite');
+		const store = transaction.objectStore('files');
+		const deleteRequest = store.delete(fileNameToDelete);
+
+		deleteRequest.onsuccess = () => {
+			alert(`「${fileNameToDelete}」を削除しました。`);
+			populateCachedFiles(target); // リストを再読み込み
+		};
+		deleteRequest.onerror = (event) => {
+			alert(`ファイルの削除に失敗しました: ${event.target.error}`);
+		};
+		transaction.oncomplete = () => {
+			cacheDB.close();
+		};
+	}
+}
+
+function initCodeMirror() {
+	const textarea = document.getElementById('user-css-input');
+	const currentTheme = getCurrentTheme();
+	const theme = currentTheme === 'dark' ? 'darcula' : 'eclipse';
+
+	editor = CodeMirror.fromTextArea(textarea, {
+		mode: 'text/css',
+		theme: theme,
+		lineNumbers: true,
+		lineWrapping: true,
+		styleActiveLine: true,
+		colorpicker: true,
+		specialChars: /[　（）；]/,
+		specialCharPlaceholder: function(char) {
+			const span = document.createElement('span');
+			span.textContent = char;
+			span.className = 'cm-visible-zenkaku';
+			return span;
+		}
+	});
+
+	editor.on("renderLine", function(cm, line, element) {
+		if (line.lineNo() === cm.lastLine()) return;
+		const newlineChar = document.createElement('div');
+		newlineChar.textContent = '↲';
+		newlineChar.className = 'cm-newline-char';
+		element.appendChild(newlineChar);
+	});
+
+	editor.on("change", function(cm) {
+		textarea.value = cm.getValue();
+	});
+}
+
+// ユーザカスタム CSS の削除
+function deleteCustomCss() {
+	localStorage.removeItem('user_custom_css_save');
+	const themeSelect = document.getElementById('theme-select');
+	const customOption = themeSelect.querySelector('option[value="custom"]');
+	if (customOption) customOption.remove();
+
+	if (localStorage.getItem('selected_theme_name') === 'custom') {
+		const baseTheme = localStorage.getItem('theme') || 'light';
+		const targetIndex = colorThemes.findIndex(t => t.name === baseTheme);
+		themeSelect.value = targetIndex !== -1 ? targetIndex : 0;
+		themeSelect.dispatchEvent(new Event('change'));
+	}
+}
+
+// サイドバー幅設定の一括削除
+function deleteSidebarWidths() {
+	Object.keys(localStorage).forEach(key => {
+		if (key.startsWith('conditionPaneWidth_')) {
+			localStorage.removeItem(key);
+		}
+	});
+}
+
+// DOM読込完了時の初期設定
+async function init() {
+	if (db === null) await fetchDB();
+
+	// --- キャッシュファイル削除機能 ---
+	// イベントリスナーを設定
+	const cachedFilesSelect = document.getElementById('cachedFiles');
+	cachedFilesSelect.addEventListener('change', (event) => {
+		deleteSelectedCache(event.target);
+	});
+	// 初期読み込み
+	populateCachedFiles(cachedFilesSelect);
+	// --- ここまで ---
+
+	// テーマ選択セレクトボックスの初期化
+	const themeSelect = document.getElementById('theme-select');
+	const lightGroup = document.createElement('optgroup');
+	lightGroup.label = 'ライト系テーマ';
+	const darkGroup = document.createElement('optgroup');
+	darkGroup.label = 'ダーク系テーマ';
+
+	colorThemes.forEach((theme, index) => {
+		const option = document.createElement('option');
+		option.value = index;
+		option.textContent = theme.title;
+		if (theme.name.includes('dark')) {
+			darkGroup.appendChild(option);
+		} else {
+			lightGroup.appendChild(option);
+		}
+	});
+	themeSelect.appendChild(lightGroup);
+	themeSelect.appendChild(darkGroup);
+
+	// カスタムCSSがあれば選択肢追加
+	if (localStorage.getItem('user_custom_css_save')) {
+		const option = document.createElement('option');
+		option.value = 'custom';
+		option.textContent = 'ユーザカスタムテーマ';
+		themeSelect.appendChild(option);
+	}
+
+	const customizeBtn = document.getElementById('customize-btn');
+
+	// 現在のテーマ設定に合わせて選択状態を更新
+	const selectedThemeName = localStorage.getItem('selected_theme_name');
+	if (selectedThemeName === 'custom') {
+		themeSelect.value = 'custom';
+		const customCss = localStorage.getItem('user_custom_css_save') || '';
+		document.getElementById('user-css-input').value = customCss;
+		customizeBtn.classList.remove('hidden');
+	} else if (selectedThemeName) {
+		const idx = colorThemes.findIndex(t => t.name === selectedThemeName);
+		if (idx !== -1) {
+			themeSelect.value = idx;
+			const css = colorThemes[idx].css;
+			document.getElementById('user-css-input').value = css;
+			customizeBtn.classList.toggle('hidden', !css);
+		} else {
+			themeSelect.value = 0;
+			customizeBtn.classList.toggle('hidden', !colorThemes[0].css);
+		}
+	} else {
+		themeSelect.value = 0;
+		customizeBtn.classList.toggle('hidden', !colorThemes[0].css);
+	}
+
+	themeSelect.addEventListener('change', (event) => {
+		const val = event.target.value;
+		let css = '';
+		let baseTheme = 'light';
+
+		if (val === 'custom') {
+			css = localStorage.getItem('user_custom_css_save') || '';
+			baseTheme = document.documentElement.getAttribute('data-theme') || 'light';
+			localStorage.setItem('selected_theme_name', 'custom');
+			customizeBtn.classList.remove('hidden');
+		} else {
+			const idx = Number(val);
+			const theme = colorThemes[idx];
+			baseTheme = theme.name.includes('dark') ? 'dark' : 'light';
+			css = theme.css;
+			localStorage.setItem('selected_theme_name', theme.name);
+			customizeBtn.classList.toggle('hidden', !css);
+		}
+
+		document.documentElement.setAttribute('data-theme', baseTheme);
+		localStorage.setItem('theme', baseTheme);
+		if (editor) editor.setOption('theme', baseTheme === 'dark' ? 'darcula' : 'eclipse');
+
+		updateCustomCss(css);
+		localStorage.setItem('active_theme_css', css);
+		document.getElementById('user-css-input').value = css;
+		if (editor) editor.setValue(css);
+	});
+
+	const excludeSelect = document.getElementById('exclude');
+	const storedExclude = localStorage.getItem('excludeIndex') || '1';
+	excludeSelect.value = storedExclude;
+
+	excludeSelect.addEventListener('change', (event) => {
+		const selectedValue = event.target.value;
+		localStorage.setItem('excludeIndex', selectedValue);
+	});
+
+	const maxColCharsSelect = document.getElementById('maxColChars');
+	const storedMaxColChars = localStorage.getItem('maxColChars') || '50';
+	maxColCharsSelect.value = storedMaxColChars;
+
+	maxColCharsSelect.addEventListener('change', (event) => {
+		const selectedValue = event.target.value;
+		localStorage.setItem('maxColChars', selectedValue);
+	});
+
+	const rowsTableWindowSelect = document.getElementById('rowsTableWindow');
+	const storedRowsTableWindow = localStorage.getItem('rowsTableWindow') || '20';
+	rowsTableWindowSelect.value = storedRowsTableWindow;
+
+	rowsTableWindowSelect.addEventListener('change', (event) => {
+		const selectedValue = event.target.value;
+		localStorage.setItem('rowsTableWindow', selectedValue);
+	});
+
+	const fontExcelSelect = document.getElementById('fontExcel');
+	const storedFontExcel = localStorage.getItem('fontExcel') || '游ゴシック';
+	fontExcelSelect.value = storedFontExcel;
+
+	fontExcelSelect.addEventListener('change', (event) => {
+		const selectedValue = event.target.value;
+		localStorage.setItem('fontExcel', selectedValue);
+	});
+
+	const sidebarWidthSelect = document.getElementById('sidebarWidth');
+	const storedSidebarWidth = localStorage.getItem('sidebarWidthRestore') || '0';
+	sidebarWidthSelect.value = storedSidebarWidth;
+
+	sidebarWidthSelect.addEventListener('change', (event) => {
+		const selectedValue = event.target.value;
+		localStorage.setItem('sidebarWidthRestore', selectedValue);
+		if (selectedValue === '0') localStorage.removeItem('conditionPaneWidth');
+	});
+
+	const dataSettingsSelect = document.getElementById('dataSettings');
+	dataSettingsSelect.addEventListener('change', (event) => {
+		const selectedValue = event.target.value;
+		const selectedText = event.target.options[event.target.selectedIndex].text;
+
+		if (!confirm(`設定データ「${selectedText}」を削除しますか？`)) {
+			event.target.value = "";
+			return;
+		}
+		if (typeof window[selectedValue] === 'function') {// selectedValue が関数名の場合は実行
+			window[selectedValue]();
+		} else { // それ以外は localStorage キー名として削除
+			localStorage.removeItem(selectedValue);
+		}
+		alert('設定データを削除しました。');
+		event.target.value = "";
+	});
+}
+
+window.addEventListener('DOMContentLoaded', init);
+</script>
+</head>
+<body>
+<!--	全タブ共通ヘッダ -->
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div id="title-bar"></div><!--	タイトル表示領域確保 -->
+<!--	このタブの表示内容 -->
+<div class="tab_content">
+	<div class="theme-switcher">
+		<span>テーマ選択:</span>
+		<select id="theme-select"></select>
+		<button id="customize-btn" class="hidden" onclick="toggleCssEditor()">カスタマイズ</button>
+		<p>検索結果があるタブが起動されている状態で、テーマ切替やカスタマイズを行ってください。そのタブが実物見本となります。</p>
+	</div>
+
+	<div id="custom-css-editor" class="hidden">
+		<h3 style="margin-top:0;">カスタムCSSエディタ</h3>
+		<textarea id="user-css-input"></textarea>
+		<div class="editor-buttons">
+			<button onclick="applyUserCSS()">適用</button>
+			<button onclick="applyAndSaveUserCSS()">保存して終了</button>
+			<button onclick="cancelEdit()">キャンセル</button>
+		</div>
+	</div>
+
+	<div>
+		<span>検索除外薬剤:</span>
+		<select id="exclude">
+			<option value="0" selected>なし</option>
+			<option value="1">貯蔵時燻蒸蒸剤</option>
+			<option value="2">貯蔵時燻蒸剤・展着剤</option>
+		</select>
+		<p>検索対象から除外する薬剤の初期値を選択します。各タブで検索時に変更可能です。</p>
+	</div>
+	<div>
+		<span>適用表最大列幅:</span>
+		<select id="maxColChars">
+			<option value="0">指定なし</option>
+			<option value="30">30文字</option>
+			<option value="40">40文字</option>
+			<option value="50">50文字</option>
+		</select>
+		<p>指定した文字数より多い場合は折り返して複数行で表示されます。適用表上で自由に調整できます。</p>
+	</div>
+	<div>
+		<span>適用表表示枠行数:</span>
+		<select id="rowsTableWindow">
+			<option value="15">15行</option>
+			<option value="20">20行</option>
+			<option value="25">25行</option>
+			<option value="30">30行</option>
+			<option value="35">35行</option>
+			<option value="40">40行</option>
+		</select>
+		<p>適用表表示枠の初期値を選択します。適用表表示後に変更可能です。</p>
+	</div>
+	<div>
+		<span>Excel 保存フォント:</span>
+		<select id="fontExcel">
+			<option value="游ゴシック">游ゴシック</option>
+			<option value="游ゴシック Medium">游ゴシック Medium</option>
+			<option value="San Francisco">San Francisco (macOS/iOS の標準フォント)</option>
+			<option value="Noto Sans JP">Noto Sans JP (Chrome 系ブラウザの標準フォント)</option>
+			<option value="メイリオ">メイリオ (Windows 用)</option>
+		</select>
+		<p>Excel で開いたときに表示されるフォントを選択します。</p>
+	</div>
+	<div>
+		<span>サイドバー幅自動復元:</span>
+		<select id="sidebarWidth">
+			<option value="0">しない</option>
+			<option value="1">する</option>
+		</select>
+		<p>新規タブ起動時にリサイズしたサイドバーの幅を復元します。「しない」は常に規定幅になります。</p>
+	</div>
+	<div>
+		<span>設定データ削除:</span>
+		<select id="dataSettings">
+			<option value="" disabled selected>-- 削除する設定を選択 --</option>
+			<option value="deleteCustomCss">ユーザカスタムテーマ</option>
+			<option value="rowDataDialogPosition">行データダイアログサイズ(自動伸縮ダイアログに戻す)</option>
+			<option value="deleteSidebarWidths">各タブサイドバー幅(規定幅に戻す)</option>
+		</select>
+		<p>ブラウザ内に保存されている設定データを選択して削除します。</p>
+	</div>
+	<div>
+		<span>キャッシュファイル削除:</span>
+		<select id="cachedFiles"></select>
+		<p>ブラウザ内に保存されているデータベース等のキャッシュファイルを選択して削除します。</p>
+	</div>
+</div><!-- End of tab-content -->
+<!-- タブ内容読込後に実行する script -->
+<script>
+</script>
+</body>
+</html>

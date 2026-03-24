@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
+<title></title>
+<!-- 本プロジェクト専用ライブラリ -->
+<script type="text/javascript" src="./header.js"></script>
+<script type="text/javascript" src="./custom.js"></script>
+<script type="text/javascript" src="./loader.js"></script>
+<script type="text/javascript" src="./table.js"></script>
+<link rel="stylesheet" type="text/css" href="./common.css" />
+<link rel="stylesheet" type="text/css" href="./loader.css" />
+<!-- 本プロジェクト共通外部ライブラリ -->
+<!-- SQL.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.min.js"></script>
+<!-- JSZip.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<!-- ExcelJS ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- FileSaver ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<!-- Handsontable ライブラリ -->
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/handsontable.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/ht-theme-classic.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/handsontable.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/languages/ja-JP.js"></script>
+<link rel="stylesheet" type="text/css" href="./table.css" />
+<!-- infinit-tree ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css">
+<!-- タブ専用外部ライブラリ -->
+<!-- romaji-conv ライブラリ / 作物タブ・病害虫タブ・薬剤タブ -->
+<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.32/dist/romaji-conv.js"></script>
+<!--	タブ専用スタイル -->
+<style>
+#selectYakuzai > h3 {
+	margin-bottom: 0.5rem;
+}
+
+#selectYakuzai {
+	/* display: flex; */
+	flex-direction: column;
+	width: 100%;
+}
+
+/* 薬剤リストボックスのスタイル */
+#yakuzaiListbox {
+	width: 100%; /* コンテナの幅に追従 */
+	padding: 4px 8px;
+	min-height: 480px;
+	height: calc(100vh - 166px); /* ビューポートの高さからヘッダーや見出しの高さを引いた分 */
+	overflow: auto;
+	background-color: var(--bg-color-listbox);
+	border: 1px solid var(--border-color-strong);
+	border-radius: 8px;
+}
+
+/* 薬剤グループのスタイル */
+.yakuzaiGroup {
+	font-weight: bold;
+	color: var(--text-color-dark);
+	white-space: nowrap;
+	overflow: none;
+}
+
+/* 薬剤リスト項目のスタイル */
+.yakuzaiOption {
+	margin-left: 0.5rem;
+	padding-left: 0.5rem;
+	line-height: 1.8;
+	cursor: pointer;
+	white-space: nowrap;
+	overflow: none;
+	color: var(--text-color);
+}
+
+.yakuzaiOption {
+	transition: var(--list-mouse-out-transition); 
+}
+
+.yakuzaiOption:hover {
+	background-color: var(--bg-color-icon-hover);
+	transition: var(--mouse-in-transition); 
+}
+
+/* 選択された薬剤リスト項目のスタイル */
+.yakuzaiOption.selected {
+	background-color: var(--border-color-strong);
+	color: var(--bg-color);
+}
+
+div.noresult {
+	display: none;
+}
+
+</style>
+<!--	タブ専用の view や table の設定 -->
+<script type="text/plain" id="views_or_tables">
+</script>
+<!--	タブ専用の script -->
+<script>
+//薬剤候補リスト作成 optGroup 版 
+function setYakuzaiList(yakuzaiInput) {
+	// 入力キーワードをノーマライズ
+	const rawKeyword = yakuzaiInput.value;
+	// 全角記号を半角に、スペース類を半角スペースに統一し、連続するスペースを1つにまとめる
+	const normalizedInput = rawKeyword.replace(/[｜，,]/g, '|').replace(/[　＆&]/g, ' ').replace(/\s+/g, ' ').trim();
+
+	// まず半角スペースでAND条件のグループに分割
+	const andGroups = normalizedInput.split(' ').filter(group => group.length > 0);
+
+	// 各ANDグループを処理して、最終的な検索キーワード配列を作成
+	const chems = andGroups.map(group => {
+		// グループ内を'|'でOR条件の単語に分割
+		const orWords = group.split('|').filter(word => word.length > 0);
+
+		// 各OR単語を処理し、ひらがな変換を追加
+		const processedOrWords = orWords.flatMap(word => {
+			const patterns = [word];
+			if (/^[a-z\-]+$/i.test(word)) {
+				const hiragana = romajiConv(word).toHiragana();
+				if (hiragana && hiragana !== word) patterns.push(hiragana);
+			}
+			return patterns;
+		});
+		// OR条件を'|'で再結合
+		return processedOrWords.join('|');
+	});
+	//console.log(chems);
+	const chemConditions = chems.map(chem => { return `(kws regexp '${chem}' or cast(bango as text) regexp '^(${chem})$')`; });
+	const whereCondition = chemConditions.length > 0 ? chemConditions.join(' and ') : '1=1';
+	let sql = `
+		select distinct tsusho, bango, meisho from kihon left join tsushoruby using(tsusho) left join kwlists using(bango)
+		where ${whereCondition} order by ruby;
+	`;
+
+	const sqlResult = db.exec(sql);
+
+	// Create a select options
+	const listBox = document.getElementById("yakuzaiListbox");
+	listBox.innerHTML = ""; // Clear previous options
+
+	// Check if sqlResult has data
+	if (sqlResult && sqlResult[0] && sqlResult[0].values && sqlResult[0].values.length > 0) {
+		// Group results by tsusho
+		let groups = new Map();
+		sqlResult[0].values.forEach(row => {
+			const tsusho = row[0] || '';
+			const bango = row[1] || '';
+			const meisho = row[2] || '';
+			if (!groups.has(tsusho)) {
+				groups.set(tsusho, []);
+			}
+			groups.get(tsusho).push({ bango: bango, meisho: meisho });
+		});
+
+		// Iterate through groups to create list items
+		groups.forEach((items, tsusho) => {
+			if (tsusho) {
+				const optgroupLabel = document.createElement("div");
+				optgroupLabel.className = "yakuzaiGroup";
+				optgroupLabel.textContent = tsusho;
+				listBox.appendChild(optgroupLabel);
+			}
+			items.forEach(item => {
+				const option = document.createElement("div");
+				option.className = "yakuzaiOption";
+				option.dataset.bango = item.bango; // Store bango as data attribute
+				option.textContent = `${item.bango} ${item.meisho}`; // Display as two columns with space
+				option.title = option.textContent; // Mouse over hint text
+				listBox.appendChild(option);
+			});
+		});
+	} else {
+		const option = document.createElement("option");
+		option.text = "No results found";
+		option.disabled = true;
+		listBox.appendChild(option);
+	}
+	// #selectYakuzai を表示
+	const selectYakuzai = document.getElementById("selectYakuzai");
+	selectYakuzai.classList.remove("hidden");;
+
+	// 選択肢が1つしかない場合は自動的にクリックイベントを発火
+	const options = listBox.querySelectorAll('.yakuzaiOption');
+	if (options.length === 1) {
+		options[0].click();
+	}
+}
+
+// Function to return bango on selectBox selection (change event)
+function handleYakuzaiSelection(event) {
+	const bango = event.target.value;
+	//console.log("Selected bango:", bango);
+
+	const selectedOption = event.target.selectedOptions[0];
+	const selectedText = selectedOption.text;
+	const parts = selectedText.split(' ', 2);
+	const meisho = parts[1] || '';
+
+	const display = document.getElementById("selectedValue");
+
+	//return selectedBango; // Returns the bango value
+	if (bango) {
+		display.textContent = `${bango} ${meisho}`;
+		display.classList.remove("hidden");
+		// caption と sql 設定
+		const sqls = [
+			{ caption: '剤の概要', query: `
+					SELECT bango,shurui,dokusei AS seizaidokusei,torokubi,ryakusho,zaikei,yoto AS seizaiyoto, ojas AS seizaiojas
+					FROM m_kihon AS a LEFT JOIN seizai USING(bango) LEFT JOIN t_tokusai USING(bango) WHERE bango = '${bango}'
+			`},
+			{ caption: '', query: `
+				SELECT chuijiko from suisan WHERE bango = '${bango}'
+			`},
+			{ caption: '有効成分一覧', query: `
+				SELECT
+					ippanmei, seibun, iso, nodo, dokusei, jogai, yoto, koka, keito,
+					mid, rackeito, sayoten, sayokiko, fgroup, risk, ojas
+				FROM kihon WHERE bango = '${bango}'
+			`},
+			{ caption: `「${bango} ${meisho}」の適用`, query: `
+				select * from tv_meishoTekiyo where bango = '${bango}'
+			`}
+		];
+		executeSQLsetGrid(sqls);
+
+	} else {
+		display.textContent = "";
+	}
+}
+
+// sql 実行 結果グリッド作成
+async function executeSQLsetGrid(sqls) {
+	if (!db) {
+		alert("データベースがロードされていません。");
+		return;
+	}
+
+	// テーブルインスタンスをクリア
+	tables.forEach(table => {
+		if (table !== null && typeof table.destroy === 'function') {
+			table.destroy();
+		}
+	});
+	tables = [];
+	let resultDiv = document.getElementById("result");
+	resultDiv.innerHTML = ""; // クリア
+
+	try {
+		// クエリを逐次実行
+		for (const [index, sql] of sqls.entries()) {
+			//console.log(sql.query);
+			await new Promise((resolve) => {
+				// ローディング画面を確実に表示
+				waiting(true, `クエリ ${index + 1} 実行中`);
+				// UI更新を反映させるためにsetTimeoutを使用
+				setTimeout(() => {
+					requestAnimationFrame(() => {
+						try {
+							let searchTime = -performance.now();
+							let result = db.exec(sql.query);
+							searchTime += performance.now();
+
+							// 結果を表示
+							let option = { caption: sql.caption, /* query: sql.query, searchTime: searchTime*/ };
+							if (sql.caption.endsWith('適用')) option.hideFooterU20 = false;
+							const columns = result[0].columns;
+							if (columns.length == 1 && columns[0] == 'chuijiko') {
+								const value = result[0].values[0][0];
+								result[0].values[0][0] = value.replaceAll(/#/g, "\n");
+							}
+							const table = outputTable('#result', result, option);
+							// テーブルインスタンスを保存
+							if (table) {
+								tables.push(table);
+							}
+						} catch (error) {
+							// クエリごとのエラーをキャッチ
+							//setToolbarText(`<span class="error">クエリ${index + 1} エラー: ${error.message}</span>`);
+						} finally {
+							// 各クエリ実行後にローディング画面を非表示
+							waiting(false);
+						}
+						resolve();
+					});
+				}, 0); // 0msで次のイベントループに処理を移す
+			});
+		}
+
+	} catch (error) {
+		// 全体のエラーハンドリング
+		waiting(false);
+		//setToolbarText(`<span class="error">エラー: ${error.message}</span>`);
+	}
+}
+
+async function execSQL(sql) {
+	if (!db) {
+		alert("データベースがロードされていません。");
+		return;
+	}
+	//console.log("sql:", sql);
+
+	// コメント削除
+	sql = sql.replace(/--.*?$/gm, '');
+	sql = sql.replace(/\/\*.*?\*\//gs, '');
+
+	// セミコロン `;` で分割し、各コマンドを適切に連結
+	let queries = [];
+	let currentQuery = "";
+
+	sql.split("\n").forEach(line => {
+		line = line.trim();
+		if (line === "") return; // 空行はスキップ
+
+		currentQuery += (currentQuery.length > 0 ? " " : "") + line; // 前の行とつなげる
+
+		if (line.endsWith(";")) { // セミコロンで終わったらクエリ確定
+			queries.push(currentQuery);
+			currentQuery = "";
+		}
+	});
+
+	if (currentQuery.length > 0) { // 最後にセミコロンがなくても 1 つのクエリとして処理
+		queries.push(currentQuery);
+	}
+
+	if (!queries.length) {
+		//setToolbarText('<span class="caution">有効な SQL がありません</span>');
+		return;
+	}
+
+
+	try {
+		// クエリを逐次実行
+		for (const [index, query] of queries.entries()) {
+			await new Promise((resolve) => {
+				// ローディング画面を確実に表示
+				waiting(true, `クエリ ${index + 1} 実行中`);
+				// UI更新を反映させるためにsetTimeoutを使用
+				setTimeout(() => {
+					requestAnimationFrame(() => {
+						try {
+							let searchTime = -performance.now();
+							let result = db.exec(query);
+							searchTime += performance.now();
+
+						} catch (error) {
+							// クエリごとのエラーをキャッチ
+							//setToolbarText(`<span class="error">クエリ${index + 1} エラー: ${error.message}</span>`);
+						} finally {
+							// 各クエリ実行後にローディング画面を非表示
+							waiting(false);
+						}
+						resolve();
+					});
+				}, 0); // 0msで次のイベントループに処理を移す
+			});
+		}
+
+	} catch (error) {
+		// 全体のエラーハンドリング
+		waiting(false);
+		//setToolbarText(`<span class="error">エラー: ${error.message}</span>`);
+	}
+//*/
+}
+
+// DOM読込完了時の初期設定
+window.addEventListener('DOMContentLoaded', async function() {
+	//データベース読込
+	if (db === null) await fetchDB();
+	
+	// タブ内容読込後に実行する scrip は、この下に書いても OK
+	// 薬剤候補トリガー登録
+	const yakuzaiForm = document.querySelector('#yakuzaiForm');
+	const yakuzaiInput = document.querySelector('#yakuzaiInput');
+	const yakuzaiButton = document.querySelector('#yakuzaiButton');
+	const yakuzaiSelection = document.querySelector('#yakuzaiListbox');
+
+	// submitイベントはオートコンプリートの履歴保存のためにのみ使用し、ページの再読み込みを防ぐ
+	yakuzaiForm.addEventListener('submit', (event) => {
+		event.preventDefault();
+	});
+	// ボタンクリックで検索を実行
+	yakuzaiButton.addEventListener('click', () => {
+		setYakuzaiList(yakuzaiInput);
+	});
+	// 入力確定時に検索を実行
+	yakuzaiInput.addEventListener('change', () => {
+		setYakuzaiList(yakuzaiInput);
+	});
+	// 空白入力時に selectYakuzai と resultPane を非表示にする
+	yakuzaiInput.addEventListener('input', () => {
+		if (yakuzaiInput.value.trim() === '') {
+			document.getElementById("selectYakuzai").classList.add("hidden");
+			document.getElementById("result").innerHTML = '';
+			document.getElementById("selectedValue").classList.add("hidden");
+		}
+	});
+
+	// 薬剤選択リストのイベントリスナー
+	document.getElementById("selectYakuzai").addEventListener("click", (event) => {
+		if (event.target && event.target.classList.contains("yakuzaiOption")) {
+			// 選択状態をクリア
+			document.querySelectorAll(".yakuzaiOption.selected").forEach(el => {
+				el.classList.remove("selected");
+			});
+			// 選択されたオプションを強調表示
+			event.target.classList.add("selected");
+
+			// 選択された薬剤の番号を取得
+			const bango = event.target.dataset.bango;
+
+			// 選択処理を実行
+			handleYakuzaiSelection({ target: { value: bango, selectedOptions: [{ text: event.target.textContent }] } });
+		}
+	});
+
+	// URLパラメータからkeywordを取得して自動検索
+	const urlParams = new URLSearchParams(window.location.search);
+	const keyword = urlParams.get('keyword');
+	if (keyword) {
+		yakuzaiInput.value = keyword;
+		setYakuzaiList(yakuzaiInput); // 検索を実行
+	}
+
+});
+
+</script>
+</head>
+<body>
+<!--	全タブ共通ヘッダ -->
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div id="title-bar"></div><!--	タイトル表示領域確保 -->
+<!--	このタブの表示内容 -->
+<div class="tab_content">
+	<div class="flex_container">
+		<div id="conditionPane">
+			<h3>薬剤名・成分名等検索</h3>
+			<form id="yakuzaiForm" class="inputbar" onsubmit="return false;">
+				<input type="text" id="yakuzaiInput" name="yakuzaiInput" placeholder="薬剤名・成分名等を入力" title="空白検索で全薬剤検索" autocomplete="on" />
+				<button type="button" id="yakuzaiButton">検索</button>
+			</form>
+			<div id="selectYakuzai" class="hidden">
+				<h3>薬剤選択</h3>
+				<div id="yakuzaiListbox"></div>
+			</div>
+		</div>
+		<div id="resultPane">
+			<h3 id="selectedValue" class="hidden"></h3>
+			<div id="result"></div>
+		</div>
+	</div>
+</div><!-- End of tab-content -->
+<!--  タブ内容読込後に実行する script -->
+<script>
+</script>
+</body>
+</html>

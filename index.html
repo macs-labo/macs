@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>携帯農薬検索実験室</title>
+<link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="/android-chrome-192x192.png" sizes="192x192">
+<link rel="stylesheet" type="text/css" href="/macs/style.macs.css" />
+<script type="text/javascript" src="/setup.js"></script>
+<script type="text/javascript" src="/common.js"></script>
+<script>
+const style = `
+$style = <<<STYLE
+.node button.menu {
+  min-width: 15.5rem;
+}
+.node button.help {
+  min-width: 15.5rem;
+  max-width: 15.5rem;
+  height: 2.2rem;
+}
+`;
+
+const head = `
+<h1>${sitename}</h1>
+<h2>${branch}</h2>
+`;
+
+const main = `
+<p class="node"><button class="menu" type="button" onclick="window.open('${acfbpath}/', '_blank')">ACFinder Browser Edition ≫</button></p>
+<p class="node"><button class="menu" type="button" onclick="location.href='${macspath}/'">携帯農薬検索システム　　 ≫</button></p>
+<p class="node"><button class="menu" type="button" onclick="location.href='${datapath}/'">農薬登録情報ダウンロード ≫</button></p>
+<p class="node"><button class="menu" type="button" onclick="window.open('https://www.facebook.com/groups/272174746319343/', '_blank')">農薬検索研究会facebook　☞</button></p>
+<p class="node"><button class="menu" type="button" onclick="window.open('https://github.com/macs-labo/macs-labo.github.io/', '_blank')">ソースコード(GitHub)　　 ☞</button></p>
+<p class="node"><button class="help" type="button" onclick="location.href='./about.html'">このサイトについて</button></p>
+`;
+
+const navi = branch == '本室' ?
+`<p><button type="button" class="menu" onclick="window.open('https://macs-labo.github.io/', '_blank')">☜ ${sitename}本室別館</button></p>\n` :
+`<p><button type="button" class="menu" onclick="window.open('${rootsite}', '_blank')">☜ ${sitename}本室</button></p>\n`;
+
+</script>
+</head>
+<body>
+</body>
+</html>

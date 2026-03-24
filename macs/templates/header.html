@@ -1,0 +1,28 @@
+{* テンプレートヘッダ *}
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Script-Type" content="text/javascript" />
+<meta http-equiv="Content-Style-Type" content="text/css" />
+<meta name="viewport" content="width=device-width, user-scalable=yes, initial-scale=1.0, minimum-scale=0.5, maximum-scale=1.5" />
+<link rel="stylesheet" type="text/css" href="./style.macs.css" />
+<script type="text/javascript" src="./macs.js"></script>
+<title>{if $func}{$titles.$mode.$func}/{$modes.$mode.title}モード{else}{$toppage.title}{/if}/携帯農薬検索</title>
+</head>
+{*<body onload="init({$scale})">*}
+<body onload="init()">
+<div id="header">
+<h1>携帯農薬検索{if $func}/{$modes.$mode.abbr}{else} v{$version}{/if}</h1>
+{if $func}
+<h2>&lt;{$titles.$mode.$func}&gt;</h2>
+{else}
+<h2>&lt;{$toppage.title}&gt;</h2>
+{/if}
+<h3>{$title}</h3>
+</div>
+<div class="underhead">
+<h1>携帯</h1>
+<h2>農薬検索</h2>
+<h3>実験室</h3>
+</div>

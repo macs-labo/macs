@@ -1,0 +1,20 @@
+{* 対象病害虫選択テンプレート *}
+{include file='header.html'}
+<div id="main">
+<form id="next" action="{$toppage.url}" method="{$method}">
+<input type="hidden" name="func" value="{$func + 1}" />
+<p class="node"><button type="button" class="help" onclick="flip('pt11')">１</button>対象病害虫…{$count}</p>
+<p class="item"><select name="pno">
+{foreach from=$pests item=pest name=p}
+<option value="{$smarty.foreach.p.index}"{if $pest.idbyochu == $pid || $pest.idbyochu == $def} selected="selected"{/if}>{$pest.byochu}</option>
+{/foreach}
+</select></p>
+<p class="node"><button type="button" class="help" onclick="flip('pt12')">２</button>対象作物区分</p>
+<p class="item"><select name="ccno">
+{foreach from=$ccats item=ccat name=c}
+<option value="{$smarty.foreach.c.index}"{if $ccid == $ccat.cid} selected="selected"{/if}>{$ccat.cname}</option>
+{/foreach}
+</select></p>
+</form>
+</div>
+{include file='footer.html'}

@@ -1,0 +1,17 @@
+{* エラーテンプレート *}
+{include file='header.html'}
+<div id="main">
+<p class="item">{$errormsg}</p>
+</div>
+{if !$msie}
+<div id="navi">
+<form id="back" action="{$toppage.url}" method="{$method}">
+<input type="hidden" name="func" value="{$func - 1}" />
+</form>
+<p>
+<button form="back" type="submit" class="back">≪ 戻る</button>
+<button type="button" class="next" disabled>次へ ≫</button>
+</p>
+<p><button type="button" class="jump" disabled>⋘ {$toppage.title}に戻る</button></p>
+</div>
+{/if}

@@ -1,0 +1,472 @@
+/* CSS Reset */
+*, *::before, *::after {
+	box-sizing: border-box;
+}
+
+* {
+	font-size: 13px;
+	margin: 0;
+	padding: 0;
+}
+
+html, body {
+	width: 100%;
+	height: 100%;
+	overflow: hidden;
+}
+
+/* テーマカラー変数定義 */
+:root {
+	color-scheme: light dark;
+	/* 基本変更しない */
+	--ul-link-color: #dfdcfc;
+	--ul-visited-link-color: #dfd;
+	--ul-unaccepted-link-color: #ffc8df;
+	--bg-color-select: #eee; /* 過去互換用 --bg-color-button に変更 */
+	/* これ以降はテーマに合わせて変更 */
+	--db-update-text-color: #1f3e92;
+	--bg-color: #fdfdfd;
+	--text-color: #383838;
+	--text-color-light: #444;
+	--text-color-dark: #303030;
+	--border-color: #ccc;
+	--border-color-strong: #777;
+	--border-color-focus: #888;
+	--bg-color-title-bar: #0000ff08;
+	--bg-color-disabled: #ddd;
+	--bg-color-button: #eee;
+	--bg-color-hover: #0d1c25;
+	--bg-color-header: #f0f0f0;
+	--border-color-header: #858585;
+	--icon-color: #555;
+	--icon-color-hover: #000;
+	--bg-color-icon-hover: #ddd;
+	--scrollbar-track-color: rgba(220, 220, 220, 0.8);
+	--scrollbar-tumb-color: rgba(128, 128, 128, 0.8);
+	/*	これ以降は handsontable 専用	*/
+	--border-color-ht-common: #ccc;
+	--bg-color-ht-header: #eee;
+	--bg-color-even-row: #f8f8f8;
+	--selection-border-color: #888888;
+	--bg-color-highlighted-header: #10101030;
+	--bg-color-active-header: #10101050;
+	--bg-color-filter-header: #10101040;
+	--bg-color-fixed-header: #10101020;
+	--bg-color-pagesize-over: #fdb;
+}
+
+[data-theme="dark"] {
+	color-scheme: dark;
+	/* 基本変更しない */
+	--ul-link-color: #557;
+	--ul-visited-link-color: #575;
+	--ul-unaccepted-link-color: #99134b;
+	--bg-color-select: #2c2c2c;
+	/* これ以降はテーマに合わせて変更 */
+	--db-update-text-color: #aaccff;
+	--bg-color: #181818;
+	--text-color: #bbb;
+	--text-color-light: #aaa;
+	--text-color-dark: #ccc;
+	--border-color: #555;
+	--border-color-strong: #999;
+	--border-color-focus: #888;
+	/*--bg-color-title-bar: #221c30;*/
+	--bg-color-disabled: #555;
+	--bg-color-button: #2c2c2c;
+	--bg-color-hover: #17181a;
+	--bg-color-header: #383838;
+	--border-color-header: #a5a5a5;
+	--icon-color: #aaa;
+	--icon-color-hover: #ddd;
+	--bg-color-icon-hover: #444;
+	--scrollbar-track-color: rgba(64, 64, 64, 0.8);
+	--scrollbar-tumb-color: rgba(156, 156, 156, 0.8);
+	/*	これ以降は handsontable 専用	*/
+	--border-color-ht-common: #404040;
+	--bg-color-ht-header: #303030;
+	--bg-color-even-row: #282828;
+	--selection-border-color: #909090;
+	--bg-color-highlighted-header: #fcfcfc48;
+	--bg-color-active-header: #fcfcfc68;
+	--bg-color-filter-header: #fcfcfc58;
+	--bg-color-fixed-header: #fcfcfc38;
+	--bg-color-pagesize-over: #640;
+}
+
+:root,
+[data-theme="dark"] {
+	--list-mouse-out-transition: background-color 0.05s ease;
+	--icon-mouse-out-transition: background-color 0.3s ease;
+	--mouse-in-transition: background-color 0s;
+	--bg-color-listbox: color-mix(in srgb, var(--bg-color-button) 50%, var(--bg-color));
+	--svg-checkmark: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='2 2 22 22' fill='none' stroke='black' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12l5 5l10 -10' /%3E%3C/svg%3E");
+}
+
+/* 各タブ共通設定 */
+body {
+	/* padding: 10px; */
+	box-sizing: border-box;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+	background-color: var(--bg-color);
+	color: var(--text-color);
+	scrollbar-color: var(--scrollbar-tumb-color) var(--scrollbar-track-color);
+	min-height: 439px;
+}
+
+textarea, input[type="text"] {
+	line-height: 1.5;
+	border: 1px solid var(--border-color-strong);
+	border-radius: 4px;
+	margin: 1px;
+	padding: 2px 3px;
+	background-color: var(--bg-color);
+	color: var(--text-color);
+}
+
+textarea:focus, input[type="text"]:focus {
+	outline: 2px solid var(--border-color-focus);
+	outline-offset: -1px;
+}
+
+/* Chromium の autofill 解除 */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+	box-shadow: 0 0 0 300px var(--bg-color) inset !important;
+	-webkit-text-fill-color: var(--text-color) !important;
+}
+
+/* チェックボックス外枠設定 */
+input[type="checkbox"]:not(.htCheckboxRendererInput) {
+	display: inline-block;
+	position: relative;
+	margin: 0;
+	width: 16px;
+	height: 16px;
+	appearance: none; /* デフォルトスタイルをリセット */
+	-webkit-appearance: none; /* Webkitブラウザ用リセット */
+	background: var(--bg-color);
+	border: 2px solid var(--border-color-strong);
+	border-radius: 4px;
+	box-shadow: 0 0 0 0 transparent;
+	outline: none;
+	color: var(--bg-color); /* currentColorで参照されるチェックマークの色を定義 */
+	cursor: pointer;
+}
+/* チェックマーク設定（画像で太くする） */
+input[type="checkbox"]:not(.htCheckboxRendererInput)::after {
+	display: block; /* チェックマークは常に表示 */
+	width: 100%;
+	height: 100% ;
+	content: '';
+	background-color: currentColor; /* colorプロパティの値をチェックマークの色として使用 */
+	-webkit-mask: var(--svg-checkmark);
+	mask: var(--svg-checkmark);
+	-webkit-mask-size: contain;
+	mask-size: contain;
+}
+
+/* チェックボックス checked の設定 */
+input[type="checkbox"]:not(.htCheckboxRendererInput):checked {
+	background-color: var(--border-color-strong); /* チェックされたらチェックボックスの背景色を変更 */
+}
+
+/* チェックボックス disabled の設定 */
+input[type="checkbox"]:not(.htCheckboxRendererInput):disabled {
+	background-color: var(--bg-color-disabled);
+	color: var(--bg-color-disabled); /* チェックマークの色を背景色に設定 */
+	border-width: 1px;
+	opacity: 0.7; /* 透明度を下げる */
+	cursor: default;
+}
+
+select {
+	color: var(--text-color);
+	padding: 3px 8px;
+	border: solid 1px var(--border-color-strong);
+	border-radius: 8px;
+	background-color: var(--bg-color-listbox);
+	margin: 1px;
+	cursor: pointer;
+}
+
+select:focus {
+	outline: 2px solid var(--border-color-focus); /* 枠線のスタイルをoutlineで指定 */
+	outline-offset: -1px; /* 枠線を内側にオフセットしてborderのように見せる */
+	border-color: var(--border-color-strong);
+	color: var(--text-color-dark);
+}
+
+option {
+	transition: var(--list-mouse-out-transition);
+}
+
+option:hover, option:focus-visible {
+	background-color: var(--bg-color-icon-hover);
+	transition: var(--mouse-in-transition); 
+}
+
+button {
+	padding: 2px 3px;
+	color: var(--text-color);
+	border: 1px solid var(--border-color-strong);
+	border-radius: 4px;
+	background-color: var(--bg-color-button);
+	cursor: pointer;
+	transition: background-color 0.3s ease-out; 
+}
+
+button:hover {
+	background-color: var(--bg-color-icon-hover);
+	color: var(--text-color-dark);
+	transition: var(--mouse-in-transition); 
+}
+
+.hidden {
+	display: none;
+}
+
+.tab_content {
+	/* position: relative; */
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	width: 100%;
+	min-height: 0;
+	overflow: hidden;
+}
+
+.flex_container {
+	position: relative; /* サイドバー開閉トグラー絶対配置基準 */
+	display: flex;
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+}
+
+#conditionPane {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	width: 20%;
+	min-width: 228px;
+	max-width: 30%;
+	padding: 15px;
+	border-right: 1px dashed var(--border-color);
+	margin: 0;
+	overflow-x: hidden;
+	overflow-y: auto;
+	/*min-height: 0;*/ /* Flexアイテムが親より小さくなれるようにする */
+	height: 100%; /* 親の高さに合わせる */
+}
+
+#conditionPane.closed {
+	display: none;
+}
+
+#conditionPane h3 {
+	font-size: 14px;
+	font-weight: normal;
+	line-height: 1rem;
+	color: var(--text-color-dark);
+	padding: 4px 0.5rem;
+	margin: 0 0 2px 0;
+	background-color: var(--bg-color-header);
+}
+
+#resultPane {
+	position: relative; /* トグラーの絶対配置の基準 */
+	display: flex;
+	flex-direction: column;
+	flex: 1; /* 残りのスペースを占有 */
+	min-width: 0;
+	width: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+}
+
+#resultPane h3:not(.caution-title) {
+	font-size: 14px;
+	font-weight: bold;
+	line-height: 1rem;
+	padding: 0.2rem 0.5rem;
+	margin: 15px 15px 0;
+	color: var(--text-color-dark);
+	border-top: double 3px var(--border-color-header);
+	border-bottom: double 3px var(--border-color-header);
+	background-color: var(--bg-color-header);
+}
+
+#resultTop {
+	display: block;
+	padding: 15px;
+	border-bottom: 1px dashed var(--border-color);
+	min-width: 0;
+}
+
+#resultTop.closed {
+	display: none;
+}
+
+#result {
+	position: relative;
+	flex: 1;
+	width: 100%;
+	height: auto;
+	padding: 0 15px 15px;
+}
+
+/* ツールバーの設定 */
+.toolbar {
+	position: relative;
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	width: 100%;
+	margin-bottom: 2px;
+	overflow: hidden;
+	/*font-size: 13px;*/
+}
+
+#excluder {
+	display: flex;
+	flex-direction: column;
+	flex-shrink: 0;
+	height: fit-content;
+}
+
+form.inputbar {
+	display: flex;
+	margin: 10px 0;
+	width: 100%;
+}
+
+.inputbar input {
+	flex: 1;
+	min-width: 7.5rem !important;
+}
+
+.inputbar button {
+	flex: 0;
+	min-width: 3.5rem;
+}
+
+.selector {
+	min-height: fit-content;
+	margin-bottom: 15px;
+	overflow-x: hidden;
+	overflow-y: visible;
+}
+
+.selector select {
+	margin-top: 5px;
+}
+
+.icon {
+	width: 32px;
+	height: 32px;
+	margin: 0 0.3rem;
+	cursor: pointer;
+	color: var(--icon-color);
+	fill: transparent;
+	border-radius: 6px;
+	transition: var(--icon-mouse-out-transition), outline 0.3s ease-out, color 0.3s ease-out; 
+}
+
+.icon:hover {
+	color: var(--icon-color-hover);
+	background-color: var(--bg-color-icon-hover);
+	outline: 2px solid var(--bg-color-icon-hover);
+	transition: var(--mouse-in-transition); 
+}
+
+.svg_button {
+	color: var(--text-color);
+	border: 1px solid var(--border-color-strong);
+	border-radius: 4px;
+	background-color: var(--bg-color-button);
+	cursor: pointer;
+	transition: var(--icon-mouse-out-transition); 
+}
+
+.svg_button:hover {
+	background-color: var(--bg-color-icon-hover);
+	color: var(--text-color-dark);
+	transition: var(--mouse-in-transition); 
+}
+
+/* infinite-tree 共通設定 */
+.infinite-tree-node {
+	flex: 0;
+	white-space: nowrap;
+	height: 1.6rem;
+	line-height: 1;
+}
+
+.infinite-tree-node a {
+	font-size: 18px;
+	color: var(--text-color-dark);
+}
+
+.infinite-tree-node svg {
+	position: relative;
+	top: 1px;
+	width: 20px;
+	height: 20px;
+	color: var(--icon-color);
+	pointer-events: none; /* SVGがクリックイベントを奪わないようにする */
+}
+
+.infinite-tree-toggler {
+	cursor: pointer
+}
+
+.infinite-tree-content .infinite-tree-item:hover {
+	background: var(--bg-color-icon-hover) !important;
+}
+
+/* 病害虫選択ボックス関連共通設定 */
+.checkListItem label {
+	flex: 1;
+	display: inline-block;
+	padding-left: 5px;
+	cursor: pointer;
+}
+
+.checkListItem {
+  white-space: nowrap;
+	transition: var(--list-mouse-out-transition); 
+}
+
+.checkListItem:hover {
+	background-color: var(--bg-color-icon-hover);
+	transition: var(--mouse-in-transition); 
+}
+
+.checkListItem input[type="checkbox"] {
+	flex: 0;
+	top: 3px;
+	background-color: var(--bg-color);
+}
+
+#byochuListbox {
+	display: flex;
+	flex-direction: column;
+	width: 100%;
+	height: Calc(100% - 23px);
+	line-height: 1.8;
+	padding: 4px 6px;
+	overflow: auto;
+	color: var(--text-color);
+	background-color: var(--bg-color-listbox);
+	border: 1px solid var(--border-color-strong);
+	border-radius: 8px;
+}
+
+#byochuSelect {
+  width: 100%; /* コンテナの幅に追従 */
+  height: 100%;
+}

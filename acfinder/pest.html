@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
+<title></title>
+<!-- 本プロジェクト専用ライブラリ -->
+<script type="text/javascript" src="./header.js"></script>
+<script type="text/javascript" src="./custom.js"></script>
+<script type="text/javascript" src="./loader.js"></script>
+<script type="text/javascript" src="./table.js"></script>
+<script type="text/javascript" src="./crop.js"></script>
+<link rel="stylesheet" type="text/css" href="./common.css" />
+<link rel="stylesheet" type="text/css" href="./loader.css" />
+<link rel="stylesheet" type="text/css" href="./crop.css" />
+<!-- 本プロジェクト共通外部ライブラリ -->
+<!-- SQL.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.min.js"></script>
+<!-- JSZip.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<!-- ExcelJS ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- FileSaver ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<!-- Handsontable ライブラリ -->
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/handsontable.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/ht-theme-classic.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/handsontable.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/languages/ja-JP.js"></script>
+<link rel="stylesheet" type="text/css" href="./table.css" />
+<!-- infinit-tree ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css">
+<!-- タブ専用外部ライブラリ -->
+<!-- romaji-conv ライブラリ / 作物タブ・病害虫タブ・薬剤タブ -->
+<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.32/dist/romaji-conv.js"></script>
+<!--	タブ専用スタイル -->
+<style>
+#selectPest {
+	width: 100%;
+	min-height: 240px;
+	height: Calc(50vh - 131px);
+	margin-bottom: 15px;
+}
+
+#byochuListbox p {
+	padding: 10px;
+	text-align: center;
+}
+
+#cropTree {
+	height: Calc(50vh - 21px);
+}
+
+.infinite-tree-scroll {
+	min-height: 230px;
+	max-height: calc(50vh - 114px);
+}
+
+#conditionPane span {
+	/*font-size: 13px;*/
+	margin-left: 0.5rem;
+}
+
+div.noresult {
+	display: none;
+}
+
+</style>
+<!--	タブ専用の view や table の設定 -->
+<script type="text/plain" id="views_or_tables">
+</script>
+<!--	タブ専用の script -->
+<script>
+//病害虫選択リスト作成
+function setByochuList(byochuInput) {
+	let byochuText = byochuInput.value;
+	if (new RegExp(/^[a-z\-]+$/i).test(byochuText)) {
+		byochuText = romajiConv(byochuText).toHiragana();
+	}
+	// ByochuText のスペースの連接と全角 '｜' を半角 '|' に変換
+	const pests = byochuText.replace(/[　\s]+|｜/g, '|');
+	const whereCondition = pests.length > 0 ? `concat('、',byochu,betsumei) regexp '${pests}'` : '1=1';
+	let sql = `select idbyochu, byochu, betsumei from m_byochu where (${whereCondition}) and (byochu not like '%(%' or byochu regexp '菌(\\)|による)');`;
+	//console.log("sql: ",sql);
+
+	const sqlResult = db.exec(sql);
+	//console.log("sqlResult", sqlResult);
+	const byochuListbox = document.getElementById("byochuListbox");
+	// Clear previous content in the div
+	byochuListbox.innerHTML = "";
+	// Check if sqlResult has data
+	if (sqlResult && sqlResult[0] && sqlResult[0].values) {
+		// Iterate through the SQL results
+		sqlResult[0].values.forEach(row => {
+			const checkboxItem = document.createElement("div");
+			checkboxItem.classList.add('checkListItem');
+			let hint = row[2] ? ` [別名:${row[2]}]` : '';
+			hint = row[1] + hint;
+			checkboxItem.title = hint; // マウスオーバーでヒントに病害虫名・別名を表示
+			const checkbox = document.createElement("input");
+			checkbox.type = "checkbox";
+			checkbox.value = row[1]; // Assuming byochu is the first column
+			checkbox.id = String(row[0]);
+			
+			const label = document.createElement("label");
+			label.htmlFor = checkbox.id;
+			label.textContent = row[1];
+			
+			checkboxItem.appendChild(checkbox);
+			checkboxItem.appendChild(label);
+			byochuListbox.appendChild(checkboxItem);
+		});
+	} else {
+		// If no results, add a default message
+		const message = document.createElement("p");
+		message.textContent = "No results found";
+		byochuListbox.appendChild(message);
+		resetCropTree();
+	}
+	const selectPest = document.querySelector("#selectPest");
+	selectPest.classList.remove("hidden");
+}
+
+// 病害虫選択リストと結果リセット
+function resetByochuSelection() {
+	// テーブルインスタンスを破棄
+	tables = resetTables(tables);
+	resetCropTree();
+	const resultTitle = document.getElementById("resultTitle");
+	resultTitle.textContent = "";
+	resultTitle.classList.add("hidden");
+}
+
+function checkedByochu() {
+	const container = document.getElementById("byochuListbox");
+	const checkboxes = container.querySelectorAll("input[type='checkbox']");
+	const selected = [];
+	checkboxes.forEach(checkbox => {
+		if (checkbox.checked) selected.push(checkbox.value);
+	});
+	return selected;
+}
+
+// handleByochuSelection のデバウンス用タイマー
+let byochuSelectionTimer = null;
+
+function handleByochuSelection(event) {
+	if (event.target.type !== "checkbox") return;
+
+	const display = document.getElementById("resultTitle");
+
+	const selected = checkedByochu();
+	if (selected.length > 0) {
+		// 連続クリックをまとめるためのデバウンス処理
+		clearTimeout(byochuSelectionTimer);
+		byochuSelectionTimer = setTimeout(() => { // 100ミリ秒待ってから実行
+			const selectedByochuCsv = selected.map(item => `'${item}'`).join(',');
+			//console.log("Selected Byochu:", selectedByochuCsv);
+			display.textContent = `${selected}`;
+			display.classList.remove("hidden");
+
+			// sql 実行
+			// tByochu, ttTekiyoByochu 作成 
+			let sql = `
+				DROP TABLE IF EXISTS ttTekiyoByochu;
+				CREATE TEMP TABLE ttTekiyoByochu AS
+				select * from tv_tsushoTekiyo where tsusho in
+				(select distinct tsusho from t_tekiyo where
+					like_in(':'||concat_ws(':', replace(byochu, '、', ':'), mokuteki)||':',
+						(select json_group_array('%:'||byochu||'%') from m_byochu where byochu in (${selectedByochuCsv}))
+					)
+				);
+			`;
+			//console.log("sql: ", sql);
+			db.exec(sql);
+
+			// 作物ツリーを更新
+			setSakumotsuTree();
+			// テーブルを初期表示
+			const sqls = [
+				{ caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' }
+			];
+			executeSQLsetGrid(sqls);
+		}, 100);
+	} else {
+		// チェックが0になった場合は即時実行
+		clearTimeout(byochuSelectionTimer);
+		resetByochuSelection();
+		resetCropTree();
+	}
+}
+
+// 作物ツリーのチェック状態が変更されたときに呼び出される関数
+function searchCrop() {
+	const display = document.getElementById("resultTitle");
+	const selected = checkedByochu();
+
+	if (checkedCrops.length > 0) {
+		const selectedCrops = checkedCrops.map(item => item.sakumotsu);
+		display.textContent = `${selected.join(',')} ／ ${selectedCrops.join(',')}`;
+		
+		// テーブル表示を非同期で実行（表示を先に確実にするため）
+		setTimeout(() => {
+			const sqls = [
+				{ caption: `「${selected.join('」「')}」に登録がある薬剤の「${selectedCrops.join('」「')}」及びその上位作物群に対する適用`, query: `select * FROM ttTekiyoByochu WHERE sakumotsu in (${makeCropCondition(selectedCrops)});` }
+			];
+			executeSQLsetGrid(sqls);
+		}, 0);
+
+	} else {
+		// 作物選択がクリアされた場合
+		display.textContent = selected.join(',');
+
+		// 病害虫が選択されていれば、病害虫のみで絞り込んだ結果を再表示
+		const checked = checkedByochu();
+		if (checked.length > 0) { // UIの状態ではなく、チェックボックスの状態で判定
+			const sqls = [
+				{ caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' }
+			];
+			executeSQLsetGrid(sqls);
+		}
+	}
+}
+
+// 作物ツリー作成
+function setSakumotsuTree() {
+	sql = `
+		with t_idsaku as (select distinct idsaku, 1 as registered from ttTekiyoByochu left join m_sakumotsu using(sakumotsu) where sakumotsu not like '%除く%' order by idsaku)
+		,t_idlist as (select n_concat(',','"'||substr(idsaku,1,2)||'00000000000000"','"'||substr(idsaku,1,4)||'000000000000"','"'||substr(idsaku,1,6)||'0000000000"','"'||substr(idsaku,1,8)||'00000000"','"'||substr(idsaku,1,12)||'0000"','"'||idsaku||'"') as idlist from t_idsaku)
+		select idsaku, class, ifnull(registered, 0) as toroku, sakumotsu, shukakubui, betsumei, ':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords from m_sakumotsu left join t_idsaku using(idsaku) where like_in(idsaku, (select '['||gn_concat(',',idlist)||']' from t_idlist));
+	`;
+	makeCropTree('#cropTree', sql, searchCrop);
+}
+
+// sql 実行 結果グリッド作成
+async function executeSQLsetGrid(sqls) {
+	if (!db) {
+		alert("データベースがロードされていません。");
+		return;
+	}
+
+	// テーブルインスタンスをクリア
+	tables = resetTables(tables);
+
+	try {
+		// クエリを逐次実行
+		for (const [index, sql] of sqls.entries()) {
+			//console.log(sql.query);
+			await new Promise((resolve) => {
+				// ローディング画面を確実に表示
+				waiting(true, `クエリ ${index + 1} 実行中`);
+				// UI更新を反映させるためにsetTimeoutを使用
+				setTimeout(() => {
+					requestAnimationFrame(() => {
+						try {
+							let searchTime = -performance.now();
+							let result = db.exec(sql.query);
+							searchTime += performance.now();
+
+							// 結果を表示
+							let option = { caption: sql.caption, /* query: sql.query, searchTime: searchTime*/ };
+							const columns = result[0].columns;
+							if (columns.length == 1 && columns[0] == 'chuijiko') {
+								const value = result[0].values[0][0];
+								result[0].values[0][0] = value.replaceAll(/#/g, "\n");
+							}
+							tables = outputTable('#result', result, option);
+						} catch (error) {
+							// クエリごとのエラーをキャッチ
+							console.error(`エラー: ${error.message}`);
+						} finally {
+							// 各クエリ実行後にローディング画面を非表示
+							waiting(false);
+						}
+						resolve();
+					});
+				}, 0); // 0msで次のイベントループに処理を移す
+			});
+		}
+
+	} catch (error) {
+		// 全体のエラーハンドリング
+		waiting(false);
+		//setToolbarText(`<span class="error">エラー: ${error.message}</span>`);
+	}
+}
+
+// DOM読込完了時の初期設定
+window.addEventListener('DOMContentLoaded', async function() {
+	//データベース読込
+	if (db === null) await fetchDB();
+
+	// タブ内容読込後に実行する scrip は、この下に書いても OK
+	// 薬剤候補トリガー登録
+	const byochuForm = document.querySelector('#byochuForm');
+	const byochuInput = document.querySelector('#byochuInput');
+	const byochuButton = document.querySelector('#byochuButton');
+
+	// submitイベントはオートコンプリートの履歴保存のためにのみ使用し、ページの再読み込みを防ぐ
+	byochuForm.addEventListener('submit', (event) => {
+		event.preventDefault();
+	});
+	// ボタンクリックで検索を実行
+	byochuButton.addEventListener('click', () => {
+		setByochuList(byochuInput);
+	});
+	// 入力確定時に検索を実行
+	byochuInput.addEventListener('change', () => {
+		setByochuList(byochuInput);
+	});
+
+	// 病害虫選択リストのイベントリスナー（イベントデリゲーション）
+	document.getElementById("byochuListbox").addEventListener("change", (event) => {
+		handleByochuSelection(event);
+	});
+
+	// 入力欄がクリアされた時にリストと結果をクリアする
+	byochuInput.addEventListener('input', () => {
+		if (byochuInput.value === '') {
+			resetByochuSelection();
+			const byochuListbox = document.getElementById("byochuListbox");
+			byochuListbox.innerHTML = "";
+			const selectPest = document.getElementById("selectPest");
+			selectPest.classList.add('hidden');
+		}
+	});
+
+});
+
+</script>
+</head>
+<body>
+<!--	全タブ共通ヘッダ -->
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div id="title-bar"></div><!--	タイトル表示領域確保 -->
+<!--	このタブの表示内容 -->
+<div class="tab_content">
+	<div class="flex_container">
+		<div id="conditionPane">
+			<h3>病害虫・雑草名等検索</h3>
+			<form id="byochuForm" class="inputbar" onsubmit="return false;">
+				<input type="text" id="byochuInput" name="byochuInput" placeholder="病害虫・雑草名等を入力" title="空白検索で全病害虫・雑草等検索" autocomplete="on" />
+				<button type="button" id="byochuButton">検索</button>
+			</form>
+			<div id="selectPest" class="hidden">
+				<h3>病害虫名等選択</h3>
+				<div id="byochuListbox"></div>
+			</div>
+			<div id="cropTree" class="hidden"></div>
+		</div>
+		<div id="resultPane">
+			<h3 id="resultTitle" class="hidden"></h3>
+			<div id="result"></div>
+		</div>
+	</div>
+</div><!-- End of tab-content -->
+<!--  タブ内容読込後に実行する script -->
+<script>
+</script>
+</body>
+</html>

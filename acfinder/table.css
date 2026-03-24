@@ -1,0 +1,394 @@
+.table-wrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-height: 50px;
+	margin-top: 15px;
+}
+
+.table_container {
+	margin: 0;
+	padding: 0;
+	position: relative;
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	overflow:	hidden;
+	max-width: 100%;
+	min-width: 600px;
+	height: auto;
+	min-height: 50px;
+}
+
+.table_header img, .table_footer img {
+	height: 28px;
+	cursor: pointer;
+	margin: 0 0.3rem;
+}
+
+/* テーブルヘッダーの設定 */
+
+.table_header {
+	background-color: var(--bg-color-header);
+	margin: 0 0 2px 0;
+}
+
+h4 {
+	display: inline;
+	padding: 4px 0.5rem;
+	font-size: 14px;
+	font-weight: normal;
+	color: var(--text-color-dark);
+	line-height: 1rem;
+}
+
+/* テーブルフッターの設定 */
+.table_footer {
+	display: flex;
+	flex-wrap: nowrap;
+	align-items: center;
+	text-align: center;
+	margin: 1px 0;
+	padding: 0;
+	width: 100%;
+	font-size: 12px;
+	overflow: hidden;
+}
+
+.table_footer select {
+	margin: 0 0.5rem;
+	font-size: 12px;
+}
+
+.table_footer span {
+	margin-right: 0.5rem;
+	color: var(--text-color);
+	white-space: nowrap;
+}
+
+span.separator {
+	color: var(--border-color);
+}
+
+.footer_text span {
+	margin: 0;
+	padding: 0 0.5rem;
+	border-right: 1px dotted var(--text-color-light);
+	overflow: hidden;
+	flex-grow: 1; /* 残りのスペースをすべて埋める */
+	/* min-width: 0; flexアイテムがコンテンツで溢れるのを防ぐために必要 */
+}
+
+.no-border {
+	border: none !important;
+}
+
+.query-header {
+	flex-shrink: 0;
+}
+
+/* 行データ表示ダイアログ */
+#row-data-dialog {
+	left: 10px;
+	top: 10px;
+	border: 1px solid var(--border-color, #ccc);
+	border-radius: 8px;
+	color: var(--text-color, #333);
+	background-color: var(--bg-color, #fff);
+	box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+	outline: none;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	resize: both;
+	width: 40vw;
+	height: fit-content;
+	min-width: 20vw;
+	min-height: 30vh;
+	max-width: 60vw;
+	max-height: 80vh;
+	position: fixed;
+	/* z-index: 1000; */
+}
+
+/* 画面が縦向き（ビューポートの高さが幅より大きい、または同じ）の場合のスタイル */
+@media (orientation: portrait) {
+	#row-data-dialog {
+		width: 70vw;
+		min-width: 50vw;
+		max-width: 90vw;
+	}
+}
+
+.row-data-container {
+	display: flex;
+	flex-direction: column;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow-y: hidden;
+}
+
+.row-data-header {
+	padding: 10px 15px;
+	border-bottom: 1px solid var(--border-color, #eee);
+	font-weight: bold;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	background-color: var(--bg-color-header, #f0f0f0);
+	cursor: move;
+	user-select: none;
+}
+
+.row-data-close {
+	cursor: pointer;
+	font-size: 1.5rem;
+	line-height: 1;
+	padding: 3px 5px;
+	transition: var(--icon-mouse-in-transition); 
+}
+
+.row-data-close:hover {
+	color: var(--text-color-dark);
+	outline: 1px solid var(--border-color-strong);
+	border-radius: 4px;
+	background-color: var(--bg-color-icon-hover);
+	transition: var(--icon-mouse-out-transition); 
+}
+
+.row-data-content {
+	padding: 15px;
+	overflow-y: auto;
+	flex: 1 1 auto;
+}
+
+.row-data-table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 13px;
+	border: 1px solid var(--border-color, #eee);
+}
+.row-data-table tr { border-bottom: 1px solid var(--border-color, #eee); }
+.row-data-table th { text-align: left; padding: 2px 6px; width: 30%; background-color: var(--bg-color-header, #f9f9f9); color: var(--text-color, #666); font-weight: normal; vertical-align: top; border-right: 1px solid var(--border-color, #eee); }
+.row-data-table td { padding: 2px 6px; width: 70%; word-break: break-all; color: var(--text-color, #333); }
+
+/* handsontable の css 変数設定 */
+.ht-theme-classic,
+.ht-theme-classic-dark {
+	--ht-border-color: var(--border-color-ht-common);
+	--ht-wrapper-border-color: var(--border-color-ht-common);
+	--ht-cell-horizontal-border-color: var(--border-color-ht-common);
+	--ht-cell-vertical-border-color: var(--border-color-ht-common);
+	--ht-menu-border-color: var(--border-color-ht-common);
+	--ht-menu-shadow-color: var(--border-color-strong);
+	--ht-menu-item-hover-color: var(--bg-color-icon-hover);
+	--ht-menu-border-width: 1px;
+	--ht-menu-border-radius: 6px;
+	--ht-menu-shadow-x: 0px;
+	--ht-menu-shadow-y: 8px;
+	--ht-menu-shadow-blur: 16px;
+	--ht-checkbox-size: 16px;
+	--ht-checkbox-border-radius: 4px;
+	--ht-checkbox-border-color: var(--border-color-strong);
+	--ht-checkbox-icon-color: var(--bg-color);
+	--ht-checkbox-background-color: var(--bg-color);
+	--ht-checkbox-focus-border-color: var(--border-color-strong);
+	--ht-checkbox-focus-icon-color: var(--bg-color);
+	--ht-checkbox-focus-background-color: var(--bg-color);
+	--ht-checkbox-focus-ring-color: none;
+	--ht-checkbox-checked-icon-color: var(--bg-color);
+	--ht-checkbox-checked-border-color: var(--border-color-strong);
+	--ht-checkbox-checked-background-color: var(--border-color-strong);
+	--ht-checkbox-checked-focus-border-color: var(--border-color-strong);
+	--ht-checkbox-checked-focus-background-color: var(--border-color-strong);
+	--ht-button-border-radius: 4px;
+	--ht-input-border-radius: 6px;
+	--ht-input-foreground-color: var(--text-color);
+	--ht-input-background-color: var(--bg-color);
+	--ht-header-foreground-color: var(--text-color-dark);
+	--ht-header-background-color: var(--bg-color-ht-header);
+	--ht-header-highlighted-background-color: var(--bg-color-highlighted-header);
+	--ht-header-active-background-color: var(--bg-color-active-header);
+	--ht-header-filter-background-color: var(--bg-color-filter-header);
+	--ht-pagination-bar-foreground-color: var(--text-color-dark);
+	--ht-pagination-bar-background-color: var(--bg-color-ht-header);
+	--ht-pagination-bar-horizontal-padding: 16px;
+	--ht-pagination-bar-vertical-padding: 8px;
+	--ht-accent-color: none; /*var(--border-color);*/
+	--ht-foreground-color: var(--text-color);
+	--ht-row-cell-even-background-color: var(--bg-color-even-row);
+	--ht-row-cell-odd-background-color: var(--bg-color);
+	--ht-cell-selection-border-color: var(--selection-border-color);
+	--ht-cell-selection-background-color: var(--selection-border-color);
+	--ht-cell-autofill-background-color: var(--selection-border-color);
+	--ht-icon-size: 16px;
+	--ht-radio-size: 16px;
+	--ht-icon-button-border-color: var(--border-color-strong);
+	--ht-icon-button-icon-color: var(--text-color);
+	--ht-icon-button-background-color: var(--bg-color-button);
+	--ht-icon-button-hover-border-color: var(--border-color-strong);
+	--ht-icon-button-hover-icon-color: var(--text-color-dark);
+	--ht-icon-button-hover-background-color: var(--bg-color-icon-hover);
+	--ht-icon-button-active-border-color: var(--border-color-strong);
+	--ht-icon-button-active-icon-color: var(--text-color);
+	--ht-icon-button-active-background-color: var(--bg-color-button);
+	--ht-icon-button-active-hover-border-color: var(--border-color-strong);
+	--ht-icon-button-active-hover-icon-color: var(--text-color-dark);
+	--ht-icon-button-active-hover-background-color: var(--bg-color-icon-hover);
+	--ht-link-color: var(--text-color);
+	--ht-link-hover-color: var(--text-color-dark);
+	--ht-primary-button-border-color: var(--border-color-strong);
+	--ht-primary-button-background-color: var(--border-color-strong);
+	--ht-primary-button-hover-background-color: var(--border-color-focus);
+	--ht-primary-button-border-color: var(--border-color-strong);
+	--ht-primary-button-focus-border-color: var(--border-color-focus);
+	--ht-primary-button-focus-background-color: var(--border-color-strong);
+	--ht-secondary-button-border-color: var(--border-color-strong);
+	--ht-secondary-button-background-color: var(--bg-color);
+	--ht-secondary-button-foreground-color: var(--text-color);
+	--ht-secondary-button-hover-background-color: var(--bg-color-icon-hover);
+	--ht-secondary-button-hover-foreground-color: var(--text-color-dark);
+	--ht-secondary-button-focus-border-color: var(--border-color-focus);
+	--ht-secondary-button-focus-background-color: var(--bg-color);
+	--ht-scrollbar-track-color: var(--scrollbar-track-color);
+	--ht-scrollbar-thumb-color: var(--scrollbar-thumb-color);
+}
+
+/* td の color, background-color は変数上書きしても効果がないので、こちらで対応 16.2.0 でも必要 */
+.handsontable .htCore td.htDimmed {
+	color: var(--ht-foreground-color) !important;
+}
+.handsontable .htCore .ht__row_even td.htDimmed {
+	background-color: var(--ht-row-cell-even-background-color) !important;
+}
+.handsontable .htCore .ht__row_odd td.htDimmed {
+	background-color: var(--ht-row-cell-odd-background-color) !important;
+}
+
+/* handsontable 16.2.0 のヘッダ文字列短すぎ問題回避 */
+.handsontable th .colHeader,
+.handsontable th .relative {
+  text-overflow: clip !important;
+  white-space: nowrap !important;
+  overflow: visible !important;
+  display: block !important;
+}
+
+/* この行以降、ACFinderBE の独自カスタム設定 */
+
+/* 固定列ヘッダーの背景色変更 */
+.handsontable .ht_clone_top_left_corner .htCore th {
+	background-color: var(--bg-color-fixed-header);
+}
+
+/* 最終固定列の右側に太いボーダーを設定 */
+/*.ht_clone_top_inline_start_corner, */ /*固定列ヘッダのセレクタは .ht_clone_top_inline_start_corner, .ht_clone_top_left_corner のどちらでも大丈夫 */
+.ht_clone_top_left_corner,
+.ht_clone_left {
+	border-right: 2px solid var(--ht-border-color) !important;
+}
+
+/* ページサイズセレクタ文字色、背景色設定 */
+.ht-page-size-section select {
+	color: var(--ht-foreground-color) !important;
+	background-color: var(--bg-color-button) !important;
+	border-color: var(--ht-border-color) !important;
+}
+
+/* ページサイズセレクタのページサイズオーバー時の背景色設定 */
+/*select[name="pageSize"].pageSizeOver {*/
+.ht-page-size-section select.pageSizeOver {
+	background-color: var(--bg-color-pagesize-over) !important;
+}
+
+/* チェックリストフィルタのチェックマークを太いものに変更 */
+.handsontable .htCheckboxRendererInput {
+	/* box-sizing: border-box !important; */
+	margin: -2px 4px 0 0 !important;
+	appearance: none; /* デフォルトスタイルをリセット */
+	-webkit-appearance: none; /* Webkitブラウザ用リセット */
+	color: var(--ht-checkbox-checked-icon-color); /* currentColorで参照されるチェックマークの色を定義 */
+}
+.handsontable .htCheckboxRendererInput::before {
+	border-width: 2px;
+	transition: none;
+}
+.handsontable .htCheckboxRendererInput::after {
+	top: 2px;
+	left: 2px;
+	width: 12px !important; /* チェックマークのサイズ */
+	height: 12px !important; /* チェックマークのサイズ */
+	content: "";
+	background-color: currentColor; /* colorプロパティの値をチェックマークの色として使用 */
+	-webkit-mask: var(--svg-checkmark);
+	mask: var(--svg-checkmark);
+	-webkit-mask-size: contain;
+	mask-size: contain;
+}
+
+/* ドロップダウンメニューサイズの変更 */
+.handsontable .htUIMultipleSelectHot { /* フィルターリストボックスの高さ */
+	min-height: 97px !important;
+	max-height: 445px !important;
+}
+.handsontable .htDropdownMenu table.htCore { /* ドロップダウンメニューの幅 */
+	width: 20cqw !important;
+	min-width: 150px !important;
+	max-width: 300px !important;
+}
+
+/* すべて選択／クリアをボタン風に */
+.handsontable .htUISelectAll a,
+.handsontable .htUIClearAll a {
+	/* color: var(--ht-link-color); */
+	background-color: var(--bg-color);
+	border: 1px solid var(--border-color-strong);
+	/* border-radius: 4px; */
+  padding: var(--ht-gap-size) 0.5rem;
+	margin-right: 0.5rem;
+}
+.handsontable .htUISelectAll a:hover,
+.handsontable .htUIClearAll a:hover {
+	/* color: var(--ht-link-hover-color); */
+	background-color: var(--bg-color-icon-hover);
+}
+.handsontable .htUIClearAll a:focus,
+.handsontable .htUISelectAll a:focus {
+	color: var(--ht-link-hover-color);
+	border-color: var(--border-color-focus);
+	outline: none;
+}
+
+/* ドロップダウンメニュー濃色部分 */
+.htDropdownMenu { /* 外枠に背景色を設定 */
+	background-color: var(--bg-color-button) !important;
+}
+.htDropdownMenu > div.ht_master { /* メニュー枠全体 */
+	background-color: var(--bg-color-button) !important;
+	height: 100% !important;
+}
+.handsontable .htFiltersMenuCondition, /* フィルター条件 */
+.handsontable .htFiltersMenuValue, /* チェックリストフィルター全体 */
+.handsontable td.htFiltersMenuActionBar /* アクションバー */ {
+	background-color: var(--bg-color-button) !important;
+}
+
+/* メニュー淡色部分 */
+.handsontable .htUIMultipleSelectHot, /* フィルターメニューチェックリスト部分 */
+.htContextMenu > div.ht_master, /* コンテキストメニュー */
+.htContextMenu > div.ht_master .htCore td {
+	background-color: var(--bg-color) !important;
+}
+
+/* ドロップダウンメニュー文字入力部 */
+.handsontable .htCustomMenuRenderer .htUISelectCaption,
+.handsontable .htCustomMenuRenderer .htUIInput input[type="text"] {
+	border-color: var(--border-color-strong) !important;
+	background-color: var(--bg-color) !important;
+	color: var(--text-color);
+}
+
+/* electron で pagination バーに垂直スクロールバーが出る対策 */
+.handsontable input.htFocusCatcher {
+	display: none;
+}

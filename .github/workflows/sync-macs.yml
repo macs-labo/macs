@@ -1,0 +1,56 @@
+name: Sync MACS
+
+on:
+  push:
+    paths:
+      - 'macs/macs.zip' # ZIPの更新を監視
+  workflow_dispatch:
+    inputs:
+      run_mode:
+        description: '実行モード'
+        type: choice
+        options:
+          - 'full_sync'
+          - 'github_only'
+          - 'site_sync_only'
+        default: 'full_sync'
+      force_update:
+        description: '強制更新（?update=1）しますか？'
+        type: boolean
+        default: false
+
+jobs:
+  sync-and-notify:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Process ZIP and Update Repository
+        run: |
+          # macsディレクトリに移動して解凍
+          cd macs
+          if [ -f "macs.zip" ]; then
+            unzip -o "macs.zip" -d ./
+            cd ..
+            git config --local user.email "github-actions[bot]@users.noreply.github.com"
+            git config --local user.name "github-actions[bot]"
+            git add .
+            git diff --cached --quiet || git commit -m "Auto sync macs source [skip ci]"
+            git push
+          fi
+
+      - name: Trigger Remote Sync
+        # Push時、または手動で同期モードが選ばれた時に実行
+        if: success() && (github.event_name == 'push' || github.event.inputs.run_mode != 'github_only')
+        run: |
+          sleep 120 # 反映待ち
+          OPT=$([[ "${{ github.event.inputs.force_update }}" == "true" ] ] && echo "?update=1" || echo "")
+          CURL_OPTS=(-s -u "${{ secrets.SYNC_USER }}:${{ secrets.SYNC_PASS }}" -H "X-GitHub-Token: ${{ secrets.GITHUB_TOKEN }}")
+          
+          # 各拠点の .sync.macs.php を叩く
+          curl "${CURL_OPTS[@]}" "https://macs.kabe.info/macs/.sync.macs.php$OPT"
+          curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/macs/.sync.macs.php$OPT"
+          curl "${CURL_OPTS[@]}" "https://macs.coresv.net/macs/.sync.macs.php$OPT"

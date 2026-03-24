@@ -1,0 +1,23 @@
+span.infinite-tree-title {
+	position: relative;
+	top: -4px;
+	margin: 0;
+	line-height: 1;
+	color: var(--text-color);
+}
+
+span.folderNode {
+	cursor: default !important;
+}
+
+span.fileNode {
+	cursor: pointer;
+}
+
+.infinite-tree-item {
+	transition: var(--list-mouse-out-transition); 
+}
+
+.infinite-tree-item:hover {
+	transition: var(--mouse-in-transition); 
+}

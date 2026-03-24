@@ -1,0 +1,23 @@
+{* 作物選択後の病害虫選択テンプレート *}
+{include file='header.html'}
+<div id="main">
+<form id="next" action="{$toppage.url}" method="{$method}">
+<input type="hidden" name="func" value="{$func + 1}" />
+<p class="node"><button class="help" type="button" onclick="flip('cp21')">１</button>対象病害虫…{$count}</p>
+<p class="item"><select name="pno">
+{foreach from=$pests item=pest name=p}
+<option value="{$smarty.foreach.p.index}"{if $pid == $pest.idpest} selected="selected"{/if}>{$pest.byochu}</option>
+{/foreach}
+</select></p>
+{if $pcno == 2}
+<p class="item"><input type="checkbox" name="pgrp" value="1" {if $pgrp}checked="checked" {/if}/>害虫群一括検索</p>
+{/if}
+<p class="node"><button class="help" type="button" onclick="flip('cp22')">２</button>絞込条件</p>
+<p class="item"><select name="fno">
+{foreach from=$filts item=filt name=f}
+<option value="{$smarty.foreach.f.index}"{if $fname == $filt.name} selected="selected"{/if}>{$filt.name}</option>
+{/foreach}
+</select></p>
+</form>
+</div>
+{include file='footer.html'}

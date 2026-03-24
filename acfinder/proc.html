@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
+<title></title>
+<!-- 最低限必要なローカルライブラリ -->
+<script type="text/javascript" src="./header.js"></script>
+<script type="text/javascript" src="./custom.js"></script>
+<script type="text/javascript" src="./loader.js"></script>
+<!--
+<script type="text/javascript" src="./crop.js"></script>
+<script type="text/javascript" src="./filer.js"></script>
+-->
+<link rel="stylesheet" type="text/css" href="./common.css" />
+<link rel="stylesheet" type="text/css" href="./loader.css" />
+<!--
+<link rel="stylesheet" type="text/css" href="./crop.css" />
+<link rel="stylesheet" type="text/css" href="./filer.css" />
+-->
+<!-- 最低限必要な外部ライブラリ -->
+
+<!--	タブ専用の style -->
+<style>
+input[type="file"] {
+	margin: 15px;
+}
+</style>
+<!--	タブ専用の script -->
+<script>
+// ローカルファイル読み込み処理
+async function loadTabHtml(event) {
+	const file = event.target.files[0];
+  console.log('file:', file);
+	if (!file) return;
+
+	waiting(true, 'ファイルを読み込んでいます...');
+	try {
+		const templateHtml = await file.text();
+		sessionStorage.setItem('procTemplateHtml', templateHtml);
+		sessionStorage.setItem('procTemplateFileName', file.name);
+		window.location.reload();
+	} catch (e) {
+		console.error('ファイルの読み込み中にエラーが発生しました:', e);
+		waiting(false);
+		alert('ファイルの読み込みに失敗しました。');
+	}
+}
+
+// DOM読込完了時の初期設定
+window.addEventListener('DOMContentLoaded', async function onDOMContentLoaded() {
+	window.removeEventListener('DOMContentLoaded', onDOMContentLoaded);
+
+	const fileInput = document.getElementById('tabFile');
+	if (fileInput) {
+		fileInput.addEventListener('change', loadTabHtml);
+		fileInput.addEventListener('click', (e) => { e.target.value = ''; });
+	}
+
+	const templateHtml = sessionStorage.getItem('procTemplateHtml');
+	const templateFileName = sessionStorage.getItem('procTemplateFileName');
+	if (templateHtml) {
+		sessionStorage.removeItem('procTemplateHtml');
+		if (templateFileName) sessionStorage.removeItem('procTemplateFileName');
+		
+		try {
+			const parser = new DOMParser();
+			const newDoc = parser.parseFromString(templateHtml, 'text/html');
+
+			let pageTitle = templateFileName || 'ローカル';
+			if (newDoc.title && newDoc.title.trim() !== '') {
+				pageTitle = newDoc.title;
+			}
+
+			// 除外する共通ライブラリ・スタイル（既にロード済みのもの）
+			const skipFiles = [
+				'header.js', 'custom.js', 'loader.js',
+				'common.css', 'loader.css'
+			];
+
+			// head内のメタタグを反映
+			const newMetaElements = Array.from(newDoc.head.querySelectorAll('meta[name]'));
+			for (const el of newMetaElements) {
+				const name = el.getAttribute('name');
+				const existing = document.head.querySelector(`meta[name="${name}"]`);
+				if (existing) existing.remove();
+				document.head.appendChild(el.cloneNode(true));
+			}
+
+			// head内のスタイル・リンクを反映
+			const newHeadElements = Array.from(newDoc.head.querySelectorAll('link[rel="stylesheet"], style'));
+			for (const el of newHeadElements) {
+				if (el.tagName === 'LINK') {
+					const href = el.getAttribute('href');
+					if (href && skipFiles.includes(href.split('/').pop())) continue;
+				}
+				document.head.appendChild(el.cloneNode(true));
+			}
+
+			// head内のスクリプトを反映（順次ロード）
+			const newHeadScripts = Array.from(newDoc.head.querySelectorAll('script'));
+			for (const oldScript of newHeadScripts) {
+				const src = oldScript.getAttribute('src');
+				if (src && skipFiles.includes(src.split('/').pop())) continue;
+				
+				const type = oldScript.getAttribute('type');
+				const isExecutable = !type || /^(text|application)\/(x-)?(java|ecma)script$|module/i.test(type);
+
+				await new Promise((resolve) => {
+					const newScript = document.createElement('script');
+					Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+					newScript.textContent = oldScript.textContent;
+					if (src && isExecutable) {
+						newScript.onload = resolve;
+						newScript.onerror = resolve;
+						document.head.appendChild(newScript);
+					} else {
+						document.head.appendChild(newScript);
+						resolve();
+					}
+				});
+			}
+
+			// bodyを書き換え
+			document.body.innerHTML = newDoc.body.innerHTML;
+
+			// body内のスクリプトを再実行
+			const bodyScripts = Array.from(document.body.querySelectorAll('script'));
+			for (const oldScript of bodyScripts) {
+				const src = oldScript.getAttribute('src');
+				if (src && skipFiles.includes(src.split('/').pop())) {
+					oldScript.remove();
+					continue;
+				}
+
+				const type = oldScript.getAttribute('type');
+				const isExecutable = !type || /^(text|application)\/(x-)?(java|ecma)script$|module/i.test(type);
+
+				await new Promise((resolve) => {
+					const newScript = document.createElement('script');
+					Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+					newScript.textContent = oldScript.textContent;
+					if (src && isExecutable) {
+						newScript.onload = resolve;
+						newScript.onerror = resolve;
+						oldScript.parentNode.replaceChild(newScript, oldScript);
+					} else {
+						oldScript.parentNode.replaceChild(newScript, oldScript);
+						resolve();
+					}
+				});
+			}
+
+			// DOMContentLoaded イベントを手動発火
+			window.dispatchEvent(new Event('DOMContentLoaded'));
+
+			// タイトル設定（イベント発火による上書き防止のため、最後に行う）
+			// document.title = pageTitle; // ドキュメントタイトルは「ローカル」のままの方が分かりやすいのでコメントアウト
+			const tabNameEl = document.querySelector('.tab_header .current-tab-name');
+			if (tabNameEl) tabNameEl.textContent = pageTitle;
+		} catch (e) {
+			console.error('画面の復元中にエラーが発生しました:', e);
+			alert('画面の復元中にエラーが発生しました。\n' + e.message);
+		}
+	}
+});
+</script>
+</head>
+<body>
+<!--	全タブ共通ヘッダ -->
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div id="title-bar"></div><!--	タイトル表示領域確保 -->
+<div id="tab-header" class="tab_header"></div><!--	タブヘッダー表示領域確保 -->
+<!--	このタブの表示内容 -->
+<div class="tab_content">
+	<input type="file" id="tabFile" accept=".html">
+</div><!-- End of tab-content -->
+<!--  タブ内容読込後に実行する script -->
+<script>
+</script>
+</body>
+</html>

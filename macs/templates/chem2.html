@@ -1,0 +1,20 @@
+{* 薬剤選択テンプレート *}
+{include file='header.html'}
+<div id="main">
+<form id="next" action="{$toppage.url}" method="{$method}">
+<input type="hidden" name="func" value="{$func + 1}" />
+<p class="node"><button type="button" class="help" onclick="flip('cm21')">１</button>薬剤名…{$count1}</p>
+<p class="item"><select name="acno">
+{foreach from=$chems item=chem name=c}
+<option value="{$smarty.foreach.c.index}"{if $chem.bango == $rno || $chem.bango == $def} selected="selected"{/if}>{$chem.bango} {$chem.meisho|escape:'html':'UTF-8'}</option>
+{/foreach}
+</select></p>
+<p class="node"><button type="button" class="help" onclick="flip('cm22')">２</button>対象作物名…{$count2}</p>
+<p class="item"><select name="cno">
+{foreach from=$crops item=crop name=c}
+<option value="{$smarty.foreach.c.index}"{if $crop.sakumotsu == $cropname} selected="selected"{/if}>{$crop.sakumotsu}</option>
+{/foreach}
+</select></p>
+</form>
+</div>
+{include file='footer.html'}

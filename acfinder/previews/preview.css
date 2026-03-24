@@ -1,0 +1,178 @@
+:root {
+	--ht-cell-border-color: #cccccc;
+	--ht-header-background-color: #f0f0f0;
+}
+
+[data-theme="dark"] {
+	--ht-cell-border-color: #404040;
+	--ht-header-background-color: #222222;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+	padding: 10px;
+	overflow: hidden; /* 意図しないbodyのスクロールを防ぐ */
+}
+
+div#settings {
+	width: 100%;
+	background-color: var(--bg-color);
+	color: var(--text-color);
+	border: 1px solid var(--border-color);
+	margin-bottom: 10px;
+	padding: 10px;
+}
+
+div#settings > div {
+	display: flex;
+	align-items: center;
+	margin-bottom: 5px;
+}
+
+div#settings > div > label {
+	min-width: 7.5rem;
+	margin-right: 1rem; /* ラベルと入力フィールドの間に少しスペースを追加 */
+	text-align: right;
+	flex: 0;
+}
+
+div#settings > div > input[type="text"] {
+	width: calc(100% - 8.5rem);
+	height: 24px;
+	resize: none;
+	overflow: hidden;
+  padding: 0px 3px 1px;
+	min-width:0;
+	line-height: 1.2;
+}
+
+div#settings > div > input[type="range"] {
+	flex-grow: 1;
+	margin: 0 10px;
+}
+
+/* スライダーのスタイル調整 */
+input[type="range"] {
+	-webkit-appearance: none; /* Webkitのデフォルトスタイルをリセット */
+	appearance: none;
+	background: transparent; /* 背景を透明に */
+	cursor: pointer;
+}
+
+/* Webkit (Chrome, Safari, Edge) */
+input[type="range"]::-webkit-slider-runnable-track {
+	height: 8px;
+	background: linear-gradient(to right, #888, #888 var(--value-percent), var(--border-color) var(--value-percent), var(--border-color));
+	border-radius: 8px;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+	-webkit-appearance: none;
+	appearance: none;
+	margin-top: -4px; /* トラックの中央に配置 */
+	background-color: #888;
+	height: 16px;
+	width: 16px;
+	border-radius: 50%;
+}
+
+/* Firefox */
+input[type="range"]::-moz-range-track {
+	height: 8px;
+	background: var(--border-color);
+	border-radius: 4px;
+}
+
+input[type="range"]::-moz-range-progress {
+	height: 8px;
+	background: #888;
+	border-radius: 4px;
+}
+
+input[type="range"]::-moz-range-thumb {
+	background-color: #888;
+	height: 16px;
+	width: 16px;
+	border-radius: 50%;
+	border: none;
+}
+
+div#preview {
+	overflow: auto;
+	flex-grow: 1; /* 残りの高さをすべて使用する */
+	position: relative; /* flex-grow と overflow を正しく機能させる */
+	/* box-sizing: border-box; */
+	/* padding-right: 15px; */ /* スクロールバーが被らないように余白を確保 */
+}
+
+#previewContent {
+	width: fit-content;
+	min-width: 100%;
+	/* margin-right: 15px; */ /* スクロールバーが被らないように余白を確保 */
+	padding-right: 15px; /* スクロールバーが被らないように余白を確保 */
+	/* box-sizing: border-box; */
+}
+
+h1 {
+	font-size: 15px;
+}
+
+table {
+	border-collapse: collapse;
+	border: 1px solid var(--ht-cell-border-color);
+	table-layout: fixed;
+	color: var(--text-color);
+	width: auto;
+}
+
+th, td {
+	border: 1px solid var(--ht-cell-border-color);
+	padding: 2px 5px 1px;
+	text-align: left;
+	white-space: pre-wrap;
+	vertical-align: top;
+	line-height: 1.2;
+}
+
+th {
+	color: var(--text-color-dark);
+	background-color: var(--ht-header-background-color);
+	font-weight: normal;
+}
+
+td {
+	color: var(--text-color);
+}
+
+.ht__row_even td {
+	background-color: var(--bg-color-even-row);
+}
+
+.ht__row_odd td {
+	background-color: var(--bg-color);
+}
+table, th, td {
+	font-family: -apple-system, BlinkMacSystemFont, Segoe UI, Roboto, Oxygen, Ubuntu, Helvetica Neue, Arial, sans-serif;
+}
+
+@media print {
+	/* 印刷時には設定エリアを非表示にする */
+	#settings {
+		display: none;
+	}
+
+	/* bodyのレイアウトと余白を印刷用にリセット */
+	body {
+		display: block; /* flexレイアウトを解除 */
+		padding: 0;
+		overflow: visible; /* コンテンツが切れないように */
+	}
+
+	/* プレビューエリアが印刷領域全体を使うように調整 */
+	#preview {
+		overflow: visible; /* スクロールをなくし、全コンテンツを印刷対象に */
+		flex-grow: 0;      /* flexレイアウトの影響を解除 */
+		position: static;  /* positionをリセット */
+	}
+}

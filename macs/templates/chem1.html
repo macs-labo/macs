@@ -1,0 +1,14 @@
+{* 農薬通称選択テンプレート *}
+{include file='header.html'}
+<div id="main">
+<form id="next" action="{$toppage.url}" method="{$method}">
+<input type="hidden" name="func" value="{$func + 1}" />
+<p class="node"><button type="button" class="help" onclick="flip('cm11')">１</button>農薬通称…{$count}</p>
+<p class="item"><select name="pno">
+{foreach from=$pnames item=pname name=p}
+<option value="{$smarty.foreach.p.index}"{if $pname.tsusho == $popname || $pname.tsusho == $def} selected="selected"{/if}>{$pname.tsusho|escape:'html':'UTF-8'}</option>
+{/foreach}
+</select></p>
+</form>
+</div>
+{include file='footer.html'}

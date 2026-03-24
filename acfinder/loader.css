@@ -1,0 +1,454 @@
+/* タイトルバー表示 */
+#title-bar {
+	position: relative;
+	display: flex;
+	align-items: center;
+	gap: 20px;
+	padding: 3px 10px;
+	height: 37px;
+	border-bottom: 1px solid var(--border-color);
+	background-color: var(--bg-color-title-bar);
+}
+
+#title-bar div {
+	display: flex;
+	flex-direction: column;
+	flex: 0;
+	/* margin: 0 10px; */
+	padding: 0;
+	cursor: default;
+}
+
+#title-bar h1 {
+	flex: 0;
+	display: inline-block;
+	font-size: 22px;
+	font-weight: bold;
+	margin: 0;
+	line-height: 22px;
+	height: 22px;
+	color: var(--text-color-dark);
+	white-space: nowrap;
+}
+
+#title-bar h2 {
+	flex: 1;
+	display: inline-block;
+	font-size: 12px;
+	font-weight: normal;
+	text-align: center;
+	/* min-width: 23.5rem; */
+	/* margin: 0 10px; */
+	line-height: 17px;
+	color: var(--text-color-light);
+	overflow: hidden;
+	white-space: nowrap;
+}
+
+#title-bar span {
+	display: block;
+	font-size: 11px;
+	color: var(--text-color-light);
+	line-height: 12px;
+	margin: 0;
+	white-space: nowrap;
+} 
+
+/*
+#title-bar span.db_update {
+	line-height: 18px;
+	height: 18px;
+}
+*/
+
+#title-bar p {
+	flex: 0;
+	display: block;
+	/* font-size: 13px; */
+	color: var(--db-update-text-color);
+	margin: 0;
+	line-height: 18px;
+	white-space: nowrap;
+}
+
+#title-bar a {
+	cursor: default;
+	color: var(--text-color);
+	font-size: 11px;
+	text-decoration-color: none;
+	text-decoration-thickness: 0.4rem;
+	text-underline-offset: -0.25rem;
+	text-decoration-skip-ink: none;
+}
+
+#title-bar a:link {
+	text-decoration-color: var(--ul-link-color);
+}
+
+#title-bar a:visited {
+	text-decoration-color: var(--ul-visited-link-color);
+}
+
+#caution {
+	/*flex: 0;*/
+	display: inline-block;
+	white-space: nowrap;
+	overflow: hidden;
+	text-align: right;
+}
+
+#caution span {
+	color: var(--text-color-light);
+}
+
+#caution a, #caution span {
+	display: block;
+	font-size: 12px !important;
+	line-height: 16px;
+}
+
+#caution a {
+	cursor: pointer;
+}
+
+#caution a.unaccepted {
+	text-decoration-color: var(--ul-unaccepted-link-color) !important;
+}
+
+#caution a.accepted {
+	text-decoration-color: var(--ul-visited-link-color) !important;
+}
+
+/* タブヘッダー表示 */
+
+#tab-header {
+	display: none;
+}
+
+#title-bar div.tab_header {
+	display: inline-block;
+	position: relative;
+	display: flex;
+	flex-direction: row;
+	margin-left: 0;
+	flex-shrink: 1;
+	font-size: 14px;
+	white-space: nowrap;
+	vertical-align: bottom;
+	bottom: -5px;
+	height: 27px;
+	overflow-y: visible;
+}
+
+#title-bar div.tab_header .current-tab-name {
+	/* position: relative; */
+	padding: 0.3rem 0.7rem 0.3rem 1.0rem;
+	border: 1px solid var(--border-color);
+	background-color: var(--bg-color);
+	border-bottom: 2px solid var(--bg-color);
+	/* border-bottom: none; */
+	border-top-left-radius: 1.5rem 100%;
+	border-top-right-radius: 5px;
+	color: var(--text-color-dark);
+	cursor: default;
+	line-height: 1.5rem;
+	text-align: center;
+	/* justify-content: center; */
+	vertical-align: baseline;
+	height: 28px;
+	min-width: 5rem;
+	font-size: 14px;
+	font-weight: bold;
+	z-index: 2;
+}
+
+/* ノーマル「＋」ボタン */
+#title-bar div.tab_header button.add-tab-button {
+	position: relative;
+	display: flex;
+	top: 0;
+	align-items: center;
+	justify-content: center;
+	vertical-align: top;
+	width: 24px;
+	height: 24px;
+	font-size: 20px;
+	font-weight: bold;
+	line-height: 20px;
+	margin-left: 2px;
+	padding-bottom: 1px;
+}
+/* firefox は文字が下に出るので、padding-bottom 追加 */
+@-moz-document url-prefix() {
+	#title-bar div.tab_header button.add-tab-button {
+		padding-bottom: 4px;
+	}
+}
+
+/* svg 「＋」ボタン用 */
+#title-bar div.tab_header svg.add-tab-button {
+	width: 24px;
+	height: 24px;
+	margin-left: 2px;
+}
+
+/* ダイアログ表示 */
+#menu-dialog {
+	border-radius: 8px;
+	border: 1px solid var(--border-color);
+	background-color: var(--bg-color);
+}
+
+#menu-dialog::backdrop {
+	background-color: rgba(0, 0, 0, 0.4);
+}
+
+#menu-dialog .menu-container {
+	padding: 0;
+	min-width: 300px;
+}
+
+#menu-dialog .menu-list {
+	list-style: none;
+	padding: 0;
+	margin: 0;
+	border-radius: 8px 8px 0 0;
+	overflow: hidden;
+}
+
+#menu-dialog .menu-item {
+	padding: 4px 8px;
+	border-bottom: 1px solid var(--border-color);
+	cursor: pointer;
+	/* transition: background-color 0.2s; */
+}
+
+/*
+#menu-dialog .menu-item:last-child {
+	border-bottom: none;
+}
+*/
+
+#menu-dialog .menu-item:hover {
+	background-color: var(--bg-color-button);
+}
+
+#menu-dialog .menu-item-name {
+	font-weight: bold;
+	font-size: 13px;
+	line-height: 1.0;
+	color: var(--text-color);
+}
+
+#menu-dialog .menu-item-title {
+	font-size: 12px;
+	line-height: 1.0;
+	color: var(--text-color-light);
+	padding-left: 0.5rem;
+	margin-top: 5px;
+}
+
+#menu-dialog form {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	font: font-size 13px;
+	color: var(--text-color);
+	padding: 6px 16px;
+	/* border-top: 1px solid var(--border-color); */
+}
+
+#menu-dialog form span {
+	cursor: default;
+}
+
+#menu-dialog form button {
+	cursor: pointer;
+}
+
+.caution-dialog {
+	margin: 15px;
+	padding: 15px;
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	background-color: var(--bg-color-listbox);
+	box-shadow: 0 0 10px rgba(0,0,0,0.4);
+	color: var(--text-color);
+}
+
+.caution-dialog h3.caution-title {
+	line-height: 1.0;
+	color: var(--text-color-dark);
+	/* background-color: transparent; */
+	/* border: none */
+}
+
+.caution-dialog ul {
+	margin: 15px 0;
+	padding: 5px 5px 5px 25px;
+	border: 1px solid var(--border-color-focus);
+	border-radius: 4px;
+	background-color: var(--bg-color);
+	color: var(--text-color);
+}
+
+.caution-dialog div {
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 10px;
+}
+
+.caution-dialog button {
+	display: inline-block;
+	min-width: 3.5rem;
+}
+
+.caution-dialog span {
+	flex: 1;
+	display: inline-block;
+	font-size: 12px;
+	color: var(--text-color);
+	line-height: 1.4;
+}
+
+#accept-caution:disabled {
+	background-color: var(--bg-color-listbox);
+	color: var(--bg-color-disabled);
+	border-color:  var(--bg-color-disabled);
+	cursor: default;
+}
+
+/* パネル開閉トグラーのスタイル */
+#sideToggler,
+#topToggler {
+	position: absolute;
+	top: 0; /* 常に #resultPane の上端に配置 */
+	left: 0; /* 常に .flex_Container の左端に配置 */
+	display: flex;
+	align-items: center; /* 垂直中央揃え */
+	justify-content: center; /* 水平中央揃え */
+	font-size: 8px;
+	background-color: var(--bg-color);
+	color: var(--border-color);
+	transition: var(--icon-mouse-out-transition); 
+}
+
+#sideToggler {
+	width: 10px; /* クリック領域の幅 */
+	height: 100%;
+	writing-mode: vertical-rl; /* テキストを縦書きにする */
+	cursor: ew-resize; /* 水平方向のリサイズカーソル */
+	z-index: 10;
+}
+
+#topToggler {
+	height: 10px; /* クリック領域の幅 */
+	width: 100%;
+	cursor: ns-resize;
+	z-index: 5;
+}
+
+#sideToggler:hover,
+#topToggler:hover,
+#sideToggler.closed:hover,
+#topToggler.closed:hover {
+	color: var(--bg-color);
+	background-color: var(--border-color-strong);
+	transition: var(--mouse-in-transition); 
+}
+
+#sideToggler.closed,
+#topToggler.closed {
+	color: var(--text-color-light);
+	background-color: var(--bg-color-button);
+}
+
+/* スプリッターのスタイル */
+.splitter {
+	width: 6px;
+	cursor: col-resize;
+	background-color: transparent;
+	flex-shrink: 0;
+	margin-left: -3px;
+	margin-right: -3px;
+	position: relative;
+	z-index: 100;
+	transition: var(--icon-mouse-out-transition); 
+}
+.splitter:hover, .splitter.dragging {
+	background-color: var(--border-color-strong, #ccc);
+	transition: var(--mouse-in-transition); 
+}
+.splitter.closed {
+	display: none;
+}
+
+/* Loading 表示 */
+#loading {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	z-index: 9999;
+	padding-top: 4.0rem;
+	/*background-color: #444444;*/
+	background-color: rgba(68, 68, 68, 0.5);
+	opacity: 0.5;
+	display: none;
+}
+
+div#loading p {
+	font-size: 1.0rem;
+	opacity: 1.0;
+	color: white;
+	text-align: center;
+}
+
+div#loading img {
+	margin: 0 auto;
+}
+
+.loader,
+.loader:after {
+	border-radius: 50%;
+	width: 12rem;
+	height: 12rem;
+}
+
+.loader {
+	margin: 60px auto;
+	font-size: 10px;
+	position: relative;
+	text-indent: -9999em;
+	border-top: 1.1rem solid rgba(255, 255, 255, 0.2);
+	border-right: 1.1rem solid rgba(255, 255, 255, 0.2);
+	border-bottom: 1.1rem solid rgba(255, 255, 255, 0.2);
+	border-left: 1.1rem solid #ffffff;
+	-webkit-transform: translateZ(0);
+	-ms-transform: translateZ(0); 
+	transform: translateZ(0);
+	-webkit-animation: load8 1.1s infinite linear;
+	animation: load8 1.1s infinite linear;
+}
+@-webkit-keyframes load8 {
+	0% {
+		-webkit-transform: rotate(0deg);
+		transform: rotate(0deg);
+	}
+	100% {
+		-webkit-transform: rotate(360deg);
+		transform: rotate(360deg);
+	}
+}
+@keyframes load8 {
+	0% {
+		-webkit-transform: rotate(0deg);
+		transform: rotate(0deg);
+	}
+	100% {
+		-webkit-transform: rotate(360deg);
+		transform: rotate(360deg);
+	}
+}
