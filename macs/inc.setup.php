@@ -32,7 +32,7 @@ $isVercel = (getenv('VERCEL') === '1');
 if ($isVercel) {
   $user_root = '';
   $dbPath = dirname(__DIR__) . '/data';
-  $smartyPath = __DIR__ . '/vendor/smarty/smarty/libs/';
+  $smartyPath = dirname(__DIR__) . '/vendor/smarty/smarty/libs/';
   $Debug = false; // Vercel は基本 false
 } else {
   // サーバ上のユーザルートディレクトリの絶対パス自動取得
