@@ -26,10 +26,10 @@
 4. **公開DBの維持**: 本リポジトリの GitHub Actions が正常に動作し、GitHub Release で常に最新の MacsDB が無料公開されている状態を、利用者全員で守ってください。
 
 ## 本プロジェクトの構成
-* '/data': 本リポジトリ内で生成・配布している農薬情報データベース(MacsDB)及び関連ファイル群です。
-* '/cron': MacsDB の自動更新スクリプトです。GitHub Actions で定期実行されます。
-* '/macs': 携帯農薬検索システム(MACS)の公開リポジトリです。
-* '/acfinder': ACFinderBE の公開リポジトリです。
+* `/data`: 本リポジトリ内で生成・配布している農薬情報データベース(MacsDB)及び関連ファイル群です。
+* `/cron`: MacsDB の自動更新スクリプトです。GitHub Actions で定期実行されます。
+* `/macs`: 携帯農薬検索システム(MACS)の公開リポジトリです。
+* `/acfinder`: ACFinderBE の公開リポジトリです。
 
 ## 関連サイト
 
