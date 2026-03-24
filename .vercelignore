@@ -1,6 +1,6 @@
 .git
 .github
-.vscode
+.gitignore
 cron/
 README.md
 LICENSE
