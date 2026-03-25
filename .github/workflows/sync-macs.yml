@@ -58,7 +58,7 @@ jobs:
           github.event.inputs.run_mode == 'full_sync' ||
           github.event.inputs.run_mode == 'site_sync_only'
         run: |
-          # push 時、または run_mode が 'full_sync' の場合のみ反映待ち
+          # push 時、または run_mode が 'full_sync' の場合 GitHub CDN の反映待ち
           if [[ "${{ github.event_name }}" == "push" || "${{ github.event.inputs.run_mode }}" == "full_sync" ]]; then
             echo "Waiting 120 seconds for GitHub to reflect changes..."
             sleep 120
