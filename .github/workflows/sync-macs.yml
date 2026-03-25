@@ -33,6 +33,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Process ZIP and Update Repository
+        if: |
+          github.event_name == 'push' || 
+          github.event.inputs.run_mode == 'full_sync' || 
+          github.event.inputs.run_mode == 'github_only'
         run: |
           cd macs
           if [ -f "macs.zip" ]; then
