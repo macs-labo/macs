@@ -94,7 +94,7 @@ async function fetchSjisText(url) {
   }
 }
 
-const datadir = window.location.href.includes('github.io') ? 'https://raw.githubusercontent.com/macs-labo/macs-labo.github.io/main/data' : '.';
+const datadir = window.location.href.match(/\/(macs|noyaku)\./) ? '.' : 'https://raw.githubusercontent.com/macs-labo/macs/main/data';
 
 const style = `
 em {
