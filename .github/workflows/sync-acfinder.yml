@@ -98,7 +98,7 @@ jobs:
           )
 
           # 各拠点を叩く
-          curl "${CURL_OPTS[@]}" "https://macs.xii.jp/acfinder/.sync.acfinder.php$OPT"
-          curl "${CURL_OPTS[@]}" "https://macs.kabe.info/acfinder/.sync.acfinder.php$OPT"
-          curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/acfinder/.sync.acfinder.php$OPT"
-          curl "${CURL_OPTS[@]}" "https://macs.coresv.net/acfinder/.sync.acfinder.php$OPT"
+          curl "${CURL_OPTS[@]}" "https://macs.xii.jp/acfinder/.sync.acfinder.php${OPT}"
+          curl "${CURL_OPTS[@]}" "https://macs.kabe.info/acfinder/.sync.acfinder.php${OPT}"
+          curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/acfinder/.sync.acfinder.php${OPT}"
+          curl "${CURL_OPTS[@]}" "https://macs.coresv.net/acfinder/.sync.acfinder.php${OPT}"
