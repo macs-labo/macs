@@ -52,8 +52,11 @@ jobs:
           fi
 
       - name: Trigger Remote Sync
-        # Push時、または手動で同期モードが選ばれた時に実行
-        if: success() && (github.event_name == 'push' || github.event.inputs.run_mode != 'github_only')
+        # Push時、または手動で full_sync か site_sync_only を選択した時のみ実行
+        if: |
+          github.event_name == 'push' ||
+          github.event.inputs.run_mode == 'full_sync' ||
+          github.event.inputs.run_mode == 'site_sync_only'
         run: |
           sleep 120 # 反映待ち
           OPT=$([[ "${{ github.event.inputs.force_update }}" == "true" ] ] && echo "?update=1" || echo "")
