@@ -1,5 +1,9 @@
 name: Sync MACS
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false # 前の処理を中断せず、順番に実行させる
+
 on:
   push:
     paths:
@@ -30,7 +34,6 @@ jobs:
 
       - name: Process ZIP and Update Repository
         run: |
-          # macsディレクトリに移動して解凍
           cd macs
           if [ -f "macs.zip" ]; then
             unzip -o "macs.zip" -d ./
@@ -38,8 +41,14 @@ jobs:
             git config --local user.email "github-actions[bot]@users.noreply.github.com"
             git config --local user.name "github-actions[bot]"
             git add .
-            git diff --cached --quiet || git commit -m "Auto sync macs source [skip ci]"
-            git push
+            
+            # 差分がある場合のみ処理
+            if ! git diff --cached --quiet; then
+              git commit -m "Auto sync macs source [skip ci]"
+              # push前に最新の状態を取得して繋ぎ直す
+              git pull --rebase origin ${{ github.ref_name }}
+              git push
+            fi
           fi
 
       - name: Trigger Remote Sync
