@@ -67,10 +67,10 @@ jobs:
             echo "Waiting 120 seconds for GitHub to reflect changes..."
             sleep 120
           fi
-          OPT=$([[ "${{ github.event.inputs.force_update }}" == "true" ] ] && echo "?update=1" || echo "")
+          OPT=$([[ "${{ github.event.inputs.force_update }}" == "true" ]] && echo "?update=1" || echo "")
           CURL_OPTS=(-s -u "${{ secrets.SYNC_USER }}:${{ secrets.SYNC_PASS }}" -H "X-GitHub-Token: ${{ secrets.GITHUB_TOKEN }}")
           
           # 各拠点の .sync.macs.php を叩く
-          curl "${CURL_OPTS[@]}" "https://macs.kabe.info/macs/.sync.macs.php$OPT"
-          curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/macs/.sync.macs.php$OPT"
-          curl "${CURL_OPTS[@]}" "https://macs.coresv.net/macs/.sync.macs.php$OPT"
+          curl "${CURL_OPTS[@]}" "https://macs.kabe.info/macs/.sync.macs.php${OPT}"
+          curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/macs/.sync.macs.php${OPT}"
+          curl "${CURL_OPTS[@]}" "https://macs.coresv.net/macs/.sync.macs.php${OPT}"
