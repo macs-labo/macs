@@ -96,6 +96,6 @@ jobs:
             -H "X-GitHub-Token: ${{ secrets.GITHUB_TOKEN }}"
           )
 
-          curl "${CURL_OPTS[@]}" "https://macs.kabe.info/cron/.sync.cron.php$OPT"
-          curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/cron/.sync.cron.php$OPT"
-          curl "${CURL_OPTS[@]}" "https://macs.coresv.net/cron/.sync.cron.php$OPT"
+          curl "${CURL_OPTS[@]}" "https://macs.kabe.info/cron/.sync.cron.php${OPT}"
+          curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/cron/.sync.cron.php${OPT}"
+          curl "${CURL_OPTS[@]}" "https://macs.coresv.net/cron/.sync.cron.php${OPT}"
