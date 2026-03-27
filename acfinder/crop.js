@@ -700,7 +700,8 @@ let exluderChanged = false;
 // excluder 用標準作物ツリー設定
 function setupCropTree(containerSelector = '#cropTree', callback = searchCrop) {
 	const exclude = excludeCondition.replace(/^and/, 'where');
-	let sql = exclude ? `with tSakumotsu as (select distinct sakumotsu, 1 as exist from t_tekiyo ${exclude})` : '';
+	//let sql = exclude ? `with tSakumotsu as (select distinct sakumotsu, 1 as exist from t_tekiyo ${exclude})` : '';
+	let sql = `with tSakumotsu as (select distinct sakumotsu, 1 as exist from t_tekiyo ${exclude})`;
 	sql += `
 		select idsaku, class, toroku * ifnull(exist, 0) as toroku, sakumotsu, shukakubui, betsumei, 
 		':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords

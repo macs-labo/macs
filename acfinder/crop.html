@@ -61,6 +61,12 @@
 
 let currentListing;
 
+// 半角()[]を全角（）［］に変換する関数
+function normalizeCropName(name) {
+	const toFullWidthMap = { '(': '（', ')': '）', '[': '［', ']': '］' };
+	return name.replace(/[()[\]]/g, (char) => toFullWidthMap[char]);
+}
+
 async function searchCrop() {
 	const title = document.querySelector('#title');
 	tables = resetTables(tables);
@@ -73,7 +79,7 @@ async function searchCrop() {
 	const crops = checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
 	title.innerHTML = crops.join(',');
 	title.classList.remove('hidden');
-	const expandCropFlags = crops.map(crop => `max(${expandCrops(crop)}) as ${crop}`);
+	const expandCropFlags = crops.map(crop => `max(${expandCrops(crop)}) as ${normalizeCropName(crop)}`);
 	let sql =`
 		with tTsusho as (
 			select tsusho,${expandCropFlags.join(',')}
@@ -81,7 +87,7 @@ async function searchCrop() {
 			where sakumotsu in (${makeCropCondition(crops)}) ${excludeCondition} group by tsusho
 		),
 		tTekiyo as (
-			select * from tv_tsushoTekiyo where tsusho in (select tsusho from tTsusho where ${crops.join(currentSearchMethod)}) and sakumotsu in (${makeCropCondition(crops)})
+			select * from tv_tsushoTekiyo where tsusho in (select tsusho from tTsusho where ${normalizeCropName(crops.join(currentSearchMethod))}) and sakumotsu in (${makeCropCondition(crops)})
 		)
 	`;
 	switch(currentListing) {
