@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "git diff --quiet $VERCEL_GIT_PREVIOUS_SHA $VERCEL_GIT_COMMIT_SHA ./:^README.md :^.github/ :^LICENSE :^cron/",
+  "ignoreCommand": "npx vercel ignore -p ./:^README.md :^.github/ :^LICENSE :^cron/",
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.8.0",
