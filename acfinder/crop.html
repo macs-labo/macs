@@ -61,12 +61,6 @@
 
 let currentListing;
 
-// 半角()[]を全角（）［］に変換する関数
-function normalizeCropName(name) {
-	const toFullWidthMap = { '(': '（', ')': '）', '[': '［', ']': '］' };
-	return name.replace(/[()[\]]/g, (char) => toFullWidthMap[char]);
-}
-
 async function searchCrop() {
 	const title = document.querySelector('#title');
 	tables = resetTables(tables);

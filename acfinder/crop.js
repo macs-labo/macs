@@ -651,11 +651,16 @@ function resetCropTree() {
 	currentInfinitTree = null;
 }
 
+// 半角()[]を全角（）［］に変換する関数
+function normalizeCropName(name) {
+	const toFullWidthMap = { '(': '（', ')': '）', '[': '［', ']': '］' };
+	return name.replace(/[()[\]]/g, (char) => toFullWidthMap[char]);
+}
+
 // 作物名 csv を sakuhojo 用作物名正規表現に変換
 function csvToRegexp(csv) {
 	// 半角括弧を全角に一括置換
-	const toFullWidthMap = { '(': '（', ')': '）', '[': '［', ']': '］' };
-	csv = csv.replace(/[()[\]]/g, (char) => toFullWidthMap[char]);
+	csv = normalizeCropName(csv);
 
 	// 先頭が栽培条件付き作物名の場合、上位作物群にも栽培条件を追加
 	let items = csv.split(',');

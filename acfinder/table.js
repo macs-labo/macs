@@ -628,8 +628,8 @@ function outputTable(selector, result, option = {}) {
 		afterDropdownMenuShow: function(dropdownMenu) {
 			const tableContainer = this.rootElement.closest('.table_container');
 			if (tableContainer) {
-				// コンテナの高さを上限とする
-				const maxMenuHeight = tableContainer.clientHeight;
+				// コンテナの高さとビューポート高のいずれか小さい方を上限とする
+				const maxMenuHeight = Math.min(tableContainer.clientHeight, window.innerHeight);
 				const menuContainer = dropdownMenu.menu.container;
 				
 				if (menuContainer) {
@@ -686,6 +686,21 @@ function outputTable(selector, result, option = {}) {
 						}
 					}
 				}
+				// === 縦位置調整：メニューが画面下端を越える場合は上へずらす ===
+				requestAnimationFrame(() => {
+					const menuHeight = menuContainer.offsetHeight;
+					if (menuHeight > 0) {
+						const menuRect = menuContainer.getBoundingClientRect();
+						const viewportH = window.innerHeight;
+						const overflowBottom = menuRect.bottom - viewportH;
+						if (overflowBottom > 0) {
+							const currentTop = parseFloat(menuContainer.style.top) || menuRect.top;
+							const newTop = currentTop - overflowBottom;
+							const clampedTop = Math.max(newTop, 0);
+							menuContainer.style.setProperty('top', clampedTop + 'px', 'important');
+						}
+					}
+				});
 			}
 		},
 		licenseKey: 'non-commercial-and-evaluation',
