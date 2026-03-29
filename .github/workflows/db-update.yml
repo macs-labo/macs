@@ -144,8 +144,10 @@ jobs:
   # 並列ジョブ2: 外部サイトの同期（各拠点の .sync.data.php を叩く）
   sync-remote:
     needs: update-db
-    # acisが変わった、または強制更新の場合
-    if: needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.force_update == 'true'
+    # 条件: (ACIS更新あり OR 強制更新) かつ (同期モードが dbupdate_only ではない)
+    if: |
+      (needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.force_update == 'true') &&
+      (needs.update-db.outputs.sync_mode != 'dbupdate_only')
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Remote Sync
