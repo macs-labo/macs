@@ -1,5 +1,6 @@
 {
-  "ignoreCommand": "if echo \"$VC_REMOTE_COMMIT_MESSAGE\" | grep -q \"\\[skip ci\\]\"; then exit 0; else git diff --quiet HEAD^ HEAD ./:^README.md :^.github/ :^LICENSE :^cron/; fi",
+  "ignoreCommand": "echo \"$VC_REMOTE_COMMIT_MESSAGE\" | grep -q \"\\[skip ci\\]\""
+},
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.8.0",
