@@ -88,12 +88,12 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # 1. cron のワークファイルと公開データをすべてステージング
+          # 1. ワークファイルと公開データをステージング
           git add cron/ data/
           
-          # 2. 【重要】「意味のある差分」があるかチェック
-          # cron/ フォルダを除外して、data/ やプロジェクトルートの重要ファイルのみで判定
-          if ! git diff --staged --quiet -- . ':!cron/'; then
+          # 2. 【重要】公開用データ (data/) または設定 (update.json) に変化があるか判定
+          # cron/ 下のスクリプトや一時ファイルの変更「だけ」ならコミットしない
+          if ! git diff --staged --quiet -- data/ cron/update.json; then
             ACIS_CHANGED=false
             if git diff --cached --name-only | grep -q "data/acis.zip"; then
               ACIS_CHANGED=true
@@ -103,10 +103,10 @@ jobs:
             git commit -m "Update distribution files and databases [skip ci]"
             git push origin main
           else
-            echo "No relevant changes detected in distribution files. Skipping commit."
+            echo "No changes in distribution files. Skipping commit."
             echo "acis_changed=false" >> $GITHUB_OUTPUT
           fi
-
+      
       - name: Read update info
         id: info
         if: steps.commit.outputs.acis_changed == 'true'
