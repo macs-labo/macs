@@ -88,27 +88,27 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # cron ディレクトリ内の全ファイル（*.db, *.zip, *.json等）をステージング
-          git add cron/
-          
-          # 生成された *.db を data フォルダへコピー（既に cron 内でやっていれば不要）
+          # 1. 成果物を data/ に同期
           cp cron/*.db data/ 2>/dev/null || true
           
-          # data フォルダ内をすべてステージング（*.db も含める）
-          git add data/
+          # 2. cron/ と data/ の両方をステージング
+          git add cron/ data/
           
-          ACIS_CHANGED=false
-          # acis.zip が更新されたかチェック（リリース判定用）
-          if git diff --cached --name-only | grep -q "data/acis.zip"; then
-            ACIS_CHANGED=true
-          fi
-          echo "acis_changed=$ACIS_CHANGED" >> $GITHUB_OUTPUT
-
+          # 3. 差分判定
           if ! git diff --staged --quiet; then
+            # 実際に差分がある場合のみ実行
+            ACIS_CHANGED=false
+            if git diff --cached --name-only | grep -q "data/acis.zip"; then
+              ACIS_CHANGED=true
+            fi
+            echo "acis_changed=$ACIS_CHANGED" >> $GITHUB_OUTPUT
+
             git commit -m "Update distribution files and databases [skip ci]"
             git push origin main
           else
-            echo "No changes detected"
+            # 差分がない場合は何もしない
+            echo "No changes detected. Skipping commit."
+            echo "acis_changed=false" >> $GITHUB_OUTPUT
           fi
 
       - name: Read update info
