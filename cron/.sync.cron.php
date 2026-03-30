@@ -88,7 +88,7 @@ function is_modified($url, $date, $forceupdate = false) {
 }
 
 $file = 'cron.zip';
-$src = "https://raw.githubusercontent.com/macs-labo/macs-labo.github.io/main/cron/$file";
+$src = "https://raw.githubusercontent.com/macs-labo/macs/main/cron/$file";
 $fupdate = $_REQUEST['update'] ?? false;
 
 $total = -microtime(true);

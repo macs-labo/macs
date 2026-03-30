@@ -41,7 +41,12 @@ if ($ftoxic) {
     $time = -microtime(true);
     $sql = file_get_contents($file);
     if (strtolower(mb_detect_encoding($sql, 'sjis-win, utf-8')) == 'sjis-win') $sql = mb_convert_encoding($sql, 'utf-8', 'sjis-win');
-    $res = $db->exec($sql);
+    if ($sql) {
+      $res = $db->exec($sql);
+    } else {
+      echo "$file is empty.\n";
+      continue;
+    }
     if ($res === false) {
       $err = $db->errorInfo();
       logputs("acis $item", $err[2], 'Cron DB Error');
@@ -60,6 +65,12 @@ $finfo   = include_once 'inc.acis.reginfo.php';
 $fbyochu = include_once 'inc.acis.byochu.php';
 $fsaku   = include_once 'inc.acis.sakumotsu.php';
 $facis = $finfo || $fbyochu || $fsaku;
+
+// 変更なしの場合は db を閉じて終了
+if (!$facis && !$ftoxic) {
+  dbClose($db);
+  return 1;
+}
 
 // info テーブル及びビュー作成
 if ($facis) {
@@ -100,8 +111,6 @@ if ($res[0] === 'ok') {
   unlink($maindb);
   die('Aborted database update');
 }
-
-if (!$facis && !$ftoxic) return 1;
 
 // 公開 zip ファイル更新
 //exec("zip -jDq $datdir/$mainzip $datdir/$maindb");
