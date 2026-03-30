@@ -91,9 +91,9 @@ jobs:
           # 1. ワークファイルと公開データをステージング
           git add cron/ data/
           
-          # 2. 【重要】公開用データ (data/) または設定 (update.json) に変化があるか判定
+          # 2. 【重要】公開用データ (data/) に変化があるか判定
           # cron/ 下のスクリプトや一時ファイルの変更「だけ」ならコミットしない
-          if ! git diff --staged --quiet -- data/ cron/update.json; then
+          if ! git diff --staged --quiet -- data/; then
             ACIS_CHANGED=false
             if git diff --cached --name-only | grep -q "data/acis.zip"; then
               ACIS_CHANGED=true
