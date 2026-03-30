@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "echo \"$VC_REMOTE_COMMIT_MESSAGE\" | grep -q \"\\[skip ci\\]\""
+  "ignoreCommand": "echo \"$VC_REMOTE_COMMIT_MESSAGE\" | grep -q \"\\[skip ci\\]\"
 },
   "functions": {
     "api/index.php": {
