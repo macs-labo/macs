@@ -88,15 +88,12 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # 1. 成果物を data/ に同期
-          cp cron/*.db data/ 2>/dev/null || true
-          
-          # 2. cron/ と data/ の両方をステージング
+          # 1. cron のワークファイルと公開データをすべてステージング
           git add cron/ data/
           
-          # 3. 差分判定
-          if ! git diff --staged --quiet; then
-            # 実際に差分がある場合のみ実行
+          # 2. 【重要】「意味のある差分」があるかチェック
+          # cron/ フォルダを除外して、data/ やプロジェクトルートの重要ファイルのみで判定
+          if ! git diff --staged --quiet -- . ':!cron/'; then
             ACIS_CHANGED=false
             if git diff --cached --name-only | grep -q "data/acis.zip"; then
               ACIS_CHANGED=true
@@ -106,8 +103,7 @@ jobs:
             git commit -m "Update distribution files and databases [skip ci]"
             git push origin main
           else
-            # 差分がない場合は何もしない
-            echo "No changes detected. Skipping commit."
+            echo "No relevant changes detected in distribution files. Skipping commit."
             echo "acis_changed=false" >> $GITHUB_OUTPUT
           fi
 
