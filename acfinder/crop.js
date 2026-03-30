@@ -684,9 +684,9 @@ let cropConditions = [];
 // 単純作物名を上位下位展開して sakhojo 用検索条件に変換
 function expandCrops(crop) {
 	const sql = `
-		select gn_concat(',', sakumotsu) from (select xidsaku, sakumotsu, toroku from m_sakumotsu order by xidsaku desc) where toroku = 1 and xidsaku regexp (
-		select n_concat('|',xidsaku,substr(xidsaku,1,10)||'0000',substr(xidsaku,1,6)||'00000000',substr(xidsaku,1,4)||'0000000000',substr(xidsaku,1,2)||'000000000000',
-		if(gunmei is not null,(select xidsaku from m_sakumotsu where sakumotsu = a.gunmei))) from m_sakumotsu as a where sakumotsu = '${crop}');
+		select gn_concat(',', sakumotsu) from (select idsaku, sakumotsu, toroku from m_sakumotsu order by idsaku desc) where toroku = 1 and idsaku regexp (
+		select n_concat('|',idsaku,substr(idsaku,1,12)||'0000',substr(idsaku,1,8)||'00000000',substr(idsaku,1,6)||'0000000000',substr(idsaku,1,4)||'000000000000',substr(idsaku,1,2)||'00000000000000',
+		if(gunmei is not null,(select idsaku from m_sakumotsu where sakumotsu = a.gunmei))) from m_sakumotsu as a where sakumotsu = '${crop}');
 	`;
 	const result = db.exec(sql);
 	const crops = csvToRegexp(result[0].values[0][0]);
