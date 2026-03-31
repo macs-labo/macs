@@ -143,7 +143,8 @@ function dbOpen() {
   } catch(PDOException $e) {
     error('データベースエラー', $e->getMessage());
   }
-  //echo "$subdb\n";
+  echo realpath($subdb)."\n";
+  $db->exec("PRAGMA temp_store = 2;");
   $db->query("attach database '../data/spec.db' as spec");
   $db->sqliteCreateFunction('regexp', '_regexp', 2);
   $db->sqliteCreateFunction('re_replace', '_re_replace', 3);
