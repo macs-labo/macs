@@ -138,6 +138,12 @@ function dbOpen() {
     if (microtime(true) - $time > 0.9) error('データベースエラー', 'データベース更新中');
     usleep(300000);
   }
+  if file_exists($subdb) {
+    $res = copy($subdb, '/temp/tmp_spec.db');
+    echo "copy: $res\n";
+  } else {
+    echo "Not found $subdb\n";
+  }
   try {
     $db = new PDO("sqlite:$maindb");
   } catch(PDOException $e) {
