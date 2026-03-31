@@ -143,6 +143,7 @@ function dbOpen() {
   } catch(PDOException $e) {
     error('データベースエラー', $e->getMessage());
   }
+  echo "$subdb\n";
   $db->query("attach database '$subdb' as spec");
   $db->sqliteCreateFunction('regexp', '_regexp', 2);
   $db->sqliteCreateFunction('re_replace', '_re_replace', 3);
