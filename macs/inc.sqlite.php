@@ -144,6 +144,7 @@ function dbOpen() {
     error('データベースエラー', $e->getMessage());
   }
   echo realpath($subdb)."\n";
+  $db->query("PRAGMA temp_store_directory = '/tmp'");
   $db->exec("PRAGMA temp_store = 2;");
   $db->query("attach database 'file:$subdb?mode=ro&immutable=1' as spec");
   $db->sqliteCreateFunction('regexp', '_regexp', 2);
