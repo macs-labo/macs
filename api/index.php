@@ -1,4 +1,5 @@
 <?php
-chdir(dirname(__DIR__) . '/macs');
-require_once "./index.php";
+$rootdir = dirname(__DIR__);
+chdir("$rootdir/macs");
+require_once "$rootdir/index.php";
 ?>
