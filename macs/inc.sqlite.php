@@ -147,7 +147,7 @@ function dbOpen() {
     //$db->query("PRAGMA temp_store_directory = '/tmp'");
     $db->exec("PRAGMA temp_store = 2;");
     $db->exec("PRAGMA journal_mode = OFF;");
-    $db->exec("attach database 'file:$tmp_subdb?nolock=1' as spec");
+    //$db->exec("attach database 'file:$tmp_subdb?nolock=1' as spec");
     $db->sqliteCreateFunction('regexp', '_regexp', 2);
     $db->sqliteCreateFunction('re_replace', '_re_replace', 3);
     $db->sqliteCreateFunction('replace', '_replace', 3);
