@@ -133,21 +133,23 @@ function dbOpen() {
   $udflag = DbPath.'/'.UdFlag;
   $maindb = DbPath.'/'.MainDb;
   $subdb  = DbPath.'/'.SubDb;
-  $tmp_maindb = '/tmp/'.MainDb;
-  $tmp_subdb = '/tmp/'.SubDb;
+  //$tmp_maindb = '/tmp/'.MainDb;
+  //$tmp_subdb = '/tmp/'.SubDb;
   $time = microtime(true);
   while (file_exists($udflag)) {
     if (microtime(true) - $time > 0.9) error('データベースエラー', 'データベース更新中');
     usleep(300000);
   }
-  if (!file_exists($tmp_maindb)) copy($maindb, $tmp_maindb);
-  if (!file_exists($tmp_subdb)) copy($subdb, $tmp_subdb);
+  //if (!file_exists($tmp_maindb)) copy($maindb, $tmp_maindb);
+  //if (!file_exists($tmp_subdb)) copy($subdb, $tmp_subdb);
   try {
-    $db = new PDO("sqlite:$tmp_maindb");
+    $db = new PDO("sqlite:$maindb");
+    //$db = new PDO("sqlite:$tmp_maindb");
     //$db->query("PRAGMA temp_store_directory = '/tmp'");
     $db->exec("PRAGMA temp_store = 2;");
     //$db->exec("PRAGMA journal_mode = OFF;");
-    $db->exec("attach database '$tmp_subdb' as spec");
+    $db->exec("attach database '$subdb' as spec");
+    //$db->exec("attach database '$tmp_subdb' as spec");
     $db->sqliteCreateFunction('regexp', '_regexp', 2);
     $db->sqliteCreateFunction('re_replace', '_re_replace', 3);
     $db->sqliteCreateFunction('replace', '_replace', 3);
