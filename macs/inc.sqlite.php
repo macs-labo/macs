@@ -133,37 +133,29 @@ function dbOpen() {
   $udflag = DbPath.'/'.UdFlag;
   $maindb = DbPath.'/'.MainDb;
   $subdb  = DbPath.'/'.SubDb;
-  //$tmp_maindb = '/tmp/'.MainDb;
-  //$tmp_subdb = '/tmp/'.SubDb;
   $time = microtime(true);
   while (file_exists($udflag)) {
     if (microtime(true) - $time > 0.9) error('データベースエラー', 'データベース更新中');
     usleep(300000);
   }
-  //if (!file_exists($tmp_maindb)) copy($maindb, $tmp_maindb);
-  //if (!file_exists($tmp_subdb)) copy($subdb, $tmp_subdb);
   try {
     $db = new PDO("sqlite:$maindb");
-    //$db = new PDO("sqlite:$tmp_maindb");
-    //$db->query("PRAGMA temp_store_directory = '/tmp'");
-    $db->exec("PRAGMA temp_store = 2;");
-    //$db->exec("PRAGMA journal_mode = OFF;");
-    $db->exec("attach database '$subdb' as spec");
-    //$db->exec("attach database '$tmp_subdb' as spec");
-    $db->sqliteCreateFunction('regexp', '_regexp', 2);
-    $db->sqliteCreateFunction('re_replace', '_re_replace', 3);
-    $db->sqliteCreateFunction('replace', '_replace', 3);
-    $db->sqliteCreateFunction('strconv', '_strconv', 1);
-    $db->sqliteCreateFunction('strconv', '_strconv', 2);
-    $db->sqliteCreateFunction('ifnullstr', '_ifnullstr', 2);
-    $db->sqliteCreateFunction('if', '_if', 3);
-    $db->sqliteCreateFunction('concat', '_concat');
-    $db->sqliteCreateAggregate('concat', '_concatStep', '_concatFinal', 2);
-    $db->sqliteCreateFunction('concat2', '_concat2');
-    $db->sqliteCreateAggregate('concat2', '_concat2Step', '_concatFinal', 2);
-    return $db;
   } catch(PDOException $e) {
     error('データベースエラー', $e->getMessage());
   }
+  $db->exec("PRAGMA temp_store = 2;");
+  $db->query("attach database '$subdb' as spec");
+  $db->sqliteCreateFunction('regexp', '_regexp', 2);
+  $db->sqliteCreateFunction('re_replace', '_re_replace', 3);
+  $db->sqliteCreateFunction('replace', '_replace', 3);
+  $db->sqliteCreateFunction('strconv', '_strconv', 1);
+  $db->sqliteCreateFunction('strconv', '_strconv', 2);
+  $db->sqliteCreateFunction('ifnullstr', '_ifnullstr', 2);
+  $db->sqliteCreateFunction('if', '_if', 3);
+  $db->sqliteCreateFunction('concat', '_concat');
+  $db->sqliteCreateAggregate('concat', '_concatStep', '_concatFinal', 2);
+  $db->sqliteCreateFunction('concat2', '_concat2');
+  $db->sqliteCreateAggregate('concat2', '_concat2Step', '_concatFinal', 2);
+  return $db;
 }
 ?>
