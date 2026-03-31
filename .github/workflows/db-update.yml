@@ -87,11 +87,12 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-
-          # 1. 成果物を macs/ に同期
-          cp cron/*.db macs/ 2>/dev/null || true
           
-          # 1. 必要なディレクトリをステージング
+          # 最新のDBを公開用ディレクトリにコピー
+          cp macs/*.db data/ 2>/dev/null || true
+          
+          # 関連するディレクトリをすべてステージング
+          # (cronのワークファイル、macsの本体DB、dataの公開用ファイルを一括で)
           git add cron/ data/ macs/
           
           # 2. 【重要】公開用データ (data/) に変化があるか判定
