@@ -133,26 +133,21 @@ function dbOpen() {
   $udflag = DbPath.'/'.UdFlag;
   $maindb = DbPath.'/'.MainDb;
   $subdb  = DbPath.'/'.SubDb;
+  $tmp_subdb = '/temp/'.SubDb;
   $time = microtime(true);
   while (file_exists($udflag)) {
     if (microtime(true) - $time > 0.9) error('データベースエラー', 'データベース更新中');
     usleep(300000);
   }
-  if (file_exists($subdb)) {
-    $res = copy($subdb, '/tmp/tmp_spec.db');
-    echo "copy: $res\n";
-  } else {
-    echo "Not found $subdb\n";
-  }
+  if (!file_exists($tmp_subdb)) copy($subdb, $tmp_subdb);
   try {
     $db = new PDO("sqlite:$maindb");
   } catch(PDOException $e) {
     error('データベースエラー', $e->getMessage());
   }
-  echo realpath($subdb)."\n";
-  $db->query("PRAGMA temp_store_directory = '/tmp'");
+  //$db->query("PRAGMA temp_store_directory = '/tmp'");
   $db->exec("PRAGMA temp_store = 2;");
-  $db->query("attach database '$subdb' as spec");
+  $db->query("attach database '$tmp_subdb' as spec");
   $db->sqliteCreateFunction('regexp', '_regexp', 2);
   $db->sqliteCreateFunction('re_replace', '_re_replace', 3);
   $db->sqliteCreateFunction('replace', '_replace', 3);
