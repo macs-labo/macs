@@ -133,7 +133,7 @@ function dbOpen() {
   $udflag = DbPath.'/'.UdFlag;
   $maindb = DbPath.'/'.MainDb;
   $subdb  = DbPath.'/'.SubDb;
-  $tmp_subdb = '/temp/'.SubDb;
+  $tmp_subdb = '/tmp/'.SubDb;
   $time = microtime(true);
   while (file_exists($udflag)) {
     if (microtime(true) - $time > 0.9) error('データベースエラー', 'データベース更新中');
