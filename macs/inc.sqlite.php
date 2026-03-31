@@ -144,7 +144,7 @@ function dbOpen() {
     $db = new PDO("sqlite:$maindb");
     //$db->query("PRAGMA temp_store_directory = '/tmp'");
     $db->exec("PRAGMA temp_store = 2;");
-    $db->query("attach database '$tmp_subdb' as spec");
+    //$db->query("attach database '$tmp_subdb' as spec");
     $db->sqliteCreateFunction('regexp', '_regexp', 2);
     $db->sqliteCreateFunction('re_replace', '_re_replace', 3);
     $db->sqliteCreateFunction('replace', '_replace', 3);
