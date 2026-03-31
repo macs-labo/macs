@@ -145,7 +145,7 @@ function dbOpen() {
   }
   echo realpath($subdb)."\n";
   $db->exec("PRAGMA temp_store = 2;");
-  $db->query("attach database '$subdb' as spec");
+  $db->query("attach database 'file:$subdb?mode=ro&immutable=1' as spec");
   $db->sqliteCreateFunction('regexp', '_regexp', 2);
   $db->sqliteCreateFunction('re_replace', '_re_replace', 3);
   $db->sqliteCreateFunction('replace', '_replace', 3);
