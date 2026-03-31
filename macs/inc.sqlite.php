@@ -143,7 +143,7 @@ function dbOpen() {
   if (!file_exists($tmp_maindb)) copy($maindb, $tmp_maindb);
   if (!file_exists($tmp_subdb)) copy($subdb, $tmp_subdb);
   try {
-    $db = new PDO("sqlite:file:$maindb?nolock=1");
+    $db = new PDO("sqlite:file:$tmp_maindb?nolock=1");
     //$db->query("PRAGMA temp_store_directory = '/tmp'");
     $db->exec("PRAGMA temp_store = 2;");
     $db->exec("PRAGMA journal_mode = OFF;");
