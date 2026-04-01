@@ -2,5 +2,6 @@
 .github/
 .gitignore
 cron/
+acfinder/*.zip
 **/README.md
 **/LICENSE
