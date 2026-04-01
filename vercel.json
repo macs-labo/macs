@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "echo \"$VERCEL_GIT_COMMIT_MESSAGE\" | grep -qi \"skip ci\"",
+  "ignoreCommand": "[[ \"$VC_REMOTE_COMMIT_MESSAGE\" == *\"skip ci\"* ]]",
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.8.0",
