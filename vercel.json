@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "[[ \"$VC_REMOTE_COMMIT_MESSAGE\" == *\"skip ci\"* ]]",
+  "ignoreCommand": "php -r 'exit(strpos(getenv(\"VC_REMOTE_COMMIT_MESSAGE\"), \"[skip ci]\") !== false ? 0 : 1);'",
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.8.0",
