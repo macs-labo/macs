@@ -651,8 +651,8 @@ function resetCropTree() {
 	currentInfinitTree = null;
 }
 
-// 半角()[]を全角（）［］に変換する関数
-function normalizeCropName(name) {
+// カラム名用に半角()[]を全角（）［］に変換する関数
+function normalizeColName(name) {
 	const toFullWidthMap = { '(': '（', ')': '）', '[': '［', ']': '］' };
 	return name.replace(/[()[\]]/g, (char) => toFullWidthMap[char]);
 }
@@ -660,7 +660,7 @@ function normalizeCropName(name) {
 // 作物名 csv を sakuhojo 用作物名正規表現に変換
 function csvToRegexp(csv) {
 	// 半角括弧を全角に一括置換
-	csv = normalizeCropName(csv);
+	csv = normalizeColName(csv);
 
 	// 先頭が栽培条件付き作物名の場合、上位作物群にも栽培条件を追加
 	let items = csv.split(',');
@@ -684,9 +684,9 @@ let cropConditions = [];
 // 単純作物名を上位下位展開して sakhojo 用検索条件に変換
 function expandCrops(crop) {
 	const sql = `
-		select gn_concat(',', sakumotsu) from (select idsaku, sakumotsu, toroku from m_sakumotsu order by idsaku desc) where toroku = 1 and idsaku regexp (
-		select n_concat('|',idsaku,substr(idsaku,1,12)||'0000',substr(idsaku,1,8)||'00000000',substr(idsaku,1,6)||'0000000000',substr(idsaku,1,4)||'000000000000',substr(idsaku,1,2)||'00000000000000',
-		if(gunmei is not null,(select idsaku from m_sakumotsu where sakumotsu = a.gunmei))) from m_sakumotsu as a where sakumotsu = '${crop}');
+		select gn_concat(',', sakumotsu) from (select xidsaku, sakumotsu, toroku from m_sakumotsu order by xidsaku desc) where toroku = 1 and xidsaku regexp (
+		select n_concat('|',xidsaku,substr(xidsaku,1,10)||'0000',substr(xidsaku,1,6)||'00000000',substr(xidsaku,1,4)||'0000000000',substr(xidsaku,1,2)||'000000000000',
+		if(gunmei is not null,(select xidsaku from m_sakumotsu where sakumotsu = a.gunmei))) from m_sakumotsu as a where sakumotsu = '${crop}');
 	`;
 	const result = db.exec(sql);
 	const crops = csvToRegexp(result[0].values[0][0]);

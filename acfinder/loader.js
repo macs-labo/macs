@@ -104,7 +104,7 @@ async function saveFileToDB(db, fileName, blob, timestamp) {
 }
 
 // サーバーからタイムスタンプを取得
-async function getServerTimestamp(serverUrl, timeout = 5000) {
+async function getServerTimestamp(serverUrl, timeout = 3000) {
 
 	const controller = new AbortController();
 	const id = setTimeout(() => controller.abort(), timeout);
@@ -181,6 +181,7 @@ async function fetchFile(serverUrl, timeout = 60000, autoClose = true) {
 
 				if (total > 0) {
 					const percent = Math.floor((loaded / total) * 100);
+					// ダウンロード中は await しない（スループットを落とさないため）
 					waiting(true, `ダウンロード中: ${fileName} ${percent}%`);
 				} else {
 					waiting(true, `ダウンロード中: ${fileName} ${(loaded / 1024).toFixed(0)}KB`);
@@ -224,7 +225,7 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 		}
 
 		// ローカルファイルがある場合はタイムアウトを短くする
-		const tsTimeout = localFile ? 2000 : 5000;
+		const tsTimeout = localFile ? 1000 : 3000;
 		let serverTimestamp = null;
 		try {
 			serverTimestamp = await getServerTimestamp(serverUrl, tsTimeout);
@@ -801,7 +802,7 @@ function registerCustomFunctions() {
 }
 
 //ローディング表示
-function waiting(sw = true, msg = '') {
+async function waiting(sw = true, msg = '') {
 	const obj = document.getElementById('loading');
 	if (!obj) return;
 
@@ -821,6 +822,8 @@ function waiting(sw = true, msg = '') {
 		if (!msg) msg = 'データベースダウンロード中';
 		obj.getElementsByTagName('p')[0].innerHTML = msg;
 		obj.style.display = 'block';
+		// メッセージ変更を確実にブラウザへ描画させるための yield
+		await new Promise(resolve => setTimeout(resolve, 50));
 	} else {
 		obj.style.display = 'none';
 	}
@@ -1016,8 +1019,8 @@ async function fetchDB() {
 		//{ fileName: 'option.db', serverUrl: 'option.db' }, //ここに ATTACH するサブデータベースファイルを複数追加可能
 		{ fileName: 'init_create_view.sql', serverUrl: 'init_create_view.sql' }
 	];
-	
-	waiting(true);
+
+	await waiting(true);
 	let errorOccurred = false;
 	try {
 		console.log('Starting fetchOrLoadFile for all files...');
@@ -1035,12 +1038,12 @@ async function fetchDB() {
 		if (debug) console.log(sqlJsPath);
 		
 		console.log('Initializing SQL.js...');
-		waiting(true, 'SQLエンジン初期化中...');
+		await waiting(true, 'SQLエンジン初期化中...');
 		const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
 		
 		//メイン DB ロード
 		console.log('Loading main DB...');
-		waiting(true, 'メインデータベース読込中...');
+		await waiting(true, 'メインデータベース読込中...');
 		var dbname = basename(files[0].fileName) + '.db';
 		db = new SQL.Database(await unzip(new Uint8Array(await blobs[0].arrayBuffer()), dbname));
 		initDB();
@@ -1049,7 +1052,7 @@ async function fetchDB() {
 		//サブ DB ロード & attach
 		for(let j = 1; j < files.length - 1; j++) {
 			console.log(`Attaching sub DB ${files[j].fileName}...`);
-			waiting(true, `サブデータベース読込中: ${files[j].fileName}`);
+			await waiting(true, `サブデータベース読込中: ${files[j].fileName}`);
 			dbname = basename(files[j].fileName) + '.db';
 			let content = new Uint8Array(await blobs[j].arrayBuffer());
 			if (files[j].fileName.split('.').pop() == 'zip') content = await unzip(content, dbname);
@@ -1061,7 +1064,7 @@ async function fetchDB() {
 		//await execSQLLoadFromURL('init_create_view.sql');
 		const sqlFileIndex = files.length - 1;
 		console.log(`Executing SQL file ${files[sqlFileIndex].fileName}...`);
-		waiting(true, 'データ構築中...');
+		await waiting(true, 'データ構築中...');
 		const transformedSql = convTemplate(await blobs[sqlFileIndex].text());
 		//console.log(transformedSql);
 		await db.run(transformedSql);
@@ -1070,11 +1073,11 @@ async function fetchDB() {
 		console.log('fetchDB completed.');
 	} catch (error) {
 		console.error('Error in fetchDB:', error);
-		waiting(true, 'エラーが発生しました。<br>' + error.message);
+		await waiting(true, 'エラーが発生しました。<br>' + error.message);
 		errorOccurred = true;
 	} finally {
 		fcDB.close();
-		if (!errorOccurred) waiting(false);
+		if (!errorOccurred) await waiting(false);
 		//return Promise.resolve();
 	}
 }
@@ -1160,6 +1163,13 @@ window.addEventListener('storage', (event) => {
 			document.head.appendChild(style);
 		}
 		style.textContent = event.newValue;
+	} else if (event.key === 'caution') {
+		// 他のタブで「承諾」された場合、ダイアログを消して表示を更新する
+		const cautionDiv = document.querySelector('#resultPane .caution-dialog');
+		if (cautionDiv) cautionDiv.remove();
+		
+		const cautionLink = document.querySelector('#caution a');
+		if (cautionLink) cautionLink.className = 'accepted';
 	}
 });
 
@@ -1191,7 +1201,8 @@ window.addEventListener('DOMContentLoaded', function() {
 		title.textContent = 'ACFinderBE';
 		titleWrapper.appendChild(title);
 		const version = document.createElement('span');
-		version.innerHTML = `Release <a href="acfinder${appVer}.zip">${appVer}</a>`;
+		const baseUrl = 'https://raw.githubusercontent.com/macs-labo/macs/main/acfinder';
+		version.innerHTML = `Release <a href="${baseUrl}/acfinder${appVer}.zip">${appVer}</a>`;
 		titleWrapper.appendChild(version);
 		titleBar.appendChild(titleWrapper);
 		const subtitle = document.createElement('h2');

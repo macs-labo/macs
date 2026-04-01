@@ -180,10 +180,10 @@ function handleByochuSelection(event) {
 			// 作物ツリーを更新
 			setSakumotsuTree();
 			// テーブルを初期表示
-			const sqls = [
+			const option = [
 				{ caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' }
 			];
-			executeSQLsetGrid(sqls);
+			executeSQLsetGrid(option);
 		}, 100);
 	} else {
 		// チェックが0になった場合は即時実行
@@ -204,10 +204,10 @@ function searchCrop() {
 		
 		// テーブル表示を非同期で実行（表示を先に確実にするため）
 		setTimeout(() => {
-			const sqls = [
+			const option = [
 				{ caption: `「${selected.join('」「')}」に登録がある薬剤の「${selectedCrops.join('」「')}」及びその上位作物群に対する適用`, query: `select * FROM ttTekiyoByochu WHERE sakumotsu in (${makeCropCondition(selectedCrops)});` }
 			];
-			executeSQLsetGrid(sqls);
+			executeSQLsetGrid(opion);
 		}, 0);
 
 	} else {
@@ -217,10 +217,10 @@ function searchCrop() {
 		// 病害虫が選択されていれば、病害虫のみで絞り込んだ結果を再表示
 		const checked = checkedByochu();
 		if (checked.length > 0) { // UIの状態ではなく、チェックボックスの状態で判定
-			const sqls = [
+			const option = [
 				{ caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' }
 			];
-			executeSQLsetGrid(sqls);
+			executeSQLsetGrid(option);
 		}
 	}
 }
@@ -236,55 +236,22 @@ function setSakumotsuTree() {
 }
 
 // sql 実行 結果グリッド作成
-async function executeSQLsetGrid(sqls) {
-	if (!db) {
-		alert("データベースがロードされていません。");
-		return;
-	}
-
+async function executeSQLsetGrid(option) {
 	// テーブルインスタンスをクリア
 	tables = resetTables(tables);
 
+	await waiting(true, 'データベース検索中');
 	try {
-		// クエリを逐次実行
-		for (const [index, sql] of sqls.entries()) {
-			//console.log(sql.query);
-			await new Promise((resolve) => {
-				// ローディング画面を確実に表示
-				waiting(true, `クエリ ${index + 1} 実行中`);
-				// UI更新を反映させるためにsetTimeoutを使用
-				setTimeout(() => {
-					requestAnimationFrame(() => {
-						try {
-							let searchTime = -performance.now();
-							let result = db.exec(sql.query);
-							searchTime += performance.now();
-
-							// 結果を表示
-							let option = { caption: sql.caption, /* query: sql.query, searchTime: searchTime*/ };
-							const columns = result[0].columns;
-							if (columns.length == 1 && columns[0] == 'chuijiko') {
-								const value = result[0].values[0][0];
-								result[0].values[0][0] = value.replaceAll(/#/g, "\n");
-							}
-							tables = outputTable('#result', result, option);
-						} catch (error) {
-							// クエリごとのエラーをキャッチ
-							console.error(`エラー: ${error.message}`);
-						} finally {
-							// 各クエリ実行後にローディング画面を非表示
-							waiting(false);
-						}
-						resolve();
-					});
-				}, 0); // 0msで次のイベントループに処理を移す
-			});
-		}
-
+		// クエリを実行
+		let searchTime = -performance.now();
+		const result = db.exec(option.query);
+		searchTime += performance.now();
+		// 結果を表示
+		tables = outputTable('#result', result, { caption: option.caption });
 	} catch (error) {
-		// 全体のエラーハンドリング
-		waiting(false);
-		//setToolbarText(`<span class="error">エラー: ${error.message}</span>`);
+		throw error;
+	} finally {
+		await waiting(false);
 	}
 }
 

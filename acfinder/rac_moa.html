@@ -75,8 +75,7 @@ async function searchCrop() {
 	title.innerHTML = crops.join(',');
 	title.classList.remove('hidden');
 	const mode = currentRac.toUpperCase().slice(0, 1);
-	const expandCropFlags = crops.map(crop => `max(${expandCrops(crop)}) as ${normalizeCropName(crop)}`);
-	//const cropFlags = crops.map(crop => `max(${crop}) as ${crop}`);
+	const expandCropFlags = crops.map(crop => `max(${expandCrops(crop)}) as ${normalizeColName(crop)}`);
 	const sqlRac = {
 		F: 'sayokiko, sayoten, fgroup as FRACグループ名, keito, ippanmei, tsusho, risk from frac_ai left join frac_sg using(sid) left join frac_mg using(mid)',
 		I: 'sayokiko, sayoten, keito, ippanmei, tsusho from irac_ai left join irac_sg using(sid) left join irac_mg using(mid)',
@@ -95,33 +94,23 @@ async function searchCrop() {
 			select tsusho, string_agg(rac, '') as tsushoRac from tRac1 group by tsusho
 		), tRac3 as (
 			select ippanmei, gn_concat(', ', tsusho||replace(replace(tsushoRac, rac, ''), '][', '/')) as tsusho
-			from tRac1 left join tRac2 using(tsusho) where ${normalizeCropName(crops.join(' and '))}
+			from tRac1 left join tRac2 using(tsusho) where ${normalizeColName(crops.join(' and '))}
 			group by ippanmei
 		)
 		select re_replace('^([1-9])(?![0-9])', mid, ' $1') as mid, ${sqlRac[mode]} left join tRac3 using(ippanmei) where tsusho is not null and mid != '未' order by mid;
 	`;
 	if (debug) console.log(sql);
-	await new Promise((resolve) => {
-		// ローディング画面を確実に表示
-		waiting(true, 'データベース検索中');
-		// UI更新を反映させるためにsetTimeoutを使用
-		setTimeout(() => {
-			requestAnimationFrame(() => {
-				try {
-					let searchTime = -performance.now();
-					let result = db.exec(sql);
-					searchTime += performance.now();
-					tables = outputTable('#result', result, { caption: `「${crops.join('」「')}」に${crops.length > 1 ? '共通して' : ''}使用可能な薬剤の${currentRac.toUpperCase()}作用機構分類`, hideFooterU20: false });
-				} catch (error) {
-					console.error(`エラー: ${error.message}`);
-				} finally {
-					// クエリ実行後にローディング画面を非表示
-					waiting(false);
-				}
-				resolve();
-			});
-		}, 0); // 0msで次のイベントループに処理を移す
-	});
+	await waiting(true, 'データベース検索中');
+	try {
+		let searchTime = -performance.now();
+		let result = db.exec(sql);
+		searchTime += performance.now();
+		tables = outputTable('#result', result, { caption: `「${crops.join('」「')}」に${crops.length > 1 ? '共通して' : ''}使用可能な薬剤の${currentRac.toUpperCase()}作用機構分類`, hideFooterU20: false });
+	} catch (error) {
+		console.error(`エラー: ${error.message}`);
+	} finally {
+		await waiting(false);
+	}
 }
 
 function handleRacChange(event) {

@@ -421,34 +421,26 @@ async function sequentialExecSQL(sql) {
 	try {
 		// クエリを逐次実行
 		for (const [index, query] of queries.entries()) {
-			await new Promise((resolve, reject) => {
-				// ローディング画面を確実に表示
-				waiting(true, `クエリ ${index + 1}/${queries.length} 実行中`);
-				// UI更新を反映させるためにsetTimeoutを使用
-				setTimeout(() => {
-					requestAnimationFrame(() => {
-						try {
-							let searchTime = -performance.now();
-							let result = db.exec(query);
-							searchTime += performance.now();
+			// ローディング画面を表示して描画完了を待機
+			await waiting(true, `クエリ ${index + 1}/${queries.length} 実行中`);
 
-							// 結果を表示
-							const option = { query: query, searchTime: searchTime, hideFooterU20: false };
-							const table = outputTable('#result', result, option);
-							// テーブルインスタンスを保存
-							if (table) tables.push(table);
-						} catch (error) {
-							// クエリごとのエラーをキャッチ
-							reject(new Error(`クエリ${index + 1}: ${error.message}`));
-							return; // rejectしたので以降の処理は不要
-						} finally {
-							// 各クエリ実行後にローディング画面を非表示
-							waiting(false);
-						}
-						resolve(); // 成功した場合のみ resolve
-					});
-				}, 0); // 0msで次のイベントループに処理を移す
-			});
+			try {
+				let searchTime = -performance.now();
+				let result = db.exec(query);
+				searchTime += performance.now();
+
+				// 結果を表示
+				const option = { query: query, searchTime: searchTime, hideFooterU20: false };
+				const table = outputTable('#result', result, option);
+				// テーブルインスタンスを保存
+				if (table) tables.push(table);
+			} catch (error) {
+				// クエリごとのエラーをキャッチして外側の catch へ飛ばす
+				throw new Error(`クエリ${index + 1}: ${error.message}`);
+			} finally {
+				// 各クエリ実行後にローディング画面を非表示
+				await waiting(false);
+			}
 		}
 
 		// すべてのクエリ実行後に結果をチェック
@@ -468,10 +460,7 @@ async function batchExecSQL(sql) {
 	tables = resetTables(tables);
 
 	// ローディング画面を表示
-	waiting(true, `クエリを一括実行中`);
-
-	// UIの更新を待ってから重い処理を実行
-	await new Promise(resolve => setTimeout(resolve, 0));
+	await waiting(true, `クエリを一括実行中`);
 
 	try {
 		let searchTime = -performance.now();
@@ -500,7 +489,7 @@ async function batchExecSQL(sql) {
 	} catch (error) {
 		setToolbarText(`<span class="error">エラー: ${error.message}</span>`);
 	} finally {
-		waiting(false);
+		await waiting(false);
 	}
 }
 

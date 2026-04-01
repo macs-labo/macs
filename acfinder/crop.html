@@ -73,7 +73,7 @@ async function searchCrop() {
 	const crops = checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
 	title.innerHTML = crops.join(',');
 	title.classList.remove('hidden');
-	const expandCropFlags = crops.map(crop => `max(${expandCrops(crop)}) as ${normalizeCropName(crop)}`);
+	const expandCropFlags = crops.map(crop => `max(${expandCrops(crop)}) as ${normalizeColName(crop)}`);
 	let sql =`
 		with tTsusho as (
 			select tsusho,${expandCropFlags.join(',')}
@@ -81,7 +81,7 @@ async function searchCrop() {
 			where sakumotsu in (${makeCropCondition(crops)}) ${excludeCondition} group by tsusho
 		),
 		tTekiyo as (
-			select * from tv_tsushoTekiyo where tsusho in (select tsusho from tTsusho where ${normalizeCropName(crops.join(currentSearchMethod))}) and sakumotsu in (${makeCropCondition(crops)})
+			select * from tv_tsushoTekiyo where tsusho in (select tsusho from tTsusho where ${normalizeColName(crops.join(currentSearchMethod))}) and sakumotsu in (${makeCropCondition(crops)})
 		)
 	`;
 	switch(currentListing) {
@@ -133,28 +133,18 @@ async function searchCrop() {
 			sql += 'select * from tTekiyo;';
 	}
 	if (debug) console.log(sql);
-	await new Promise((resolve) => {
-		// ローディング画面を確実に表示
-		waiting(true, 'データベース検索中');
-		// UI更新を反映させるためにsetTimeoutを使用
-		setTimeout(() => {
-			requestAnimationFrame(() => {
-				try {
-					let searchTime = -performance.now();
-					let result = db.exec(sql);
-					searchTime += performance.now();
-					common = currentSearchMethod === ' and ' ? '共通して' : '';
-					tables = outputTable('#result', result, { caption: `「${crops.join('」「')}」に${common}使用可能な薬剤の適用`, hideFooterU20: false });
-				} catch (error) {
-					console.error(`エラー: ${error.message}`);
-				} finally {
-					// クエリ実行後にローディング画面を非表示
-					waiting(false);
-				}
-				resolve();
-			});
-		}, 0); // 0msで次のイベントループに処理を移す
-	});
+	await waiting(true, 'データベース検索中');
+	try {
+		let searchTime = -performance.now();
+		let result = db.exec(sql);
+		searchTime += performance.now();
+		const common = currentSearchMethod === ' and ' ? '共通して' : '';
+		tables = outputTable('#result', result, { caption: `「${crops.join('」「')}」に${common}使用可能な薬剤の適用`, hideFooterU20: false });
+	} catch (error) {
+		console.error(`エラー: ${error.message}`);
+	} finally {
+		await waiting(false);
+	}
 }
 
 function handleListingChange(event) {

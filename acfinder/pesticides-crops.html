@@ -75,7 +75,7 @@ async function searchCrop() {
 			seizaiyoto, tsusho, seizaidokusei, hoho,
 	`;
 	crops.forEach(crop => {
-		sql += `max(if(${expandCrops(crop)}, ${currentListing}, '')) as ${crop},\n`;
+		sql += `max(if(${expandCrops(crop)}, ${currentListing}, '')) as ${normalizeColName(crop)},\n`;
 	});
 	sql += `
 			gn_concat(', ',  n_concat('/', byochu, mokuteki)) as byochu,
@@ -90,27 +90,17 @@ async function searchCrop() {
 		group by tsusho, hoho;
 	`;
 	//console.log(sql);
-	await new Promise((resolve) => {
-		// ローディング画面を確実に表示
-		waiting(true, 'データベース検索中');
-		// UI更新を反映させるためにsetTimeoutを使用
-		setTimeout(() => {
-			requestAnimationFrame(() => {
-				try {
-					let searchTime = -performance.now();
-					let result = db.exec(sql);
-					searchTime += performance.now();
-					tables = outputTable('#result', result, { caption: `「${crops.join('」「')}」で使用可能な薬剤の適用`, hideFooterU20: false });
-				} catch (error) {
-					console.error(`エラー: ${error.message}`);
-				} finally {
-					// クエリ実行後にローディング画面を非表示
-					waiting(false);
-				}
-				resolve();
-			});
-		}, 0); // 0msで次のイベントループに処理を移す
-	});
+	await waiting(true, 'データベース検索中');
+	try {
+		let searchTime = -performance.now();
+		let result = db.exec(sql);
+		searchTime += performance.now();
+		tables = outputTable('#result', result, { caption: `「${crops.join('」「')}」で使用可能な薬剤の適用`, hideFooterU20: false });
+	} catch (error) {
+		console.error(`エラー: ${error.message}`);
+	} finally {
+		await waiting(false);
+	}
 }
 
 function handleListingChange(event) {
