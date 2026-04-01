@@ -1,5 +1,5 @@
 {
-  "ignoreCommand": "npx vercel-ignore -i .github",
+  "ignoreCommand": "echo \"${VC_REMOTE_COMMIT_MESSAGE:-no_message}\" | grep -qi \"skip ci\"",
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.8.0",
