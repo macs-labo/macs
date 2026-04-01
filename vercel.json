@@ -1,5 +1,5 @@
 {
-  "case \"$VC_REMOTE_COMMIT_MESSAGE\" in *\"[skip ci]\"*) exit 0;; *) exit 1;; esac",
+  "ignoreCommand": "case \"$VC_REMOTE_COMMIT_MESSAGE\" in *\"[skip ci]\"*) exit 0;; *) exit 1;; esac",
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.8.0",
