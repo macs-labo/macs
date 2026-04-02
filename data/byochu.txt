@@ -1,5 +1,5 @@
 --/d
-/* 2026.03.31 現在の農水省農薬登録情報提供システムに基づく病害虫・雑草マスター (2021.05.10) */
+/* 2026.04.02 現在の農水省農薬登録情報提供システムに基づく病害虫・雑草マスター (2021.05.10) */
 /* 検索用病害虫マスター 2014.01.15 */
 begin transaction;
 drop table if exists m_byochu;
@@ -880,7 +880,6 @@ insert into m_byochu values(2, 61, '20610700', 'カボチャミバエ', 'かぼちゃみばえ
 insert into m_byochu values(2, 61, '20610800', 'ナスミバエ', 'なすみばえ');
 insert into m_byochu values(2, 64, '20640100', 'メイチュウ類', 'めいちゅうるい');
 insert into m_byochu values(2, 64, '20640250', 'ノメイガ類', 'のめいがるい');
-insert into m_byochu values(2, 64, '20640300', 'ダイメイチュウ', 'だいめいちゅう、いねよとう');
 insert into m_byochu values(2, 64, '20640400', 'アカフツヅリガ', 'あかふつづりが');
 insert into m_byochu values(2, 64, '20640500', 'アワノメイガ', 'あわのめいが');
 insert into m_byochu values(2, 64, '20640800', 'カキノキマダラメイガ', 'かきのきまだらめいが');
@@ -1348,14 +1347,11 @@ insert into m_byochu values(3, 50, '30500013', 'クローバー、オオバコ、ヤハズソウ
 insert into m_byochu values(3, 50, '30500008', '広葉雑草', 'こうようざっそう、ひろはざっそう');
 insert into m_byochu values(3, 50, '30500009', '水田雑草(イネ科を除く)', 'すいでんざっそう(いねかをじょく)');
 insert into m_byochu values(4, 124, '41241600', 'エゾヤチネズミ', 'えぞやちねずみ');
-insert into m_byochu values(4, 124, '41240300', 'カモシカ', 'かもしか');
 insert into m_byochu values(4, 124, '41240400', 'カラス', 'からす');
 insert into m_byochu values(4, 124, '41241500', 'カワラヒワ', 'かわらひわ');
 insert into m_byochu values(4, 124, '41240500', 'キジ', 'きじ');
 insert into m_byochu values(4, 124, '41241400', 'キジバト', 'きじばと');
-insert into m_byochu values(4, 124, '41241300', 'クマ', 'くま');
 insert into m_byochu values(4, 124, '41240600', 'スズメ', 'すずめ');
-insert into m_byochu values(4, 124, '41240700', 'ニホンジカ', 'にほんじか');
 insert into m_byochu values(4, 124, '41241100', '野ウサギ', 'のうさぎ');
 insert into m_byochu values(4, 124, '41240800', 'ハト', 'はと');
 insert into m_byochu values(4, 124, '41240900', 'ムクドリ', 'むくどり');
