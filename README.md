@@ -1,6 +1,6 @@
 # 農薬データベース(MacsDB)更新状況
 
-[![Manual and Scheduled Database Update](https://github.com/macs-labo/macs-labo.github.io/actions/workflows/db-update.yml/badge.svg)](https://github.com/macs-labo/macs-labo.github.io/actions/workflows/db-update.yml)
+[![Manual and Scheduled Database Update](https://github.com/macs-labo/macs/actions/workflows/db-update.yml/badge.svg)](https://github.com/macs-labo/macs/actions/workflows/db-update.yml)
 
 本プロジェクトは、月〜金の9～17時に毎時1回自動でFAMICデータの更新チェックをしています。
 

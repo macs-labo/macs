@@ -9,7 +9,7 @@ let tables = []; // テーブルインスタンスを保持する配列
 let lastUpdate = '';
 
 const isMacs = window.location.hostname.match(/^(macs|noyaku)\./); // MACS サイト判定: ホスト名の先頭が macs. または noyaku.
-const datdir = isMacs ? '../data/' : 'https://raw.githubusercontent.com/macs-labo/macs-labo.github.io/main/data/'; // MACS サイト以外では github から取得
+const datdir = isMacs ? '../data/' : 'https://raw.githubusercontent.com/macs-labo/macs/main/data/'; // MACS サイト以外では github から取得
 const maindb = 'acis';
 const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
@@ -1096,7 +1096,7 @@ function openCautionDialog() {
 			<li>当サイト(携帯農薬検索実験室)が本サービスで提供する情報は、FAMIC(独立行政法人農林水産消費安全技術センター)ホームページから取得した農薬登録情報を当サイトで加工し、検索できるようにしたものです。</li>
 			<li>情報取得先であるFAMICは、FAMICホームページの情報を用いて当サイトが行う本サービスの提供等の一切の行為により、直接または間接的に生じた利用者またはそれ以外の第三者の損害については、その内容、方法の如何にかかわらず、一切責任を負いません。</li>
 			<li>当サイト運営者は、FAMICホームページから取得した農薬登録情報の加工及び検索に万全を期していますが、本サービスを利用した結果いかなる損害が発生したとしても、一切責任を負いません。</li>
-			<li>本サービスが使用するデータベースおよびプログラムのソースコードは MIT ライセンスで公開していますが、サービスの持続性確保のため、必ず「<a href="https://github.com/macs-labo/macs-labo.github.io#readme" target="_blank">利用規約</a>」をご確認の上、不具合報告等のメインテナンスへの協力をお願いします。</li>
+			<li>本サービスが使用するデータベースおよびプログラムのソースコードは MIT ライセンスで公開していますが、サービスの持続性確保のため、必ず「<a href="https://github.com/macs-labo/macs#readme" target="_blank">利用規約</a>」をご確認の上、不具合報告等のメインテナンスへの協力をお願いします。</li>
 			</ul>
 		<div>
 			<button id="accept-caution" disabled>承諾</button>

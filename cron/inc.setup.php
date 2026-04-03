@@ -15,7 +15,7 @@ if (getenv('GITHUB_ACTIONS') === 'true') {
   $libdir  = '.';
   $dbpath  = false;
   // 判定基準をリポジトリの Raw URL に統一
-  $chkbase = 'https://raw.githubusercontent.com/macs-labo/macs-labo.github.io/main/data';
+  $chkbase = 'https://raw.githubusercontent.com/macs-labo/macs/main/data';
   return 0;
 }
 
