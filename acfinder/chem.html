@@ -235,139 +235,34 @@ function handleYakuzaiSelection(event) {
 
 // sql 実行 結果グリッド作成
 async function executeSQLsetGrid(sqls) {
-	if (!db) {
-		alert("データベースがロードされていません。");
-		return;
-	}
-
 	// テーブルインスタンスをクリア
-	tables.forEach(table => {
-		if (table !== null && typeof table.destroy === 'function') {
-			table.destroy();
+	tables = resetTables(tables);
+
+	// クエリを逐次実行
+	for (const [index, sql] of sqls.entries()) {
+		await waiting(true, `クエリ ${index + 1} 実行中`);
+		try {
+			let searchTime = -performance.now();
+			let result = db.exec(sql.query);
+			searchTime += performance.now();
+
+			if (!result || result.length === 0) continue;
+
+			// 結果を表示
+			let option = { caption: sql.caption };
+			if (sql.caption.endsWith('適用')) option.hideFooterU20 = false;
+			const columns = result[0].columns;
+			if (columns.length == 1 && columns[0] == 'chuijiko') {
+				const value = result[0].values[0][0];
+				result[0].values[0][0] = value.replaceAll(/#/g, "\n");
+			}
+			const table = outputTable('#result', result, option);
+			if (table) tables.push(table);
+		} catch (error) {
+			console.error(`クエリ${index + 1} エラー: ${error.message}`);
 		}
-	});
-	tables = [];
-	let resultDiv = document.getElementById("result");
-	resultDiv.innerHTML = ""; // クリア
-
-	try {
-		// クエリを逐次実行
-		for (const [index, sql] of sqls.entries()) {
-			//console.log(sql.query);
-			await new Promise((resolve) => {
-				// ローディング画面を確実に表示
-				waiting(true, `クエリ ${index + 1} 実行中`);
-				// UI更新を反映させるためにsetTimeoutを使用
-				setTimeout(() => {
-					requestAnimationFrame(() => {
-						try {
-							let searchTime = -performance.now();
-							let result = db.exec(sql.query);
-							searchTime += performance.now();
-
-							// 結果を表示
-							let option = { caption: sql.caption, /* query: sql.query, searchTime: searchTime*/ };
-							if (sql.caption.endsWith('適用')) option.hideFooterU20 = false;
-							const columns = result[0].columns;
-							if (columns.length == 1 && columns[0] == 'chuijiko') {
-								const value = result[0].values[0][0];
-								result[0].values[0][0] = value.replaceAll(/#/g, "\n");
-							}
-							const table = outputTable('#result', result, option);
-							// テーブルインスタンスを保存
-							if (table) {
-								tables.push(table);
-							}
-						} catch (error) {
-							// クエリごとのエラーをキャッチ
-							//setToolbarText(`<span class="error">クエリ${index + 1} エラー: ${error.message}</span>`);
-						} finally {
-							// 各クエリ実行後にローディング画面を非表示
-							waiting(false);
-						}
-						resolve();
-					});
-				}, 0); // 0msで次のイベントループに処理を移す
-			});
-		}
-
-	} catch (error) {
-		// 全体のエラーハンドリング
-		waiting(false);
-		//setToolbarText(`<span class="error">エラー: ${error.message}</span>`);
 	}
-}
-
-async function execSQL(sql) {
-	if (!db) {
-		alert("データベースがロードされていません。");
-		return;
-	}
-	//console.log("sql:", sql);
-
-	// コメント削除
-	sql = sql.replace(/--.*?$/gm, '');
-	sql = sql.replace(/\/\*.*?\*\//gs, '');
-
-	// セミコロン `;` で分割し、各コマンドを適切に連結
-	let queries = [];
-	let currentQuery = "";
-
-	sql.split("\n").forEach(line => {
-		line = line.trim();
-		if (line === "") return; // 空行はスキップ
-
-		currentQuery += (currentQuery.length > 0 ? " " : "") + line; // 前の行とつなげる
-
-		if (line.endsWith(";")) { // セミコロンで終わったらクエリ確定
-			queries.push(currentQuery);
-			currentQuery = "";
-		}
-	});
-
-	if (currentQuery.length > 0) { // 最後にセミコロンがなくても 1 つのクエリとして処理
-		queries.push(currentQuery);
-	}
-
-	if (!queries.length) {
-		//setToolbarText('<span class="caution">有効な SQL がありません</span>');
-		return;
-	}
-
-
-	try {
-		// クエリを逐次実行
-		for (const [index, query] of queries.entries()) {
-			await new Promise((resolve) => {
-				// ローディング画面を確実に表示
-				waiting(true, `クエリ ${index + 1} 実行中`);
-				// UI更新を反映させるためにsetTimeoutを使用
-				setTimeout(() => {
-					requestAnimationFrame(() => {
-						try {
-							let searchTime = -performance.now();
-							let result = db.exec(query);
-							searchTime += performance.now();
-
-						} catch (error) {
-							// クエリごとのエラーをキャッチ
-							//setToolbarText(`<span class="error">クエリ${index + 1} エラー: ${error.message}</span>`);
-						} finally {
-							// 各クエリ実行後にローディング画面を非表示
-							waiting(false);
-						}
-						resolve();
-					});
-				}, 0); // 0msで次のイベントループに処理を移す
-			});
-		}
-
-	} catch (error) {
-		// 全体のエラーハンドリング
-		waiting(false);
-		//setToolbarText(`<span class="error">エラー: ${error.message}</span>`);
-	}
-//*/
+	await waiting(false);
 }
 
 // DOM読込完了時の初期設定

@@ -651,11 +651,16 @@ function resetCropTree() {
 	currentInfinitTree = null;
 }
 
+// カラム名用に半角()[]を全角（）［］に変換する関数
+function normalizeColName(name) {
+	const toFullWidthMap = { '(': '（', ')': '）', '[': '［', ']': '］' };
+	return name.replace(/[()[\]]/g, (char) => toFullWidthMap[char]);
+}
+
 // 作物名 csv を sakuhojo 用作物名正規表現に変換
 function csvToRegexp(csv) {
 	// 半角括弧を全角に一括置換
-	const toFullWidthMap = { '(': '（', ')': '）', '[': '［', ']': '］' };
-	csv = csv.replace(/[()[\]]/g, (char) => toFullWidthMap[char]);
+	csv = normalizeColName(csv);
 
 	// 先頭が栽培条件付き作物名の場合、上位作物群にも栽培条件を追加
 	let items = csv.split(',');
@@ -700,7 +705,8 @@ let exluderChanged = false;
 // excluder 用標準作物ツリー設定
 function setupCropTree(containerSelector = '#cropTree', callback = searchCrop) {
 	const exclude = excludeCondition.replace(/^and/, 'where');
-	let sql = exclude ? `with tSakumotsu as (select distinct sakumotsu, 1 as exist from t_tekiyo ${exclude})` : '';
+	//let sql = exclude ? `with tSakumotsu as (select distinct sakumotsu, 1 as exist from t_tekiyo ${exclude})` : '';
+	let sql = `with tSakumotsu as (select distinct sakumotsu, 1 as exist from t_tekiyo ${exclude})`;
 	sql += `
 		select idsaku, class, toroku * ifnull(exist, 0) as toroku, sakumotsu, shukakubui, betsumei, 
 		':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords

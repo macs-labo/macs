@@ -51,7 +51,7 @@
 
 .infinite-tree-scroll {
 	min-height: 200px;
-	max-height: calc(100vh - 156px);
+	max-height: calc(100vh - 160px);
 }
 
 #yakuzai,
@@ -218,6 +218,19 @@ svg.disabled {
 	white-space: nowrap; /* セル内のテキストを改行させない */
 }
 
+@keyframes blink {
+  0% { opacity: 1; }   /* 表示 */
+  50% { opacity: 0; }  /* 非表示 */
+  100% { opacity: 1; } /* 表示 */
+}
+
+#seibunContainer em {
+	font-style: normal;
+	font-weight: bold;
+	color: red;
+	animation: blink 0.5s 6 forwards;
+}
+
 .handsontable-like .svg_button {
 	width: 24px;
 	height: 24px;
@@ -300,22 +313,15 @@ if (!HTMLElement.prototype.clearContent) {
   };
 }
 
-function dbExec(sql) {
-	return new Promise((resolve, reject) => {
-		waiting(true, 'データベース検索中');
-		setTimeout(() => {
-			requestAnimationFrame(() => {
-				try {
-					const result = db.exec(sql);
-					resolve(result);
-				} catch (error) {
-					reject(error);
-				} finally {
-					waiting(false);
-				}
-			});
-		}, 0);
-	});
+async function dbExec(sql) {
+	await waiting(true, 'データベース検索中');
+	try {
+		return db.exec(sql);
+	} catch (error) {
+		throw error;
+	} finally {
+		await waiting(false);
+	}
 }
 
 async function searchCrop() {
@@ -1612,12 +1618,14 @@ function updateSeibunCountTable() {
 			const mids = midCell.innerHTML.split('<br>').map(s => s.trim());
 
 			seibuns.forEach((seibun, index) => {
-				const currentData = seibunData.get(seibun) || { count: 0, seibunkaisu: '', mid: '' };
+				const currentData = seibunData.get(seibun) || { count: 0, seibunkaisu: '', mid: '', limit: 0 };
 				currentData.count += 1;
 				// 最初のデータを代表としてseibunkaisuとmidを保存
 				if (currentData.count === 1) {
 					currentData.seibunkaisu = seibunkaisus[index] || '';
 					currentData.mid = mids[index] || '';
+					const match = currentData.seibunkaisu.match(/^\d+/);
+					currentData.limit = match ? parseInt(match[0], 10) : 0;
 				}
 				seibunData.set(seibun, currentData);
 			});
@@ -1669,7 +1677,13 @@ function updateSeibunCountTable() {
 		row.insertCell().textContent = seibun;
 		// 成分回数が '-' または空文字の場合はカウントを空にする
 		const countCell = row.insertCell();
-		countCell.textContent = (data.seibunkaisu === '-' || data.seibunkaisu === '') ? '' : data.count;
+		if (data.seibunkaisu === '-' || data.seibunkaisu === '') {
+			countCell.textContent = '';
+		} else if (data.limit > 0 && data.count > data.limit) {
+			countCell.innerHTML = `<em>${data.count}</em>`;
+		} else {
+			countCell.textContent = data.count;
+		}
 		row.insertCell().textContent = data.seibunkaisu;
 		row.insertCell().textContent = data.mid;
 	});

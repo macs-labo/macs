@@ -69,6 +69,16 @@
 	margin: 0;
 	line-height: 18px;
 	white-space: nowrap;
+	cursor: pointer;
+	text-decoration: underline;
+	text-decoration-color: var(--ul-visited-link-color);
+	text-decoration-thickness: 0.4rem;
+	text-underline-offset: -0.25rem;
+	text-decoration-skip-ink: none;
+}
+
+#title-bar p#db-update.historical-mode {
+	text-decoration-color: var(--ul-unaccepted-link-color);
 }
 
 #title-bar a {
@@ -193,22 +203,43 @@
 }
 
 /* ダイアログ表示 */
-#menu-dialog {
+.menu-dialog {
 	border-radius: 8px;
 	border: 1px solid var(--border-color);
 	background-color: var(--bg-color);
 }
 
-#menu-dialog::backdrop {
+/* 過去データ選択ダイアログを右上に配置 */
+#release-menu {
+	margin: 0;
+	top: 45px;
+	right: 10px;
+	left: auto;
+	bottom: auto;
+}
+
+.menu-dialog::backdrop {
 	background-color: rgba(0, 0, 0, 0.4);
 }
 
-#menu-dialog .menu-container {
-	padding: 0;
+#tab-menu .menu-container {
 	min-width: 300px;
 }
 
-#menu-dialog .menu-list {
+.menu-dialog .menu-container {
+	padding: 0;
+}
+
+.menu-container p {
+	padding: 20px;
+	text-align: center;
+}
+
+p.error {
+	color: red;
+}
+
+.menu-dialog .menu-list {
 	list-style: none;
 	padding: 0;
 	margin: 0;
@@ -216,7 +247,7 @@
 	overflow: hidden;
 }
 
-#menu-dialog .menu-item {
+.menu-dialog .menu-item {
 	padding: 4px 8px;
 	border-bottom: 1px solid var(--border-color);
 	cursor: pointer;
@@ -224,23 +255,27 @@
 }
 
 /*
-#menu-dialog .menu-item:last-child {
+.menu-item:last-child {
 	border-bottom: none;
 }
 */
 
-#menu-dialog .menu-item:hover {
+.menu-dialog .menu-item:hover {
 	background-color: var(--bg-color-button);
 }
 
-#menu-dialog .menu-item-name {
+.menu-dialog .menu-item-name {
 	font-weight: bold;
 	font-size: 13px;
 	line-height: 1.0;
 	color: var(--text-color);
 }
 
-#menu-dialog .menu-item-title {
+#release-menu .menu-item-name {
+	line-height: 1.7rem;
+}
+
+.menu-dialog .menu-item-title {
 	font-size: 12px;
 	line-height: 1.0;
 	color: var(--text-color-light);
@@ -248,7 +283,7 @@
 	margin-top: 5px;
 }
 
-#menu-dialog form {
+.menu-dialog form {
 	display: flex;
 	justify-content: space-between;
 	align-items: center;
@@ -258,11 +293,11 @@
 	/* border-top: 1px solid var(--border-color); */
 }
 
-#menu-dialog form span {
+.menu-dialog form span {
 	cursor: default;
 }
 
-#menu-dialog form button {
+.menu-dialog form button {
 	cursor: pointer;
 }
 

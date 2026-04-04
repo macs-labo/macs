@@ -13,8 +13,18 @@ const rowRenderer = (node, treeOptions) => {
 	if (isFile) {
 		if (path.endsWith('.var')) {
 			iconId = 'file-code';
+		} else if (path.endsWith('.sql')) {
+			iconId = 'file-query';
+		} else if (path.endsWith('.txt')) {
+			iconId = 'text';
+		} else if (path.endsWith('.pdf')) {
+			iconId = 'acrobat';
+		} else if (path.match(/\.html?$/)) {
+			iconId = 'html';
+		} else if (path.endsWith('.url')) {
+			iconId = 'url-link';
 		} else {
-			iconId = 'file-text';
+			iconId = 'file-unknown';
 		}
 		ariaLabel = '📄';
 	} else {

@@ -107,22 +107,15 @@ let currentCidCond; // 選択された CID 区分
 let currentListing; // 選択された表示項目
 let checkedPests = []; // 選択された病害虫リスト
 
-function dbExec(sql) {
-	return new Promise((resolve, reject) => {
-		waiting(true, 'データベース検索中');
-		setTimeout(() => {
-			requestAnimationFrame(() => {
-				try {
-					const result = db.exec(sql);
-					resolve(result);
-				} catch (error) {
-					reject(error);
-				} finally {
-					waiting(false);
-				}
-			});
-		}, 0);
-	});
+async function dbExec(sql) {
+	await waiting(true, 'データベース検索中');
+	try {
+		return db.exec(sql);
+	} catch (error) {
+		throw error;
+	} finally {
+		await waiting(false);
+	}
 }
 
 // 適用テーブル作成
@@ -152,7 +145,7 @@ async function searchTekiyo() {
 		select seizaiyoto, sakumotsu, tsusho, seizaidokusei, jiki, kaisu, hoho, ekiryo,
 	`;
 	pests.forEach((pest, index) => {
-		sql += `gn_concat(', ', if(byochu regexp '${rePests[index]}', concat_ws(' ', ${currentListing}, re_replace('^\\((.+)\\)$', re_replace(replace('(?<!（)の?${pest}', '類', '(類)?'), re_replace('([成幼])虫', byochu, '$1'), ''), '$1')), '')) as ${pest},\n`;
+		sql += `gn_concat(', ', if(byochu regexp '${rePests[index]}', concat_ws(' ', ${currentListing}, re_replace('^\\((.+)\\)$', re_replace(replace('(?<!（)の?${pest}', '類', '(類)?'), re_replace('([成幼])虫', byochu, '$1'), ''), '$1')), '')) as ${normalizeColName(pest)},\n`;
 	});
 	sql += `
 		gn_concat(', ', if(byochu not regexp '${rePests.join('|')}', byochu||if("${currentListing}" = "baisu",  ' '||baisu, ''), '')) as その他,
@@ -289,27 +282,28 @@ function updatePestListbox(pests) {
 
 async function searchCrop() {
 	// 作物に関連する病害虫リストをクリア
+	clearAllPests();
 	updatePestListbox([]);
 	const title = document.querySelector('#title');
 	tables = resetTables(tables);
 	if (checkedCrops.length === 0) {
 		title.innerHTML = '';
 		title.classList.add('hidden');
-		updatePestListbox([]);
 		return;
 	}
 	const crops = checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
 	title.innerHTML = crops.join(',');
 	title.classList.remove('hidden');
 	const sql = `
-		select distinct byochu, cid, idbyochu, betsumei from t_tekiyo left join m_byochu using(byochu)
+		with t_byochu as (select distinct byochu, cid, idbyochu, betsumei from t_tekiyo left join m_byochu using(byochu)
 		where if(byochu = '-', null, byochu) is not null and ${currentCidCond} and
 		sakumotsu in (${makeCropCondition(crops)})
-		order by idbyochu
+		order by idbyochu)
+		select re_replace('\\(.*\\)', byochu, '') as pest, max(cid) as cid, min(idbyochu) as idbyochu, max(re_replace('\\(.*\\)', betsumei, '')) as betsumei from t_byochu group by pest;
 	`;
-	//console.log(sql);
+	if (debug) console.log(sql);
 	result = await dbExec(sql);
-	//console.log(result);
+	//if (debug)console.log(result);
 	if (result.length > 0) {
 		const pests = result[0].values.map(row => ({
 			byochu: row[0],

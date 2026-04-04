@@ -230,6 +230,34 @@ function loadLocalFile(event) {
 		reader.readAsArrayBuffer(file);
 		const reloadIcon = document.querySelector('#sqlFile svg');
 		reloadIcon.classList.remove('hidden');
+	} else if (extension === 'html' || extension === 'htm') {
+		const url = URL.createObjectURL(file);
+		window.open(url, '_blank');
+		// 60秒後にURLを解放
+		setTimeout(() => URL.revokeObjectURL(url), 60000);
+	} else if (extension === 'txt') {
+		const reader = new FileReader();
+		reader.onload = function () {
+			const { text, charset } = detectAndDecode(reader.result);
+			openTextAsHtml(text, file.name, charset);
+		};
+		reader.readAsArrayBuffer(file);
+	} else if (extension === 'pdf') {
+		const url = URL.createObjectURL(file);
+		window.open(url, '_blank');
+		setTimeout(() => URL.revokeObjectURL(url), 60000);
+	} else if (extension === 'url') {
+		const reader = new FileReader();
+		reader.onload = function () {
+			const { text } = detectAndDecode(reader.result);
+			const match = text.match(/^URL=(.+)$/mi);
+			if (match) {
+				window.open(match[1].trim(), '_blank');
+			} else {
+				alert('URLファイルからURLを取得できませんでした。');
+			}
+		};
+		reader.readAsArrayBuffer(file);
 	} else {
 		alert('サポートされていないファイル形式です。SQL, VAR または ZIPファイルを選択してください。');
 	}
@@ -393,34 +421,26 @@ async function sequentialExecSQL(sql) {
 	try {
 		// クエリを逐次実行
 		for (const [index, query] of queries.entries()) {
-			await new Promise((resolve, reject) => {
-				// ローディング画面を確実に表示
-				waiting(true, `クエリ ${index + 1}/${queries.length} 実行中`);
-				// UI更新を反映させるためにsetTimeoutを使用
-				setTimeout(() => {
-					requestAnimationFrame(() => {
-						try {
-							let searchTime = -performance.now();
-							let result = db.exec(query);
-							searchTime += performance.now();
+			// ローディング画面を表示して描画完了を待機
+			await waiting(true, `クエリ ${index + 1}/${queries.length} 実行中`);
 
-							// 結果を表示
-							const option = { query: query, searchTime: searchTime, hideFooterU20: false };
-							const table = outputTable('#result', result, option);
-							// テーブルインスタンスを保存
-							if (table) tables.push(table);
-						} catch (error) {
-							// クエリごとのエラーをキャッチ
-							reject(new Error(`クエリ${index + 1}: ${error.message}`));
-							return; // rejectしたので以降の処理は不要
-						} finally {
-							// 各クエリ実行後にローディング画面を非表示
-							waiting(false);
-						}
-						resolve(); // 成功した場合のみ resolve
-					});
-				}, 0); // 0msで次のイベントループに処理を移す
-			});
+			try {
+				let searchTime = -performance.now();
+				let result = db.exec(query);
+				searchTime += performance.now();
+
+				// 結果を表示
+				const option = { query: query, searchTime: searchTime, hideFooterU20: false };
+				const table = outputTable('#result', result, option);
+				// テーブルインスタンスを保存
+				if (table) tables.push(table);
+			} catch (error) {
+				// クエリごとのエラーをキャッチして外側の catch へ飛ばす
+				throw new Error(`クエリ${index + 1}: ${error.message}`);
+			} finally {
+				// 各クエリ実行後にローディング画面を非表示
+				await waiting(false);
+			}
 		}
 
 		// すべてのクエリ実行後に結果をチェック
@@ -440,10 +460,7 @@ async function batchExecSQL(sql) {
 	tables = resetTables(tables);
 
 	// ローディング画面を表示
-	waiting(true, `クエリを一括実行中`);
-
-	// UIの更新を待ってから重い処理を実行
-	await new Promise(resolve => setTimeout(resolve, 0));
+	await waiting(true, `クエリを一括実行中`);
 
 	try {
 		let searchTime = -performance.now();
@@ -472,7 +489,7 @@ async function batchExecSQL(sql) {
 	} catch (error) {
 		setToolbarText(`<span class="error">エラー: ${error.message}</span>`);
 	} finally {
-		waiting(false);
+		await waiting(false);
 	}
 }
 
@@ -708,6 +725,197 @@ function smartDecode(bytes) {
 	return '';
 }
 
+// MIMEタイプをファイル拡張子から判定
+function getMimeType(filename) {
+	const ext = filename.split('.').pop().toLowerCase();
+	const mimeTypes = {
+		// 画像
+		'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+		'gif': 'image/gif', 'webp': 'image/webp', 'svg': 'image/svg+xml',
+		'ico': 'image/x-icon', 'avif': 'image/avif',
+		// スタイル・スクリプト
+		'css': 'text/css', 'js': 'text/javascript',
+		// フォント
+		'woff': 'font/woff', 'woff2': 'font/woff2',
+		'ttf': 'font/ttf', 'otf': 'font/otf',
+		// 動画・音声
+		'mp4': 'video/mp4', 'webm': 'video/webm',
+		'mp3': 'audio/mpeg', 'ogg': 'audio/ogg', 'wav': 'audio/wav',
+	};
+	return mimeTypes[ext] || 'application/octet-stream';
+}
+
+// HTMLのパス属性から参照先ファイルパスをすべて抽出する
+function extractAssetPaths(html, basePath) {
+	const baseDir = basePath.includes('/') ? basePath.substring(0, basePath.lastIndexOf('/') + 1) : '';
+	const paths = new Set();
+
+	// 属性値からパスを収集するヘルパー
+	const collect = (regex) => {
+		let m;
+		while ((m = regex.exec(html)) !== null) {
+			const val = m[1] || m[2];
+			if (!val) continue;
+			// 外部URL・データURL・アンカーはスキップ
+			if (/^(https?:|data:|#|javascript:)/i.test(val)) continue;
+			// 絶対パスはそのまま、相対パスはbaseDir基準で解決
+			const resolved = val.startsWith('/') ? val.substring(1) : baseDir + val;
+			paths.add(resolved);
+		}
+	};
+
+	collect(/\bsrc=["']([^"']+)["']/gi);
+	collect(/\bhref=["']([^"']+)["']/gi);
+	collect(/\bdata-src=["']([^"']+)["']/gi);
+	collect(/url\(["']?([^"')]+)["']?\)/gi);  // CSS内 url()
+	return paths;
+}
+
+// zip内HTMLをリソースごとBlob化して別タブで開く
+async function openHtmlFromZip(zip, path) {
+	const htmlContent = await zip.file(path).async('text');
+	const assetPaths = extractAssetPaths(htmlContent, path);
+	const blobUrls = new Map();   // zip内パス → Blob URL
+	const allUrls = [];
+
+	// 各アセットをzip内から取り出してBlob URLを生成
+	await Promise.all([...assetPaths].map(async (assetPath) => {
+		const zipEntry = zip.file(assetPath);
+		if (!zipEntry) return;  // zip内に存在しない場合はスキップ
+		try {
+			const data = await zipEntry.async('arraybuffer');
+			const mime = getMimeType(assetPath);
+			const blobUrl = URL.createObjectURL(new Blob([data], { type: mime }));
+			blobUrls.set(assetPath, blobUrl);
+			allUrls.push(blobUrl);
+		} catch (e) {
+			console.warn(`アセット変換失敗: ${assetPath}`, e);
+		}
+	}));
+
+	// HTMLのパス属性をBlob URLに書き換え
+	const baseDir = path.includes('/') ? path.substring(0, path.lastIndexOf('/') + 1) : '';
+	let rewrittenHtml = htmlContent.replace(
+		/(src|href|data-src)=(["'])([^"']+)\2/gi,
+		(match, attr, quote, val) => {
+			if (/^(https?:|data:|#|javascript:)/i.test(val)) return match;
+			const resolved = val.startsWith('/') ? val.substring(1) : baseDir + val;
+			const blobUrl = blobUrls.get(resolved);
+			return blobUrl ? `${attr}=${quote}${blobUrl}${quote}` : match;
+		}
+	);
+	// CSS内 url() の書き換え
+	rewrittenHtml = rewrittenHtml.replace(
+		/url\((["']?)([^"')]+)\1\)/gi,
+		(match, quote, val) => {
+			if (/^(https?:|data:|#)/i.test(val)) return match;
+			const resolved = val.startsWith('/') ? val.substring(1) : baseDir + val;
+			const blobUrl = blobUrls.get(resolved);
+			return blobUrl ? `url(${quote}${blobUrl}${quote})` : match;
+		}
+	);
+
+	const htmlBlobUrl = URL.createObjectURL(new Blob([rewrittenHtml], { type: 'text/html' }));
+	allUrls.push(htmlBlobUrl);
+	window.open(htmlBlobUrl, '_blank');
+
+	// 60秒後にすべてのBlob URLを解放
+	setTimeout(() => allUrls.forEach(u => URL.revokeObjectURL(u)), 60000);
+}
+
+// バイト列から文字コードを判定してデコードする（UTF-8 / Shift_JIS）
+function detectAndDecode(bytes) {
+	// UTF-8 BOM チェック
+	const u8 = new Uint8Array(bytes);
+	if (u8[0] === 0xEF && u8[1] === 0xBB && u8[2] === 0xBF) {
+		const text = new TextDecoder('utf-8').decode(bytes);
+		return { text: text.replace(/^\uFEFF/, ''), charset: 'UTF-8' };
+	}
+	// UTF-8 (strict) でデコードを試みる
+	try {
+		const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+		return { text, charset: 'UTF-8' };
+	} catch (e) {
+		// UTF-8 でなければ Shift_JIS と判定
+	}
+	const text = new TextDecoder('shift_jis').decode(bytes);
+	return { text, charset: 'Shift_JIS' };
+}
+
+// テキスト内容をHTML化して別タブで開く（charset: 'UTF-8' or 'Shift_JIS'）
+function openTextAsHtml(text, title, charset = 'UTF-8') {
+	const escaped = text
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;');
+	// HTML自体はJavaScript内のUnicode文字列として構築するため、
+	// Blobは常にUTF-8で出力する。SJISファイルはdetectAndDecodeで
+	// すでにUnicode文字列に変換済みなのでUTF-8出力で問題ない。
+	const html = `<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>${title}</title>
+<style>
+  body {
+    margin: 0;
+    padding: 2em 6%;
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
+    font-size: 16px;
+    line-height: 2.0;
+    color: #222;
+    background: #fdfcfa;
+    max-width: 860px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  h1 {
+    font-size: 1.1em;
+    font-weight: normal;
+    color: #666;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 0.4em;
+    margin-bottom: 1.5em;
+  }
+  pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+    margin: 0;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: inherit;
+  }
+  footer {
+    margin-top: 3em;
+    padding-top: 0.8em;
+    border-top: 1px solid #ddd;
+    font-size: 0.8em;
+    color: #aaa;
+    text-align: right;
+  }
+</style>
+</head>
+<body>
+<h1>${title}</h1>
+<pre>${escaped}</pre>
+<footer>${title} (${charset})</footer>
+</body>
+</html>`;
+	const blob = new Blob([html], { type: 'text/html; charset=UTF-8' });
+	const url = URL.createObjectURL(blob);
+	window.open(url, '_blank');
+	setTimeout(() => URL.revokeObjectURL(url), 60000);
+}
+
+// zip内テキストファイルをHTML化して別タブで開く
+async function openTextFromZip(zip, path) {
+	const bytes = await zip.file(path).async('arraybuffer');
+	const { text, charset } = detectAndDecode(bytes);
+	const title = path.includes('/') ? path.substring(path.lastIndexOf('/') + 1) : path;
+	openTextAsHtml(text, title, charset);
+}
+
 async function handleFileSelection(path) {
 	const zip = window.currentZip;
 	if (!path || !zip) {
@@ -715,21 +923,46 @@ async function handleFileSelection(path) {
 	}	
 
 	try {
-		const content = await zip.file(path).async('text');
-		if (path.endsWith('.sql')) {
-			editor.setValue(content);
-			editor.refresh();
-		} else if (path.endsWith('.var')) {
-			varEditor.setValue(content);
-			toggleVarEditor(false);
-			// @ownersql の読込
-			const fileOwnersql = getFilename(content, 'ownersql');
-			if (fileOwnersql) {
-				const sqlOwnersql = await loadFileFromZip(fileOwnersql);
-				if (sqlOwnersql) editor.setValue(sqlOwnersql);
+		if (path.endsWith('.html') || path.endsWith('.htm')) {
+			// html/htm はリソース込みで別タブ表示
+			await openHtmlFromZip(zip, path);
+		} else if (path.endsWith('.txt')) {
+			// txt は整形HTMLとして別タブ表示
+			await openTextFromZip(zip, path);
+		} else if (path.endsWith('.pdf')) {
+			// pdf は別タブで直接表示
+			const bytes = await zip.file(path).async('arraybuffer');
+			const blob = new Blob([bytes], { type: 'application/pdf' });
+			const url = URL.createObjectURL(blob);
+			window.open(url, '_blank');
+			setTimeout(() => URL.revokeObjectURL(url), 60000);
+		} else if (path.endsWith('.url')) {
+			// url ファイルは URL= を抽出して別タブで開く
+			const bytes = await zip.file(path).async('arraybuffer');
+			const { text } = detectAndDecode(bytes);
+			const match = text.match(/^URL=(.+)$/mi);
+			if (match) {
+				window.open(match[1].trim(), '_blank');
+			} else {
+				alert('URLファイルからURLを取得できませんでした。');
 			}
 		} else {
-			alert('サポートされていないファイル形式です。');
+			const content = await zip.file(path).async('text');
+			if (path.endsWith('.sql')) {
+				editor.setValue(content);
+				editor.refresh();
+			} else if (path.endsWith('.var')) {
+				varEditor.setValue(content);
+				toggleVarEditor(false);
+				// @ownersql の読込
+				const fileOwnersql = getFilename(content, 'ownersql');
+				if (fileOwnersql) {
+					const sqlOwnersql = await loadFileFromZip(fileOwnersql);
+					if (sqlOwnersql) editor.setValue(sqlOwnersql);
+				}
+			} else {
+				alert('サポートされていないファイル形式です。');
+			}
 		}
 	} catch (error) {
 		console.error(`ファイルの解凍エラー (${path}):`, error);
@@ -1060,7 +1293,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 			<div id="resultTop">
 				<div id="sql_editor"><!-- SQLエディタ部 -->
 					<div id="sql_toolbar" class="toolbar"><!-- SQLツールバー配置 -->
-						<input type="file" id="fileInputSQL" accept=".sql,.zip,.var" onchange="loadLocalFile(event)" class="hidden">
+						<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" onchange="loadLocalFile(event)" class="hidden">
 						<svg class="icon" onclick="loadAutoSavedSQL()">
 							<title>自動保存SQL読込</title>
 							<use href="icons.svg#library"></use>

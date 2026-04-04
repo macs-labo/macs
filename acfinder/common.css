@@ -219,11 +219,23 @@ button {
 	transition: background-color 0.3s ease-out; 
 }
 
+/*
+button:focus {
+	outline: none;
+}
+*/
+
 button:hover {
 	background-color: var(--bg-color-icon-hover);
 	color: var(--text-color-dark);
 	transition: var(--mouse-in-transition); 
 }
+
+/*
+dialog:focus {
+	outline: none;
+}
+*/
 
 .hidden {
 	display: none;

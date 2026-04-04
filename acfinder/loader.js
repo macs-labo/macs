@@ -7,6 +7,7 @@ const cautionDate = Date.parse('2026/3/1');
 let db = null;
 let tables = []; // テーブルインスタンスを保持する配列
 let lastUpdate = '';
+let dbStatusPrefix = 'DB:';
 
 const isMacs = window.location.hostname.match(/^(macs|noyaku)\./); // MACS サイト判定: ホスト名の先頭が macs. または noyaku.
 const datdir = isMacs ? '../data/' : 'https://raw.githubusercontent.com/macs-labo/macs/main/data/'; // MACS サイト以外では github から取得
@@ -104,7 +105,7 @@ async function saveFileToDB(db, fileName, blob, timestamp) {
 }
 
 // サーバーからタイムスタンプを取得
-async function getServerTimestamp(serverUrl, timeout = 5000) {
+async function getServerTimestamp(serverUrl, timeout = 3000) {
 
 	const controller = new AbortController();
 	const id = setTimeout(() => controller.abort(), timeout);
@@ -181,6 +182,7 @@ async function fetchFile(serverUrl, timeout = 60000, autoClose = true) {
 
 				if (total > 0) {
 					const percent = Math.floor((loaded / total) * 100);
+					// ダウンロード中は await しない（スループットを落とさないため）
 					waiting(true, `ダウンロード中: ${fileName} ${percent}%`);
 				} else {
 					waiting(true, `ダウンロード中: ${fileName} ${(loaded / 1024).toFixed(0)}KB`);
@@ -224,7 +226,7 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 		}
 
 		// ローカルファイルがある場合はタイムアウトを短くする
-		const tsTimeout = localFile ? 2000 : 5000;
+		const tsTimeout = localFile ? 1000 : 3000;
 		let serverTimestamp = null;
 		try {
 			serverTimestamp = await getServerTimestamp(serverUrl, tsTimeout);
@@ -252,9 +254,11 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 			} catch (e) {
 				console.warn(`Failed to save ${fileName} to IndexedDB:`, e);
 			}
-			return blob;
+			return { blob, fileName, isFallback: false };
 		} else {
 			console.log(`${fileName} is up-to-date. Loading from local.`);
+			// サーバーとの通信（タイムスタンプ取得）に失敗してキャッシュを使った場合は fallback とみなす
+			const isFallback = (serverTimestamp === null);
 
 			// --- ⚠️ ここから復元処理を追加 ⚠️ ---
 			let storedData = localFile.blob;
@@ -280,7 +284,7 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 
 			// Blob または 復元された Blob を返す
 			if (!storedData) throw new Error('Stored data is empty');
-			return storedData;
+			return { blob: storedData, fileName, isFallback };
 			// ------------------------------------
 		}
 	} catch (error) {
@@ -303,7 +307,7 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 				await saveFileToDB(db, fileName, blob, lastModified);
 			} catch (e) { console.warn('Fallback save failed:', e); }
 
-			return blob;
+			return { blob, fileName, isFallback: false };
 		} catch (fallbackError) {
 			console.error(`Fallback download failed for ${fileName}:`, fallbackError);
 
@@ -327,7 +331,7 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 					}
 					storedData = new Blob([uint8Array], { type: mime });
 				}
-				if (storedData) return storedData;
+				if (storedData) return { blob: storedData, fileName, isFallback: true };
 			}
 
 			// ローカルキャッシュもなければ、最終的にエラーを投げる
@@ -801,7 +805,7 @@ function registerCustomFunctions() {
 }
 
 //ローディング表示
-function waiting(sw = true, msg = '') {
+async function waiting(sw = true, msg = '') {
 	const obj = document.getElementById('loading');
 	if (!obj) return;
 
@@ -821,6 +825,8 @@ function waiting(sw = true, msg = '') {
 		if (!msg) msg = 'データベースダウンロード中';
 		obj.getElementsByTagName('p')[0].innerHTML = msg;
 		obj.style.display = 'block';
+		// メッセージ変更を確実にブラウザへ描画させるための yield
+		await new Promise(resolve => setTimeout(resolve, 50));
 	} else {
 		obj.style.display = 'none';
 	}
@@ -839,7 +845,13 @@ function initDB() {
 	const dbUpdateElement = targetDocument.querySelector('#db-update');
 
 	if (dbUpdateElement) {
-		dbUpdateElement.innerHTML = `DB: ${lastUpdate}`;
+		// 過去データ参照モード（historical-modeクラスがある場合）は、ここでは上書きしない
+		if (!dbUpdateElement.classList.contains('historical-mode')) {
+			dbStatusPrefix === 'DB:' ? dbUpdateElement.innerHTML = `DB: ${lastUpdate}` : dbUpdateElement.innerHTML = `${dbStatusPrefix} ${lastUpdate}`;
+		}
+		// クリックイベントを追加（重複登録防止のため一旦削除）
+		dbUpdateElement.removeEventListener('click', showReleaseDialog);
+		dbUpdateElement.addEventListener('click', showReleaseDialog);
 	}
 }
 
@@ -1016,14 +1028,16 @@ async function fetchDB() {
 		//{ fileName: 'option.db', serverUrl: 'option.db' }, //ここに ATTACH するサブデータベースファイルを複数追加可能
 		{ fileName: 'init_create_view.sql', serverUrl: 'init_create_view.sql' }
 	];
-	
-	waiting(true);
+
+	await waiting(true);
 	let errorOccurred = false;
 	try {
 		console.log('Starting fetchOrLoadFile for all files...');
-		const blobs = await Promise.all(
+		const results = await Promise.all(
 			files.map(file => fetchOrLoadFile(fcDB, file.fileName, file.serverUrl, false))
 		);
+		const blobs = results.map(r => r.blob);
+		dbStatusPrefix = results[0].isFallback ? '保存DB:' : '最新DB:';
 		console.log('All files fetched/loaded.');
 		
 		// sql-wasm.js のスクリプトタグからパスを特定(ファイル名が sql-wasm.min.js や sql.js の場合にも対応できるよう検索条件を緩和)
@@ -1035,12 +1049,12 @@ async function fetchDB() {
 		if (debug) console.log(sqlJsPath);
 		
 		console.log('Initializing SQL.js...');
-		waiting(true, 'SQLエンジン初期化中...');
+		await waiting(true, 'SQLエンジン初期化中...');
 		const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
 		
 		//メイン DB ロード
 		console.log('Loading main DB...');
-		waiting(true, 'メインデータベース読込中...');
+		await waiting(true, 'メインデータベース読込中...');
 		var dbname = basename(files[0].fileName) + '.db';
 		db = new SQL.Database(await unzip(new Uint8Array(await blobs[0].arrayBuffer()), dbname));
 		initDB();
@@ -1049,7 +1063,7 @@ async function fetchDB() {
 		//サブ DB ロード & attach
 		for(let j = 1; j < files.length - 1; j++) {
 			console.log(`Attaching sub DB ${files[j].fileName}...`);
-			waiting(true, `サブデータベース読込中: ${files[j].fileName}`);
+			await waiting(true, `サブデータベース読込中: ${files[j].fileName}`);
 			dbname = basename(files[j].fileName) + '.db';
 			let content = new Uint8Array(await blobs[j].arrayBuffer());
 			if (files[j].fileName.split('.').pop() == 'zip') content = await unzip(content, dbname);
@@ -1061,21 +1075,225 @@ async function fetchDB() {
 		//await execSQLLoadFromURL('init_create_view.sql');
 		const sqlFileIndex = files.length - 1;
 		console.log(`Executing SQL file ${files[sqlFileIndex].fileName}...`);
-		waiting(true, 'データ構築中...');
+		await waiting(true, 'データ構築中...');
 		const transformedSql = convTemplate(await blobs[sqlFileIndex].text());
 		//console.log(transformedSql);
 		await db.run(transformedSql);
 		console.log(`Executed ${files[sqlFileIndex].fileName}.`);
 		await setTabViews();
+
+		// キャッシュ利用が発生したファイルがあれば通知
+		const fallbackFiles = results.filter(r => r.isFallback).map(r => r.fileName);
+		if (fallbackFiles.length > 0) {
+			alert(`ネットワーク制限またはタイムアウトにより、以下のファイルの更新確認ができませんでした。キャッシュされているデータを使用します：\n・${fallbackFiles.join('\n・')}\n\n最新のデータではない可能性があります。`);
+		}
+
 		console.log('fetchDB completed.');
 	} catch (error) {
 		console.error('Error in fetchDB:', error);
-		waiting(true, 'エラーが発生しました。<br>' + error.message);
+		await waiting(true, 'エラーが発生しました。<br>' + error.message);
 		errorOccurred = true;
 	} finally {
 		fcDB.close();
-		if (!errorOccurred) waiting(false);
+		if (!errorOccurred) await waiting(false);
 		//return Promise.resolve();
+	}
+}
+
+// GitHubからリリース一覧を取得してダイアログ表示
+async function showReleaseDialog() {
+	const dialogId = 'release-menu';
+	let dialog = document.getElementById(dialogId);
+	
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		dialog.style.outline = 'none'; // 初回表示時（フォーカス時）の太い外郭線を消す
+		document.body.appendChild(dialog);
+	}
+
+	dialog.innerHTML = '<div class="menu-container"><p>リリース一覧を取得中...</p></div>';
+	dialog.showModal();
+
+	try {
+		// CORSエラー回避のため単純な fetch を使用
+		const response = await fetch('https://api.github.com/repos/macs-labo/macs/releases', {
+			mode: 'cors',
+			credentials: 'omit'
+		});
+		if (!response.ok) throw new Error('リリース一覧の取得に失敗しました。');
+		const releases = await response.json();
+		// releases を tag ASCII コードの降順にソート
+		releases.sort((a, b) => b.tag_name.localeCompare(a.tag_name));
+
+		dialog.innerHTML = `
+			<div class="menu-container">
+				<ul class="menu-list">
+					<li class="menu-item menu-item-latest">
+						<div class="menu-item-name">🔄 最新版に戻す (キャッシュから復元)</div>
+					</li>
+					${releases.slice(1).map(rel => `
+						${(() => {
+							const acisAsset = rel.assets.find(asset => asset.name === 'acis.zip');
+							if (!acisAsset) return ''; // acis.zip が含まれないリリースはスキップ
+							return `
+						<li class="menu-item"
+							data-tag="${rel.tag_name}"
+							data-asset-url="${acisAsset.url}"
+							data-release-name="${rel.name.replace('Release ', '')}"
+							>
+							<div class="menu-item-name">${rel.name.replace('Release ', '')}</div>
+							<!-- タグ情報は表示しない -->
+						</li>
+							`;
+						})()}
+					`).join('')}
+				</ul>
+			</div>
+			<form method="dialog"><span>過去のデータベースを選択</span><button style="outline:none;">閉じる</button>
+			</form>
+		`;
+
+		// 最新版に戻すボタンのイベント
+		dialog.querySelector('.menu-item-latest').addEventListener('click', async () => {
+			dialog.close();
+			await loadLatestFromCache();
+		});
+
+		dialog.querySelectorAll('.menu-item[data-tag]').forEach(item => {
+			item.addEventListener('click', async () => {
+				const tag = item.dataset.tag;
+				const releaseName = item.dataset.releaseName;
+				dialog.close();
+				await loadHistoricalDB(tag, releaseName);
+			});
+		});
+	} catch (error) {
+		dialog.innerHTML = `<div class="menu-container"><p class="error">エラー: ${error.message}<br><small>ローカルファイル(file://)として実行している場合は、外部への接続がブラウザに制限されます。</small></p></div><form method="dialog"><button>閉じる</button></form>`;
+	}
+
+	// ダイアログの外側をクリックしたときに閉じる
+	dialog.addEventListener('click', (event) => {
+		if (event.target === dialog) {
+			dialog.close();
+		}
+	});
+}
+
+// キャッシュ(IndexedDB)からファイルを取得する内部ヘルパー
+async function getFileFromCache(fcDB, fileName) {
+	const localFile = await getLocalFile(fcDB, fileName);
+	if (!localFile || !localFile.blob) throw new Error(`${fileName} がキャッシュに見つかりません。`);
+	
+	let storedData = localFile.blob;
+	// Base64デコード処理（fetchOrLoadFileのロジックを流用）
+	if (typeof storedData === 'string' && storedData.startsWith('data:')) {
+		const parts = storedData.split(',');
+		const mime = parts[0].match(/:(.*?);/)[1];
+		const base64 = parts[1];
+		const binary = atob(base64);
+		const uint8Array = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			uint8Array[i] = binary.charCodeAt(i);
+		}
+		storedData = new Blob([uint8Array], { type: mime });
+	}
+	return storedData;
+}
+
+// 過去のデータベースをロード
+async function loadHistoricalDB(tag, releaseName) {
+	
+	await waiting(true, `${releaseName} を取得中...`);
+	const fcDB = await openDB('fileCacheDB');
+
+	try {
+		// 1. 指定された過去の acis.zip を github raw ドメインから取得
+		const githubRawDataUrl = `https://raw.githubusercontent.com/macs-labo/macs/${tag}/data/acis.zip`;
+		const { blob: acisBlob, lastModified } = await fetchFile(githubRawDataUrl);
+		
+		// 2. 必要な他のファイル（spec, sql）は既存の IndexedDB から取得
+		const specBlob = await getFileFromCache(fcDB, `${subdb}.zip`);
+		const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
+
+		// 3. 現在のDBを閉じる
+		if (db) db.close();
+
+		// 4. SQL.js 再構築
+		const sqlJsScript = Array.from(document.scripts).find(s => s.src && (s.src.includes('sql-wasm') || s.src.includes('sql.js')));
+		const sqlJsPath = sqlJsScript.src.substring(0, sqlJsScript.src.lastIndexOf('/') + 1);
+		const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
+
+		await waiting(true, '過去データを展開中...');
+		db = new SQL.Database(await unzip(new Uint8Array(await acisBlob.arrayBuffer()), 'acis.db'));
+
+		const dbUpdateElement = document.querySelector('#db-update');
+		if (dbUpdateElement) {
+			dbUpdateElement.classList.add('historical-mode');
+			dbUpdateElement.innerHTML = `⚠️過去参照: ${releaseName.replace('Release ', '').replace(/分$/, '')}`;
+		}
+
+		initDB();
+		// サブDBアタッチ & ビュー作成
+		await attachDB(new SQL.Database(await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db')), 'spec');
+		const transformedSql = convTemplate(await sqlBlob.text());
+		await db.run(transformedSql);
+		await setTabViews();
+
+	} catch (error) {
+		console.error('Error loading historical DB:', error);
+		alert('データベースの切り替えに失敗しました。\n' + error.message);
+	} finally {
+		fcDB.close();
+		await waiting(false);
+	}
+}
+
+// キャッシュされている最新のデータベースをロードして復元
+async function loadLatestFromCache() {
+	await waiting(true, '最新データを復元中...');
+	const fcDB = await openDB('fileCacheDB');
+	
+	try {
+		// IndexedDBから全ファイルを取得
+		const acisBlob = await getFileFromCache(fcDB, `${maindb}.zip`);
+		const specBlob = await getFileFromCache(fcDB, `${subdb}.zip`);
+		const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
+
+		if (db) db.close();
+
+		const sqlJsScript = Array.from(document.scripts).find(s => s.src && (s.src.includes('sql-wasm') || s.src.includes('sql.js')));
+		const sqlJsPath = sqlJsScript.src.substring(0, sqlJsScript.src.lastIndexOf('/') + 1);
+		const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
+
+		// メイン DB
+		db = new SQL.Database(await unzip(new Uint8Array(await acisBlob.arrayBuffer()), 'acis.db'));
+
+		// 過去データ表示モードを解除
+		const dbUpdateElement = document.querySelector('#db-update');
+		if (dbUpdateElement) {
+			dbUpdateElement.classList.remove('historical-mode');
+		}
+
+		initDB();
+
+		// サブ DB アタッチ
+		let specContent = new Uint8Array(await specBlob.arrayBuffer());
+		specContent = await unzip(specContent, 'spec.db');
+		await attachDB(new SQL.Database(specContent), 'spec');
+
+		// ビュー再構築
+		const transformedSql = convTemplate(await sqlBlob.text());
+		await db.run(transformedSql);
+		await setTabViews();
+
+	} catch (error) {
+		console.error('Error restoring latest DB:', error);
+		alert('データの復元に失敗しました。ページをリロードしてください。\n' + error.message);
+	} finally {
+		fcDB.close();
+		await waiting(false);
 	}
 }
 
@@ -1160,6 +1378,13 @@ window.addEventListener('storage', (event) => {
 			document.head.appendChild(style);
 		}
 		style.textContent = event.newValue;
+	} else if (event.key === 'caution') {
+		// 他のタブで「承諾」された場合、ダイアログを消して表示を更新する
+		const cautionDiv = document.querySelector('#resultPane .caution-dialog');
+		if (cautionDiv) cautionDiv.remove();
+		
+		const cautionLink = document.querySelector('#caution a');
+		if (cautionLink) cautionLink.className = 'accepted';
 	}
 });
 
@@ -1191,7 +1416,8 @@ window.addEventListener('DOMContentLoaded', function() {
 		title.textContent = 'ACFinderBE';
 		titleWrapper.appendChild(title);
 		const version = document.createElement('span');
-		version.innerHTML = `Release <a href="acfinder${appVer}.zip">${appVer}</a>`;
+		const baseUrl = 'https://raw.githubusercontent.com/macs-labo/macs/main/acfinder';
+		version.innerHTML = `Release <a href="${baseUrl}/acfinder${appVer}.zip">${appVer}</a>`;
 		titleWrapper.appendChild(version);
 		titleBar.appendChild(titleWrapper);
 		const subtitle = document.createElement('h2');
@@ -1250,13 +1476,15 @@ window.addEventListener('DOMContentLoaded', function() {
 
 		// ダイアログ要素を生成
 		const dialog = document.createElement('dialog');
-		dialog.id = 'menu-dialog';
+		dialog.id = 'tab-menu';
+		dialog.className = 'menu-dialog';
+		dialog.style.outline = 'none'; // 初回表示時（フォーカス時）の太い外郭線を消す
 		dialog.innerHTML = `
 			<div class="menu-container">
 				<ul id="menu-list" class="menu-list"></ul>
 			</div>
 			<form method="dialog">
-				<span>新しく開くタブを選択</span><button>閉じる</button>
+				<span>新しく開くタブを選択</span><button style="outline:none;">閉じる</button>
 			</form>
 		`;
 		document.body.appendChild(dialog);
