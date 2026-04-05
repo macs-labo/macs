@@ -77,8 +77,8 @@
 	text-decoration-skip-ink: none;
 }
 
-#title-bar p#db-update.historical-mode {
-	text-decoration-color: var(--ul-unaccepted-link-color);
+#title-bar p#db-update.cached-mode {
+	text-decoration-color: var(--bg-color-pagesize-over);
 }
 
 #title-bar p#db-update.historical-mode {
@@ -96,7 +96,7 @@
 }
 
 #title-bar a:link {
-	text-decoration-color: var(--bg-color-pagesize-over);
+	text-decoration-color: var(--ul-link-color);
 }
 
 #title-bar a:visited {
