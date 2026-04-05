@@ -81,6 +81,10 @@
 	text-decoration-color: var(--ul-unaccepted-link-color);
 }
 
+#title-bar p#db-update.historical-mode {
+	text-decoration-color: var(--ul-unaccepted-link-color);
+}
+
 #title-bar a {
 	cursor: default;
 	color: var(--text-color);
@@ -92,7 +96,7 @@
 }
 
 #title-bar a:link {
-	text-decoration-color: var(--ul-link-color);
+	text-decoration-color: var(--bg-color-pagesize-over);
 }
 
 #title-bar a:visited {

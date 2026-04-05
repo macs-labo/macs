@@ -7,7 +7,7 @@ const cautionDate = Date.parse('2026/3/1');
 let db = null;
 let tables = []; // テーブルインスタンスを保持する配列
 let lastUpdate = '';
-let dbStatusPrefix = 'DB:';
+let dbStatusCached = false;
 
 const isMacs = window.location.hostname.match(/^(macs|noyaku)\./); // MACS サイト判定: ホスト名の先頭が macs. または noyaku.
 const datdir = isMacs ? '../data/' : 'https://raw.githubusercontent.com/macs-labo/macs/main/data/'; // MACS サイト以外では github から取得
@@ -847,7 +847,8 @@ function initDB() {
 	if (dbUpdateElement) {
 		// 過去データ参照モード（historical-modeクラスがある場合）は、ここでは上書きしない
 		if (!dbUpdateElement.classList.contains('historical-mode')) {
-			dbStatusPrefix === 'DB:' ? dbUpdateElement.innerHTML = `DB: ${lastUpdate}` : dbUpdateElement.innerHTML = `${dbStatusPrefix} ${lastUpdate}`;
+			dbUpdateElement.innerHTML = (dbStatusCached ? '保存DB:' : '最新DB:') + lastUpdate;
+			if (dbStatusCached) dbUpdateElement.className = 'cached-mode';
 		}
 		// クリックイベントを追加（重複登録防止のため一旦削除）
 		dbUpdateElement.removeEventListener('click', showReleaseDialog);
@@ -1037,7 +1038,7 @@ async function fetchDB() {
 			files.map(file => fetchOrLoadFile(fcDB, file.fileName, file.serverUrl, false))
 		);
 		const blobs = results.map(r => r.blob);
-		dbStatusPrefix = results[0].isFallback ? '保存DB:' : '最新DB:';
+		dbStatusCached = results[0].isFallback;
 		console.log('All files fetched/loaded.');
 		
 		// sql-wasm.js のスクリプトタグからパスを特定(ファイル名が sql-wasm.min.js や sql.js の場合にも対応できるよう検索条件を緩和)

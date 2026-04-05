@@ -1,7 +1,7 @@
 /* 共通ヘッダ用グローバル変数 */
 
 // バージョン
-const appVer = '2026.0404.2139';
+const appVer = '2026.0405.1906';
 const debug = !window.location.href.includes('/acfinder/');
 
 // 基本タブメニュー設定
