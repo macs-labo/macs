@@ -151,12 +151,8 @@ async function fetchFile(serverUrl, timeout = 60000, autoClose = true) {
 	const id = setTimeout(() => controller.abort(), timeout);
 
 	try {
-		// no-cache で失敗した場合は通常リクエストでリトライ
-		let response = await fetch(serverUrl, { cache: 'no-cache', signal: controller.signal }).catch(e => {
-			if (e.name === 'AbortError') throw e;
-			console.log(`[fetchFile] Retrying ${serverUrl} without no-cache...`);
-			return fetch(serverUrl, { signal: controller.signal });
-		});
+		// ブラウザキャッシュを介さず、かつ保存もしない
+		let response = await fetch(serverUrl, { cache: 'no-store', signal: controller.signal });
 
 		if (!response.ok) {
 			throw new Error(`Failed to download file: ${response.status}`);
@@ -214,9 +210,26 @@ function isServerNewer(serverTimestamp, localTimestamp) {
 	return serverDate > localDate;
 }
 
+// IndexedDB から取得したデータ（Blob または Base64文字列）を正規の Blob に復元する内部ヘルパー
+function restoreBlob(storedData) {
+	if (typeof storedData === 'string' && storedData.startsWith('data:')) {
+		const parts = storedData.split(',');
+		const mime = parts[0].match(/:(.*?);/)[1];
+		const base64 = parts[1];
+		const binary = atob(base64);
+		const uint8Array = new Uint8Array(binary.length);
+		for (let i = 0; i < binary.length; i++) {
+			uint8Array[i] = binary.charCodeAt(i);
+		}
+		return new Blob([uint8Array], { type: mime });
+	}
+	return storedData;
+}
+
 // 単一 DB ファイルの URL フェッチまたは IndexedDB からのロード
 async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 	let localFile = null;
+	let isCorrupted = true;
 	try {
 		// 先にローカルファイルをチェック
 		try {
@@ -225,8 +238,11 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 			console.warn(`Failed to load local file ${fileName}:`, e);
 		}
 
-		// ローカルファイルがある場合はタイムアウトを短くする
-		const tsTimeout = localFile ? 1000 : 3000;
+		// ローカルファイルが存在しない、または blob プロパティが欠損している場合は「破損・欠損」とみなす
+		isCorrupted = !localFile || !localFile.blob;
+
+		// 有効なキャッシュがある場合はタイムアウトを短く(1s)、なければ長め(3s)に設定
+		const tsTimeout = !isCorrupted ? 1000 : 3000;
 		let serverTimestamp = null;
 		try {
 			serverTimestamp = await getServerTimestamp(serverUrl, tsTimeout);
@@ -234,16 +250,20 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 			// タイムスタンプ取得失敗は許容する
 		}
 		
-		// ローカルファイルが存在しても、blob プロパティが欠損している場合は破損とみなして再ダウンロード
-		const isCorrupted = localFile && !localFile.blob;
+		// サーバーのタイムスタンプ取得に失敗（タイムアウト含む）し、かつ有効なキャッシュがある場合は即座に返す
+		if (serverTimestamp === null && !isCorrupted) {
+			console.log(`[fetchOrLoadFile] Timestamp fetch failed/timed out for ${fileName}. Using existing cache.`);
+			const storedData = restoreBlob(localFile.blob);
+			if (storedData) return { blob: storedData, fileName, isFallback: true };
+		}
 
-		// サーバーのタイムスタンプ取得に失敗した場合(null)は、ローカルファイルがあればそれを使う
-		const shouldDownload = isCorrupted || !localFile || (serverTimestamp !== null && isServerNewer(serverTimestamp, localFile.timestamp));
+		// ダウンロード要否判定
+		const shouldDownload = isCorrupted || (serverTimestamp !== null && isServerNewer(serverTimestamp, localFile.timestamp));
 
 		if (shouldDownload) {
 			console.log(`${fileName} is outdated, missing, or corrupted. Downloading...`);
-			// ローカルファイルがある（更新用途）ならタイムアウトを短く(30000ms)、なければデフォルト(60000ms)
-			const dlTimeout = (localFile && !isCorrupted) ? 30000 : 60000;
+			// 有効なキャッシュがある（更新目的）なら 30秒、なければ 60秒
+			const dlTimeout = !isCorrupted ? 30000 : 60000;
 			
 			const result = await fetchFile(serverUrl, dlTimeout, autoClose);
 			const blob = result.blob;
@@ -257,86 +277,23 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 			return { blob, fileName, isFallback: false };
 		} else {
 			console.log(`${fileName} is up-to-date. Loading from local.`);
-			// サーバーとの通信（タイムスタンプ取得）に失敗してキャッシュを使った場合は fallback とみなす
-			const isFallback = (serverTimestamp === null);
-
-			// --- ⚠️ ここから復元処理を追加 ⚠️ ---
-			let storedData = localFile.blob;
-			
-			// localFile.blob が Blob ではなく Base64 文字列（Data URL）だった場合の復元
-			if (typeof storedData === 'string' && storedData.startsWith('data:')) {
-				console.log(`[IndexedDB] ${fileName} is Base64 encoded. Decoding...`);
-				// Base64からBlobに変換
-				const parts = storedData.split(',');
-				const mime = parts[0].match(/:(.*?);/)[1];
-				const base64 = parts[1];
-				const binary = atob(base64); // Base64デコード
-				
-				const arrayBuffer = new ArrayBuffer(binary.length);
-				const uint8Array = new Uint8Array(arrayBuffer);
-				for (let i = 0; i < binary.length; i++) {
-					uint8Array[i] = binary.charCodeAt(i);
-				}
-				
-				// Blobオブジェクトを生成
-				storedData = new Blob([uint8Array], { type: mime });
-			}
-
-			// Blob または 復元された Blob を返す
+			const storedData = restoreBlob(localFile.blob);
 			if (!storedData) throw new Error('Stored data is empty');
-			return { blob: storedData, fileName, isFallback };
-			// ------------------------------------
+
+			return { blob: storedData, fileName, isFallback: false };
 		}
 	} catch (error) {
-		console.warn(`Error processing ${fileName} with cache logic:`, error);
+		console.warn(`[fetchOrLoadFile] Error for ${fileName}:`, error);
 
-		// フォールバック: 直接ダウンロードを試みる
-		try {
-			console.log(`Attempting direct download for ${fileName} as fallback...`);
-			const controller = new AbortController();
-			const id = setTimeout(() => controller.abort(), 60000);
-			const response = await fetch(serverUrl, { signal: controller.signal });
-			clearTimeout(id);
-
-			if (!response.ok) throw new Error(`Fallback fetch failed: ${response.status} ${response.statusText}`);
-			const blob = await response.blob();
-
-			// フォールバックでも保存を試みる
-			try {
-				const lastModified = response.headers.get('Last-Modified');
-				await saveFileToDB(db, fileName, blob, lastModified);
-			} catch (e) { console.warn('Fallback save failed:', e); }
-
-			return { blob, fileName, isFallback: false };
-		} catch (fallbackError) {
-			console.error(`Fallback download failed for ${fileName}:`, fallbackError);
-
-			// フォールバックダウンロードが失敗した場合、最後の手段としてローカルキャッシュを使用
-			if (!localFile) {
-				try { localFile = await getLocalFile(db, fileName); } catch (e) {}
-			}
-			if (localFile && localFile.blob) {
-				console.log(`Using local cache for ${fileName} as a last resort.`);
-				let storedData = localFile.blob;
-				if (typeof storedData === 'string' && storedData.startsWith('data:')) {
-					console.log(`[IndexedDB] ${fileName} is Base64 encoded. Decoding...`);
-					const parts = storedData.split(',');
-					const mime = parts[0].match(/:(.*?);/)[1];
-					const base64 = parts[1];
-					const binary = atob(base64);
-					const arrayBuffer = new ArrayBuffer(binary.length);
-					const uint8Array = new Uint8Array(arrayBuffer);
-					for (let i = 0; i < binary.length; i++) {
-						uint8Array[i] = binary.charCodeAt(i);
-					}
-					storedData = new Blob([uint8Array], { type: mime });
-				}
-				if (storedData) return { blob: storedData, fileName, isFallback: true };
-			}
-
-			// ローカルキャッシュもなければ、最終的にエラーを投げる
-			throw new Error(`Failed to download ${fileName} and no local backup available.`);
+		// ダウンロードに失敗した場合の最終手段として、既存のローカルキャッシュがあればそれを使用
+		if (!isCorrupted) {
+			console.log(`[fetchOrLoadFile] Using local cache for ${fileName} as a last resort.`);
+			const storedData = restoreBlob(localFile.blob);
+			if (storedData) return { blob: storedData, fileName, isFallback: true };
 		}
+
+		// ローカルキャッシュもなければ、最終的にエラーを投げる
+		throw error;
 	}
 }
 
