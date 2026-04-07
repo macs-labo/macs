@@ -228,6 +228,26 @@ function restoreBlob(storedData) {
 
 // 単一 DB ファイルの URL フェッチまたは IndexedDB からのロード
 async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
+	// --- セッションストレージによるチェックスキップ ---
+	const sessionKey = `fetchStatus_${fileName}`;
+	const sessionStatus = sessionStorage.getItem(sessionKey);
+	
+	if (sessionStatus) {
+		try {
+			const { isFallback } = JSON.parse(sessionStatus);
+			const localFile = await getLocalFile(db, fileName);
+			if (localFile && localFile.blob) {
+				const storedData = restoreBlob(localFile.blob);
+				if (storedData) {
+					console.log(`[fetchOrLoadFile] Session hit for ${fileName}. Using cache without check (isFallback: ${isFallback})`);
+					return { blob: storedData, fileName, isFallback };
+				}
+			}
+		} catch (e) {
+			console.warn(`[fetchOrLoadFile] Failed to restore from session for ${fileName}:`, e);
+		}
+	}
+
 	let localFile = null;
 	let isCorrupted = true;
 	try {
@@ -254,7 +274,10 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 		if (serverTimestamp === null && !isCorrupted) {
 			console.log(`[fetchOrLoadFile] Timestamp fetch failed/timed out for ${fileName}. Using existing cache.`);
 			const storedData = restoreBlob(localFile.blob);
-			if (storedData) return { blob: storedData, fileName, isFallback: true };
+			if (storedData) {
+				sessionStorage.setItem(sessionKey, JSON.stringify({ isFallback: true }));
+				return { blob: storedData, fileName, isFallback: true };
+			}
 		}
 
 		// ダウンロード要否判定
@@ -267,19 +290,21 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 			
 			const result = await fetchFile(serverUrl, dlTimeout, autoClose);
 			const blob = result.blob;
-			const newTimestamp = result.lastModified || serverTimestamp;
+			const newTimestamp = serverTimestamp || result.lastModified;
 
 			try {
 				await saveFileToDB(db, fileName, blob, newTimestamp); 
 			} catch (e) {
 				console.warn(`Failed to save ${fileName} to IndexedDB:`, e);
 			}
+			sessionStorage.setItem(sessionKey, JSON.stringify({ isFallback: false }));
 			return { blob, fileName, isFallback: false };
 		} else {
 			console.log(`${fileName} is up-to-date. Loading from local.`);
 			const storedData = restoreBlob(localFile.blob);
 			if (!storedData) throw new Error('Stored data is empty');
 
+			sessionStorage.setItem(sessionKey, JSON.stringify({ isFallback: false }));
 			return { blob: storedData, fileName, isFallback: false };
 		}
 	} catch (error) {
@@ -289,7 +314,10 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 		if (!isCorrupted) {
 			console.log(`[fetchOrLoadFile] Using local cache for ${fileName} as a last resort.`);
 			const storedData = restoreBlob(localFile.blob);
-			if (storedData) return { blob: storedData, fileName, isFallback: true };
+			if (storedData) {
+				sessionStorage.setItem(sessionKey, JSON.stringify({ isFallback: true }));
+				return { blob: storedData, fileName, isFallback: true };
+			}
 		}
 
 		// ローカルキャッシュもなければ、最終的にエラーを投げる
