@@ -1022,28 +1022,6 @@ function outputTable(selector, result, option = {}) {
 			await dispStatus('データを準備中。大きな表では時間がかかります。');
 
 			// ExcelJS で Workbook 作成
-/*
-			let worksheet;
-			const fontExcel = localStorage.getItem('fontExcel') || '游ゴシック';
-			const workbook = new ExcelJS.Workbook();
-			if (fontExcel === 'Segoe UI') {
-				const fcDB = await openDB('fileCacheDB');
-				const blob = await fetchOrLoadFile(fcDB, 'segoeui.xlsx', 'excel/segoeui.xlsx');
-				fcDB.close();
-				const template = new Promise(resolve => {
-					const reader = new FileReader();
-					reader.onload = () => {
-						resolve(reader.result);
-					};
-					reader.readAsArrayBuffer(blob);
-				});
-				console.log(template);
-				workbook.xlsx.load(await template);
-				worksheet = workbook.getWorksheet(1);
-			} else {
-				worksheet = workbook.addWorksheet('Sheet1');
-			}
-*/
 			const workbook = new ExcelJS.Workbook();
 			const worksheet = workbook.addWorksheet('Sheet1');
 			

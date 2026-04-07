@@ -619,11 +619,11 @@ async function dispatchSQLExecution() {
 async function setupFileTree(zipFile = null) {
 	let zip, selectTitle;
 	if (zipFile) {
-        zip = await JSZip.loadAsync(zipFile, {
-	        decodeFileName: function (bytes) {
-	    	    return smartDecode(bytes);
-    	    }
-        });
+		zip = await JSZip.loadAsync(zipFile, {
+			decodeFileName: function (bytes) {
+				return smartDecode(bytes);
+			}
+		});
 		selectTitle = basename(zipFile.name);
 	} else {
 		const fcDB = await openDB('fileCacheDB');
@@ -637,31 +637,13 @@ async function setupFileTree(zipFile = null) {
 			const baseName = basename(path);
 			zipname = baseName === 'sql' ? 'stdsql.zip' : baseName + '.zip';
 		}
-		let blob = await fetchOrLoadFile(fcDB, zipname, zipname);
+		const result = await fetchOrLoadFile(fcDB, zipname, zipname);
 		fcDB.close();
-		if (!blob) {
-			console.warn(`fetchOrLoadFile failed for ${zipname}, trying direct fetch.`);
-			try {
-				const response = await fetch(zipname);
-				if (!response.ok) {
-					alert(`サーバー上のファイルにアクセスできません: ${zipname} (Status: ${response.status})`);
-					return;
-				}
-				blob = await response.blob();
-				// 9バイト問題対策
-				if (blob.size < 22) {
-					throw new Error(`Invalid file content (too small): ${await blob.text()}`);
-				}
-			} catch (e) {
-				alert(`ZIPファイルの読み込みに失敗しました: ${zipname}\n${e.message}`);
-				return;
+		zip = await JSZip.loadAsync(result.blob, {
+			decodeFileName: function (bytes) {
+				return smartDecode(bytes);
 			}
-		}
-        zip = await JSZip.loadAsync(blob, {
-        	decodeFileName: function (bytes) {
-		        return smartDecode(bytes);
-	        }
-        });
+		});
 		//#tab-header から active タブ名を取得
 		// iframe内で実行されているかを判定
 		let activeTitle;
