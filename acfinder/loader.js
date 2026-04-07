@@ -262,7 +262,7 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 		isCorrupted = !localFile || !localFile.blob;
 
 		// 有効なキャッシュがある場合はタイムアウトを短く(1s)、なければ長め(3s)に設定
-		const tsTimeout = !isCorrupted ? 1000 : 3000;
+		const tsTimeout = !isCorrupted ? 1500 : 3000;
 		let serverTimestamp = null;
 		try {
 			serverTimestamp = await getServerTimestamp(serverUrl, tsTimeout);
