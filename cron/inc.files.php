@@ -8,7 +8,7 @@ $files = array(
 );
 
 $zip = array(
-  'inc.files.php', 'inc.spec.php', '.make.spec.php', '.update.cron.php', '.sync.cron.php'
+  'inc.files.php', 'inc.spec.php', '.make.spec.php', '.update.cron.php'
 );
 
 $setup = array(
