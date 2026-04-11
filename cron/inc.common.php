@@ -134,9 +134,9 @@ function getLastModified($url) {
 /* 更新されていれば mtime いなければ false を返す */
 function is_modified($url, $date, $forceupdate = false) {
   $mtime = getLastModified($url);
-  if (!$mtime) return false;
+  //if (!$mtime) return false;
   if (is_string($date)) $date = strtotime($date);
-  return ($mtime > $date) && !$forceupdate ? $mtime : false;
+  return ($mtime > $date) || $forceupdate ? $mtime : false;
 }
 
 /**

@@ -82,9 +82,9 @@ function getLastModified_s($url) {
 /* 更新されていれば mtime いなければ false を返す */
 function is_modified_s($url, $date, $forceupdate = false) {
   $mtime = getLastModified_s($url);
-  if (!$mtime) return false;
+  //if (!$mtime) return false;
   if (is_string($date)) $date = strtotime($date);
-  return ($mtime > $date) && !$forceupdate ? $mtime : false;
+  return ($mtime > $date) || $forceupdate ? $mtime : false;
 }
 
 $file = 'cron.zip';
