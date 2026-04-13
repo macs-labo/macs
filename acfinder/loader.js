@@ -161,48 +161,53 @@ async function fetchFile(serverUrl, timeout = 60000, autoClose = true) {
 		// 2. 大きなファイル(2MB以上)かつサーバーが Range をサポートしている場合は分割ダウンロード
 		const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB 単位
 		if (total > CHUNK_SIZE && acceptRanges === 'bytes') {
-			console.log(`[fetchFile] Starting chunked download for ${fileName} (${(total / 1024 / 1024).toFixed(2)} MB)`);
-			const chunks = [];
-			let loaded = 0;
+			try {
+				console.log(`[fetchFile] Starting chunked download for ${fileName} (${(total / 1024 / 1024).toFixed(2)} MB)`);
+				const chunks = [];
+				let loaded = 0;
 
-			for (let start = 0; start < total; start += CHUNK_SIZE) {
-				const end = Math.min(start + CHUNK_SIZE - 1, total - 1);
-				let retryCount = 0;
-				const maxRetries = 3;
+				for (let start = 0; start < total; start += CHUNK_SIZE) {
+					const end = Math.min(start + CHUNK_SIZE - 1, total - 1);
+					let retryCount = 0;
+					const maxRetries = 3;
 
-				while (retryCount < maxRetries) {
-					try {
-						const chunkResponse = await fetch(serverUrl, {
-							headers: { Range: `bytes=${start}-${end}` },
-							cache: 'no-store',
-							signal: controller.signal
-						});
+					while (retryCount < maxRetries) {
+						try {
+							const chunkResponse = await fetch(serverUrl, {
+								headers: { Range: `bytes=${start}-${end}` },
+								cache: 'no-store',
+								signal: controller.signal
+							});
 
-						if (!chunkResponse.ok && chunkResponse.status !== 206) {
-							throw new Error(`Chunk fetch failed: ${chunkResponse.status}`);
+							if (!chunkResponse.ok && chunkResponse.status !== 206) {
+								throw new Error(`Chunk fetch failed: ${chunkResponse.status}`);
+							}
+
+							const buffer = await chunkResponse.arrayBuffer();
+							chunks.push(new Uint8Array(buffer));
+							loaded += buffer.byteLength;
+
+							const percent = Math.floor((loaded / total) * 100);
+							waiting(true, `ダウンロード中: ${fileName} ${percent}%`);
+							break; // 成功したらリトライループを抜ける
+						} catch (e) {
+							retryCount++;
+							console.warn(`[fetchFile] Retry ${retryCount}/${maxRetries} for chunk ${start}-${end}`, e);
+							if (retryCount === maxRetries) throw e;
+							await new Promise(r => setTimeout(r, 1000 * retryCount)); // 指数バックオフ的な待機
 						}
-
-						const buffer = await chunkResponse.arrayBuffer();
-						chunks.push(new Uint8Array(buffer));
-						loaded += buffer.byteLength;
-
-						const percent = Math.floor((loaded / total) * 100);
-						waiting(true, `ダウンロード中: ${fileName} ${percent}%`);
-						break; // 成功したらリトライループを抜ける
-					} catch (e) {
-						retryCount++;
-						console.warn(`[fetchFile] Retry ${retryCount}/${maxRetries} for chunk ${start}-${end}`, e);
-						if (retryCount === maxRetries) throw e;
-						await new Promise(r => setTimeout(r, 1000 * retryCount)); // 指数バックオフ的な待機
 					}
 				}
+				return { 
+					blob: new Blob(chunks, { type: 'application/zip' }), 
+					lastModified: headResponse.headers.get('Last-Modified') 
+				};
+			} catch (chunkError) {
+				console.warn(`[fetchFile] Chunked download failed for ${fileName}. Falling back to standard download.`, chunkError);
 			}
-			return { 
-				blob: new Blob(chunks, { type: 'application/zip' }), 
-				lastModified: headResponse.headers.get('Last-Modified') 
-			};
-		} else {
-			// 3. 小さいファイルや Range 非対応の場合は通常のストリームダウンロード
+		}
+
+		// 3. 小さいファイル、Range 非対応、または分割ダウンロードに失敗した場合は通常のストリームダウンロード
 			let response = await fetch(serverUrl, { cache: 'no-store', signal: controller.signal });
 			if (!response.ok) throw new Error(`Failed to download file: ${response.status}`);
 
@@ -235,7 +240,6 @@ async function fetchFile(serverUrl, timeout = 60000, autoClose = true) {
 				throw new Error(`Invalid file content (too small): ${text}`);
 			}
 			return { blob, lastModified: response.headers.get('Last-Modified') };
-		}
 	} catch (error) {
 		if (error.name === 'AbortError') {
 			throw new Error(`ダウンロードがタイムアウトしました (${timeout / 1000}秒)`);
