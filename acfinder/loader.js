@@ -5,6 +5,7 @@ const cautionDate = Date.parse('2026/3/1');
 
 // データベース設定
 let db = null;
+let SQL = null; // SQLite エンジンインスタンス
 let tables = []; // テーブルインスタンスを保持する配列
 let lastUpdate = '';
 let dbStatusCached = false;
@@ -907,9 +908,9 @@ function initDB() {
 
 //attach sub database
 //async function attachDB(sdb, name) {
-function attachDB(sdb, name) {
+function attachDB(subdb, name) {
+	const sdb = new SQL.Database(subdb);
 	let fsdb = sdb.exec('pragma database_list;')[0].values[0][2];
-	//await db.run(`attach database ${fsdb.split('/').pop()} as ${name};`);
 	db.run(`attach database ${fsdb.split('/').pop()} as ${name};`);
 	console.log(`Attatch ${name}`);
 }
@@ -1100,7 +1101,7 @@ async function fetchDB() {
 		
 		console.log('Initializing SQL.js...');
 		await waiting(true, 'SQLエンジン初期化中...');
-		const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
+		SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
 		
 		//メイン DB ロード
 		console.log('Loading main DB...');
@@ -1117,7 +1118,7 @@ async function fetchDB() {
 			dbname = basename(files[j].fileName) + '.db';
 			let content = new Uint8Array(await blobs[j].arrayBuffer());
 			if (files[j].fileName.split('.').pop() == 'zip') content = await unzip(content, dbname);
-			await attachDB(new SQL.Database(content), basename(files[j].fileName));
+			attachDB(content, basename(files[j].fileName));
 			console.log(`Sub database attached from ${dbname}.`);
 		}
 		
@@ -1286,7 +1287,7 @@ async function loadHistoricalDB(tag, releaseName) {
 
 		initDB();
 		// サブDBアタッチ & ビュー作成
-		await attachDB(new SQL.Database(await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db')), 'spec');
+		await attachDB(await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db'), 'spec');
 		const transformedSql = convTemplate(await sqlBlob.text());
 		await db.run(transformedSql);
 		await setTabViews();
@@ -1331,7 +1332,7 @@ async function loadLatestFromCache() {
 		// サブ DB アタッチ
 		let specContent = new Uint8Array(await specBlob.arrayBuffer());
 		specContent = await unzip(specContent, 'spec.db');
-		await attachDB(new SQL.Database(specContent), 'spec');
+		attachDB(specContent, 'spec');
 
 		// ビュー再構築
 		const transformedSql = convTemplate(await sqlBlob.text());
