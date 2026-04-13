@@ -151,51 +151,96 @@ async function fetchFile(serverUrl, timeout = 60000, autoClose = true) {
 	const id = setTimeout(() => controller.abort(), timeout);
 
 	try {
-		// ブラウザキャッシュを介さず、かつ保存もしない
-		let response = await fetch(serverUrl, { cache: 'no-store', signal: controller.signal });
-
-		if (!response.ok) {
-			throw new Error(`Failed to download file: ${response.status}`);
-		}
-
-		// 進捗表示
-		const contentLength = response.headers.get('Content-Length');
+		// 1. まず HEAD リクエストでファイルサイズと Range サポートを確認
+		const headResponse = await fetch(serverUrl, { method: 'HEAD', cache: 'no-store', signal: controller.signal });
+		const contentLength = headResponse.headers.get('Content-Length');
+		const acceptRanges = headResponse.headers.get('Accept-Ranges');
 		const total = contentLength ? parseInt(contentLength, 10) : 0;
 		const fileName = serverUrl.split('/').pop();
-		let blob;
 
-		if (response.body) {
-			const reader = response.body.getReader();
+		// 2. 大きなファイル(2MB以上)かつサーバーが Range をサポートしている場合は分割ダウンロード
+		const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB 単位
+		if (total > CHUNK_SIZE && acceptRanges === 'bytes') {
+			console.log(`[fetchFile] Starting chunked download for ${fileName} (${(total / 1024 / 1024).toFixed(2)} MB)`);
 			const chunks = [];
 			let loaded = 0;
 
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				
-				chunks.push(value);
-				loaded += value.length;
+			for (let start = 0; start < total; start += CHUNK_SIZE) {
+				const end = Math.min(start + CHUNK_SIZE - 1, total - 1);
+				let retryCount = 0;
+				const maxRetries = 3;
 
-				if (total > 0) {
-					const percent = Math.floor((loaded / total) * 100);
-					// ダウンロード中は await しない（スループットを落とさないため）
-					waiting(true, `ダウンロード中: ${fileName} ${percent}%`);
-				} else {
-					waiting(true, `ダウンロード中: ${fileName} ${(loaded / 1024).toFixed(0)}KB`);
+				while (retryCount < maxRetries) {
+					try {
+						const chunkResponse = await fetch(serverUrl, {
+							headers: { Range: `bytes=${start}-${end}` },
+							cache: 'no-store',
+							signal: controller.signal
+						});
+
+						if (!chunkResponse.ok && chunkResponse.status !== 206) {
+							throw new Error(`Chunk fetch failed: ${chunkResponse.status}`);
+						}
+
+						const buffer = await chunkResponse.arrayBuffer();
+						chunks.push(new Uint8Array(buffer));
+						loaded += buffer.byteLength;
+
+						const percent = Math.floor((loaded / total) * 100);
+						waiting(true, `ダウンロード中: ${fileName} ${percent}%`);
+						break; // 成功したらリトライループを抜ける
+					} catch (e) {
+						retryCount++;
+						console.warn(`[fetchFile] Retry ${retryCount}/${maxRetries} for chunk ${start}-${end}`, e);
+						if (retryCount === maxRetries) throw e;
+						await new Promise(r => setTimeout(r, 1000 * retryCount)); // 指数バックオフ的な待機
+					}
 				}
 			}
-			blob = new Blob(chunks);
+			return { 
+				blob: new Blob(chunks, { type: 'application/zip' }), 
+				lastModified: headResponse.headers.get('Last-Modified') 
+			};
 		} else {
-			blob = await response.blob();
-		}
+			// 3. 小さいファイルや Range 非対応の場合は通常のストリームダウンロード
+			let response = await fetch(serverUrl, { cache: 'no-store', signal: controller.signal });
+			if (!response.ok) throw new Error(`Failed to download file: ${response.status}`);
 
-		// 9バイト問題対策: サイズが小さすぎる場合はエラーとする (空のZIPでも22バイトはある)
-		if (blob.size < 22) {
-			const text = await blob.text();
-			throw new Error(`Invalid file content (too small): ${text}`);
+			let blob;
+			if (response.body) {
+				const reader = response.body.getReader();
+				const chunks = [];
+				let loaded = 0;
+
+				while (true) {
+					const { done, value } = await reader.read();
+					if (done) break;
+					chunks.push(value);
+					loaded += value.length;
+					if (total > 0) {
+						const percent = Math.floor((loaded / total) * 100);
+						waiting(true, `ダウンロード中: ${fileName} ${percent}%`);
+					} else {
+						waiting(true, `ダウンロード中: ${fileName} ${(loaded / 1024).toFixed(0)}KB`);
+					}
+				}
+				blob = new Blob(chunks);
+			} else {
+				blob = await response.blob();
+			}
+
+			// 9バイト問題対策
+			if (blob.size < 22) {
+				const text = await blob.text();
+				throw new Error(`Invalid file content (too small): ${text}`);
+			}
+			return { blob, lastModified: response.headers.get('Last-Modified') };
 		}
-		// タイムスタンプも返すように変更
-		return { blob, lastModified: response.headers.get('Last-Modified') };
+	} catch (error) {
+		if (error.name === 'AbortError') {
+			throw new Error(`ダウンロードがタイムアウトしました (${timeout / 1000}秒)`);
+		}
+		throw error;
 	} finally {
 		clearTimeout(id);
 		if (autoClose) waiting(false);
@@ -262,7 +307,7 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 		isCorrupted = !localFile || !localFile.blob;
 
 		// 有効なキャッシュがある場合はタイムアウトを短く(1s)、なければ長め(3s)に設定
-		const tsTimeout = !isCorrupted ? 1500 : 3000;
+		const tsTimeout = !isCorrupted ? 1000 : 3000;
 		let serverTimestamp = null;
 		try {
 			serverTimestamp = await getServerTimestamp(serverUrl, tsTimeout);
@@ -790,7 +835,7 @@ function registerCustomFunctions() {
 }
 
 //ローディング表示
-async function waiting(sw = true, msg = '') {
+async function waiting(sw = true, msg = '', msg2 = '') {
 	const obj = document.getElementById('loading');
 	if (!obj) return;
 
@@ -809,6 +854,7 @@ async function waiting(sw = true, msg = '') {
 	if (sw) {
 		if (!msg) msg = 'データベースダウンロード中';
 		obj.getElementsByTagName('p')[0].innerHTML = msg;
+		if (msg2) obj.getElementsByTagName('p')[1].innerHTML = msg2;
 		obj.style.display = 'block';
 		// メッセージ変更を確実にブラウザへ描画させるための yield
 		await new Promise(resolve => setTimeout(resolve, 50));
@@ -1077,7 +1123,7 @@ async function fetchDB() {
 		console.log('fetchDB completed.');
 	} catch (error) {
 		console.error('Error in fetchDB:', error);
-		await waiting(true, 'エラーが発生しました。<br>' + error.message);
+		await waiting(true, 'エラーが発生しました。<br>' + error.message, '回線状況の良い時に、再アクセスしてください');
 		errorOccurred = true;
 	} finally {
 		fcDB.close();
