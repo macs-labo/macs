@@ -158,8 +158,8 @@ async function fetchFile(serverUrl, timeout = 60000, autoClose = true) {
 		const total = contentLength ? parseInt(contentLength, 10) : 0;
 		const fileName = serverUrl.split('/').pop();
 
-		// 2. 大きなファイル(2MB以上)かつサーバーが Range をサポートしている場合は分割ダウンロード
-		const CHUNK_SIZE = 2 * 1024 * 1024; // 2MB 単位
+		// 2. 大きなファイル(1MB以上)かつサーバーが Range をサポートしている場合は分割ダウンロード
+		const CHUNK_SIZE = 1 * 1024 * 1024; // 1MB 単位
 		if (total > CHUNK_SIZE && acceptRanges === 'bytes') {
 			try {
 				console.log(`[fetchFile] Starting chunked download for ${fileName} (${(total / 1024 / 1024).toFixed(2)} MB)`);
@@ -183,14 +183,27 @@ async function fetchFile(serverUrl, timeout = 60000, autoClose = true) {
 								throw new Error(`Chunk fetch failed: ${chunkResponse.status}`);
 							}
 
-							const buffer = await chunkResponse.arrayBuffer();
-							chunks.push(new Uint8Array(buffer));
-							loaded += buffer.byteLength;
+							const reader = chunkResponse.body.getReader();
+							const chunkParts = [];
+							let chunkLoaded = 0;
 
-							const percent = Math.floor((loaded / total) * 100);
-							waiting(true, `ダウンロード中: ${fileName} ${percent}%`);
+							while (true) {
+								const { done, value } = await reader.read();
+								if (done) break;
+								chunkParts.push(value);
+								chunkLoaded += value.length;
+
+								// チャンク内でも受信のたびに全体の進捗率を計算して表示
+								const currentTotalLoaded = loaded + chunkLoaded;
+								const percent = Math.floor((currentTotalLoaded / total) * 100);
+								waiting(true, `ダウンロード中: ${fileName} ${percent}%`);
+							}
+
+							chunks.push(...chunkParts);
+							loaded += chunkLoaded;
 							break; // 成功したらリトライループを抜ける
 						} catch (e) {
+							if (e.name === 'AbortError') throw e;
 							retryCount++;
 							console.warn(`[fetchFile] Retry ${retryCount}/${maxRetries} for chunk ${start}-${end}`, e);
 							if (retryCount === maxRetries) throw e;
@@ -203,6 +216,7 @@ async function fetchFile(serverUrl, timeout = 60000, autoClose = true) {
 					lastModified: headResponse.headers.get('Last-Modified') 
 				};
 			} catch (chunkError) {
+				if (chunkError.name === 'AbortError') throw chunkError;
 				console.warn(`[fetchFile] Chunked download failed for ${fileName}. Falling back to standard download.`, chunkError);
 			}
 		}
