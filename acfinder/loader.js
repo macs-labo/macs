@@ -1079,7 +1079,7 @@ async function fetchDB(optiondb = '') {
 	];
 
 	// optiondb がある場合、files の init_creqte_view.sql の前に追加
-	if (optiondb) files.splice(0, -1, { fileName: optiondb.split('/').pop(), serverUrl: optiondb });
+	if (optiondb) files.splice(-1, 0, { fileName: optiondb.split('/').pop(), serverUrl: optiondb });
 
 	await waiting(true);
 	let errorOccurred = false;
@@ -1288,7 +1288,8 @@ async function loadHistoricalDB(tag, releaseName) {
 
 		initDB();
 		// サブDBアタッチ & ビュー作成
-		await attachDB(await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db'), 'spec');
+		const specContent = await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db');
+		await attachDB(new SQL.Database(specContent), 'spec');
 		const transformedSql = convTemplate(await sqlBlob.text());
 		await db.run(transformedSql);
 		await setTabViews();
@@ -1331,9 +1332,8 @@ async function loadLatestFromCache() {
 		initDB();
 
 		// サブ DB アタッチ
-		let specContent = new Uint8Array(await specBlob.arrayBuffer());
-		specContent = await unzip(specContent, 'spec.db');
-		attachDB(specContent, 'spec');
+		const specContent = await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db');
+		attachDB(new SQL.Database(specContent), 'spec');
 
 		// ビュー再構築
 		const transformedSql = convTemplate(await sqlBlob.text());
