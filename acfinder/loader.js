@@ -5,7 +5,6 @@ const cautionDate = Date.parse('2026/3/1');
 
 // データベース設定
 let db = null;
-let SQL = null; // SQLite エンジンインスタンス
 let tables = []; // テーブルインスタンスを保持する配列
 let lastUpdate = '';
 let dbStatusCached = false;
@@ -908,8 +907,7 @@ function initDB() {
 
 //attach sub database
 //async function attachDB(sdb, name) {
-function attachDB(subdb, name) {
-	const sdb = new SQL.Database(subdb);
+function attachDB(sdb, name) {
 	let fsdb = sdb.exec('pragma database_list;')[0].values[0][2];
 	db.run(`attach database ${fsdb.split('/').pop()} as ${name};`);
 	console.log(`Attatch ${name}`);
@@ -1067,18 +1065,21 @@ function basename(filename) {
 }
 
 // DB ロード(新版): サーバ DB ファイルと IndexedDB 保存ファイルのタイムスタンプを比較して、サーバが新しければサーバからフェッチ、それ以外なら IndexedDB からロード
-async function fetchDB() {
+async function fetchDB(optiondb = '') {
 	//if (local || db !== null) return Promise.resolve();
 	if (local || db !== null) return;
 
 	const fcDB = await openDB('fileCacheDB');
 	
-	const files = [
+	let files = [
 		{ fileName: `${maindb}.zip`, serverUrl: `${datdir}${maindb}.zip` },
 		{ fileName: `${subdb}.zip`, serverUrl: `${datdir}${subdb}.zip` },
 		//{ fileName: 'option.db', serverUrl: 'option.db' }, //ここに ATTACH するサブデータベースファイルを複数追加可能
 		{ fileName: 'init_create_view.sql', serverUrl: 'init_create_view.sql' }
 	];
+
+	// optiondb がある場合、files の init_creqte_view.sql の前に追加
+	if (optiondb) files.splice(0, -1, { fileName: optiondb.split('/').pop(), serverUrl: optiondb });
 
 	await waiting(true);
 	let errorOccurred = false;
@@ -1101,7 +1102,7 @@ async function fetchDB() {
 		
 		console.log('Initializing SQL.js...');
 		await waiting(true, 'SQLエンジン初期化中...');
-		SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
+		const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
 		
 		//メイン DB ロード
 		console.log('Loading main DB...');
@@ -1118,7 +1119,7 @@ async function fetchDB() {
 			dbname = basename(files[j].fileName) + '.db';
 			let content = new Uint8Array(await blobs[j].arrayBuffer());
 			if (files[j].fileName.split('.').pop() == 'zip') content = await unzip(content, dbname);
-			attachDB(content, basename(files[j].fileName));
+			attachDB(new SQL.Database(content), basename(files[j].fileName));
 			console.log(`Sub database attached from ${dbname}.`);
 		}
 		
