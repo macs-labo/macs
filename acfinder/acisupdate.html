@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
+<title></title>
+<!-- 本プロジェクト専用ライブラリ -->
+<script type="text/javascript" src="./header.js"></script>
+<script type="text/javascript" src="./custom.js"></script>
+<script type="text/javascript" src="./loader.js"></script>
+<script type="text/javascript" src="./table.js"></script>
+<script type="text/javascript" src="./crop.js"></script>
+<link rel="stylesheet" type="text/css" href="./common.css" />
+<link rel="stylesheet" type="text/css" href="./loader.css" />
+<link rel="stylesheet" type="text/css" href="./crop.css" />
+<!-- 本プロジェクト共通外部ライブラリ -->
+<!-- SQL.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.min.js"></script>
+<!-- JSZip.js ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<!-- ExcelJS ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
+<!-- FileSaver ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+<!-- Handsontable ライブラリ -->
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/handsontable.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/ht-theme-classic.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/handsontable.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/languages/ja-JP.js"></script>
+<link rel="stylesheet" type="text/css" href="./table.css" />
+<!-- infinit-tree ライブラリ -->
+<script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css">
+<!-- タブ専用外部ライブラリ -->
+<!-- romaji-conv ライブラリ / 作物タブ・病害虫タブ・薬剤タブ -->
+<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.32/dist/romaji-conv.js"></script>
+<!--	タブ専用スタイル -->
+<style>
+
+:root {
+	--listbox-height: 225px;
+}
+
+#cropTree {
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+}
+
+.infinite-tree-scroll {
+	min-height: 200px;
+	max-height: calc(100vh - 160px);
+}
+/* #update-tabs Tab Interface Styles */
+.updatetab-content {
+	display: flex;
+	flex-direction: column;
+	flex: 1; /* Take available vertical space */
+	overflow: hidden; /* Hide overflow if content is too large */
+}
+
+.update-tabs {
+	display: flex;
+	border-bottom: 1px solid var(--border-color-strong);
+	background-color: var(--bg-color-header);
+	flex-shrink: 0; /* Prevent tabs from shrinking */
+	overflow-x: auto;
+}
+
+.update-tabs a {
+	padding: 4px 8px;
+	text-decoration: none;
+	color: var(--text-color);
+	border: 1px solid transparent;
+	border-bottom: none;
+	cursor: pointer;
+	transition: background-color 0.3s ease;
+	font-weight: bold;
+	white-space: nowrap; /* Prevent tab text from wrapping */
+	flex-shrink: 0;
+}
+
+.update-tabs a:hover {
+	background-color: var(--bg-color-icon-hover);
+}
+
+.update-tabs a.active {
+	background-color: var(--bg-color);
+	border-color: var(--border-color-strong);
+	border-bottom-color: var(--bg-color); /* Hide bottom border to blend with content */
+	color: var(--text-color-dark);
+}
+
+/* Tab Page Content Styles */
+.page {
+	display: none; /* Hidden by default */
+	flex: 1; /* Take available space */
+	overflow: hidden; /* ページ全体ではなくリスト部分のみをスクロールさせるため hidden に変更 */
+	padding: 15px; /* Add some padding to the content */
+}
+
+.page.active {
+	display: flex; /* Show active page */
+	flex-direction: column; /* Content within page can be column layout */
+}
+
+/* リスト内のテキストが長い場合に折り返さず、横スクロールを発生させる。また、縦スクロールを有効にする */
+#tabledate, #tableYakuzai, #tableShurui, #tablesakumotsu {
+	white-space: nowrap;
+	flex: 1;
+	overflow-y: auto;
+}
+
+/* Specific layout for tables within update-date tab */
+.updatetab-content .table-Containor {
+	display: flex;
+	flex-direction: row; /* Override default column direction for this specific context */
+	flex: 1;
+	overflow: hidden;
+}
+
+.updatetab-content .table-side {
+	width: 30%; /* Example width for side table */
+	min-width: 200px;
+	max-width: 40%;
+	overflow-y: auto;
+	border-right: 1px dashed var(--border-color);
+	padding-right: 10px; /* Space before splitter */
+}
+
+.updatetab-content .table-main {
+	flex: 1;
+	overflow: hidden; /* Main table content will handle its own scroll */
+	padding-left: 10px; /* Space after splitter */
+}
+.year-group {
+	margin-bottom: 5px;
+}
+.year-header {
+	display: flex;
+	align-items: center;
+	cursor: pointer;
+	font-weight: bold;
+	padding: 2px 5px;
+	border-radius: 4px;
+}
+.year-header .icon {
+	width: 20px;
+	height: 20px;
+	margin-right: 8px;
+}
+.date-items {
+	margin-left: 24px;
+	display: none;
+}
+.date-items.open {
+	display: block;
+}
+
+/* 負の登録変更チェックボックスの下の余白を調整 */
+#checkbox-negative {
+	margin-bottom: 10px;
+}
+
+/* 全解除チェックボックスの下の余白を調整 */
+#clearAlldate, #clearAllchem, #clearAllshurui, #clearAllsakumotsu {
+	margin-bottom: 8px;
+}
+
+/* チェックボックスの縦位置調整 */
+#conditionPane input[type="checkbox"] {
+	position: relative;
+	top: 3px;
+}
+/* チェックボックスとラベル（アイテム文字列）の間の余白 */
+#conditionPane input[type="checkbox"] + label {
+	padding-left: 5px;
+}
+/* チェックボックス有効時のラベルのマウスカーソル */
+#conditionPane input[type="checkbox"]:not(:disabled) + label {
+	cursor: pointer;
+}
+
+/* 更新日タブの年フォルダーのチェックボックス及びラベルの縦位置調整 */
+#conditionPane .year-header input[type="checkbox"] {
+	top: 0px;
+}
+#conditionPane .year-header label {
+	position: relative;
+	top: 1px;
+}
+
+/* チェックリストボックス内アイテムの hover スタイル*/
+.check-item:hover {
+	background-color: var(--bg-color-icon-hover);
+	transition: var(--mouse-in-transition); 
+}
+
+</style>
+<!--	タブ専用の view や table の設定 -->
+<script type="text/plain" id="views_or_tables">
+</script>
+<!--	タブ専用の script -->
+<script>
+// clearContent プロトタイプ宣言
+if (!HTMLElement.prototype.clearContent) {
+	HTMLElement.prototype.clearContent = function() {
+		this.textContent = '';
+	};
+}
+
+async function dbExec(sql) {
+	await waiting(true, 'データベース検索中');
+	try {
+		return db.exec(sql);
+	} catch (error) {
+		throw error;
+	} finally {
+		await waiting(false);
+	}
+}
+
+// タブ切り替えの制御
+document.addEventListener('DOMContentLoaded', () => {
+	const tabs = document.querySelectorAll('.update-tabs a');
+	const pages = document.querySelectorAll('.page');
+
+	tabs.forEach(tab => {
+		tab.addEventListener('click', (e) => {
+			e.preventDefault();
+			
+			// 全てのタブから active クラスを削除して、クリックされたものに追加
+			tabs.forEach(t => t.classList.remove('active'));
+			tab.classList.add('active');
+
+			// 全てのページから active クラスを削除
+			pages.forEach(p => p.classList.remove('active'));
+			
+			// tab-ui 属性で指定された ID のページを表示
+			const targetId = tab.getAttribute('tab-ui');
+			const targetPage = document.querySelector(targetId);
+			if (targetPage) {
+				targetPage.classList.add('active');
+				// タブ切り替え時に隠れていたテーブルのレイアウトを修正するためリサイズイベントを発火
+				window.dispatchEvent(new Event('resize'));
+			}
+		});
+	});
+
+	// 「負の登録変更」チェックボックスの変更イベント
+	document.getElementById('negative').addEventListener('change', () => {
+		//if (!tabExecuted) return; // テーブルが表示されていなければ何もしない
+
+		const activeTab = document.querySelector('.update-tabs a.active');
+		const targetId = activeTab?.getAttribute('tab-ui');
+
+		if (targetId === '#update-date') searchByDate();
+		else if (targetId === '#chem-name') searchByYakuzai();
+		else if (targetId === '#shurui-name') searchByShurui();
+		else if (targetId === '#crop-name') searchBySakumotsu();
+	});
+
+	// 全解除チェックボックスの初期化
+	setupClearAll('clearAlldate', 'tabledate');
+	setupClearAll('clearAllchem', 'tableYakuzai');
+	setupClearAll('clearAllshurui', 'tableShurui');
+	setupClearAll('clearAllsakumotsu', 'tablesakumotsu');
+});
+
+// 全解除チェックボックスの設定
+function setupClearAll(clearId, tableId) {
+	const container = document.getElementById(clearId);
+	if (!container) return;
+	container.clearContent();
+	const checkbox = document.createElement('input');
+	checkbox.type = 'checkbox';
+	checkbox.id = clearId + '-cb';
+	checkbox.autocomplete = 'off';
+	checkbox.disabled = true;
+	const label = document.createElement('label');
+	label.htmlFor = checkbox.id;
+	label.textContent = '全解除';
+	container.appendChild(checkbox);
+	container.appendChild(label);
+	checkbox.addEventListener('change', () => {
+		const listContainer = document.getElementById(tableId);
+		listContainer.querySelectorAll('input[type="checkbox"]').forEach(cb => cb.checked = false);
+		tables = resetTables(tables);
+		// 年ごとのチェックボックスの indeterminate 状態もリセット
+		listContainer.querySelectorAll('input[type="checkbox"].year-toggle-checkbox').forEach(cb => {
+			cb.indeterminate = false;
+		});
+		checkbox.checked = false;
+		checkbox.disabled = true;
+	});
+}
+
+function updateClearAllStatus(clearId, tableId) {
+	const checkbox = document.getElementById(clearId + '-cb');
+	if (!checkbox) return;
+	const listContainer = document.getElementById(tableId);
+	const hasChecked = listContainer.querySelector('input:checked') !== null;
+	checkbox.checked = hasChecked;
+	checkbox.disabled = !hasChecked;
+}
+
+// 更新日リスト
+async function setTableDate() {
+	let sql = `SELECT DISTINCT date,koshin FROM acisupdate ORDER BY date DESC;`;
+	const sqlResult = await dbExec(sql);
+	// #tabledate に結果セットからチェックリストボックスを作成する
+	const tableDateContainer = document.getElementById('tabledate');
+	tableDateContainer.clearContent(); 
+	if (sqlResult && sqlResult.length > 0) {
+		const values = sqlResult[0].values; // date と koshin のペアの配列
+		const grouped = new Map();
+		values.forEach(([date, koshin]) => {
+				const year = date.substring(0, 4);
+				if (!grouped.has(year)) grouped.set(year, []);
+				grouped.get(year).push({ date, koshin });
+		});
+
+		for (const [year, items] of grouped) {
+			const yearGroup = document.createElement('div');
+			yearGroup.className = 'year-group';
+
+			const header = document.createElement('div');
+			header.id = `year-header-${year}`; // Add ID for easy selection
+			header.className = 'year-header';
+			header.classList.add('check-item');
+			
+			const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+			svg.setAttribute('class', 'icon');
+			const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+			use.setAttribute('href', 'icons.svg#folder-close');
+			svg.appendChild(use);
+			
+			// New: Year-level checkbox
+			const yearCheckbox = document.createElement('input');
+			yearCheckbox.type = 'checkbox';
+			yearCheckbox.id = `year-${year}-cb`;
+			yearCheckbox.autocomplete = 'off'; // Prevent browser from remembering state
+			yearCheckbox.classList.add('year-toggle-checkbox'); // Add a class for easy selection
+
+			const yearLabel = document.createElement('label');
+			yearLabel.htmlFor = yearCheckbox.id;
+			yearLabel.textContent = `${year}年`;
+			yearLabel.title = yearLabel.textContent;
+
+			header.appendChild(svg);
+			header.appendChild(yearCheckbox); // Add checkbox
+			header.appendChild(yearLabel);	 // Add label
+
+			const itemsContainer = document.createElement('div');
+			itemsContainer.className = 'date-items';
+			itemsContainer.id = `date-items-${year}`; // Add ID for easy selection
+
+			// Event listener for folder toggle (clicking SVG or label, but not checkbox)
+			header.addEventListener('click', (e) => {
+				// Only toggle folder if the click wasn't on the checkbox itself
+				if (e.target !== yearCheckbox && e.target !== yearLabel) {
+					const isOpen = itemsContainer.classList.toggle('open');
+					use.setAttribute('href', isOpen ? 'icons.svg#folder-open' : 'icons.svg#folder-close');
+				}
+			});
+
+			// Event listener for year-level checkbox
+			yearCheckbox.addEventListener('change', () => {
+				const isChecked = yearCheckbox.checked;
+				// Select/deselect all date checkboxes within this year group
+				itemsContainer.querySelectorAll('input[type="checkbox"].date-item-checkbox').forEach(cb => {
+					cb.checked = isChecked;
+				});
+				//searchByDate(); // Trigger search これがあるとテーブルがふたつできる。個別のチェックボックスのイベントリスナーで処理
+			});
+
+			items.forEach(({ date, koshin }) => {
+				const checkbox = document.createElement('input');
+				checkbox.type = 'checkbox';
+				checkbox.id = `date-${date}`;
+				checkbox.value = date;
+				checkbox.dataset.koshin = koshin;
+				checkbox.classList.add('date-item-checkbox'); // Add class for easy selection
+
+				const label = document.createElement('label');
+				label.htmlFor = checkbox.id;
+				label.textContent = date;
+				label.title = date;
+
+				// When a date checkbox is clicked, update its parent year-level checkbox state
+				checkbox.addEventListener('change', () => {
+					const allDateCheckboxes = itemsContainer.querySelectorAll('input[type="checkbox"].date-item-checkbox');
+					const checkedDateCheckboxes = itemsContainer.querySelectorAll('input[type="checkbox"].date-item-checkbox:checked');
+					updateYearCheckboxState(yearCheckbox, allDateCheckboxes.length, checkedDateCheckboxes.length);
+				});
+
+				const itemDiv = document.createElement('div');
+			  itemDiv.classList.add('check-item');
+				itemDiv.appendChild(checkbox);
+				itemDiv.appendChild(label);
+				itemsContainer.appendChild(itemDiv);
+			});
+
+			yearGroup.appendChild(header);
+			yearGroup.appendChild(itemsContainer);
+			tableDateContainer.appendChild(yearGroup);
+		}
+
+		// イベントリスナーを tableDateContainer に集約し、個別の date-item-checkbox の変更も処理
+		tableDateContainer.addEventListener('change', (e) => {
+			if (e.target.type === 'checkbox') {
+				searchByDate();
+			}
+		});
+
+		// 年ごとのチェックボックスの状態を更新するヘルパー関数
+		function updateYearCheckboxState(yearCheckbox, totalCount, checkedCount) {
+			if (checkedCount === 0) {
+				yearCheckbox.checked = false;
+				yearCheckbox.indeterminate = false;
+			} else if (checkedCount === totalCount) {
+				yearCheckbox.checked = true;
+				yearCheckbox.indeterminate = false;
+			} else {
+				yearCheckbox.checked = false;
+				yearCheckbox.indeterminate = true;
+			}
+		}
+
+		// 初期ロード時に年ごとのチェックボックスの状態を更新
+		grouped.forEach((items, year) => {
+			const yearCheckbox = document.getElementById(`year-${year}-cb`);
+			const itemsContainer = document.getElementById(`date-items-${year}`);
+			if (yearCheckbox && itemsContainer) {
+				const allDateCheckboxes = itemsContainer.querySelectorAll('input[type="checkbox"].date-item-checkbox');
+				const checkedDateCheckboxes = itemsContainer.querySelectorAll('input[type="checkbox"].date-item-checkbox:checked');
+				updateYearCheckboxState(yearCheckbox, allDateCheckboxes.length, checkedDateCheckboxes.length);
+			}
+		});
+	} else {
+		tableDateContainer.textContent = 'データが見つかりませんでした。';
+	} 
+}
+
+// 更新日検索 テーブル作成
+async function searchByDate() {
+	const container = document.getElementById('tabledate');
+	const checkedCheckboxes = Array.from(container.querySelectorAll('input.date-item-checkbox:checked'));
+	const checkedDates = checkedCheckboxes.map(cb => cb.value);
+	const checkedKoshins = checkedCheckboxes.map(cb => cb.dataset.koshin);
+	updateClearAllStatus('clearAlldate', 'tabledate');
+
+	tables = resetTables(tables);
+	if (checkedDates.length === 0) {
+		return;
+	}
+	
+	const dateCond = checkedDates.map(d => `'${d}'`).join(',');
+	let koshinCaption = checkedKoshins.map(d => `'${d}'`).join(',');
+	koshinCaption = koshinCaption.replace(/'/g, '');
+	let option = { caption: `更新日: ${koshinCaption}`, hideFooterU20: false };
+	let sql = `SELECT koshin,sakumotsu,kubun,henko,tsusho,shurui,bango,meisho,shinsei FROM acisupdate WHERE date IN (${dateCond}) ORDER BY date DESC;`;
+	
+	// #check-negative チェック状態を反映する
+	const negativeChecked = document.getElementById('negative').checked;
+	if (negativeChecked) {
+		option.caption += ' (負の登録変更のみ)';
+		// 負の登録変更のみを抽出する条件を追加
+		sql = `SELECT koshin,sakumotsu,kubun,henko,negative,tsusho,shurui,bango,meisho,shinsei FROM acisupdate WHERE date IN (${dateCond}) AND negative = 1 ORDER BY date DESC;`;
+	}
+	const result = await dbExec(sql);
+	tables = outputTable('#result', result, option );
+}
+
+// 薬剤名リスト
+async function setTableYakuzai() {
+	const tableYakuzaiContainer = document.getElementById('tableYakuzai');
+	tableYakuzaiContainer.clearContent();
+
+	// 絞り込み用入力ボックスの作成
+	const yakuzaiInputContainer = document.getElementById('yakuzaiInput');
+	yakuzaiInputContainer.clearContent();
+	const filterInput = document.createElement('input');
+	filterInput.type = 'text';
+	filterInput.placeholder = '薬剤名/読み/用途絞込 (Enterで実行)';
+	filterInput.style.width = '100%';
+	filterInput.style.marginBottom = '5px';
+	yakuzaiInputContainer.appendChild(filterInput);
+
+	// エンターキーで絞り込みを実行するイベント
+	filterInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			const filterText = romajiConv(filterInput.value.toLowerCase()).toHiragana();
+			const items = tableYakuzaiContainer.querySelectorAll('div');
+			items.forEach(item => {
+				const searchText = romajiConv((item.textContent + (item.dataset.ruby || '') + (item.dataset.yoto || '')).toLowerCase()).toHiragana();
+				item.style.display = searchText.includes(filterText) ? '' : 'none';
+			});
+		}
+	});
+
+	// 入力が空になったら絞り込みを解除する
+	filterInput.addEventListener('input', () => {
+		if (filterInput.value === '') {
+			const items = tableYakuzaiContainer.querySelectorAll('div');
+			items.forEach(item => {
+				item.style.display = '';
+			});
+		}
+	});
+
+	// 例: データベースから薬剤名を取得してテーブルを作成する
+	//let sql = `SELECT DISTINCT tsusho FROM acisupdate ORDER BY tsusho;`;
+	let sql = `select distinct tsusho,ruby,yoto from acisupdate left join tsushoruby using(tsusho) left join m_kihon using(tsusho) order by tsusho;`;
+	const sqlResult = await dbExec(sql);
+	if (sqlResult && sqlResult.length > 0) {
+		const values = sqlResult[0].values; // tsusho の配列
+		values.forEach(([tsusho, ruby, yoto]) => {
+			const checkbox = document.createElement('input');
+			checkbox.type = 'checkbox';
+			checkbox.id = `tsusho-${tsusho}`;
+			checkbox.value = tsusho;
+
+			const label = document.createElement('label');
+			label.htmlFor = checkbox.id;
+			label.textContent = tsusho;
+			label.title = tsusho;
+
+			const div = document.createElement('div');
+			div.classList.add('check-item');
+			div.dataset.ruby = ruby || '';
+			div.dataset.yoto = yoto || '';
+			div.appendChild(checkbox);
+			div.appendChild(label);
+
+			tableYakuzaiContainer.appendChild(div);
+		});
+		// チェックボックス選択時に検索を実行するイベントリスナーを追加
+		tableYakuzaiContainer.addEventListener('change', (e) => {
+			if (e.target.type === 'checkbox') {
+				searchByYakuzai();
+			}
+		});
+
+	} else {
+		tableYakuzaiContainer.textContent = 'データが見つかりませんでした。';
+	}
+}
+
+// 薬剤検索 テーブル作成
+async function searchByYakuzai() {
+	const container = document.getElementById('tableYakuzai');
+	const checked = Array.from(container.querySelectorAll('input:checked')).map(cb => cb.value);
+	updateClearAllStatus('clearAllchem', 'tableYakuzai');
+
+	tables = resetTables(tables);
+	if (checked.length === 0) {
+		return;
+	}
+	
+	const YakuzaiCond = checked.map(d => `'${d}'`).join(',');
+	const yakuzaiCaption = YakuzaiCond.replace(/'/g, '');
+	let option = { caption: `薬剤名:${yakuzaiCaption}`, hideFooterU20: false };
+	let sql = `SELECT tsusho,koshin,sakumotsu,kubun,henko,negative,shurui,bango,meisho,shinsei FROM acisupdate WHERE tsusho IN (${YakuzaiCond}) ORDER BY date DESC;`;
+
+	// negative チェックを反映
+	if (document.getElementById('negative').checked) {
+		option.caption += ' (負の登録変更のみ)';
+		sql = `SELECT tsusho,koshin,sakumotsu,kubun,henko,negative,shurui,bango,meisho,shinsei FROM acisupdate WHERE tsusho IN (${YakuzaiCond}) AND negative = 1 ORDER BY date DESC;`;
+	}
+
+	const result = await dbExec(sql);
+	tables = outputTable('#result', result, option );
+}
+
+// 種類名リスト
+async function setTableShurui() {
+	//let sql = `SELECT DISTINCT shurui FROM acisupdate ORDER BY shurui;`;
+	let sql = `select shurui, gn_concat(',',i.iso) as iso from acisupdate as a left join kihon as k using (shurui) inner join iso as i using(ippanmei) group by shurui`;
+	const sqlResult = await dbExec(sql);
+	// #tableShurui に結果セットからチェックリストボックスを作成する
+	const tableShuruiContainer = document.getElementById('tableShurui');
+	tableShuruiContainer.clearContent();		 
+
+			// 絞り込み用入力ボックスの作成
+	const ShuruiInputContainer = document.getElementById('ShuruiInput');
+	ShuruiInputContainer.clearContent();
+	const filterInput = document.createElement('input');
+	filterInput.type = 'text';
+	filterInput.placeholder = '種類名/iso名絞込 (Enterで実行)';
+	filterInput.style.width = '100%';
+	filterInput.style.marginBottom = '5px'; 
+	ShuruiInputContainer.appendChild(filterInput);
+
+	// エンターキーで絞り込みを実行するイベント
+	filterInput.addEventListener('keydown', (e) => {
+			if (e.key === 'Enter') {
+					const filterText = romajiConv(filterInput.value.toLowerCase()).toHiragana();
+					const items = tableShuruiContainer.querySelectorAll('div');
+					items.forEach(item => {
+							const searchText = romajiConv((item.textContent + (item.dataset.iso || '')).toLowerCase()).toHiragana();
+							item.style.display = searchText.includes(filterText) ? '' : 'none';
+					});
+			}
+	});
+
+	// 入力が空になったら絞り込みを解除する
+	filterInput.addEventListener('input', () => {
+		if (filterInput.value === '') {
+			const items = tableShuruiContainer.querySelectorAll('div');
+			items.forEach(item => {
+				item.style.display = '';
+			});
+		}
+	});
+
+	if (sqlResult && sqlResult.length > 0) {
+		const values = sqlResult[0].values; // shurui, iso の配列
+		values.forEach(([shurui, iso]) => {
+			const checkbox = document.createElement('input');
+			checkbox.type = 'checkbox';
+			checkbox.id = `shurui-${shurui}`;
+			checkbox.value = shurui;
+
+			const label = document.createElement('label');
+			label.htmlFor = checkbox.id;
+			label.textContent = shurui;
+			label.title = shurui;
+
+			const div = document.createElement('div');
+			div.classList.add('check-item');
+			div.dataset.iso = iso || '';
+			div.appendChild(checkbox);
+			div.appendChild(label);
+
+			tableShuruiContainer.appendChild(div);
+
+		});
+
+		// チェックボックス選択時に検索を実行するイベントリスナーを追加
+		tableShuruiContainer.addEventListener('change', (e) => {
+				if (e.target.type === 'checkbox') {
+						searchByShurui();
+				}
+		});
+	} else {
+	tableShuruiContainer.textContent = 'データが見つかりませんでした。';
+	}
+}
+
+// 種類名で検索 テーブル作成
+async function searchByShurui() {
+	const container = document.getElementById('tableShurui');
+	const checked = Array.from(container.querySelectorAll('input:checked')).map(cb => cb.value);
+	updateClearAllStatus('clearAllshurui', 'tableShurui');
+
+	tables = resetTables(tables);
+	if (checked.length === 0) {
+		return;
+	}
+	const ShuruiCond = checked.map(d => `'${d}'`).join(',');
+	// ShuruiCond から シングルクオートを除いたものを caption に表示するための加工
+	const ShuruiCaption = ShuruiCond.replace(/'/g, '');
+	let option = { caption: `種類名:${ShuruiCaption}`, hideFooterU20: false };
+	let sql = `SELECT shurui,koshin,sakumotsu,kubun,henko,negative,tsusho,bango,meisho,shinsei FROM acisupdate WHERE shurui IN (${ShuruiCond}) ORDER BY date DESC;`; 
+	
+	// negative チェックを反映
+	if (document.getElementById('negative').checked) {
+		option.caption += ' (負の登録変更のみ)';
+		sql = `SELECT shurui,koshin,sakumotsu,kubun,henko,negative,tsusho,bango,meisho,shinsei FROM acisupdate WHERE shurui IN (${ShuruiCond}) AND negative = 1 ORDER BY date DESC;`;
+	}
+
+	const result = await dbExec(sql);
+	tables = outputTable('#result', result, option );	 
+}
+
+// 作物名リスト
+async function setTableSakumotsu() {
+	//let sql = `SELECT DISTINCT sakumotsu FROM acisupdate ORDER BY sakumotsu;`;
+	let sql = `SELECT DISTINCT sakumotsu,ruby FROM acisupdate left join m_sakumotsu using(sakumotsu)	ORDER BY sakumotsu;`;
+	const sqlResult = await dbExec(sql);
+	// #tabledate に結果セットからチェックリストボックスを作成する
+	const tableSakumotsuContainer = document.getElementById('tablesakumotsu');
+	tableSakumotsuContainer.clearContent();		 
+
+	// 絞り込み用入力ボックスの作成
+	const sakumotsuInputContainer = document.getElementById('sakumotsuInput');
+	sakumotsuInputContainer.clearContent();
+	const filterInput = document.createElement('input');
+	filterInput.type = 'text';
+	filterInput.placeholder = '作物名/読み絞込 (Enterで実行)';
+	filterInput.style.width = '100%';
+	filterInput.style.marginBottom = '5px';
+	sakumotsuInputContainer.appendChild(filterInput);
+
+	// エンターキーで絞り込みを実行するイベント
+	filterInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			const filterText = romajiConv(filterInput.value.toLowerCase()).toHiragana();
+			const items = tableSakumotsuContainer.querySelectorAll('div');
+			items.forEach(item => {
+				const searchText = romajiConv((item.textContent + (item.dataset.ruby || '')).toLowerCase()).toHiragana();
+				item.style.display = searchText.includes(filterText) ? '' : 'none';
+			});
+		}
+	});
+
+	// 入力が空になったら絞り込みを解除する
+	filterInput.addEventListener('input', () => {
+		if (filterInput.value === '') {
+			const items = tableSakumotsuContainer.querySelectorAll('div');
+			items.forEach(item => {
+				item.style.display = '';
+			});
+		}
+	});
+
+	if (sqlResult && sqlResult.length > 0) {
+		const values = sqlResult[0].values; // sakumotsu の配列
+		values.forEach(([sakumotsu, ruby]) => {
+			const checkbox = document.createElement('input');
+			checkbox.type = 'checkbox';
+			checkbox.id = `sakumotsu-${sakumotsu}`;
+			checkbox.value = sakumotsu;
+
+			const label = document.createElement('label');
+			label.htmlFor = checkbox.id;
+			label.textContent = sakumotsu;
+			label.title = sakumotsu;
+
+			const div = document.createElement('div');
+			div.classList.add('check-item');
+			div.dataset.ruby = ruby || '';
+			div.appendChild(checkbox);
+			div.appendChild(label);
+
+			tableSakumotsuContainer.appendChild(div);
+
+		});
+
+		// チェックボックス選択時に検索を実行するイベントリスナーを追加
+		tableSakumotsuContainer.addEventListener('change', (e) => {
+			if (e.target.type === 'checkbox') {
+				searchBySakumotsu();
+			}
+		});
+	} else {
+		tableSakumotsuContainer.textContent = 'データが見つかりませんでした。';
+	}
+}
+
+// 作物名で検索 テーブル作成
+async function searchBySakumotsu() {
+	const container = document.getElementById('tablesakumotsu');
+	const checkboxes = Array.from(container.querySelectorAll('input[type="checkbox"]'));
+	const checked = checkboxes.filter(cb => cb.checked).map(cb => cb.value);
+	updateClearAllStatus('clearAllsakumotsu', 'tablesakumotsu');
+
+	tables = resetTables(tables);
+	if (checked.length === 0) {
+		return;
+	}
+
+	// すべての選択肢を取得し、選択された項目と前方一致するものを展開して含める
+	const allCrops = checkboxes.map(cb => cb.value);
+	const expanded = allCrops.filter(ac => checked.some(c => {
+		const prefix = c.endsWith(')') ? c.slice(0, -1) : c;
+		return ac.startsWith(prefix);
+	}));
+
+	const SakumotsuCond = expanded.map(d => `'${d}'`).join(',');
+	const sakumotsuCaption = SakumotsuCond.replace(/'/g, '');
+	let option = { caption: `作物名:${sakumotsuCaption}`, hideFooterU20: false };
+	let sql = `SELECT koshin,sakumotsu,kubun,henko,negative,tsusho,shurui,bango,meisho,shinsei FROM acisupdate WHERE sakumotsu IN (${SakumotsuCond}) ORDER BY date DESC;`;
+
+	// negative チェックを反映
+	if (document.getElementById('negative').checked) {
+		option.caption += ' (負の登録変更のみ)';
+		sql = `SELECT koshin,sakumotsu,kubun,henko,negative,tsusho,shurui,bango,meisho,shinsei FROM acisupdate WHERE sakumotsu IN (${SakumotsuCond}) AND negative = 1 ORDER BY date DESC;`;
+	}
+
+	const result = await dbExec(sql);
+	tables = outputTable('#result', result, option );
+}
+
+
+// DOM読込完了時の初期設定
+window.addEventListener('DOMContentLoaded', async function() {
+
+	// acisupdate 専用サブ DB の url 設定
+	const dburl = (window.location.hostname === 'macs.kabe.info' ? '..' : 'https://macs.kabe.info') + '/data/acisupdate.zip';
+
+	//データベース読込
+	if (db === null) await fetchDB(dburl);
+
+	// acisupdate 専用 columnMappings 追加
+	columnMappings = {
+		...columnMappings,
+		...{ "koshin": "更新日", "kubun": "区分", "henko": "変更内容", "negative": "負の変更", "shinsei": "申請者" }
+	};
+
+	// #tabledate　作成
+	await setTableDate();
+	// #tableYakuzai 作成
+	await setTableYakuzai();
+	// #tablesakumotsu 作成
+	await setTableSakumotsu();
+	// #tableShurui 作成
+	await setTableShurui();
+
+});
+
+</script>
+</head>
+<body>
+<iframe name="dummyFrame" style="display:none;"></iframe>
+<!--	全タブ共通ヘッダ -->
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div id="title-bar"></div><!--	タイトル表示領域確保 -->
+<!--div id="tab-header" class="tab_header"></div--><!--	タブヘッダー表示領域確保 -->
+<!--	このタブの表示内容 -->
+<div class="tab_content">
+	<div class="flex_container">
+		<div id="conditionPane">
+			<div id="checkbox-negative">
+				<input type="checkbox" id="negative" name="negative"><label for="negative">負の登録変更のみ</label>
+			</div>
+			<div class="update-tabs">
+				<a class="active" tab-ui="#update-date">更新日</a>
+				<a tab-ui="#chem-name">薬剤名</a>
+				<a tab-ui="#shurui-name">種類名</a>
+				<a tab-ui="#crop-name">作物名</a>
+			</div>
+			<!-- 更新日タブ -->
+			<div id="update-date" class="page active">
+				<div id="clearAlldate"></div>
+				<div id="tabledate"></div>
+			</div>
+			<!-- 薬剤名タブ -->
+			<div id="chem-name" class="page">
+				<div id="yakuzaiInput"></div>
+				<div id="clearAllchem"></div>
+				<div id="tableYakuzai"></div>
+			</div>
+			<!-- 種類名タブ -->
+			<div id="shurui-name" class="page">
+				<div id="ShuruiInput"></div>
+				<div id="clearAllshurui"></div>
+				<div id="tableShurui"></div>
+			</div>
+			<!-- 作物名タブ -->
+			<div id="crop-name" class="page">
+				<div id="sakumotsuInput"></div>
+				<div id="clearAllsakumotsu"></div>
+				<div id="tablesakumotsu"></div>
+			</div>
+		</div><!-- conditionPane -->
+		<div id="resultPane">
+			<div id="result"></div>
+		</div>
+	</div><!--flex_container -->
+</div><!-- End of tab-content -->
+<!--	タブ内容読込後に実行する script -->
+<script>
+</script>
+</body>
+</html>
