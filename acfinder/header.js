@@ -1,7 +1,7 @@
 /* 共通ヘッダ用グローバル変数 */
 
 // バージョン
-const appVer = '2026.0414.1200';
+const appVer = '2026.0417.2234';
 const debug = !window.location.href.includes('/acfinder/');
 
 // 基本タブメニュー設定
@@ -26,3 +26,12 @@ let tabs = [
 	const theme = localStorage.getItem('theme') || 'light';
 	document.documentElement.setAttribute('data-theme', theme);
 })();
+
+// Service Worker の登録
+if ('serviceWorker' in navigator) {
+	window.addEventListener('load', () => {
+		navigator.serviceWorker.register('./sw.js')
+			.then(reg => console.log('[PWA] ServiceWorker registered'))
+			.catch(err => console.error('[PWA] ServiceWorker registration failed', err));
+	});
+}

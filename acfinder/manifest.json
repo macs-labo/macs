@@ -1,0 +1,21 @@
+{
+  "name": "ACFinder Browser Edition",
+  "short_name": "ACFinderBE",
+  "description": "農薬登録情報検索システム",
+  "start_url": "./crop.html",
+  "display": "standalone",
+  "background_color": "#fdfdfd",
+  "theme_color": "#1f3e92",
+  "icons": [
+    {
+      "src": "../android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "../apple-touch-icon-180x180.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
