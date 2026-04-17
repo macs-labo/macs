@@ -1,7 +1,7 @@
 --/d
 create table if not exists spec.info (item varchar primary key, value varchar);
-insert or replace into spec.info (item, value) values ('betsumei', '2024.04.11');
-insert or replace into spec.info (item, value) values ('bunrui', '2025.08.05');
+insert or replace into spec.info (item, value) values ('betsumei', '2026.04.17');
+insert or replace into spec.info (item, value) values ('bunrui', '2026.04.17');
 /* 効果マスター */
 drop table if exists spec.koka;
 create table spec.koka (kokaid integer primary key, koka varchar);
