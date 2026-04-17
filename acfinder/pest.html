@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
 <link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
-<link rel="manifest" href="./manifest.json">
 <title></title>
 <!-- 本プロジェクト専用ライブラリ -->
 <script type="text/javascript" src="./header.js"></script>
@@ -181,9 +180,7 @@ function handleByochuSelection(event) {
 			// 作物ツリーを更新
 			setSakumotsuTree();
 			// テーブルを初期表示
-			const option = [
-				{ caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' }
-			];
+			const option = { caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' };
 			executeSQLsetGrid(option);
 		}, 100);
 	} else {
@@ -203,13 +200,11 @@ function searchCrop() {
 		const selectedCrops = checkedCrops.map(item => item.sakumotsu);
 		display.textContent = `${selected.join(',')} ／ ${selectedCrops.join(',')}`;
 		
-		// テーブル表示を非同期で実行（表示を先に確実にするため）
-		setTimeout(() => {
-			const option = [
-				{ caption: `「${selected.join('」「')}」に登録がある薬剤の「${selectedCrops.join('」「')}」及びその上位作物群に対する適用`, query: `select * FROM ttTekiyoByochu WHERE sakumotsu in (${makeCropCondition(selectedCrops)});` }
-			];
-			executeSQLsetGrid(opion);
-		}, 0);
+		const option = {
+			caption: `「${selected.join('」「')}」に登録がある薬剤の「${selectedCrops.join('」「')}」及びその上位作物群に対する適用`,
+			query: `select * FROM ttTekiyoByochu WHERE sakumotsu in (${makeCropCondition(selectedCrops)});`
+		};
+		executeSQLsetGrid(option);
 
 	} else {
 		// 作物選択がクリアされた場合
@@ -218,9 +213,7 @@ function searchCrop() {
 		// 病害虫が選択されていれば、病害虫のみで絞り込んだ結果を再表示
 		const checked = checkedByochu();
 		if (checked.length > 0) { // UIの状態ではなく、チェックボックスの状態で判定
-			const option = [
-				{ caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' }
-			];
+			const option = { caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' };
 			executeSQLsetGrid(option);
 		}
 	}
@@ -244,8 +237,10 @@ async function executeSQLsetGrid(option) {
 	await waiting(true, 'データベース検索中');
 	try {
 		// クエリを実行
+		// if (debug) console.log("Executing SQL:", option.query); // SQLを確認
 		let searchTime = -performance.now();
 		const result = db.exec(option.query);
+		// if (debug) console.log("SQL Result:", result); // 結果を確認
 		searchTime += performance.now();
 		// 結果を表示
 		tables = outputTable('#result', result, { caption: option.caption });
