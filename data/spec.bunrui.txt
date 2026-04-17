@@ -125,6 +125,7 @@ insert into spec.betsumei values('ボーベリア バシアーナ','ボーベリ
 insert into spec.betsumei values('ボーベリア バシアーナ','ボーベリア バシアーナGHA');
 --2026.04.17
 insert into spec.betsumei values('ジャパミリルア','5-メチル-2-(1-メチルエチリデン)-4-ヘキセン-1-イル=ブチレート');
+insert into spec.betsumei values('青枯病菌感染性バクテリオファージ','青枯病菌感染性バクテリオファージRKP181');
 insert into spec.betsumei values('青枯病菌感染性バクテリオファージ','青枯病菌感染性バクテリオファージRKP180');
 commit;
 /* 分類マスター */
@@ -971,5 +972,6 @@ insert into spec.bunrui values('シンメチリン','ベンジルエーテル',5
 insert into spec.bunrui values('5-メチル-2-(1-メチルエチリデン)-4-ヘキセン-1-イル=ブチレート','性フェロモン',64);
 insert into spec.bunrui values('ジャパミリルア','性フェロモン',64);
 insert into spec.bunrui values('青枯病菌感染性バクテリオファージ','微生物農薬',1);
+insert into spec.bunrui values('青枯病菌感染性バクテリオファージRKP180','微生物農薬',1);
 insert into spec.bunrui values('シクロピラニル','ピラゾリルピラゾール',512);
 commit;
