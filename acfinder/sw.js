@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v1';
+const CACHE_NAME = 'acfinder-assets-v2'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
   './crop.html',
   './pest.html',
@@ -13,6 +13,7 @@ const ASSETS_TO_CACHE = [
   './proc.html',
   './prop.html',
   './index.html',
+  './stdsql.zip',
   './header.js',
   './loader.js',
   './table.js',
@@ -71,8 +72,9 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   const url = new URL(event.request.url);
 
-  // acis.zip や spec.zip は loader.js の IndexedDB ルーチンに任せるため SW ではキャッシュしない
-  if (url.pathname.endsWith('.zip')) {
+  // acis.zip, spec.zip, acisupdate.zip は loader.js の IndexedDB ルーチンに任せるため SW ではキャッシュしない
+  const dbFiles = ['acis.zip', 'spec.zip', 'acisupdate.zip'];
+  if (dbFiles.some(file => url.pathname.endsWith(file))) {
     return; 
   }
 

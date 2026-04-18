@@ -626,7 +626,6 @@ async function setupFileTree(zipFile = null) {
 		});
 		selectTitle = basename(zipFile.name);
 	} else {
-		const fcDB = await openDB('fileCacheDB');
 		let zipname;
 		const metaZip = document.querySelector('meta[name="zip"]');
 		if (metaZip && metaZip.content) {
@@ -637,9 +636,11 @@ async function setupFileTree(zipFile = null) {
 			const baseName = basename(path);
 			zipname = baseName === 'sql' ? 'stdsql.zip' : baseName + '.zip';
 		}
-		const result = await fetchOrLoadFile(fcDB, zipname, zipname);
-		fcDB.close();
-		zip = await JSZip.loadAsync(result.blob, {
+		const response = await fetch(zipname);
+		if (!response.ok) throw new Error(`Failed to fetch ${zipname}: ${response.statusText}`);
+		const blob = await response.blob();
+
+		zip = await JSZip.loadAsync(blob, {
 			decodeFileName: function (bytes) {
 				return smartDecode(bytes);
 			}

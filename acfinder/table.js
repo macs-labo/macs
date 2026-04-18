@@ -929,10 +929,25 @@ function outputTable(selector, result, option = {}) {
 		return result;
 	}
 
+	// 可視（非表示でない）列のヘッダー、データ、幅を取得する関数
+	function getVisibleData() {
+		const hcp = table.getPlugin('hiddenColumns');
+		const colCount = table.countCols();
+		const visibleIndices = [];
+		for (let i = 0; i < colCount; i++) {
+			if (!hcp.isHidden(table.toPhysicalColumn(i))) {
+				visibleIndices.push(i);
+			}
+		}
+		return {
+			headers: visibleIndices.map(i => table.getColHeader(i)),
+			data: table.getData().map(row => visibleIndices.map(i => row[i])),
+			widths: visibleIndices.map(i => table.getColWidth(i))
+		};
+	}
+
 	// CSV/TSV 変換関数
-	function convertCsv(format, title) {
-		const headers = table.getColHeader();
-		const data = table.getData(); // フィルタリング後の表示データ
+	function convertCsv(format, title, headers, data) {
 		const delimiter = format === 'tsv' ? '\t' : ',';
 		const bom = format === 'csv' ? '\uFEFF' : ''; // BOM は CSV のみ
 
@@ -985,7 +1000,8 @@ function outputTable(selector, result, option = {}) {
 	
 		try {
 			await dispStatus('データを準備中');
-			const tsvData = convertCsv('tsv', makeCaption()); // TSV 形式で生成 // 2025.10.10 修正
+			const { headers, data } = getVisibleData();
+			const tsvData = convertCsv('tsv', makeCaption(), headers, data); // TSV 形式で生成 // 2025.10.10 修正
 
 			await dispStatus('クリップボードにコピー中');
 			await navigator.clipboard.writeText(tsvData);
@@ -1002,7 +1018,8 @@ function outputTable(selector, result, option = {}) {
 
 		try {
 			await dispStatus('データを準備中');
-			const csvData = convertCsv('csv',  makeCaption()); // BOM 付き CSV 形式で生成 // 2025.10.10 修正
+			const { headers, data } = getVisibleData();
+			const csvData = convertCsv('csv', makeCaption(), headers, data); // BOM 付き CSV 形式で生成 // 2025.10.10 修正
 
 			await dispStatus('CSV ファイル生成中');
 			const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8' });
@@ -1024,26 +1041,20 @@ function outputTable(selector, result, option = {}) {
 			// ExcelJS で Workbook 作成
 			const workbook = new ExcelJS.Workbook();
 			const worksheet = workbook.addWorksheet('Sheet1');
+
+			const { headers, data, widths } = getVisibleData();
 			
 			// ヘッダー行を追加
-			const headers = table.getColHeader();
 			worksheet.addRow(headers);
 		
 			// データ行を追加
-			const data = table.getData();
 			data.forEach(row => worksheet.addRow(row));
 
 			// 列幅を設定（ピクセルを Excel の文字数単位に変換）
-			const colWidths = [];
-			for (let col = 0; col < table.countCols(); col++) {
-				let width = table.getColWidth(col); // スカラー値を返す
-				// 幅が 0 または undefined の場合、デフォルト幅（例: 100px）を設定
-				colWidths.push(width > 0 ? width : 100);
-			}
 			worksheet.columns = headers.map((header, index) => ({
 				header,
 				key: `col${index}`,
-				width: colWidths[index] / 7, // ピクセルを文字数に変換（近似値）
+				width: (widths[index] > 0 ? widths[index] : 100) / 7, // ピクセルを文字数に変換（近似値）
 			}));
 
 			// タイトル行追加
@@ -1081,20 +1092,13 @@ function outputTable(selector, result, option = {}) {
 			const theme = getCurrentTheme(); // 'light' or 'dark'
 			const title = `${new Date().toLocaleString()}`;
 			const caption = makeCaption();
-			const headers = table.getColHeader();
-			const data = table.getData();
-
-			// 列幅の取得
-			const colWidths = [];
-			for (let i = 0; i < table.countCols(); i++) {
-				colWidths.push(table.getColWidth(i));
-			}
+			const { headers, data, widths } = getVisibleData();
 
 			// テーブル全体の幅を計算
-			const tableWidth = colWidths.reduce((sum, width) => sum + width, 0);
+			const tableWidth = widths.reduce((sum, width) => sum + width, 0);
 
 			let colgroup = '';
-			colWidths.forEach(width => {
+			widths.forEach(width => {
 				colgroup += `<col style="width: ${width}px;">`;
 			});
 
