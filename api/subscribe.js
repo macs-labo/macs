@@ -1,24 +1,10 @@
 import { kv } from '@vercel/kv';
 
 export default async function handler(req, res) {
-  // CORS 設定（各サイトからの呼び出し用）
-  const origin = req.headers.origin || '*';
-
-  // Credentials: true の場合、Origin は '*' ではいけないというルールがあるため
-  // リクエストの Origin をそのまま返す。Origin が無い場合は '*' を設定するが、
-  // その場合は Credentials を false にする。
-  res.setHeader('Access-Control-Allow-Origin', origin);
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS, PUT, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
-  
-  if (origin !== '*') {
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  // OPTIONS メソッドへの応答（vercel.json でヘッダーが設定されるため、ここではステータスを返すのみ）
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
-  
-  res.setHeader('Vary', 'Origin');
-  res.setHeader('Access-Control-Max-Age', '86400'); // 24時間プリフライトをキャッシュ
-
-  if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
     // 1. 購読登録 (POST)
