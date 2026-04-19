@@ -33,6 +33,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       acis_changed: ${{ steps.commit.outputs.acis_changed }}
+      spec_changed: ${{ steps.commit.outputs.spec_changed }}
       force_update: ${{ steps.vars.outputs.FORCE_UPDATE }}
       sync_mode: ${{ steps.vars.outputs.SYNC_MODE }}
       tag: ${{ steps.info.outputs.tag }}
@@ -94,12 +95,15 @@ jobs:
           # data, cron フォルダ内をすべてステージング（*.db も含める）
           git add data/ cron/
           
+          # 更新チェックを個別に実施
           ACIS_CHANGED=false
-          # acis.zip が更新されたかチェック（リリース判定用）
-          if git diff --cached --name-only | grep -q "data/acis.zip"; then
-            ACIS_CHANGED=true
-          fi
+          SPEC_CHANGED=false
+          
+          if git diff --cached --name-only | grep -q "data/acis.zip"; then ACIS_CHANGED=true; fi
+          if git diff --cached --name-only | grep -q "data/spec.zip"; then SPEC_CHANGED=true; fi
+          
           echo "acis_changed=$ACIS_CHANGED" >> $GITHUB_OUTPUT
+          echo "spec_changed=$SPEC_CHANGED" >> $GITHUB_OUTPUT
 
           if ! git diff --staged --quiet; then
             git commit -m "Update distribution files and databases [skip ci]"
@@ -168,3 +172,52 @@ jobs:
           curl "${CURL_OPTS[@]}" "https://macs.kabe.info/cron/.sync.data.php$OPT"
           curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/cron/.sync.data.php$OPT"
           curl "${CURL_OPTS[@]}" "https://macs.coresv.net/cron/.sync.data.php$OPT"
+
+  # 並列ジョブ3: 通知
+  push-notification:
+    needs: update-db
+    if: needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.spec_changed == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Web Push
+        env:
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          # Vercel KV へのアクセス用
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          ACIS_CHANGED: ${{ needs.update-db.outputs.acis_changed }}
+          SPEC_CHANGED: ${{ needs.update-db.outputs.spec_changed }}
+        run: |
+          npm install web-push @vercel/kv
+          node -e '
+            const { createClient } = require("@vercel/kv");
+            const webpush = require("web-push");
+            
+            async function run() {
+              const kv = createClient({
+                url: process.env.KV_REST_API_URL,
+                token: process.env.KV_REST_API_TOKEN,
+              });
+
+              webpush.setVapidDetails("mailto:admin@example.com", process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+              
+              const keys = await kv.keys("*");
+              const subs = await Promise.all(keys.map(k => kv.get(k)));
+              
+              const updatedFiles = [];
+              if (process.env.ACIS_CHANGED === "true") updatedFiles.push("acis.zip");
+              if (process.env.SPEC_CHANGED === "true") updatedFiles.push("spec.zip");
+              
+              const payload = JSON.stringify({
+                title: "ACFinder Database Update",
+                body: "更新ファイル: " + updatedFiles.join(", "),
+                files: updatedFiles
+              });
+
+              subs.forEach(sub => {
+                webpush.sendNotification(sub, payload).catch(err => console.error(err));
+              });
+            }
+            run();
+          '
