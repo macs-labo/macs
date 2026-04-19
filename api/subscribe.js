@@ -2,16 +2,21 @@ import { kv } from '@vercel/kv';
 
 export default async function handler(req, res) {
   // CORS 設定（各サイトからの呼び出し用）
-  const origin = req.headers.origin;
+  const origin = req.headers.origin || '*';
 
-  // Firefox/Edge 対策: 
-  // 1. Credentials: true の場合、Origin は具体的な値である必要があるため '*' を避ける
-  // 2. キャッシュによる CORS 失敗を防ぐため Vary: Origin を付与
-  if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+  // Credentials: true の場合、Origin は '*' ではいけないというルールがあるため
+  // リクエストの Origin をそのまま返す。Origin が無い場合は '*' を設定するが、
+  // その場合は Credentials を false にする。
+  res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS, PUT, PATCH');
   res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  
+  if (origin !== '*') {
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+  }
+  
   res.setHeader('Vary', 'Origin');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24時間プリフライトをキャッシュ
 
   if (req.method === 'OPTIONS') return res.status(204).end();
 
