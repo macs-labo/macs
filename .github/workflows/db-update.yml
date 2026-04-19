@@ -183,6 +183,7 @@ jobs:
         env:
           VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_CONTACT_EMAIL: ${{ secrets.VAPID_CONTACT_EMAIL }}
           # Vercel KV へのアクセス用
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
@@ -200,7 +201,7 @@ jobs:
                 token: process.env.KV_REST_API_TOKEN,
               });
 
-              webpush.setVapidDetails("mailto:admin@example.com", process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+              webpush.setVapidDetails(process.env.VAPID_CONTACT_EMAIL, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
               
               const keys = await kv.keys("*");
               const subs = await Promise.all(keys.map(k => kv.get(k)));
