@@ -1,9 +1,14 @@
 import { kv } from '@vercel/kv';
 
 export default async function handler(req, res) {
-  // OPTIONS メソッドへの応答（vercel.json でヘッダーが設定されるため、ここではステータスを返すのみ）
+  // コード側でもヘッダーを付与（vercel.json が効かない場合への保険）
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Vary', 'Origin');
+
   if (req.method === 'OPTIONS') {
-    return res.status(200).end();
+    return res.status(204).end();
   }
 
   try {
