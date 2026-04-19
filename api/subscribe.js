@@ -3,13 +3,17 @@ import { kv } from '@vercel/kv';
 export default async function handler(req, res) {
   // CORS 設定（各サイトからの呼び出し用）
   const origin = req.headers.origin;
-  // リクエストの Origin を動的に許可（credentials: 'include' 対応）
-  res.setHeader('Access-Control-Allow-Origin', origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
 
-  if (req.method === 'OPTIONS') return res.status(200).end();
+  // Firefox/Edge 対策: 
+  // 1. Credentials: true の場合、Origin は具体的な値である必要があるため '*' を避ける
+  // 2. キャッシュによる CORS 失敗を防ぐため Vary: Origin を付与
+  if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, DELETE, OPTIONS, PUT, PATCH');
+  res.setHeader('Access-Control-Allow-Headers', 'X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Vary', 'Origin');
+
+  if (req.method === 'OPTIONS') return res.status(204).end();
 
   try {
     // 1. 購読登録 (POST)
