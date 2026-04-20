@@ -9,6 +9,18 @@
   "routes": [
     {
       "src": "/api/subscribe",
+      "methods": ["OPTIONS"],
+      "status": 204,
+      "headers": {
+        "Access-Control-Allow-Credentials": "false",
+        "Access-Control-Allow-Origin": "*",
+        "Access-Control-Allow-Methods": "GET,OPTIONS,PATCH,DELETE,POST,PUT",
+        "Access-Control-Allow-Headers": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, Authorization",
+        "Vary": "Origin"
+      }
+    },
+    {
+      "src": "/api/subscribe",
       "headers": {
         "Access-Control-Allow-Credentials": "false",
         "Access-Control-Allow-Origin": "*",
