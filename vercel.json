@@ -20,10 +20,6 @@
   ],
   "rewrites": [
     {
-      "source": "/macs/(.*\\.(js|css|png|jpg|gif|ico|svg))",
-      "destination": "/macs/$1"
-    },
-    {
       "source": "/macs/(.*)",
       "destination": "/api/index.php"
     }
