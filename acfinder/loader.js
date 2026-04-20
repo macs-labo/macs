@@ -1486,7 +1486,19 @@ window.addEventListener('DOMContentLoaded', function() {
 		caution.innerHTML = '<a href="#" class="unaccepted">使用上の注意事項</a>';
 		dataWrapper.appendChild(caution);
 		setCautionClass();
-		//titleBar.appendChild(caution);
+		const noticeRegistered = localStorage.getItem('notice') || false;
+		const notice = document.createElement('div');
+		const noticeIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+		noticeIcon.classList.add('icon');
+		const iconHint = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+		iconHint.textContent = noticeRegistered ? 'DB更新通知解除' : 'DB更新通知購読';
+		noticeIcon.appendChild(iconHint);
+		const iconUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
+		const iconId = noticeRegistered ? 'bell-off' : 'bell';
+		iconUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `icons.svg#${iconId}`);
+		noticeIcon.appendChild(iconUse);
+		notice.appendChild(noticeIcon);
+		titleBar.appendChild(notice);
 
 		function setCautionClass() {
 			const a = caution.querySelector('a');
@@ -1498,6 +1510,49 @@ window.addEventListener('DOMContentLoaded', function() {
 			localStorage.removeItem('caution');
 			setCautionClass();
 			openCautionDialog();
+		});
+
+		// 通知ボタンクリック時の処理
+		notice.addEventListener('click', async () => {
+			try {
+				const registration = await navigator.serviceWorker.ready;
+				let subscription = await registration.pushManager.getSubscription();
+				const isRegistered = localStorage.getItem('notice') === 'true';
+
+				// API エンドポイントを環境に合わせて切り替える
+				const API_BASE = window.location.hostname === 'macs.vercel.app' ? '..' : 'https://macs.vercel.app';
+				const API_URL = `${API_BASE}/api/subscribe`;
+
+				if (isRegistered && subscription) {
+					// 購読解除処理
+					await fetch(API_URL, {
+						method: 'DELETE',
+						headers: { 'Content-Type': 'application/json' },
+						body: JSON.stringify({ endpoint: subscription.endpoint })
+					});
+					await subscription.unsubscribe();
+					localStorage.removeItem('notice');
+					iconUse.setAttribute('href', 'icons.svg#bell');
+					iconHint.textContent = 'DB更新通知購読';
+				} else {
+					// 新規購読処理
+					subscription = await registration.pushManager.subscribe({
+						userVisibleOnly: true,
+						applicationServerKey: 'BLqC0pbi0_CYdc8u2P41KVaVIW4v5ldF5OH_p6zf9646fiUGURpsBZmeIAHBSHhU-XUDM78IQfNGNcUYGy5SQU4'
+					});
+					await fetch(API_URL, {
+						method: 'POST',
+						body: JSON.stringify(subscription),
+						headers: { 'Content-Type': 'application/json' }
+					});
+					localStorage.setItem('notice', 'true');
+					iconUse.setAttribute('href', 'icons.svg#bell-off');
+					iconHint.textContent = 'DB更新通知解除';
+				}
+			} catch (err) {
+				console.error('Push notification error:', err);
+				alert('通知設定の変更に失敗しました。ブラウザの設定で通知が許可されているか確認してください。');
+			}
 		});
 
 		// 現在のタブ名を表示

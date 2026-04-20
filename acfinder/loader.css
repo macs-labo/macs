@@ -3,7 +3,7 @@
 	position: relative;
 	display: flex;
 	align-items: center;
-	gap: 20px;
+	gap: 10px;
 	padding: 3px 10px;
 	height: 37px;
 	border-bottom: 1px solid var(--border-color);
@@ -101,6 +101,12 @@
 
 #title-bar a:visited {
 	text-decoration-color: var(--ul-visited-link-color);
+}
+
+#title-bar .icon {
+	width: 24px;
+	height: 24px;
+	margin: 0;
 }
 
 #caution {
