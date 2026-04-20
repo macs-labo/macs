@@ -12,11 +12,17 @@ export default async function handler(req, res) {
   }
 
   try {
+    // KVの接続確認 (環境変数が不足している場合の早期リターン)
+    if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
+      throw new Error("KV environment variables are not configured.");
+    }
+
     // 1. 購読登録 (POST)
     if (req.method === 'POST') {
       const subscription = req.body;
       if (!subscription?.endpoint) return res.status(400).json({ error: "Endpoint required" });
-      await kv.set(subscription.endpoint, JSON.stringify(subscription));
+      // オブジェクトをそのまま渡すことで、kvライブラリが適切にシリアライズします
+      await kv.set(subscription.endpoint, subscription);
       return res.status(200).json({ success: true });
     }
 
@@ -32,9 +38,13 @@ export default async function handler(req, res) {
 
     // 3. 一覧取得 (GET)
     if (req.method === 'GET') {
+      // すべてのキーを取得
       const keys = await kv.keys('*');
       if (keys.length === 0) return res.status(200).json([]);
-      const subs = await Promise.all(keys.map(k => kv.get(k)));
+      
+      // mget を使用して一括取得することでパフォーマンスを向上
+      const subs = await kv.mget(...keys);
+      
       return res.status(200).json(subs);
     }
   } catch (error) {
