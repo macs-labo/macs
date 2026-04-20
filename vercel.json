@@ -8,7 +8,7 @@
   },
   "redirects": [
     {
-      "source": "/acfinder/",
+      "source": "/acfinder",
       "destination": "/acfinder/crop.html",
       "permanent": false
     },
