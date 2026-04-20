@@ -1543,6 +1543,7 @@ window.addEventListener('DOMContentLoaded', function() {
 					localStorage.removeItem('notice');
 					iconUse.setAttribute('href', 'icons.svg#bell');
 					iconHint.textContent = 'DB更新通知購読';
+					alert('DB更新通知の購読を登録しました。');
 				} else {
 					// 新規購読処理
 					subscription = await registration.pushManager.subscribe({
@@ -1557,6 +1558,7 @@ window.addEventListener('DOMContentLoaded', function() {
 					localStorage.setItem('notice', 'true');
 					iconUse.setAttribute('href', 'icons.svg#bell-off');
 					iconHint.textContent = 'DB更新通知解除';
+					alert('DB更新通知の購読を解除しました。');
 				}
 			} catch (err) {
 				console.error('Push notification error:', err);
