@@ -38,7 +38,8 @@ export default async function handler(req, res) {
       if (keys.length === 0) return res.status(200).json([]);
       
       // mget を使用して一括取得することでパフォーマンスを向上
-      const subs = await kv.mget(...keys);
+      // キー取得と値取得の間のわずかな時間にデータが削除された場合の null を除外
+      const subs = (await kv.mget(...keys)).filter(s => s !== null);
       
       return res.status(200).json(subs);
     }
