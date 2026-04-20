@@ -1,6 +1,11 @@
 import { kv } from '@vercel/kv';
 
 export default async function handler(req, res) {
+  // OPTIONSメソッド（プリフライト）への応答をコード側でも確実に行う
+  if (req.method === 'OPTIONS') {
+    return res.status(204).end();
+  }
+
   try {
     // KVの接続確認 (環境変数が不足している場合の早期リターン)
     if (!process.env.KV_REST_API_URL || !process.env.KV_REST_API_TOKEN) {
@@ -37,6 +42,9 @@ export default async function handler(req, res) {
       
       return res.status(200).json(subs);
     }
+
+    // サポート外のメソッドが来た場合に 405 Method Not Allowed を返してハングを防ぐ
+    return res.status(405).json({ error: `Method ${req.method} Not Allowed` });
   } catch (error) {
     console.error('KV Storage Error:', error);
     return res.status(500).json({ error: "Internal Server Error", message: error.message });
