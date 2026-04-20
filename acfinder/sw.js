@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v2.8'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v2.9'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
   './crop.html',
   './pest.html',
@@ -56,8 +56,18 @@ const ASSETS_TO_CACHE = [
 ];
 
 self.addEventListener('install', (event) => {
+  // addAll は一つでも失敗すると全体が失敗するため、個別に add してエラーを許容する構成に変更
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(ASSETS_TO_CACHE))
+    caches.open(CACHE_NAME).then((cache) => {
+      return Promise.allSettled(
+        ASSETS_TO_CACHE.map(url => 
+          cache.add(url).catch(err => console.error(`[SW] Failed to cache: ${url}`, err))
+        )
+      );
+    }).then(() => {
+      console.log('[SW] Install completed (some assets might have failed, check console)');
+      return self.skipWaiting();
+    })
   );
 });
 

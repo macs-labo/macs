@@ -1515,12 +1515,21 @@ window.addEventListener('DOMContentLoaded', function() {
 		// 通知ボタンクリック時の処理
 		notice.addEventListener('click', async () => {
 			try {
-				const registration = await navigator.serviceWorker.ready;
+				// Service Worker がエラーで準備できていない可能性を考慮
+				if (!navigator.serviceWorker.controller && !('serviceWorker' in navigator)) {
+					throw new Error('Service Worker が有効ではありません。');
+				}
+
+				// ready を待つが、SWがインストール失敗しているとここで止まる
+				const registration = await navigator.serviceWorker.ready.catch(e => {
+					throw new Error('Service Worker の準備がタイムアウトしました。');
+				});
+
 				let subscription = await registration.pushManager.getSubscription();
 				const isRegistered = localStorage.getItem('notice') === 'true';
 
 				// API エンドポイントを環境に合わせて切り替える
-				const API_BASE = window.location.hostname === 'macs.vercel.app' ? '..' : 'https://macs.vercel.app';
+				const API_BASE = window.location.hostname === 'macs.vercel.app' ? '' : 'https://macs.vercel.app';
 				const API_URL = `${API_BASE}/api/subscribe`;
 
 				if (isRegistered && subscription) {
