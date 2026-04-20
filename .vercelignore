@@ -1,6 +1,6 @@
 .git
 .github/
 cron/
-acfinder/*.zip
+acfinder/acfinder*.zip
 LICENSE
 README.md
