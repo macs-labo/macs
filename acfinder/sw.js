@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v2.9'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v3.0'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
   './crop.html',
   './pest.html',
@@ -9,6 +9,7 @@ const ASSETS_TO_CACHE = [
   './pesticides-crops.html',
   './rac_moa.html',
   './feedrice.html',
+  './notice.html',
   './acisupdate.html',
   './proc.html',
   './prop.html',
@@ -67,6 +68,97 @@ self.addEventListener('install', (event) => {
     }).then(() => {
       console.log('[SW] Install completed (some assets might have failed, check console)');
       return self.skipWaiting();
+    })
+  );
+});
+
+// Background Sync イベントリスナー
+self.addEventListener('sync', (event) => {
+  if (event.tag === 'download-db-update') {
+    event.waitUntil(downloadAndCacheUpdate());
+  }
+});
+
+// 背景でのダウンロードと IndexedDB 保存処理
+async function downloadAndCacheUpdate() {
+  const dbName = 'fileCacheDB';
+  const storeName = 'files';
+  const filesToUpdate = [
+    { name: 'acis.zip', url: 'https://raw.githubusercontent.com/macs-labo/macs/main/data/acis.zip' },
+    { name: 'spec.zip', url: 'https://raw.githubusercontent.com/macs-labo/macs/main/data/spec.zip' },
+    { name: 'acisupdate.zip', url: 'https://macs.kabe.info/data/acisupdate.zip' }
+  ];
+
+  // IndexedDB を開く (loader.js と同じ構成)
+  const db = await new Promise((resolve, reject) => {
+    const request = indexedDB.open(dbName, 1);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+
+  for (const file of filesToUpdate) {
+    const response = await fetch(file.url, { cache: 'no-cache' });
+    const blob = await response.blob();
+    const timestamp = response.headers.get('Last-Modified') || new Date().toUTCString();
+
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction(storeName, 'readwrite');
+      const store = transaction.objectStore(storeName);
+      const request = store.put({ fileName: file.name, blob, timestamp });
+      request.onsuccess = () => resolve();
+      request.onerror = () => reject(request.error);
+    });
+    console.log(`[SW] Background update saved: ${file.name}`);
+  }
+  db.close();
+}
+
+// Push 通知受信時のイベントリスナー
+self.addEventListener('push', (event) => {
+  let data = { title: 'ACFinder 更新通知', body: 'データベースが更新されました。' };
+
+  if (event.data) {
+    try {
+      data = event.data.json();
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: './android-chrome-192x192.png', // 適宜パスを確認してください
+    badge: './android-chrome-192x192.png',
+    tag: 'acis-update', // 同じタグの通知は上書きされる
+    renotify: true,
+    data: data // ペイロードを通知データに保持
+  };
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, options)
+  );
+});
+
+// 通知クリック時のイベントリスナー
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const payload = event.notification.data;
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientList) => {
+      // notice.html に JSON ペイロードを Base64 エンコードして渡す
+      const params = new URLSearchParams();
+      params.set('p', btoa(unescape(encodeURIComponent(JSON.stringify(payload)))));
+      const targetUrl = new URL(`./notice.html?${params.toString()}`, self.location.origin).href;
+
+      for (const client of clientList) {
+        if (client.url === targetUrl && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
     })
   );
 });
