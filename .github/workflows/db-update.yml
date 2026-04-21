@@ -189,6 +189,8 @@ jobs:
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
           ACIS_CHANGED: ${{ needs.update-db.outputs.acis_changed }}
           SPEC_CHANGED: ${{ needs.update-db.outputs.spec_changed }}
+          ACIS_TITLE: ${{ needs.update-db.outputs.title }}
+          ACIS_DATE: ${{ needs.update-db.outputs.date }}
         run: |
           npm install web-push @vercel/kv
           node -e '
@@ -206,19 +208,30 @@ jobs:
               const keys = await kv.keys("*");
               const subs = await Promise.all(keys.map(k => kv.get(k)));
               
-              const updatedFiles = [];
-              if (process.env.ACIS_CHANGED === "true") updatedFiles.push("acis.zip");
-              if (process.env.SPEC_CHANGED === "true") updatedFiles.push("spec.zip");
-              
-              const payload = JSON.stringify({
-                title: "ACFinder Database Update",
-                body: "更新ファイル: " + updatedFiles.join(", "),
-                files: updatedFiles
-              });
+              const notifications = [];
+              if (process.env.ACIS_CHANGED === "true") {
+                notifications.push({
+                  title: "ACIS Database Update",
+                  body: "更新ファイル: acis.zip (" + process.env.ACIS_TITLE + ")",
+                  tag: "acis-update",
+                  data: { file: "acis.zip", lastModified: process.env.ACIS_DATE, title: process.env.ACIS_TITLE }
+                });
+              }
+              if (process.env.SPEC_CHANGED === "true") {
+                notifications.push({
+                  title: "Spec Database Update",
+                  body: "更新ファイル: spec.zip",
+                  tag: "spec-update",
+                  data: { file: "spec.zip", lastModified: new Date().toISOString() }
+                });
+              }
 
-              subs.forEach(sub => {
-                webpush.sendNotification(sub, payload).catch(err => console.error(err));
-              });
+              for (const n of notifications) {
+                const payload = JSON.stringify(n);
+                await Promise.all(subs.map(sub => 
+                  webpush.sendNotification(sub, payload).catch(err => console.error("Push Error:", err))
+                ));
+              }
             }
             run();
           '
