@@ -20,7 +20,11 @@
   ],
   "rewrites": [
     {
-      "source": "/macs/(.*)",
+      "source": "/macs/index.php",
+      "destination": "/api/index.php"
+    },
+    {
+      "source": "/macs/:path*",
       "destination": "/api/index.php"
     }
   ]
