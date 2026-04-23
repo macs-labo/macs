@@ -4,3 +4,5 @@ cron/
 acfinder/acfinder*.zip
 LICENSE
 README.md
+macs/**/*.php
+!api/index.php
