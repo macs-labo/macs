@@ -7,10 +7,9 @@
       "includeFiles": "{macs/**/*.php,data/*.db,macs/templates/*.html}"
     }
   },
-  "routes": [
-    { "src": "/macs(/.*)?", "dest": "/api/index.php" },
-    { "handle": "filesystem" },
-    { "src": "/acfinder/?", "dest": "/acfinder/index.html" },
-    { "src": "/data/?", "dest": "/data/index.html" }
+  "rewrites": [
+    { "source": "/macs/:path*", "destination": "/api/index.php" },
+    { "source": "/acfinder", "destination": "/acfinder/index.html" },
+    { "source": "/data", "destination": "/data/index.html" }
   ]
 }
