@@ -1,23 +1,16 @@
 {
+  "cleanUrls": true,
   "trailingSlash": false,
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.8.0",
       "includeFiles": "{macs/**/*.php,data/*.db,macs/templates/*.html}"
+    },
+    "macs/index.php": {
+      "runtime": "vercel-php@0.8.0",
+      "includeFiles": "{macs/**/*.php,data/*.db,macs/templates/*.html}"
     }
   },
-  "redirects": [
-    {
-      "source": "/acfinder",
-      "destination": "/acfinder/crop.html",
-      "permanent": false
-    },
-    {
-      "source": "/acfinder/index.html",
-      "destination": "/acfinder/crop.html",
-      "permanent": false
-    }
-  ],
   "rewrites": [
     {
       "source": "/macs/index.php",
