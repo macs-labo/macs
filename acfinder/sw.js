@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v3.1'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v3.4'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
   './crop.html',
   './pest.html',
@@ -115,7 +115,11 @@ async function downloadAndCacheUpdate() {
 
 // Push 通知受信時のイベントリスナー
 self.addEventListener('push', (event) => {
-  let data = { title: 'ACFinder 更新通知', body: 'データベースが更新されました。' };
+  let data = { 
+    title: 'ACFinder 更新通知', 
+    body: 'データベースが更新されました。',
+    tag: 'default-update' // デフォルトのタグ
+  };
 
   if (event.data) {
     try {
@@ -127,11 +131,13 @@ self.addEventListener('push', (event) => {
 
   const options = {
     body: data.body,
-    icon: './android-chrome-192x192.png', // 適宜パスを確認してください
+    icon: './android-chrome-192x192.png',
     badge: './android-chrome-192x192.png',
-    tag: 'acis-update', // 同じタグの通知は上書きされる
+    // YAML側で設定した tag (acis-update や spec-update) を使用する
+    // これにより、ACISとSPECが同時に更新されても両方の通知が表示されます
+    tag: data.tag || 'general-update', 
     renotify: true,
-    data: data // ペイロードを通知データに保持
+    data: data // ペイロード全体を保持（notice.htmlへの引き継ぎ用）
   };
 
   event.waitUntil(

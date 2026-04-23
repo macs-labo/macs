@@ -56,9 +56,9 @@
 					document.getElementById('file-info').style.display = 'block';
 					document.getElementById('fileName').textContent = data.fileName;
 				}
-				if (data.LastUpdate) {
+				if (data.lastUpdate) {
 					document.getElementById('update-info').style.display = 'block';
-					document.getElementById('lastUpdate').textContent = data.LastUpdate;
+					document.getElementById('lastUpdate').textContent = data.lastUpdate;
 				}
 			} catch (e) {
 				console.error('Failed to parse payload', e);
