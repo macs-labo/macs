@@ -3,7 +3,7 @@
 	position: relative;
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 8px;
 	padding: 3px 10px;
 	height: 37px;
 	border-bottom: 1px solid var(--border-color);
@@ -17,6 +17,10 @@
 	/* margin: 0 10px; */
 	padding: 0;
 	cursor: default;
+}
+
+#title-bar div:has(h1) {
+	margin-left: 10px;
 }
 
 #title-bar h1 {
