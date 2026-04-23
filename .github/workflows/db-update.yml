@@ -214,7 +214,7 @@ jobs:
                   title: "ACIS Database Update",
                   body: "更新ファイル: acis.zip (" + process.env.ACIS_TITLE + ")",
                   tag: "acis-update",
-                  data: { file: "acis.zip", lastModified: process.env.ACIS_DATE, title: process.env.ACIS_TITLE }
+                  data: { fileName: "acis.zip", lastUpdate: process.env.ACIS_DATE, title: process.env.ACIS_TITLE }
                 });
               }
               if (process.env.SPEC_CHANGED === "true") {
@@ -222,7 +222,7 @@ jobs:
                   title: "Spec Database Update",
                   body: "更新ファイル: spec.zip",
                   tag: "spec-update",
-                  data: { file: "spec.zip", lastModified: new Date().toISOString() }
+                  data: { fileName: "spec.zip", lastUpdate: new Date().toISOString() }
                 });
               }
 
