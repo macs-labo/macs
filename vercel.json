@@ -5,20 +5,12 @@
     "api/index.php": {
       "runtime": "vercel-php@0.8.0",
       "includeFiles": "{macs/**/*.php,data/*.db,macs/templates/*.html}"
-    },
-    "macs/index.php": {
-      "runtime": "vercel-php@0.8.0",
-      "includeFiles": "{macs/**/*.php,data/*.db,macs/templates/*.html}"
     }
   },
-  "rewrites": [
-    {
-      "source": "/macs/index.php",
-      "destination": "/api/index.php"
-    },
-    {
-      "source": "/macs/:path*",
-      "destination": "/api/index.php"
-    }
+  "routes": [
+    { "src": "/macs(/.*)?", "dest": "/api/index.php" },
+    { "handle": "filesystem" },
+    { "src": "/acfinder/?", "dest": "/acfinder/index.html" },
+    { "src": "/data/?", "dest": "/data/index.html" }
   ]
 }
