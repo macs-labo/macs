@@ -9,7 +9,9 @@
   },
   "routes": [
     { "src": "/macs/(.*\\.(js|css|png|jpg|gif|ico|svg))$", "dest": "/macs/$1" },
-    { "src": "/macs/(.*)", "dest": "/api/index.php" },
-    { "handle": "filesystem" }
+    { "src": "/macs(/.*)?", "dest": "/api/index.php" },
+    { "handle": "filesystem" },
+    { "src": "/acfinder/?$", "dest": "/acfinder/index.html" },
+    { "src": "/data/?$", "dest": "/data/index.html" }
   ]
 }
