@@ -1,5 +1,5 @@
 {
-  "cleanUrls": false,
+  "cleanUrls": true,
   "trailingSlash": false,
   "functions": {
     "api/index.php": {
@@ -7,9 +7,8 @@
       "includeFiles": "{macs/**/*.php,data/*.db,macs/templates/*.html}"
     }
   },
-  "rewrites": [
-    { "source": "/macs/:path*", "destination": "/api/index.php" },
-    { "source": "/acfinder", "destination": "/acfinder/index.html" },
-    { "source": "/data", "destination": "/data/index.html" }
+  "routes": [
+    { "src": "/macs(/.*)?", "dest": "/api/index.php" },
+    { "handle": "filesystem" }
   ]
 }
