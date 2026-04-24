@@ -13,6 +13,10 @@ on:
         description: 'Force update (add update=1)'
         type: boolean
         default: false
+      notify_only:
+        description: 'Skip updates and only send push notifications'
+        type: boolean
+        default: false
       sync_mode:
         description: 'Remote Sync Mode'
         required: true
@@ -32,8 +36,8 @@ jobs:
   update-db:
     runs-on: ubuntu-latest
     outputs:
-      acis_changed: ${{ steps.commit.outputs.acis_changed }}
-      spec_changed: ${{ steps.commit.outputs.spec_changed }}
+      acis_changed: ${{ steps.commit.outputs.acis_changed || 'false' }}
+      spec_changed: ${{ steps.commit.outputs.spec_changed || 'false' }}
       force_update: ${{ steps.vars.outputs.FORCE_UPDATE }}
       sync_mode: ${{ steps.vars.outputs.SYNC_MODE }}
       tag: ${{ steps.info.outputs.tag }}
@@ -72,19 +76,20 @@ jobs:
           echo "SYNC_MODE=$SMODE" >> $GITHUB_OUTPUT
 
       - name: Update spec.db
-        if: ${{ github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'spec' || github.event.inputs.target == 'both') }}
+        if: ${{ github.event.inputs.notify_only != 'true' && github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'spec' || github.event.inputs.target == 'both') }}
         run: |
           cd cron
           [[ "${{ steps.vars.outputs.FORCE_UPDATE }}" == "true" ]] && php .make.spec.php "update=1" || php .make.spec.php
 
       - name: Update acis.db
-        if: ${{ github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both')) }}
+        if: ${{ github.event.inputs.notify_only != 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both'))) }}
         run: |
           cd cron
           [[ "${{ steps.vars.outputs.FORCE_UPDATE }}" == "true" ]] && php .make.acis.php "update=1" || php .make.acis.php
 
       - name: Commit and Push changes
         id: commit
+        if: ${{ github.event.inputs.notify_only != 'true' }}
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
@@ -114,11 +119,11 @@ jobs:
 
       - name: Read update info
         id: info
-        if: steps.commit.outputs.acis_changed == 'true'
+        if: steps.commit.outputs.acis_changed == 'true' || (github.event.inputs.notify_only == 'true' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both'))
         run: |
-          echo "tag=$(jq -r '.version_tag' cron/update.json)" >> $GITHUB_OUTPUT
-          echo "title=$(jq -r '.raw_title' cron/update.json)" >> $GITHUB_OUTPUT
-          echo "date=$(jq -r '.update_date' cron/update.json)" >> $GITHUB_OUTPUT
+          [ -f cron/update.json ] && echo "tag=$(jq -r '.version_tag' cron/update.json)" >> $GITHUB_OUTPUT || true
+          [ -f cron/update.json ] && echo "title=$(jq -r '.raw_title' cron/update.json)" >> $GITHUB_OUTPUT || true
+          [ -f cron/update.json ] && echo "date=$(jq -r '.update_date' cron/update.json)" >> $GITHUB_OUTPUT || true
 
   # 並列ジョブ1: Release の作成（過去データ保存用）
   create-release:
@@ -176,7 +181,7 @@ jobs:
   # 並列ジョブ3: 通知
   push-notification:
     needs: update-db
-    if: needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.spec_changed == 'true'
+    if: always() && (needs.update-db.result == 'success') && (needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.spec_changed == 'true' || github.event.inputs.notify_only == 'true')
     runs-on: ubuntu-latest
     steps:
       - name: Send Web Push
@@ -187,8 +192,8 @@ jobs:
           # Vercel KV へのアクセス用
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
-          ACIS_CHANGED: ${{ needs.update-db.outputs.acis_changed }}
-          SPEC_CHANGED: ${{ needs.update-db.outputs.spec_changed }}
+          ACIS_CHANGED: ${{ needs.update-db.outputs.acis_changed == 'true' || (github.event.inputs.notify_only == 'true' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both')) }}
+          SPEC_CHANGED: ${{ needs.update-db.outputs.spec_changed == 'true' || (github.event.inputs.notify_only == 'true' && (github.event.inputs.target == 'spec' || github.event.inputs.target == 'both')) }}
           ACIS_TITLE: ${{ needs.update-db.outputs.title }}
           ACIS_DATE: ${{ needs.update-db.outputs.date }}
         run: |
@@ -203,7 +208,9 @@ jobs:
                 token: process.env.KV_REST_API_TOKEN,
               });
 
-              webpush.setVapidDetails(process.env.VAPID_CONTACT_EMAIL, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+              const subject = process.env.VAPID_CONTACT_EMAIL.startsWith("http") ? process.env.VAPID_CONTACT_EMAIL : `mailto:${process.env.VAPID_CONTACT_EMAIL}`;
+              
+              webpush.setVapidDetails(subject, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
               
               const keys = await kv.keys("*");
               const subs = await Promise.all(keys.map(k => kv.get(k)));
