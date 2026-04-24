@@ -13,16 +13,12 @@ on:
         description: 'Force update (add update=1)'
         type: boolean
         default: false
-      notify_only:
-        description: 'Skip updates and only send push notifications'
-        type: boolean
-        default: false
       sync_mode:
         description: 'Remote Sync Mode'
         required: true
         default: 'fully_sync'
         type: choice
-        options: [fully_sync, dbupdate_only, site_sync_only]
+        options: [fully_sync, dbupdate_only, site_sync_only, push_notification_only]
 
   schedule:
     - cron: '2 0-6 * * 1-5'
@@ -76,20 +72,20 @@ jobs:
           echo "SYNC_MODE=$SMODE" >> $GITHUB_OUTPUT
 
       - name: Update spec.db
-        if: ${{ github.event.inputs.notify_only != 'true' && github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'spec' || github.event.inputs.target == 'both') }}
+        if: ${{ github.event.inputs.sync_mode != 'push_notification_only' && github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'spec' || github.event.inputs.target == 'both') }}
         run: |
           cd cron
           [[ "${{ steps.vars.outputs.FORCE_UPDATE }}" == "true" ]] && php .make.spec.php "update=1" || php .make.spec.php
 
       - name: Update acis.db
-        if: ${{ github.event.inputs.notify_only != 'true' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both'))) }}
+        if: ${{ github.event.inputs.sync_mode != 'push_notification_only' && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both'))) }}
         run: |
           cd cron
           [[ "${{ steps.vars.outputs.FORCE_UPDATE }}" == "true" ]] && php .make.acis.php "update=1" || php .make.acis.php
 
       - name: Commit and Push changes
         id: commit
-        if: ${{ github.event.inputs.notify_only != 'true' }}
+        if: ${{ github.event.inputs.sync_mode != 'push_notification_only' }}
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
@@ -119,7 +115,7 @@ jobs:
 
       - name: Read update info
         id: info
-        if: steps.commit.outputs.acis_changed == 'true' || (github.event.inputs.notify_only == 'true' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both'))
+        if: steps.commit.outputs.acis_changed == 'true' || (github.event.inputs.sync_mode == 'push_notification_only' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both'))
         run: |
           [ -f cron/update.json ] && echo "tag=$(jq -r '.version_tag' cron/update.json)" >> $GITHUB_OUTPUT || true
           [ -f cron/update.json ] && echo "title=$(jq -r '.raw_title' cron/update.json)" >> $GITHUB_OUTPUT || true
@@ -151,7 +147,7 @@ jobs:
   sync-remote:
     needs: update-db
     # acisが変わった、または強制更新の場合
-    if: needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.force_update == 'true'
+    if: (needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.force_update == 'true') && github.event.inputs.sync_mode != 'push_notification_only'
     runs-on: ubuntu-latest
     steps:
       - name: Trigger Remote Sync
@@ -181,7 +177,7 @@ jobs:
   # 並列ジョブ3: 通知
   push-notification:
     needs: update-db
-    if: always() && (needs.update-db.result == 'success') && (needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.spec_changed == 'true' || github.event.inputs.notify_only == 'true')
+    if: always() && (needs.update-db.result == 'success') && (needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.spec_changed == 'true' || github.event.inputs.sync_mode == 'push_notification_only')
     runs-on: ubuntu-latest
     steps:
       - name: Send Web Push
@@ -192,8 +188,8 @@ jobs:
           # Vercel KV へのアクセス用
           KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
           KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
-          ACIS_CHANGED: ${{ needs.update-db.outputs.acis_changed == 'true' || (github.event.inputs.notify_only == 'true' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both')) }}
-          SPEC_CHANGED: ${{ needs.update-db.outputs.spec_changed == 'true' || (github.event.inputs.notify_only == 'true' && (github.event.inputs.target == 'spec' || github.event.inputs.target == 'both')) }}
+          ACIS_CHANGED: ${{ needs.update-db.outputs.acis_changed == 'true' || (github.event.inputs.sync_mode == 'push_notification_only' && (github.event.inputs.target == 'acis' || github.event.inputs.target == 'both')) }}
+          SPEC_CHANGED: ${{ needs.update-db.outputs.spec_changed == 'true' || (github.event.inputs.sync_mode == 'push_notification_only' && (github.event.inputs.target == 'spec' || github.event.inputs.target == 'both')) }}
           ACIS_TITLE: ${{ needs.update-db.outputs.title }}
           ACIS_DATE: ${{ needs.update-db.outputs.date }}
         run: |
