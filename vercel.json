@@ -1,6 +1,4 @@
 {
-  "cleanUrls": true,
-  "trailingSlash": false,
   "functions": {
     "api/index.php": {
       "runtime": "vercel-php@0.8.0",
@@ -9,9 +7,7 @@
   },
   "routes": [
     { "src": "/macs/(.*\\.(js|css|png|jpg|gif|ico|svg))$", "dest": "/macs/$1" },
-    { "src": "/macs(/.*)?", "dest": "/api/index.php" },
-    { "handle": "filesystem" },
-    { "src": "/acfinder/index.html", "dest": "/acfinder/crop.html" },
-    { "src": "/data/?$", "dest": "/data/index.html" }
+    { "src": "/macs/(.*)", "dest": "/api/index.php" },
+    { "handle": "filesystem" }
   ]
 }
