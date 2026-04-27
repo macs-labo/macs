@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v3.6'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v3.7'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -189,7 +189,7 @@ self.addEventListener('fetch', (event) => {
 	event.respondWith(
 		caches.match(event.request, { ignoreSearch: true }).then((response) => {
 			// クエリパラメータを無視してキャッシュを検索。あれば返し、なければネットワークへ
-			return response || fetch(event.request);
+			return response || fetch(event.request, { redirect: "follow"});
 		})
 	);
 });
