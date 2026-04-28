@@ -90,11 +90,11 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           
-          # 生成された *.db を data フォルダへコピー（既に cron 内でやっていれば不要）
+          # 生成された *.db を macs/data フォルダへコピー
           cp cron/*.db data/ 2>/dev/null || true
           
-          # data, cron フォルダ内をすべてステージング（*.db も含める）
-          git add data/ cron/
+          # data, cron, macs/data/ フォルダ内をすべてステージング
+          git add data/ cron/ macs/data/
           
           # 更新チェックを個別に実施
           ACIS_CHANGED=false
