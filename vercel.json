@@ -8,6 +8,7 @@
   },
   "routes": [
     { "src": "/macs/(.*\\.(js|css|png|jpg|gif|ico|svg))$", "dest": "/macs/$1" },
+    { "src": "/macs/data/(.*\\.db$", "dest": "/macs/data/$1" },
     { "src": "/macs/(.*)", "dest": "/api/index.php" },
     { "handle": "filesystem" }
   ]
