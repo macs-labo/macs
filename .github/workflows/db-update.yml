@@ -91,7 +91,7 @@ jobs:
           git config --local user.name "github-actions[bot]"
           
           # 生成された *.db を macs/data フォルダへコピー
-          cp cron/*.db data/ 2>/dev/null || true
+          cp cron/*.db macs/data/ 2>/dev/null || true
           
           # data, cron, macs/data/ フォルダ内をすべてステージング
           git add data/ cron/ macs/data/
