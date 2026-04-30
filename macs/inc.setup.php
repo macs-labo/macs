@@ -32,6 +32,7 @@ $isVercel = (getenv('VERCEL') === '1');
 if ($isVercel) {
   $user_root = '';
   $dbPath = __DIR__ . '/data';
+  echo $dbPath;
   //$dbPath = '.data';
   //$dbPath = '/tmp';
   $smartyPath = dirname(__DIR__) . '/vendor/smarty/smarty/libs/';
