@@ -9,8 +9,8 @@ let tables = []; // テーブルインスタンスを保持する配列
 let lastUpdate = '';
 let dbStatusCached = false;
 
-const isMacs = window.location.hostname.match(/^(macs|noyaku)\./); // MACS サイト判定: ホスト名の先頭が macs. または noyaku.
-const datdir = isMacs ? '../data/' : 'https://raw.githubusercontent.com/macs-labo/macs/main/data/'; // MACS サイト以外では github から取得
+const isCloud = window.location.hostname.match(/\.(vercel\.app|pages\.dev|github\.io)$/); // クラウドホスティング判定: ドメイン名が vercel.app, pages.dev, github.io
+const datdir = isCloud ? 'https://raw.githubusercontent.com/macs-labo/macs/main/data/' : '../data/'; // 実サーバ以外では github から取得
 const maindb = 'acis';
 const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
