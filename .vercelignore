@@ -3,6 +3,7 @@
 cron/
 acfinder/acfinder*.zip
 data/*
-!data/*.zip
+!data/acis.zip
+!data/spec.zip
 LICENSE
 README.md
