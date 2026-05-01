@@ -11,11 +11,13 @@ $fupdate = getForceUpdate();
 $git = 'https://raw.githubusercontent.com/macs-labo/macs/main/data';
 
 $sites[] = $git;
+/*
 if (!$fupdate) {
   $sites[] = 'https://macs.xii.jp/data';
   $sites[] = 'https://macs.kabe.info/data';
   $sites[] = 'https://noyaku.ebb.jp/data';
 }
+*/
 
 $files1[] = $dokusei;
 $files1[] = $suisan;
