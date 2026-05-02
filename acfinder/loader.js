@@ -1486,7 +1486,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		caution.innerHTML = '<a href="#" class="unaccepted">使用上の注意事項</a>';
 		dataWrapper.appendChild(caution);
 		setCautionClass();
-		const noticeRegistered = localStorage.getItem('notice') || false;
+		let noticeRegistered = localStorage.getItem('notice') === 'true';
 		const notice = document.createElement('div');
 		const noticeIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
 		noticeIcon.classList.add('icon');
@@ -1499,6 +1499,27 @@ window.addEventListener('DOMContentLoaded', function() {
 		noticeIcon.appendChild(iconUse);
 		notice.appendChild(noticeIcon);
 		titleBar.appendChild(notice);
+
+		// オンラインならサーバーの状態と同期して表示を更新
+		if (navigator.onLine && 'serviceWorker' in navigator) {
+			navigator.serviceWorker.ready.then(async (registration) => {
+				const subscription = await registration.pushManager.getSubscription();
+				if (subscription) {
+					const API_BASE = window.location.hostname === 'macs.vercel.app' ? '' : 'https://macs.vercel.app';
+					const API_URL = `${API_BASE}/api/subscribe?endpoint=${encodeURIComponent(subscription.endpoint)}`;
+					try {
+						const res = await fetch(API_URL);
+						if (res.ok) {
+							const data = await res.json();
+							noticeRegistered = data.registered;
+							localStorage.setItem('notice', noticeRegistered ? 'true' : 'false');
+							iconUse.setAttribute('href', `icons.svg#${noticeRegistered ? 'bell-off' : 'bell'}`);
+							iconHint.textContent = noticeRegistered ? 'DB更新通知解除' : 'DB更新通知購読';
+						}
+					} catch (e) { console.warn('Notification sync failed', e); }
+				}
+			});
+		}
 
 		function setCautionClass() {
 			const a = caution.querySelector('a');
@@ -1526,11 +1547,24 @@ window.addEventListener('DOMContentLoaded', function() {
 				});
 
 				let subscription = await registration.pushManager.getSubscription();
-				const isRegistered = localStorage.getItem('notice') === 'true';
-
 				// API エンドポイントを環境に合わせて切り替える
 				const API_BASE = window.location.hostname === 'macs.vercel.app' ? '' : 'https://macs.vercel.app';
 				const API_URL = `${API_BASE}/api/subscribe`;
+
+				// 登録状況の決定: オンラインならサーバーを優先、オフラインなら localStorage
+				let isRegistered = localStorage.getItem('notice') === 'true';
+				if (navigator.onLine && subscription) {
+					try {
+						const res = await fetch(`${API_URL}?endpoint=${encodeURIComponent(subscription.endpoint)}`);
+						if (res.ok) {
+							const data = await res.json();
+							isRegistered = data.registered;
+							localStorage.setItem('notice', isRegistered ? 'true' : 'false');
+						}
+					} catch (e) {
+						console.warn('Could not verify status with server, falling back to localStorage');
+					}
+				}
 
 				if (isRegistered && subscription) {
 					// 購読解除処理
