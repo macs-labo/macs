@@ -39,6 +39,13 @@ export default async function handler(req, res) {
 
     // 3. 一覧取得 (GET)
     if (req.method === 'GET') {
+      const { endpoint } = req.query;
+      // 個別確認 (特定の endpoint が登録されているか)
+      if (endpoint) {
+        const sub = await kv.get(endpoint);
+        return res.status(200).json({ registered: !!sub });
+      }
+
       // すべてのキーを取得
       const keys = await kv.keys('*');
       if (keys.length === 0) return res.status(200).json([]);
