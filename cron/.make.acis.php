@@ -18,8 +18,8 @@ $ftoxic  = include_once 'inc.acis.dokusei.php';
 $fupdate |= include_once 'inc.acis.csv.php';
 
 //メインデータベース更新
-// 1. 準備：cron/acis.db がなければ data/acis.db をコピー
-if (!file_exists($maindb)) copy("$datdir/$maindb", $maindb);
+// 1. 準備：cron/acis.db がなければ cron/acis.zip を解凍
+if (!file_exists($maindb) && file_exists($mainzip) exec("unzip -o $mainzip");
 
 // 2. Open (1回だけ)
 OpenDB($db);
@@ -30,12 +30,10 @@ $db->exec('PRAGMA synchronous = OFF;');
 
 //毒性データベース更新
 if ($ftoxic) {
-//if ($ftoxic || $facis) {
   $files = array();
   $files['dokusei'] = "$datdir/$dokusei";
   $files['suisan']  = "$datdir/$suisan";
   $files['seizai']  = "$datdir/$seizai";
-  $ftoxic = false;
   $time = -microtime(true);
   foreach($files as $item => $file) {
     $time = -microtime(true);
