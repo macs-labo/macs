@@ -34,6 +34,7 @@ if ($ftoxic) {
   $files['dokusei'] = "$datdir/$dokusei";
   $files['suisan']  = "$datdir/$suisan";
   $files['seizai']  = "$datdir/$seizai";
+  //$ftoxic = false;
   $time = -microtime(true);
   foreach($files as $item => $file) {
     $time = -microtime(true);
@@ -65,7 +66,9 @@ $fsaku   = include_once 'inc.acis.sakumotsu.php';
 $facis = $finfo || $fbyochu || $fsaku;
 
 // 変更なしの場合は db を閉じて終了
-if (!$facis && !$ftoxic) {
+//if (!$facis && !$ftoxic) {
+// 登録情報が更新されていない場合は db を閉じて終了
+if (!$facis) {
   dbClose($db);
   return 1;
 }
