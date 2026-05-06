@@ -19,7 +19,7 @@ $fupdate |= include_once 'inc.acis.csv.php';
 
 //メインデータベース更新
 // 1. 準備：cron/acis.db がなければ cron/acis.zip を解凍
-if (!file_exists($maindb) && file_exists($mainzip) exec("unzip -o $mainzip");
+if (!file_exists($maindb) && file_exists($mainzip)) exec("unzip -o $mainzip");
 
 // 2. Open (1回だけ)
 OpenDB($db);
