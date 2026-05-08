@@ -1056,7 +1056,7 @@ async function fetchDB(optiondb = '') {
 	];
 
 	// optiondb がある場合、files の init_creqte_view.sql の前に追加
-	if (optiondb) files.splice(-1, 0, { fileName: optiondb.split('/').pop(), serverUrl: optiondb });
+	if (optiondb) files.push({ fileName: optiondb.split('/').pop(), serverUrl: optiondb });
 
 	await waiting(true);
 	let errorOccurred = false;
