@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v3.8'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v4.0'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -27,6 +27,7 @@ const ASSETS_TO_CACHE = [
 	'./filer.css',
 	'./editor.css',
 	'./icons.svg',
+	'./init_create_view.sql',
 	'./previews/preview.html',
 	'./previews/autosize.html',
 	'./previews/resizable.html',
@@ -61,16 +62,24 @@ self.addEventListener('install', (event) => {
 	event.waitUntil(
 		caches.open(CACHE_NAME).then((cache) => {
 			return Promise.allSettled(
-				ASSETS_TO_CACHE.map(url => 
-					cache.add(url).catch(err => console.error(`[SW] Failed to cache: ${url}`, err))
-				)
+				ASSETS_TO_CACHE.map(async (url) => {
+					try {
+						// cache: 'reload' を指定することで、ブラウザキャッシュを無視して最新を強制取得
+						const response = await fetch(url, { cache: 'reload' });
+						if (response.ok) {
+							return await cache.put(url, response);
+						}
+					} catch (err) {
+						console.error(`[SW] Failed to cache: ${url}`, err);
+					}
+				}) // map の終了
 			);
-		}).then(() => {
+		}).then(() => { // caches.open().then() の終了と次の then
 			console.log('[SW] Install completed (some assets might have failed, check console)');
 			return self.skipWaiting();
 		})
-	);
-});
+	); // event.waitUntil() の終了
+}); // addEventListener() の終了
 
 // Background Sync イベントリスナー
 self.addEventListener('sync', (event) => {
@@ -97,7 +106,8 @@ async function downloadAndCacheUpdate() {
 	});
 
 	for (const file of filesToUpdate) {
-		const response = await fetch(file.url, { cache: 'no-cache' });
+		// HTTPキャッシュを完全に無視して最新を取得
+		const response = await fetch(file.url, { cache: 'no-store' });
 		const blob = await response.blob();
 		const timestamp = response.headers.get('Last-Modified') || new Date().toUTCString();
 
@@ -189,7 +199,16 @@ self.addEventListener('fetch', (event) => {
 	event.respondWith(
 		caches.match(event.request, { ignoreSearch: true }).then((response) => {
 			// クエリパラメータを無視してキャッシュを検索。あれば返し、なければネットワークへ
-			return response || fetch(event.request, { redirect: "follow"});
+			if (response) return response;
+
+			// SWキャッシュにない場合、ネットワークから取得。
+			// ブラウザキャッシュの影響を完全に排除するため 'no-store' を使用。
+			// ただし、POSTリクエスト等は cache オプションを指定できないため Request オブジェクトのプロパティを確認
+			const isCacheable = event.request.method === 'GET';
+			const fetchOptions = { redirect: "follow" };
+			if (isCacheable) fetchOptions.cache = 'no-store';
+
+			return fetch(event.request, fetchOptions);
 		})
 	);
 });
