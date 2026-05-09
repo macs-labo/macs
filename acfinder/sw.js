@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v4.1'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v4.2'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -34,27 +34,27 @@ const ASSETS_TO_CACHE = [
 	'./previews/preview.js',
 	'./previews/preview.css',
 	// 外部ライブラリもキャッシュしてオフライン対応を強化
-	'https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.min.js',
+	'https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.min.js',
 	'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
 	'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
 	'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js',
-	'https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/handsontable.full.min.js',
-	'https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/languages/ja-JP.js',
-	'https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/handsontable.min.css',
-	'https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/ht-theme-classic.min.css',
+	'https://cdn.jsdelivr.net/npm/handsontable@17.0.1/dist/handsontable.full.min.js',
+	'https://cdn.jsdelivr.net/npm/handsontable@17.0.1/dist/languages/ja-JP.js',
+	'https://cdn.jsdelivr.net/npm/handsontable@17.0.1/styles/handsontable.min.css',
+	'https://cdn.jsdelivr.net/npm/handsontable@17.0.1/styles/ht-theme-classic.min.css',
 	'https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js',
 	'https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css',
-	'https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.32/dist/romaji-conv.js',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.js',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/mode/sql/sql.js',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/edit/matchbrackets.js',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/hint/show-hint.js',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/hint/sql-hint.js',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/selection/active-line.js',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/lib/codemirror.css',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/theme/eclipse.css',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/theme/darcula.css',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.20/addon/hint/show-hint.css'
+	'https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.js',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/mode/sql/sql.js',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/edit/matchbrackets.js',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.js',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/sql-hint.js',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/selection/active-line.js',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.css',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/eclipse.css',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/darcula.css',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.css'
 ];
 
 self.addEventListener('install', (event) => {

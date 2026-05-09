@@ -182,6 +182,7 @@ span.separator {
 	--ht-menu-border-color: var(--border-color-ht-common);
 	--ht-menu-shadow-color: var(--border-color-strong);
 	--ht-menu-item-hover-color: var(--bg-color-icon-hover);
+	--ht-menu-item-hover-color-opacity: 100%;
 	--ht-menu-border-width: 1px;
 	--ht-menu-border-radius: 6px;
 	--ht-menu-shadow-x: 0px;
@@ -374,7 +375,9 @@ span.separator {
 }
 
 /* メニュー淡色部分 */
-.handsontable .htUIMultipleSelectHot, /* フィルターメニューチェックリスト部分 */
+.htFiltersConditionsMenu > div.ht_master,/* フィルター条件選択メニュー外枠 */
+.htFiltersConditionsMenu td, /* フィルター条件選択メニュー内枠 */
+.htUIMultipleSelectHot .wtHolder, /* チェックリストフィルター部分 */
 .htContextMenu > div.ht_master, /* コンテキストメニュー */
 .htContextMenu > div.ht_master .htCore td {
 	background-color: var(--bg-color) !important;
