@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v4.2'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v4.3'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -20,6 +20,7 @@ const ASSETS_TO_CACHE = [
 	'./table.js',
 	'./crop.js',
 	'./filer.js',
+	'./theme.js',
 	'./common.css',
 	'./loader.css',
 	'./table.css',
@@ -54,7 +55,9 @@ const ASSETS_TO_CACHE = [
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.css',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/eclipse.css',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/darcula.css',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.css'
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.css',
+	'https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.js',
+	'https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.css'
 ];
 
 self.addEventListener('install', (event) => {

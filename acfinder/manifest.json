@@ -1,8 +1,8 @@
 {
-  "name": "ACFinder Browser Edition",
-  "short_name": "ACFinderBE",
-  "description": "農薬登録情報検索システム",
-  "start_url": "./crop.html",
+  "name": "ACFinder Browser Edition for Mobile",
+  "short_name": "ACFinderBE Mobile",
+  "description": "農薬検索システム ACFinderBE モバイル版",
+  "start_url": "./index.html?mode=mobile",
   "display": "standalone",
   "background_color": "#fdfdfd",
   "theme_color": "#1f3e92",

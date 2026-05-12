@@ -116,6 +116,18 @@ body {
 	min-height: 439px;
 }
 
+/* モバイルモード用の body スタイル */
+html[data-mode="mobile"] body {
+	margin: 0;
+	padding: 0;
+	height: 100% !important;
+	min-height: 0 !important; /* common.css の 439px を打ち消し */
+	overflow: hidden;
+	display: flex !important;
+	flex-direction: column !important;
+	background: var(--bg-color);
+}
+
 textarea, input[type="text"] {
 	line-height: 1.5;
 	border: 1px solid var(--border-color-strong);
@@ -279,7 +291,8 @@ dialog:focus {
 	display: none;
 }
 
-#conditionPane h3 {
+#conditionPane h3,
+[data-mode="mobile"] h3 {
 	font-size: 14px;
 	font-weight: normal;
 	line-height: 1rem;

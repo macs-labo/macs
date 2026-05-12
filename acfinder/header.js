@@ -1,8 +1,8 @@
 /* 共通ヘッダ用グローバル変数 */
 
 // バージョン
-const appVer = '2026.0509.1143';
-const debug = !window.location.href.includes('/acfinder/');
+const appVer = '2026.0512.2356';
+//const debug = !window.location.href.includes('/acfinder/');
 
 // 基本タブメニュー設定
 // ここに、ファイル名とタブ名を設定することで、オリジナルタブを追加可能

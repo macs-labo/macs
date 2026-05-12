@@ -184,257 +184,227 @@ function buildCropTree(sqlResult) {
 	return tree;
 }
 
-// フィルタリング関数
-function applyFilter(tree, filterInput) {
-	const filterText = romajiConv(filterInput.value).toHiragana().replaceAll('：', ':');
-	//filterInput.value = filterText;
-	const includeAncestors = false; // 必要に応じて設定
-	const matchedNodes = new Set(); // 新しいフィルタリングごとにリセット
+// グローバル配列変数
+var checkedCrops = [];
+// 現在作成されているツリー参照（イベント解除のために保持）
+var currentInfinitTree = null;
+// 現在の作物ツリーを保持（リセット時に使用）
+var currentCropTree = null;
 
-	if (!filterText) {
-			// すべてのオープン中のノードを強制的に閉じる（逆順処理）
-			const openNodes = tree.getOpenNodes();
-			//console.log(openNodes);
-			const nodesToClose = [...openNodes].sort((a, b) => b.id.localeCompare(a.id)); // node.id の逆順ソート
-			nodesToClose.forEach(node => {
-				if (node.parent !== null) { // ルートでない場合にクローズ
-					node.state.open = false;
-					tree.closeNode(node);
-					tree.update(); // 各クローズ後に更新
-					//console.log(`Force closed node: ${node.name}, open state: ${node.state.open}`);
-				}
+/**
+ * 作物ツリー管理クラス
+ */
+class CropTreeManager {
+	constructor(selector, onCheckCallback, isGlobal = false) {
+		this.selector = selector;
+		this.onCheckCallback = onCheckCallback;
+		this.isGlobal = isGlobal;
+
+		this.checkedCrops = [];
+		this.infiniteTree = null;
+		this.containerElement = null;
+		this.domHandlers = {};
+	}
+
+	init(sql) {
+		this.containerElement = document.querySelector(this.selector);
+		if (!this.containerElement) return;
+
+		this.reset();
+
+		const idSuffix = this.selector.replace(/[^a-zA-Z0-9]/g, '_');
+		this.containerElement.innerHTML = `
+			<h3>作物名選択</h3>
+			<form id="filterForm${idSuffix}" class="inputbar" onsubmit="return false;">
+				<input type="text" id="filterInput${idSuffix}" name="filterInput" placeholder="絞込作物名(空白で解除)" title="指定例： [なす]部分一致 [:なす]前方一致 [なす:]後方一致 [:なす:]完全一致" autocomplete="on" />
+				<button type="button" id="filterButton${idSuffix}">絞込</button>
+			</form>
+			<div class="treebox">
+				<div><input type="checkbox" id="clearAll${idSuffix}" autocomplete="off" disabled /><label for="clearAll${idSuffix}">全解除</label></div>
+				<div id="treeInner${idSuffix}"></div>
+			</div>
+		`;
+		this.containerElement.style.display = 'block';
+
+		try {
+			const sqlResult = db.exec(sql);
+			const treeData = buildCropTree(sqlResult);
+			const treeContainer = this.containerElement.querySelector(`#treeInner${idSuffix}`);
+			
+			this.infiniteTree = new InfiniteTree(treeContainer, {
+				autoOpen: false,
+				selectable: false,
+				data: treeData,
+				rowRenderer: (node, opts) => {
+					node.manager = this;
+					return rowRenderer(node, opts);
+				},
+				togglerClass: 'infinite-tree-toggler',
 			});
-			tree.unfilter();
-			tree.update(); // 最終的な再描画
-			//console.log('Filter cleared and nodes closed');
-	} else {
-		// 子孫がマッチしたかどうかを再帰的に判定するヘルパー関数
-		// 戻り値: true (子孫がマッチした), false (子孫はマッチしなかった)
-		const checkNodeAndDescendants = (node) => {
-			// 1. まず子孫ノードを再帰的にすべてチェックする
-			let hasMatchingDescendant = false;
-			if (node.hasChildren()) {
-				// some() は途中で止まるため使わない。map() や forEach() で全子ノードを探索する。
-				node.getChildren().forEach(child => {
-					if (checkNodeAndDescendants(child)) {
-						hasMatchingDescendant = true; // 子孫にマッチがあったことを記録
-					}
-				});
+
+			this._setupListeners(idSuffix);
+			
+			if (this.isGlobal) {
+				currentInfinitTree = this.infiniteTree;
+				currentCropTree = this.containerElement;
 			}
+		} catch (error) {
+			console.error('Initialization error:', error);
+		}
+	}
 
-			// 2. 自身がマッチするかどうかを判定
-			const data = node.data;
-			const isSelfMatch = data.keywords.includes(filterText) && !(filterText == 'かき' && data.keywords.includes('花き'));
+	_setupListeners(idSuffix) {
+		const tree = this.infiniteTree;
+		const filterInput = this.containerElement.querySelector(`#filterInput${idSuffix}`);
+		const filterButton = this.containerElement.querySelector(`#filterButton${idSuffix}`);
+		const filterForm = this.containerElement.querySelector(`#filterForm${idSuffix}`);
+		const clearAll = this.containerElement.querySelector(`#clearAll${idSuffix}`);
 
-			// 3. 子孫がマッチしておらず、かつ自身がマッチする場合のみ、このノードを最終的なマッチ対象とする
-			if (isSelfMatch && !hasMatchingDescendant) {
-				matchedNodes.add(node);
+		// チェックボックス操作
+		const changeHandler = (event) => {
+			const target = event.target;
+			if (target && target.matches('.checkbox')) {
+				const node = tree.getNodeById(target.id);
+				if (!node) return;
+				node.state.checked = !node.state.checked;
+				
+				if (node.state.checked) {
+					this.checkedCrops.push({ id: node.id, sakumotsu: node.data.sakumotsu });
+				} else {
+					this.checkedCrops = this.checkedCrops.filter(item => item.id !== node.id);
+				}
+
+				if (this.isGlobal) window.checkedCrops = this.checkedCrops;
+				tree.update();
+				if (clearAll) {
+					clearAll.checked = this.checkedCrops.length > 0;
+					clearAll.disabled = !clearAll.checked;
+				} // onCheckCallback を直接呼び出す
+				this.onCheckCallback(this.checkedCrops);
+				event.stopPropagation();
 			}
+		};
+		tree.contentElement.addEventListener('change', changeHandler);
+		this.domHandlers.change = changeHandler;
 
-			// 4. 自身または子孫のいずれかがマッチした場合に true を返し、親ノードに伝える
-			return isSelfMatch || hasMatchingDescendant;
+		// トグル・スクロール時のチェック復元
+		const restoreChecks = () => {
+			this.checkedCrops.forEach(c => {
+				const cb = tree.contentElement.querySelector(`input[id="${c.id}"]`);
+				if (cb) cb.checked = true;
+			});
 		};
 
-		// ツリーのルートノードから再帰チェックを開始
-		tree.nodes.forEach(rootNode => checkNodeAndDescendants(rootNode));
-
-		// フィルタリング処理
-		tree.filter((node) => {
-			// matchedNodes に含まれているノードのみ表示
-			return matchedNodes.has(node);
-		});
-	}
-	// includeAncestors が true の場合、親ノードを処理
-	if (includeAncestors) {
-		matchedNodes.forEach(node => {
-			let parent = node.parent;
-			while (parent) {
-				matchedNodes.add(parent);
-				tree.openNode(parent);
-				//console.log(`Opened parent node: ${parent.name}`);
-				parent = parent.parent;
-			}
-		});
-	}
-
-	// マッチしたノードの親ノード（class 0 ノードを含む）を展開
-	const parentNodes = new Set();
-	matchedNodes.forEach(node => {
-		let current = node.parent;
-		while (current) {
-			if (current.id) parentNodes.add(current);
-			current = current.parent;
-		}
-	});
-
-	//console.log('Matched Nodes:', matchedNodes);
-
-	// マッチノードの親ノードを開く
-	parentNodes.forEach(node => {
-		tree.openNode(node);
-		//console.log(`Opened parent node: ${node.name}`);
-	});
-	// 親ノードを開くとマッチノードの子ノードが全開になるので、マッチノードは閉じる
-	matchedNodes.forEach(node => {
-		tree.closeNode(node);
-	});
-
-	// ツリーの再描画
-	tree.update();
-	//console.log('Tree updated after filtering');
-}
-
-// グローバル配列変数
-let checkedCrops = [];
-// 現在作成されているツリー参照（イベント解除のために保持）
-let currentInfinitTree = null;
-// 現在の作物ツリーを保持（リセット時に使用）
-let currentCropTree = null;
-
-// change イベントリスナー設定(チェックボックスのみ)
-function setupClickListner(tree, onCheckCallback) {
-	if (!tree || !tree.contentElement) return;
-
-	// 既存のハンドラが登録されている場合は先に解除して重複登録を防ぐ
-	if (tree._changeListener) {
-		try { tree.contentElement.removeEventListener('change', tree._changeListener); } catch (e) {}
-		delete tree._changeListener;
-	}
-
-	const handler = (event) => {
-		const target = event.target;
-
-		// チェックボックスがクリックされた場合のみ処理
-		if (target && target.matches && target.matches('.checkbox')) {
-			const nodeId = target.parentNode && target.parentNode.parentNode ? target.parentNode.parentNode.getAttribute('data-id') : null;
-			if (!nodeId) return;
-			const node = tree.getNodeById(nodeId);
-			if (!node) return;
-			const state = node.state;
-			state.checked = !state.checked; // クリックされたノードのみチェックを反転
-			//tree.checkNode(node); // これを使うと、親ノードのチェックまで反転されるので使わない
-			
-			// checkedCrops の更新
-			if (state.checked === true) {
-				// チェックがONの場合、node.id と node.data.sakumotsu を追加
-				checkedCrops.push({ id: node.id, sakumotsu: node.data.sakumotsu });
-			} else {
-				// チェックがOFFの場合、該当する id のエントリを削除
-				checkedCrops = checkedCrops.filter(item => item.id !== node.id);
-			}
-
-			tree.update();
-
-			// 全解除チェックボックス表示設定
-			const clearAll = document.querySelector('#clearAll');
-			if (clearAll) {
-				clearAll.checked = checkedCrops.length > 0;
-				clearAll.disabled = !clearAll.checked;
-			}
-
-			// DOM更新後にsearchCropを呼び出す
-			setTimeout(() => { onCheckCallback(); }, 0);
-
-			// 他のデフォルトのツリー操作（ノード選択など）を防ぐ
-			event.stopPropagation();
-		}
-	};
-
-	tree._changeListener = handler;
-	tree.contentElement.addEventListener('change', handler);
-}
-
-// 子ノードがダミーノードのノードをトグル時に子ノードを再帰的に開くイベントリスナー
-function setupToggleListener(tree) {
-	if (!tree || typeof tree.on !== 'function') return;
-
-	// 既存のハンドラを解除できるように、登録前に old handler を削除
-	if (tree._openNodeHandler && typeof tree.off === 'function') {
-		try { tree.off('openNode', tree._openNodeHandler); } catch (e) {}
-		delete tree._openNodeHandler;
-	}
-	if (tree._closeNodeHandler && typeof tree.off === 'function') {
-		try { tree.off('closeNode', tree._closeNodeHandler); } catch (e) {}
-		delete tree._closeNodeHandler;
-	}
-
-	const restoreChecks = () => {
-		if (typeof checkedCrops !== 'undefined') {
-			checkedCrops.forEach(c => {
-				const cb = tree.contentElement.querySelector(`input[id="${c.id}"]`);
-				if (cb) {
-					cb.checked = true;
-					cb.setAttribute('data-checked', '');
-				}
-			});
-		}
-	};
-
-	const openHandler = (node) => {
-		if (node.state.depth > 0 && node.hasChildren() && node.children[0].data.isDummy) {
-			function openChildrenRecursively(n) {
-				if (n.hasChildren()) {
-					n.children.forEach(child => {
-						if (!child.state.open) {
-							child.state.open = true;
-							tree.openNode(child);
-							openChildrenRecursively(child);
-						}
+		tree.on('openNode', (node) => {
+			if (node.state.depth > 0 && node.hasChildren() && node.children[0].data.isDummy) {
+				const openRec = (n) => {
+					if (n.hasChildren()) n.children.forEach(child => {
+						if (!child.state.open) { child.state.open = true; tree.openNode(child); openRec(child); }
 					});
-				}
-			}
-			openChildrenRecursively(node);
-
-			// チェック状態の同期
-			if (typeof checkedCrops !== 'undefined') {
+				};
+				openRec(node);
 				tree.nodes.forEach(n => {
-					const isChecked = checkedCrops.some(c => c.id == n.id);
+					const isChecked = this.checkedCrops.some(c => c.id == n.id);
 					if (n.state.checked !== isChecked) n.state.checked = isChecked;
 				});
+				tree.update();
 			}
+			restoreChecks();
+		});
+		tree.on('closeNode', restoreChecks);
+		tree.scrollElement.addEventListener('scroll', restoreChecks);
 
-			tree.update();
+		// フィルタ
+		const doFilter = () => this._applyFilter(filterInput.value);
+		filterButton.addEventListener('click', doFilter);
+		filterInput.addEventListener('change', doFilter);
+		filterInput.addEventListener('input', (e) => { if (e.target.value === '') doFilter(); });
+		filterForm.addEventListener('submit', (e) => e.preventDefault());
+
+		// 全解除
+		clearAll.addEventListener('click', () => this.clearAll(false));
+	}
+
+	_applyFilter(text) {
+		const tree = this.infiniteTree;
+		const filterText = romajiConv(text).toHiragana().replaceAll('：', ':');
+		const matchedNodes = new Set();
+
+		if (!filterText) {
+			tree.getOpenNodes().sort((a, b) => b.id.localeCompare(a.id)).forEach(node => {
+				if (node.parent !== null) { node.state.open = false; tree.closeNode(node); }
+			});
+			tree.unfilter();
+		} else {
+			const check = (node) => {
+				let hasMatch = false;
+				if (node.hasChildren()) node.getChildren().forEach(child => { if (check(child)) hasMatch = true; });
+				const isSelf = node.data.keywords.includes(filterText) && !(filterText == 'かき' && node.data.keywords.includes('花き'));
+				if (isSelf && !hasMatch) matchedNodes.add(node);
+				return isSelf || hasMatch;
+			};
+			tree.nodes.forEach(root => check(root));
+			tree.filter(node => matchedNodes.has(node));
+			matchedNodes.forEach(node => {
+				let curr = node.parent;
+				while (curr) { if (curr.id) tree.openNode(curr); curr = curr.parent; }
+				tree.closeNode(node);
+			});
 		}
-		restoreChecks();
-	};
+		tree.update();
+	}
 
-	const closeHandler = (node) => {
-		restoreChecks();
-	};
+	clearAll(silent = false) {
+		if (!this.infiniteTree) return;
+		while (this.checkedCrops.length > 0) {
+			const item = this.checkedCrops.pop();
+			const node = this.infiniteTree.getNodeById(item.id);
+			if (node) this.infiniteTree.checkNode(node, false);
+			const cb = this.infiniteTree.contentElement.querySelector(`input[id="${item.id}"]`);
+			if (cb) cb.checked = false;
+		}
+		if (this.isGlobal) window.checkedCrops = [];
+		this.infiniteTree.update();
+		const ca = this.containerElement.querySelector('input[id^="clearAll"]');
+		if (ca) { ca.checked = false; ca.disabled = true; }
+		if (!silent) this.onCheckCallback(this.checkedCrops);
+	}
 
-	tree._openNodeHandler = openHandler;
-	tree._closeNodeHandler = closeHandler;
-	tree.on('openNode', openHandler);
-	tree.on('closeNode', closeHandler);
-
-	const scrollHandler = () => {
-		restoreChecks();
-	};
-	tree.scrollElement.addEventListener('scroll', scrollHandler);
-	tree._scrollHandler = scrollHandler;
+	reset() {
+		if (!this.infiniteTree) return;
+		this.clearAll(true);
+		this.infiniteTree.clear();
+		this.infiniteTree = null;
+		if (this.isGlobal) {
+			currentInfinitTree = null;
+			currentCropTree = null;
+			window.checkedCrops = [];
+		}
+	}
 }
 
-// チェック全解除
-function clearAllCheckedNodes(tree, silent = false) {
-	while (checkedCrops.length > 0) {
-		const item = checkedCrops.pop();
-		const node = tree.getNodeById(item.id);
-		if (node) {
-			tree.checkNode(node, false); // node.state.checked = false は tree.update() で反映されないので checkNode() 使用
-			// シングルノードチェックでそのノードがツリーボックス内に見えている場合、tree.update() でなぜかチェックが消えなくなったので、見えている可能性のあるチェックボックスは強制アンチェック
-			const checkbox = tree.contentElement.querySelector(`input[type="checkbox"][id="${node.id}"]`); // フィルタ外はノードは null が返るので、存在チェック不可避
-			if (checkbox) checkbox.checked = false;
+let _defaultCropTreeManager = null;
+
+function makeCropTree(selector, sql, onCheckCallback) {
+	if (arguments.length === 3) {
+		if (!_defaultCropTreeManager || _defaultCropTreeManager.selector !== selector) {
+			_defaultCropTreeManager = new CropTreeManager(selector, (checked) => {
+				window.checkedCrops = checked;
+				onCheckCallback(checked);
+			}, true);
 		}
+		_defaultCropTreeManager.init(sql);
+		return _defaultCropTreeManager;
 	}
-	tree.update(); // フィルター外ノードを含めて一気に画面反映させる
-	const clearAll = document.querySelector('#clearAll');
-	if (clearAll) {
-		clearAll.checked = false;
-		clearAll.disabled = true;
-	}
-	if (!silent && typeof tree.onCheckCallback === 'function') {
-		tree.onCheckCallback();
-	}
+	return null;
+}
+
+function clearAllReset() {
+	if (_defaultCropTreeManager) _defaultCropTreeManager.clearAll(true);
+}
+
+function resetCropTree() {
+	if (_defaultCropTreeManager) _defaultCropTreeManager.reset();
 }
 
 // rowRenderer 定義
@@ -443,8 +413,8 @@ const rowRenderer = (node, treeOptions) => {
 	const droppable = treeOptions.droppable;
 	let { depth, open, path, total, selected = false, filtered, checked, indeterminate } = state;
 
-	// checkedCrops との同期 (スクロール時のチェック外れ対策)
-	if (typeof checkedCrops !== 'undefined' && checkedCrops.some(c => c.id == id)) {
+	// checkedCrops との同期 (スクロール時のチェック外れ対策) - マネージャの checkedCrops を参照
+	if (node.manager && node.manager.checkedCrops.some(c => c.id == id)) {
 		checked = true;
 	}
 
@@ -498,159 +468,6 @@ const rowRenderer = (node, treeOptions) => {
 	return html;
 };
 
-// 作物ツリーの生成とイベントハンドラ設定
-function makeCropTree(selector, sql, onCheckCallback) {
-	const cropTree = document.querySelector(selector);
-	if (currentInfinitTree) resetCropTree();
-	cropTree.innerHTML = `
-		<h3>作物名選択</h3>
-		<form id="filterForm" class="inputbar" onsubmit="return false;">
-			<input type="text" id="filterInput" name="filterInput" placeholder="絞込作物名(空白で解除)" title="指定例： [なす]部分一致 [:なす]前方一致 [なす:]後方一致 [:なす:]完全一致" autocomplete="on" />
-			<button type="button" id="filterButton">絞込</button>
-		</form>
-		<div class="treebox">
-			<div"><input type="checkbox" id="clearAll" autocomplete="off" disabled /><label for="clearAll">全解除</label></div>
-			<div id="tree"></div>
-		</div>
-	`;
-	cropTree.style.display = 'block';
-
-	try {
-		const sqlResult = db.exec(sql);
-		const treeData = buildCropTree(sqlResult);
-		const treeContainer = document.querySelector('#tree');
-		const filterForm = document.querySelector('#filterForm');
-		const tree = new InfiniteTree(treeContainer, {
-			//el: treeContainer,
-			autoOpen: false,
-			//droppable: { hoverClass: 'tree-droppable' },
-			selectable: false,
-			data: treeData,
-			rowRenderer: rowRenderer,
-			togglerClass: 'infinite-tree-toggler',
-		});
-
-		//console.log(tree);
-		// コールバック関数をtreeオブジェクトに保存
-		tree.onCheckCallback = onCheckCallback;
-		// イベントリスナー登録
-		setupToggleListener(tree);
-		setupClickListner(tree, onCheckCallback);
-
-	// フィルタトリガー登録
-		const filterInput = document.querySelector('#filterInput');
-		const filterButton = document.querySelector('#filterButton');
-
-		// ドムハンドラ参照を保持するオブジェクト
-		tree._domHandlers = {};
-
-		// submitイベントはオートコンプリートの履歴保存のためにのみ使用
-		const onFilterFormSubmit = (event) => { event.preventDefault(); };
-		filterForm.addEventListener('submit', onFilterFormSubmit);
-		tree._domHandlers.filterForm = filterForm;
-		tree._domHandlers.filterFormSubmit = onFilterFormSubmit;
-
-		// ボタンクリックで絞り込みを実行
-		const onFilterButtonClick = () => { applyFilter(tree, filterInput); };
-		filterButton.addEventListener('click', onFilterButtonClick);
-		tree._domHandlers.filterButton = filterButton;
-		tree._domHandlers.filterButtonClick = onFilterButtonClick;
-
-		// 入力確定時（フォーカスが外れた等）に絞り込みを実行
-		const onFilterInputChange = () => { applyFilter(tree, filterInput); };
-		filterInput.addEventListener('change', onFilterInputChange);
-		tree._domHandlers.filterInput = filterInput;
-		tree._domHandlers.filterInputChange = onFilterInputChange;
-
-		// inputイベントはオートコンプリートの邪魔をする可能性があるため、空になった時の処理に限定
-		const onFilterInputInput = (event) => { if (event.target.value === '') applyFilter(tree, event.target); };
-		filterInput.addEventListener('input', onFilterInputInput);
-		tree._domHandlers.filterInputInput = onFilterInputInput;
-
-		// 全解除登録
-		const clearAll = document.querySelector('#clearAll');
-		const onClearAllClick = () => { clearAllCheckedNodes(tree, false); }; // silent: false でコールバックを呼ぶ
-		if (clearAll) {
-			clearAll.addEventListener('click', onClearAllClick);
-			tree._domHandlers.clearAll = clearAll;
-			tree._domHandlers.clearAllClick = onClearAllClick;
-		}
-
-		// 現在作成されたツリー参照を保持（reset時に使う）
-		currentInfinitTree = tree;
-		currentCropTree = cropTree;
-	} catch (error) {
-		console.error('Initialization error:', error);
-	}
-}
-
-// firefox のリロード時 checkbox 状態復元対策
-function clearAllReset() {
-	const clearAll = document.querySelector('#clearAll');
-	if (clearAll) {
-		clearAll.checked = false;
-		clearAll.disabled = true;
-	} else {
-		console.warn('#clearAll element not found');
-	}
-}
-
-// 作物ツリーリセット
-function resetCropTree() {
-	// 既存のツリーがあればリセット
-	if (currentInfinitTree === null) return;
-
-	// tree の checkbox を全解除
-	clearAllCheckedNodes(currentInfinitTree, true); // silent: true でコールバックを抑制
-
-	// イベントハンドラを解除して参照を破棄
-	try {
-		if (currentInfinitTree._changeListener && currentInfinitTree.contentElement) {
-			currentInfinitTree.contentElement.removeEventListener('change', currentInfinitTree._changeListener);
-			delete currentInfinitTree._changeListener;
-		}
-	} catch (e) {}
-
-	// tree.on('openNode') handler
-	try {
-		if (currentInfinitTree._openNodeHandler && typeof currentInfinitTree.off === 'function') {
-			currentInfinitTree.off('openNode', currentInfinitTree._openNodeHandler);
-			delete currentInfinitTree._openNodeHandler;
-		}
-		if (currentInfinitTree._closeNodeHandler && typeof currentInfinitTree.off === 'function') {
-			currentInfinitTree.off('closeNode', currentInfinitTree._closeNodeHandler);
-			delete currentInfinitTree._closeNodeHandler;
-		}
-	} catch (e) {}
-
-	// scroll event listener cleanup
-	try {
-		if (currentInfinitTree._scrollHandler && currentInfinitTree.scrollElement) {
-			currentInfinitTree.scrollElement.removeEventListener('scroll', currentInfinitTree._scrollHandler);
-			delete currentInfinitTree._scrollHandler;
-		}
-	} catch (e) {}
-
-	// DOM handlers (filterForm, filterButton, filterInput, clearAll)
-	try {
-		const h = currentInfinitTree._domHandlers;
-		if (h) {
-			if (h.filterForm && h.filterFormSubmit) h.filterForm.removeEventListener('submit', h.filterFormSubmit);
-			if (h.filterButton && h.filterButtonClick) h.filterButton.removeEventListener('click', h.filterButtonClick);
-			if (h.filterInput && h.filterInputChange) h.filterInput.removeEventListener('change', h.filterInputChange);
-			if (h.filterInput && h.filterInputInput) h.filterInput.removeEventListener('input', h.filterInputInput);
-			if (h.clearAll && h.clearAllClick) h.clearAll.removeEventListener('click', h.clearAllClick);
-			delete currentInfinitTree._domHandlers;
-		}
-	} catch (e) {}
-	currentInfinitTree.clear();
-	// 作物ツリー全体をクリア
-	currentCropTree.innerHTML = '';
-	currentCropTree.style.display = 'none';
-	currentCropTree = null;
-	currentInfinitTree = null;
-}
-
 // カラム名用に半角()[]を全角（）［］に変換する関数
 function normalizeColName(name) {
 	const toFullWidthMap = { '(': '（', ')': '）', '[': '［', ']': '］' };
@@ -700,7 +517,7 @@ function makeCropCondition(crops) {
 }
 
 let excludeCondition = '';
-let exluderChanged = false;
+let excluderChanged = false;
 
 // excluder 用標準作物ツリー設定
 function setupCropTree(containerSelector = '#cropTree', callback = searchCrop) {
@@ -745,10 +562,10 @@ function makeExcludeSelector(containerSelector = '#excluder', callback = searchC
 	excludeContainer.appendChild(excludeSelect);
 
 	// イベントハンドラ設定
-	excludeSelect.onchange = () => {
+	excludeSelect.onchange = () => { // グローバル変数として維持
 		excludeCondition = excludeSelect.value;
 		excluderChanged = true;
-		if (tables) {
+		if (typeof tables !== 'undefined' && tables) { // tables が定義されているかチェック
 			callback(); // 検索関数を実行
 		} else {
 			setupCropTree(); // 作物ツリーを再構築

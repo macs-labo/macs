@@ -646,17 +646,9 @@ async function setupFileTree(zipFile = null) {
 			}
 		});
 		//#tab-header から active タブ名を取得
-		// iframe内で実行されているかを判定
-		let activeTitle;
-		const isIframe = window.self !== window.top;
-		if (isIframe && document.title) {
-			activeTitle = document.title;
-		} else {
-			const targetDocument = isIframe ? window.parent.document : document;
-			const tabHeader = targetDocument.getElementById('tab-header');
-			const activeTab = tabHeader ? tabHeader.querySelector('button.active') : null;
-			activeTitle = activeTab ? activeTab.textContent : 'SQL';
-		}
+		const tabHeader = document.getElementById('tab-header');
+		const activeTab = tabHeader ? tabHeader.querySelector('button.active') : null;
+		const activeTitle = activeTab ? activeTab.textContent : 'SQL';
 		selectTitle = (activeTitle === 'SQL' ? '標準SQL' : activeTitle + '独自');
 		const selectIcon = document.querySelector('#sqlFile svg title');
 		selectIcon.textContent = `${selectTitle}ファイルに戻す`;

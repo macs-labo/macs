@@ -4,6 +4,7 @@
 const cautionDate = Date.parse('2026/3/1');
 
 // データベース設定
+const debug = !window.location.href.includes('/acfinder/');
 let db = null;
 let tables = []; // テーブルインスタンスを保持する配列
 let lastUpdate = '';
@@ -584,7 +585,7 @@ function definiteLikeIn(value, patterns) {
 		}
 		// %suffix
 		else if (pattern.startsWith('%') && !pattern.substring(1).includes('%')) {
-			const suffix = vaguePattern.substring(1);
+			const suffix = pattern.substring(1);
 			if (value.endsWith(suffix)) return true;
 		}
 		// %middle% (最初の%と最後の%のみ)
@@ -888,10 +889,7 @@ function initDB() {
 	console.log("Database initialized.");
 	lastUpdate = db.exec("select * from info where item = 'LastUpdate'")[0].values[0][1];
 
-	const isIframe = window.self !== window.top;
-	// iframe内にいる場合は親ウィンドウのdocumentを、そうでなければ自身のdocumentを対象にする
-	const targetDocument = isIframe ? window.parent.document : document;
-	const dbUpdateElement = targetDocument.querySelector('#db-update');
+	const dbUpdateElement = document.querySelector('#db-update');
 
 	if (dbUpdateElement) {
 		// 過去データ参照モード（historical-modeクラスがある場合）は、ここでは上書きしない
@@ -1417,20 +1415,18 @@ let tabExecuted = false;
 // DOM読込完了時の初期設定
 window.addEventListener('DOMContentLoaded', function() {
 
-	// iframe内で実行されている場合は、UI関連の初期化をスキップ
-	const isIframe = window.self !== window.top;
-
-	const fileName = window.location.pathname.split('/').pop();
-
-	if (!isIframe) {
+	// #title-bar がない場合は、タイトルバー関連 UI の初期化をスキップ
+	const titleBar = document.getElementById('title-bar');
+	if (titleBar) {
 		// ドキュメントタイトル設定
+		const fileName = window.location.pathname.split('/').pop();
 		const currentTab = tabs.find(tab => tab.file === fileName);
 		if (currentTab) {
 			document.title = `${currentTab.name}/ACFinder`;
 		}
 
 		// タイトルバー設定
-		const titleBar = document.getElementById('title-bar');
+		//const titleBar = document.getElementById('title-bar');
 		const tabHeader = document.createElement('div');
 		tabHeader.className = 'tab_header';
 		titleBar.appendChild(tabHeader);
@@ -1544,14 +1540,6 @@ window.addEventListener('DOMContentLoaded', function() {
 		tabHeader.appendChild(currentTabName);
 
 		// 「＋」ボタンを追加
-	/* // ノーマルボタン
-		const addButton = document.createElement('button');
-		addButton.className = 'add-tab-button';
-		addButton.innerHTML = '＋';
-		addButton.title = '新しいタブを開く';
-		tabHeader.appendChild(addButton);
-	*/
-		// svg ボタン
 		const addButton = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
 		addButton.classList.add('add-tab-button');
 		addButton.classList.add('svg_button');

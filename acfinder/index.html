@@ -1,11 +1,622 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja" data-mode="mobile">
 <head>
-<meta http-equiv="refresh" content="0; url=./crop.html">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
+<link rel="manifest" href="./manifest.json">
+<title>ACFinderBE Mobile</title>
+<script>
+(function() {
+	// 当面、公開ディレクトリの場合は強制的にデスクトップ版にリダイレクト
+	if (window.location.href.includes('/acfinder/')) {
+		window.location.href = 'crop.html';
+	}
+	// ディスプレイの論理幅が 1280px 以上ならデスクトップ版にリダイレクト
+	const isDesktopSize = window.screen.width >= 1280;
+	if (isDesktopSize) {
+		// URLパラメータでデバッグ用に回避できるようにしておく
+		const urlParams = new URLSearchParams(window.location.search);
+		if (urlParams.get('mode') !== 'mobile') {
+			window.location.href = 'crop.html';
+		}
+	}
+})();
+</script>
+<script type="text/javascript" src="./header.js"></script>
+<script type="text/javascript" src="./loader.js"></script>
+<script type="text/javascript" src="./theme.js"></script>
+<script type="text/javascript" src="./crop.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.32/dist/romaji-conv.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css">
+<link rel="stylesheet" type="text/css" href="./common.css" />
+<link rel="stylesheet" type="text/css" href="./loader.css" />
+<link rel="stylesheet" type="text/css" href="./crop.css" />
+<style>
+:root,
+[data-theme="dark"] {
+	--header-height: 48px;
+	--tab-height: 44px;
+	--step-bar-height: 40px;
+	--accent-color: #27ae60;
+}
+
+header {
+	height: var(--header-height);
+	background: var(--text-color-dark);
+	color: var(--bg-color);
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	padding: 0 15px;
+}
+
+header .title {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	height: var(--header-height);
+	padding: 6px 0;
+}
+
+header h1 {
+	font-size: 20px;
+	font-weight: bold;
+	line-height: 1;
+	height: 20px;
+}
+
+#db-update {
+	font-size: 13px;
+	font-weight: normal;
+	line-height: 1;
+	height: 13px;
+}
+
+header .menu {
+	height: 32px;
+	width: 32px;
+}
+
+header .icon {
+	color: var(--bg-color);
+}
+
+/* メインタブ */
+.main-nav { display: flex; height: var(--tab-height); background: var(--bg-color-button); border-bottom: 1px solid var(--border-color); }
+.main-btn { flex: 1; border: none; border-radius: 0; font-size: 14px; color: var(--border-color); }
+.main-btn.active { color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--border-color-focus); }
+
+/* 外側のSwiper */
+.main-swiper {
+	flex: 1; /* 残りの画面の高さをすべて占有 */
+	width: 100%;
+}
+
+/* --- 作物タブ内の内部構造 --- */
+.crop-container {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+}
+
+/* ステップインジケータ */
+.step-bar {
+	display: flex;
+	height: var(--step-bar-height);
+	background: #e9ecef;
+	font-size: 0.75rem;
+	align-items: center;
+	text-align: center;
+}
+.step-item { flex: 1; color: #999; position: relative; }
+.step-item.active { color: var(--accent-color); font-weight: bold; }
+
+/* 内側のSwiper (作物ステップ用) */
+.crop-swiper {
+	flex: 1;
+	width: 100%;
+}
+
+/* ①〜③：スクロールなしのコンテナ */
+.step-fixed {
+	height: 100%;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	padding: 10px;
+	box-sizing: border-box;
+}
+
+/* ④：詳細表示（スクロールあり） */
+.step-scrollable {
+	height: 100%;
+	overflow-y: auto;
+	-webkit-overflow-scrolling: touch;
+	padding: 10px;
+	box-sizing: border-box;
+}
+
+/* 共通のカードスタイル */
+.list-box {
+	flex: 1;
+	background: white;
+	border: 1px solid #ddd;
+	border-radius: 4px;
+	overflow-y: auto; /* ボックス内のみスクロール */
+}
+.content-info { background: white; padding: 15px; border-radius: 4px; margin-bottom: 50px; border: 1px solid #ddd;}
+
+/* index.html specific overrides for crop tree height */
+#cropTreeMobile {
+	flex: 1; /* Allow it to grow within list-box */
+	overflow: hidden; /* Hide scrollbars from this container, let infinite-tree-scroll handle it */
+}
+
+#cropTreeMobile .infinite-tree-scroll {
+	height: 100%; /* Take full height of its parent (#cropTreeMobile) */
+	min-height: 100px; /* Ensure a minimum visible height */
+	max-height: none; /* Remove any conflicting max-height from other CSS */
+}
+
+.menu-item {
+	height: 32px;
+	display: flex;
+	align-items: center;
+}
+
+/* テーマ選択ダイアログの選択中スタイル */
+.menu-item.active {
+	background-color: var(--bg-color-icon-hover);
+	position: relative;
+}
+
+.menu-item.active::after {
+	content: '';
+	position: absolute;
+	right: 15px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 16px;
+	height: 16px;
+	background-color: var(--text-color-dark);
+	-webkit-mask: var(--svg-checkmark) no-repeat center;
+	mask: var(--svg-checkmark) no-repeat center;
+}
+
+.zoom-controls {
+	padding: 10px;
+	border-bottom: 1px solid var(--border-color);
+	display: flex;
+	flex-direction: column;
+	background: var(--bg-color-even-row);
+	gap: 10px;
+}
+
+.zoom-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.menu-container button,
+form button {
+	padding: 0 4px;
+	height: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+	cursor: pointer;
+	border: 1px solid var(--border-color);
+	background: var(--bg-color-button);
+	color: var(--text-color);
+	border-radius: 4px;
+	outline: none;
+}
+
+.menu-container button:hover,
+form button:hover {
+	color: var(--text-color-dark);
+	background: var(--bg-color-icon-hover);
+}
+
+#zoom-reset {
+	font-size: 12px;
+}
+
+#zoom-out, #zoom-in {
+	padding: 0;
+	width: 32px;
+	font-size: 16px;
+	font-weight: bold;
+}
+
+#zoom-level {
+	min-width: 50px;
+	text-align: center;
+	font-weight: bold;
+	color: var(--text-color);
+}
+</style>
+<script>
+// --- 共通の簡易スワイプ検知関数 ---
+function addSwipeHandler(element, swiper, loop = true) {
+	let touchStartX = 0;
+	let touchEndX = 0;
+
+	element.addEventListener('touchstart', (e) => {
+		touchStartX = e.changedTouches[0].screenX;
+	}, { passive: true });
+
+	element.addEventListener('touchend', (e) => {
+		touchEndX = e.changedTouches[0].screenX;
+		const threshold = 40;
+		
+		// 左フリック（指を左へ動かす） -> 次のスライドへ（右端なら左端へ）
+		if (touchEndX < touchStartX - threshold) {
+			if (loop && swiper.activeIndex === swiper.slides.length - 1) {
+				swiper.slideTo(0);
+			} else {
+				swiper.slideNext();
+			}
+		}
+		// 右フリック（指を右へ動かす） -> 前のスライドへ（左端なら右端へ）
+		if (touchEndX > touchStartX + threshold) {
+			if (loop && swiper.activeIndex === 0) {
+				swiper.slideTo(swiper.slides.length - 1);
+			} else {
+				swiper.slidePrev();
+			}
+		}
+	}, { passive: true });
+}
+
+// --- UI更新ロジック ---
+
+// メインタブの更新（インジケータ連動）
+function updateMainTabs(index) {
+	const btns = document.querySelectorAll('.main-btn');
+	btns.forEach((btn, i) => {
+		if (i === index) {
+			btn.classList.add('active');
+		} else {
+			btn.classList.remove('active');
+		}
+	});
+}
+
+// ステップバーの更新
+function updateStepBar(index) {
+	const items = document.querySelectorAll('.step-item');
+	items.forEach((item, i) => {
+		item.classList.toggle('active', i === index);
+		// 開発ヒント: 未選択のステップを半透明にするなどの制御もここで可能
+	});
+}
+
+// メインメニューの表示
+function showMainMenu() {
+	const dialogId = 'main-menu-dialog';
+	let dialog = document.getElementById(dialogId);
+	
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		dialog.style.outline = 'none';
+		document.body.appendChild(dialog);
+	}
+	
+	// 位置をアイコンの直下に固定
+	const icon = document.querySelector('header .menu');
+	const rect = icon.getBoundingClientRect();
+	dialog.style.position = 'fixed';
+	dialog.style.margin = '0';
+	dialog.style.top = (rect.bottom + 5) + 'px';
+	dialog.style.right = '10px';
+	dialog.style.left = 'auto';
+
+	// ズームコントロールのHTMLを生成
+	const currentZoom = parseFloat(localStorage.getItem('appZoom')) || 1.0;
+	const zoomControlsHtml = `
+		<div class="zoom-controls">
+			<div class="zoom-item">
+				<span class="menu-item-name">🔎 ズーム</span>
+				<button type="button" id="zoom-reset">リセット</button>
+			</div>
+			<div class="zoom-item">
+				<button type="button" id="zoom-out" title="ズームアウト">－</button>
+				<span id="zoom-level">${Math.round(currentZoom * 100)}%</span>
+				<button type="button" id="zoom-in" title="ズームイン">＋</button>
+			</div>
+		</div>
+	`;
+
+	dialog.innerHTML = `
+		<div class="menu-container">
+			${zoomControlsHtml}
+			<ul class="menu-list">
+				<li class="menu-item" onclick="location.href='crop.html?mode=desktop'">
+					<div class="menu-item-name">🖥️ デスクトップ版へ切替</div>
+				</li>
+				<li class="menu-item" onclick="showThemeSelection()">
+					<div class="menu-item-name">🎨 テーマ選択</div>
+				</li>
+				<li class="menu-item" onclick="document.getElementById('main-menu-dialog').close();">
+					<div class="menu-item-name">
+						<a href="https://github.com/macs-labo/macs#readme" target="_blank" style="text-decoration: none; color: inherit;">
+							📖 利用規約
+						</a>
+					</div>
+				</li>
+				<li class="menu-item" onclick="showVersionInfo()">
+					<div class="menu-item-name">ℹ️ バージョン情報</div>
+				</li>
+			</ul>
+		</div>
+		<form method="dialog">
+			<span>メニュー</span><button style="outline:none;">閉じる</button>
+		</form>
+	`;
+
+	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+	dialog.showModal();
+
+	// ズーム操作のイベントリスナーを設定
+	dialog.querySelector('#zoom-in').addEventListener('click', (e) => {
+		e.stopPropagation();
+		const current = parseFloat(document.body.style.zoom) || 1.0;
+		applyZoom(current + 0.1);
+	});
+	dialog.querySelector('#zoom-out').addEventListener('click', (e) => {
+		e.stopPropagation();
+		const current = parseFloat(document.body.style.zoom) || 1.0;
+		applyZoom(current - 0.1);
+	});
+	dialog.querySelector('#zoom-reset').addEventListener('click', (e) => {
+		e.stopPropagation();
+		applyZoom(1.0);
+	});
+	// 初期ズーム適用
+	applyZoom(parseFloat(localStorage.getItem('appZoom')) || 1.0);
+}
+
+// テーマ選択ダイアログの表示
+function showThemeSelection() {
+	const dialogId = 'theme-menu-dialog';
+	let dialog = document.getElementById(dialogId);
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		document.body.appendChild(dialog);
+	}
+
+	const current = localStorage.getItem('selected_theme_name');
+	let listHtml = colorThemes.map((t, idx) => `
+		<li class="menu-item ${current === t.name ? 'active' : ''}" onclick="applyTheme(${idx}); document.getElementById('${dialogId}').close(); document.getElementById('main-menu-dialog').close();">
+			<div class="menu-item-name">${t.title}</div>
+		</li>
+	`).join('');
+	
+	if (localStorage.getItem('user_custom_css_save')) {
+		listHtml += `<li class="menu-item ${current === 'custom' ? 'active' : ''}" onclick="applyTheme('custom'); document.getElementById('${dialogId}').close(); document.getElementById('main-menu-dialog').close();"><div class="menu-item-name">ユーザカスタムテーマ</div></li>`;
+	}
+
+	dialog.innerHTML = `<div class="menu-container"><ul class="menu-list">${listHtml}</ul></div><form method="dialog"><span>テーマ選択</span><button>閉じる</button></form>`;
+	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+	dialog.showModal();
+}
+
+// バージョン情報ダイアログ
+function showVersionInfo() {
+	const dialogId = 'version-dialog';
+	let dialog = document.getElementById(dialogId);
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		document.body.appendChild(dialog);
+	}
+	dialog.innerHTML = `
+		<div class="menu-container">
+			<div style="padding: 25px; text-align: center;">
+				<h3 style="margin-bottom:10px;">ACFinderBE Mobile</h3>
+				<p style="font-size:1.1rem; font-weight:bold;">Version: ${appVer}</p>
+				<p style="margin-top:15px; color:#666;">Agricultural Chemicals Finder<br>Browser Edition</p>
+			</div>
+		</div>
+		<form method="dialog"><button>閉じる</button></form>
+	`;
+	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+	dialog.showModal();
+}
+
+// ズーム操作の適用
+function applyZoom(scale) {
+	const newZoom = Math.max(0.5, Math.min(2.5, Math.round(scale * 10) / 10));
+	document.body.style.zoom = newZoom;
+	localStorage.setItem('appZoom', newZoom);
+	const zoomLevelEl = document.querySelector('#main-menu-dialog #zoom-level');
+	if (zoomLevelEl) zoomLevelEl.textContent = `${Math.round(newZoom * 100)}%`;
+}
+
+// 他のタブでのズーム変更を検知して反映
+window.addEventListener('storage', (event) => {
+	if (event.key === 'appZoom') applyZoom(parseFloat(event.newValue) || 1.0);
+});
+
+let mainJump;
+let stepJump;
+let cropManager; // 作物タブ専用マネージャ
+
+window.addEventListener('DOMContentLoaded', async () => {
+
+	//データベース読込
+	if (db === null) await fetchDB();
+
+	// --- Swiperの初期化 ---
+
+	// 1. メインタブのSwiper
+	const mainSwiper = new Swiper('.main-swiper', {
+		observer: true,
+		observeParents: true,
+		allowTouchMove: false,
+		speed: 300,
+		on: {
+			slideChange: function() {
+				updateMainTabs(this.activeIndex);
+			}
+		}
+	});
+
+	// 2. 作物内部のSwiper
+	const cropSwiper = new Swiper('.crop-swiper', {
+		observer: true,
+		observeParents: true,
+		nested: true,
+		allowTouchMove: false, 
+		speed: 300,
+		// スライドが切り替わった時にインジケータを更新
+		on: {
+			slideChange: function() {
+				updateStepBar(this.activeIndex);
+			}
+		}
+	});
+
+	// クリック時のジャンプ
+	mainJump = function(index) {
+		mainSwiper.slideTo(index);
+	};
+
+	// ステップのジャンプ
+	stepJump = function(index) {
+		cropSwiper.slideTo(index);
+	};
+
+	// タブバーのスワイプ
+	addSwipeHandler(document.querySelector('.main-nav'), mainSwiper, true);
+
+	// ステップバーのスワイプ
+	addSwipeHandler(document.querySelector('.step-bar'), cropSwiper, false);
+
+	// 作物ツリーの生成とイベントハンドラ設定
+	try {
+		const cropTreeSql = `
+			select idsaku, class, toroku, sakumotsu, shukakubui, betsumei,
+			':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
+			from m_sakumotsu where sakumotsu not like '%除く%';
+		`;
+		cropManager = new CropTreeManager('#cropTreeMobile', onCropCheckMobile, false);
+		cropManager.init(cropTreeSql);
+	} catch (e) {
+		console.error("作物ツリーの生成に失敗しました:", e);
+		// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
+		document.querySelector('#cropTreeMobile').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
+	}
+
+	// 初期状態のインジケータをセット
+	updateMainTabs(0);
+	updateStepBar(0);
+});
+
+// モバイル版の作物チェック時のコールバック関数（仮）
+function onCropCheckMobile(selectedCrops) {
+	console.log('Checked crops:', selectedCrops);
+	// cropManager.checkedCrops と同じ内容が渡されます
+}
+</script>
 </head>
-<!--
 <body>
-  <p>このページから crop.htmlに移動します。</p>
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<header>
+	<div class="title">
+		<h1>ACFinderBE Mobile</h1>
+		<h2 id="db-update"></h2>
+	</div>
+	<div class="menu">
+		<svg class="icon" onclick="showMainMenu()">
+			<title>メニュー</title>
+			<use href="icons.svg#menu"></use>
+		</svg>
+	</div>
+</header>
+
+<nav class="main-nav">
+	<button class="main-btn active" onclick="mainJump(0)">作物</button>
+	<button class="main-btn" onclick="mainJump(1)">病害虫</button>
+	<button class="main-btn" onclick="mainJump(2)">薬剤</button>
+</nav>
+
+<div class="swiper main-swiper">
+	<div class="swiper-wrapper">
+		
+		<!-- 【作物タブ】 -->
+		<div class="swiper-slide">
+			<div class="crop-container">
+				<!-- ステップバー -->
+				<div class="step-bar">
+					<div class="step-item active" onclick="stepJump(0)">①作物</div>
+					<div class="step-item" onclick="stepJump(1)">②病害虫</div>
+					<div class="step-item" onclick="stepJump(2)">③農薬</div>
+					<div class="step-item" onclick="stepJump(3)">④詳細</div>
+				</div>
+
+				<!-- 内部Swiper -->
+				<div class="swiper crop-swiper">
+					<div class="swiper-wrapper">
+						<!-- ① 作物ツリー -->
+						<div class="swiper-slide step-fixed">
+							<div id="cropTreeMobile"></div>
+						</div>
+
+						<!-- ② 病害虫選択 -->
+						<div class="swiper-slide step-fixed">
+							<h4>対象病害虫</h4>
+							<div class="list-box" style="padding:10px;">
+								<p style="color: #666;">病害虫選択のコンテンツがここに表示されます。</p>
+								<!-- ここに病害虫選択のUIを実装 -->
+							</div>
+						</div>
+
+						<!-- ③ 農薬選択 -->
+						<div class="swiper-slide step-fixed">
+							<h4>農薬リスト</h4>
+							<div class="list-box" style="padding:10px;">
+								<p style="color: #666;">農薬選択のコンテンツがここに表示されます。</p>
+								<!-- ここに農薬選択のUIを実装 -->
+							</div>
+						</div>
+
+						<!-- ④ 詳細表示 -->
+						<div class="swiper-slide step-scrollable">
+							<h4>登録情報詳細</h4>
+							<div class="content-info">
+								<p style="color: #666;">ここに選択された農薬の詳細情報が表示されます。</p>
+								<!-- ここに詳細表示のコンテンツを実装 -->
+							</div>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<!-- 【病害虫タブ】 -->
+		<div class="swiper-slide" style="padding:20px;">
+			<p style="color: #666;">病害虫から検索の内容</p>
+		</div>
+		<!-- 【薬剤タブ】 -->
+		<div class="swiper-slide" style="padding:20px;">
+			<p style="color: #666;">薬剤から検索の内容</p>
+		</div>
+
+	</div>
+</div>
 </body>
--->
 </html>
