@@ -227,8 +227,9 @@ button {
 	border: 1px solid var(--border-color-strong);
 	border-radius: 4px;
 	background-color: var(--bg-color-button);
+	outline: none;
 	cursor: pointer;
-	transition: background-color 0.3s ease-out; 
+	transition: background-color 0.3s ease-out;
 }
 
 /*

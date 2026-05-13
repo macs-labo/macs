@@ -110,13 +110,40 @@ header .icon {
 .step-bar {
 	display: flex;
 	height: var(--step-bar-height);
-	background: #e9ecef;
-	font-size: 0.75rem;
+	background: var(--bg-color-header);
 	align-items: center;
-	text-align: center;
+	justify-content: center;
+	gap: 25px;
+	border-bottom: 1px solid var(--border-color);
 }
-.step-item { flex: 1; color: #999; position: relative; }
-.step-item.active { color: var(--accent-color); font-weight: bold; }
+.step-item {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: var(--border-color);
+	color: var(--text-color-light);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+	font-weight: bold;
+	transition: all 0.3s ease;
+	cursor: pointer;
+}
+.step-item.active {
+	background: var(--accent-color);
+	color: white;
+	transform: scale(1.15);
+}
+.step-item.completed {
+	background: var(--accent-color);
+	opacity: 0.6;
+	color: white;
+}
+.step-item.locked {
+	opacity: 0.2;
+	cursor: not-allowed;
+}
 
 /* 内側のSwiper (作物ステップ用) */
 .crop-swiper {
@@ -164,6 +191,8 @@ header .icon {
 	min-height: 100px; /* Ensure a minimum visible height */
 	max-height: none; /* Remove any conflicting max-height from other CSS */
 }
+
+#main-menu-dialog { outline: none; }
 
 .menu-item {
 	height: 32px;
@@ -246,6 +275,8 @@ form button:hover {
 </style>
 <script>
 // --- 共通の簡易スワイプ検知関数 ---
+let maxReachedStep = 0; // 解放済みの最大ステップ
+
 function addSwipeHandler(element, swiper, loop = true) {
 	let touchStartX = 0;
 	let touchEndX = 0;
@@ -262,7 +293,7 @@ function addSwipeHandler(element, swiper, loop = true) {
 		if (touchEndX < touchStartX - threshold) {
 			if (loop && swiper.activeIndex === swiper.slides.length - 1) {
 				swiper.slideTo(0);
-			} else {
+			} else if (loop || swiper.activeIndex < maxReachedStep) {
 				swiper.slideNext();
 			}
 		}
@@ -295,8 +326,16 @@ function updateMainTabs(index) {
 function updateStepBar(index) {
 	const items = document.querySelectorAll('.step-item');
 	items.forEach((item, i) => {
-		item.classList.toggle('active', i === index);
-		// 開発ヒント: 未選択のステップを半透明にするなどの制御もここで可能
+		item.classList.remove('active', 'completed', 'locked');
+		if (i === index) {
+			item.classList.add('active');
+		} else if (i < index) {
+			item.classList.add('completed');
+		}
+		
+		if (i > maxReachedStep) {
+			item.classList.add('locked');
+		}
 	});
 }
 
@@ -309,7 +348,6 @@ function showMainMenu() {
 		dialog = document.createElement('dialog');
 		dialog.id = dialogId;
 		dialog.className = 'menu-dialog';
-		dialog.style.outline = 'none';
 		document.body.appendChild(dialog);
 	}
 	
@@ -345,6 +383,9 @@ function showMainMenu() {
 				<li class="menu-item" onclick="location.href='crop.html?mode=desktop'">
 					<div class="menu-item-name">🖥️ デスクトップ版へ切替</div>
 				</li>
+				<li class="menu-item" onclick="showNotificationDialog()">
+					<div class="menu-item-name">🔔 DB更新通知受信</div>
+				</li>
 				<li class="menu-item" onclick="showThemeSelection()">
 					<div class="menu-item-name">🎨 テーマ選択</div>
 				</li>
@@ -361,7 +402,7 @@ function showMainMenu() {
 			</ul>
 		</div>
 		<form method="dialog">
-			<span>メニュー</span><button style="outline:none;">閉じる</button>
+			<span>メニュー</span><button>閉じる</button>
 		</form>
 	`;
 
@@ -416,6 +457,8 @@ function showThemeSelection() {
 
 // バージョン情報ダイアログ
 function showVersionInfo() {
+	let year = appVer.split('.')[0];
+	if (year !== '2026') year = '2026-' + year;
 	const dialogId = 'version-dialog';
 	let dialog = document.getElementById(dialogId);
 	if (!dialog) {
@@ -426,13 +469,14 @@ function showVersionInfo() {
 	}
 	dialog.innerHTML = `
 		<div class="menu-container">
-			<div style="padding: 25px; text-align: center;">
-				<h3 style="margin-bottom:10px;">ACFinderBE Mobile</h3>
-				<p style="font-size:1.1rem; font-weight:bold;">Version: ${appVer}</p>
-				<p style="margin-top:15px; color:#666;">Agricultural Chemicals Finder<br>Browser Edition</p>
+			<div class="info-container">
+				<h1>ACFinderBE Mobile</h1>
+				<h2>Release: ${appVer}</h2>
+				<p>Agricultural Chemicals Finder<br>Browser Edition for Mobile</p>
+				<p>&copy; ${year} TEAM ACFinder<br>Licensed under the MIT License</p>
 			</div>
 		</div>
-		<form method="dialog"><button>閉じる</button></form>
+		<form method="dialog"><span>バージョン情報</span><button>閉じる</button></form>
 	`;
 	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
 	dialog.showModal();
@@ -498,7 +542,9 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 	// ステップのジャンプ
 	stepJump = function(index) {
-		cropSwiper.slideTo(index);
+		if (index <= maxReachedStep) {
+			cropSwiper.slideTo(index);
+		}
 	};
 
 	// タブバーのスワイプ
@@ -529,8 +575,19 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 // モバイル版の作物チェック時のコールバック関数（仮）
 function onCropCheckMobile(selectedCrops) {
-	console.log('Checked crops:', selectedCrops);
-	// cropManager.checkedCrops と同じ内容が渡されます
+	const cropSwiper = document.querySelector('.crop-swiper').swiper;
+	if (selectedCrops.length > 0) {
+		// 選択があればステップ2（病害虫）を解放
+		if (maxReachedStep < 1) {
+			maxReachedStep = 1;
+			updateStepBar(cropSwiper.activeIndex);
+		}
+	} else {
+		// 選択がなければリセット
+		maxReachedStep = 0;
+		if (cropSwiper.activeIndex > 0) cropSwiper.slideTo(0);
+		updateStepBar(0);
+	}
 }
 </script>
 </head>
@@ -563,10 +620,10 @@ function onCropCheckMobile(selectedCrops) {
 			<div class="crop-container">
 				<!-- ステップバー -->
 				<div class="step-bar">
-					<div class="step-item active" onclick="stepJump(0)">①作物</div>
-					<div class="step-item" onclick="stepJump(1)">②病害虫</div>
-					<div class="step-item" onclick="stepJump(2)">③農薬</div>
-					<div class="step-item" onclick="stepJump(3)">④詳細</div>
+					<div class="step-item active" onclick="stepJump(0)">1</div>
+					<div class="step-item" onclick="stepJump(1)">2</div>
+					<div class="step-item" onclick="stepJump(2)">3</div>
+					<div class="step-item" onclick="stepJump(3)">4</div>
 				</div>
 
 				<!-- 内部Swiper -->

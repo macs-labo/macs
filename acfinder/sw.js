@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v4.3'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v4.4'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -143,13 +143,16 @@ self.addEventListener('push', (event) => {
 	}
 
 	const options = {
-		body: data.body,
+		body: `${data.body}\nバックグラウンドダウンロード予約しますか？`,
 		icon: './android-chrome-192x192.png',
 		badge: './android-chrome-192x192.png',
 		// YAML側で設定した tag (acis-update や spec-update) を使用する
 		// これにより、ACISとSPECが同時に更新されても両方の通知が表示されます
 		tag: data.tag || 'general-update', 
 		renotify: true,
+		actions: [
+			{ action: 'reserve-download', title: 'OK' }
+		],
 		data: data // ペイロード全体を保持（notice.htmlへの引き継ぎ用）
 	};
 
@@ -161,6 +164,18 @@ self.addEventListener('push', (event) => {
 // 通知クリック時のイベントリスナー
 self.addEventListener('notificationclick', (event) => {
 	event.notification.close();
+
+	// 「OK」ボタンがクリックされた場合
+	if (event.action === 'reserve-download') {
+		if ('sync' in self.registration) {
+			event.waitUntil(self.registration.sync.register('download-db-update'));
+		} else {
+			// Background Sync 非対応ブラウザの場合は直接ダウンロード処理を試みる
+			event.waitUntil(downloadAndCacheUpdate());
+		}
+		return;
+	}
+
 	const payload = event.notification.data;
 
 	event.waitUntil(
