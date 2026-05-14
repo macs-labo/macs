@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v4.4'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v4.5'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -214,19 +214,39 @@ self.addEventListener('fetch', (event) => {
 		return; 
 	}
 
+	// GET リクエスト以外（POST等）はキャッシュ対象外として普通に fetch
+	if (event.request.method !== 'GET') {
+		event.respondWith(fetch(event.request));
+		return;
+	}
+
 	event.respondWith(
-		caches.match(event.request, { ignoreSearch: true }).then((response) => {
-			// クエリパラメータを無視してキャッシュを検索。あれば返し、なければネットワークへ
-			if (response) return response;
+		(async () => {
+			const controller = new AbortController();
+			const timeoutId = setTimeout(() => controller.abort(), 1000); // 1秒タイムアウト
 
-			// SWキャッシュにない場合、ネットワークから取得。
-			// ブラウザキャッシュの影響を完全に排除するため 'no-store' を使用。
-			// ただし、POSTリクエスト等は cache オプションを指定できないため Request オブジェクトのプロパティを確認
-			const isCacheable = event.request.method === 'GET';
-			const fetchOptions = { redirect: "follow" };
-			if (isCacheable) fetchOptions.cache = 'no-store';
+			try {
+				// 1. まず HEAD リクエストでネットワークの疎通と応答速度を確認
+				// cache: 'no-cache' を使用して 304 を許容し、速度を稼ぐ
+				await fetch(event.request, { 
+					method: 'HEAD', 
+					cache: 'no-cache', 
+					signal: controller.signal 
+				});
+				clearTimeout(timeoutId);
 
-			return fetch(event.request, fetchOptions);
-		})
+				// 2. 1秒以内に HEAD が成功したなら GET で実データを取得
+				const networkResponse = await fetch(event.request, { redirect: "follow", cache: 'no-cache' });
+
+				if (networkResponse.ok) {
+					const cache = await caches.open(CACHE_NAME);
+					await cache.put(event.request, networkResponse.clone());
+				}
+				return networkResponse;
+			} catch (err) {
+				// 3. タイムアウト(1秒超過)またはオフライン時は、SWキャッシュを返す
+				return await caches.match(event.request, { ignoreSearch: true });
+			}
+		})()
 	);
 });
