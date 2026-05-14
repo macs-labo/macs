@@ -1529,7 +1529,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		title.textContent = 'ACFinderBE';
 		titleWrapper.appendChild(title);
 		const version = document.createElement('span');
-		const baseUrl = 'https://raw.githubusercontent.com/macs-labo/macs/main/acfinder';
+		const baseUrl = debug ? '.' : 'https://raw.githubusercontent.com/macs-labo/macs/main/acfinder';
 		version.innerHTML = `Release <a href="${baseUrl}/acfinder${appVer}.zip">${appVer}</a>`;
 		titleWrapper.appendChild(version);
 		titleBar.appendChild(titleWrapper);
