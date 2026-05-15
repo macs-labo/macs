@@ -1,5 +1,5 @@
 --/d
-/* 2026.05.07 現在の農水省農薬登録情報提供システムに基づく病害虫・雑草マスター (2021.05.10) */
+/* 2026.05.15 現在の農水省農薬登録情報提供システムに基づく病害虫・雑草マスター (2021.05.10) */
 /* 検索用病害虫マスター 2014.01.15 */
 begin transaction;
 drop table if exists m_byochu;
@@ -878,6 +878,7 @@ insert into m_byochu values(2, 61, '20610601', 'ミカンバエ成虫', 'みかんばえせい
 insert into m_byochu values(2, 61, '20610602', 'ミカンバエ幼虫', 'みかんばえようちゅう');
 insert into m_byochu values(2, 61, '20610700', 'カボチャミバエ', 'かぼちゃみばえ');
 insert into m_byochu values(2, 61, '20610800', 'ナスミバエ', 'なすみばえ');
+insert into m_byochu values(2, 61, '20610900', 'セグロウリミバエ', 'せぐろうりみばえ');
 insert into m_byochu values(2, 64, '20640100', 'メイチュウ類', 'めいちゅうるい');
 insert into m_byochu values(2, 64, '20640250', 'ノメイガ類', 'のめいがるい');
 insert into m_byochu values(2, 64, '20640400', 'アカフツヅリガ', 'あかふつづりが');
