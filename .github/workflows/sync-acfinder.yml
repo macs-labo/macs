@@ -36,6 +36,10 @@ jobs:
           github.event.inputs.run_mode == 'full_sync' || 
           github.event.inputs.run_mode == 'github_only'
         run: |
+          # 1. まず Web UI や API で追加された最新の ZIP をローカル環境に持ってくる
+          #git pull origin main
+
+          # 2. その後、ディレクトリに移動して展開処理を行う
           cd acfinder
           # アルファベット順で一番最後（最新日付）のZIPを特定
           TARGET_ZIP=$(ls -1 acfinder[0-9]*.zip | tail -n 1)
