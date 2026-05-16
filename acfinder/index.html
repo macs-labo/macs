@@ -2,7 +2,7 @@
 <html lang="ja" data-mode="mobile">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
 <link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
 <link rel="manifest" href="./manifest.json">
@@ -44,8 +44,9 @@
 	--header-height: 48px;
 	--tab-height: 44px;
 	--step-bar-height: 40px;
-	--accent-color: #27ae60;
+	--app-zoom: 1;
 }
+body { zoom: var(--app-zoom); }
 
 header {
 	height: var(--header-height);
@@ -88,10 +89,13 @@ header .icon {
 	color: var(--bg-color);
 }
 
+.button:focus { background: var(--bg-color-button); }
+
 /* メインタブ */
 .main-nav { display: flex; height: var(--tab-height); background: var(--bg-color-button); border-bottom: 1px solid var(--border-color); }
 .main-btn { flex: 1; border: none; border-radius: 0; font-size: 14px; color: var(--border-color); }
-.main-btn.active { color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--border-color-focus); }
+.main-btn:hover { color: var(--border-color); background: var(--bg-color-button); }
+.main-btn.active { color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
 
 /* 外側のSwiper */
 .main-swiper {
@@ -99,8 +103,8 @@ header .icon {
 	width: 100%;
 }
 
-/* --- 作物タブ内の内部構造 --- */
-.crop-container {
+/* --- タブ内の内部構造 --- */
+.tab-container {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
@@ -121,7 +125,7 @@ header .icon {
 	height: 24px;
 	border-radius: 50%;
 	background: var(--border-color);
-	color: var(--text-color-light);
+	color: var(--text-color-step);
 	display: flex;
 	align-items: center;
 	justify-content: center;
@@ -131,14 +135,14 @@ header .icon {
 	cursor: pointer;
 }
 .step-item.active {
-	background: var(--accent-color);
-	color: white;
+	background: var(--bg-color-accent);
+	color: var(--text-color-accent);
 	transform: scale(1.15);
 }
 .step-item.completed {
-	background: var(--accent-color);
+	background: var(--bg-color-accent);
+	color: var(--text-color-accent);
 	opacity: 0.6;
-	color: white;
 }
 .step-item.locked {
 	opacity: 0.2;
@@ -170,39 +174,52 @@ header .icon {
 	box-sizing: border-box;
 }
 
-/* 共通のカードスタイル */
+/* 共通のリストボックススタイル */
 .list-box {
 	flex: 1;
 	background: white;
 	border: 1px solid #ddd;
 	border-radius: 4px;
 	overflow-y: auto; /* ボックス内のみスクロール */
+	padding: 10px;
 }
 .content-info { background: white; padding: 15px; border-radius: 4px; margin-bottom: 50px; border: 1px solid #ddd;}
 
-/* index.html specific overrides for crop tree height */
-#cropTreeMobile {
-	flex: 1; /* Allow it to grow within list-box */
-	overflow: hidden; /* Hide scrollbars from this container, let infinite-tree-scroll handle it */
+/* ステップ用ズームターゲットの基本クラス */
+.step-zoom-target {
+	width: 100%;
 	height: 100%;
+	display: flex !important;
+	flex-direction: column;
+	text-align: left;
 }
 
-#cropTreeMobile .infinite-tree-scroll {
-	/* min-height: 230px; */
-	max-height: calc(100vh - 225px);
-}
+#cropTreeCrop { height: fit-content; }
+/* .treebox { height: fit-content; } */
+#cropTreeCrop .infinite-tree-scroll { max-height: calc(100dvh / var(--app-zoom, 1) - 249px); }
 
 /* Swiper Zoom Container adjustments */
 .swiper-zoom-container {
-	display: flex !important;
-	justify-content: flex-start !important;
-	align-items: flex-start !important;
+	display: flex;
+/*
+	justify-content: center;
+	align-items: center;
+*/
+	justify-content: flex-start; /* 子要素を主軸の開始位置（上端）に揃える */
+	align-items: flex-start;    /* 子要素を交差軸の開始位置（左端）に揃える */
 	width: 100%;
 	height: 100%;
-	text-align: left !important;
+	text-align: left;
 }
 
-#main-menu-dialog { outline: none; }
+/* ズーム中の内部スクロール競合を抑制 (パン操作を最優先させる) */
+.swiper-slide-zoomed .list-box,
+.swiper-slide-zoomed .treebox,
+.swiper-slide-zoomed .infinite-tree-scroll {
+	overflow: hidden !important;
+}
+
+/* #main-menu-dialog { outline: none; } */
 
 .menu-item {
 	height: 32px;
@@ -256,7 +273,7 @@ form button {
 	background: var(--bg-color-button);
 	color: var(--text-color);
 	border-radius: 4px;
-	outline: none;
+	/* outline: none; */
 }
 
 .menu-container button:hover,
@@ -285,7 +302,6 @@ form button:hover {
 </style>
 <script>
 // --- 共通の簡易スワイプ検知関数 ---
-let maxReachedStep = 0; // 解放済みの最大ステップ
 
 function addSwipeHandler(element, swiper, loop = true) {
 	let touchStartX = 0;
@@ -296,23 +312,37 @@ function addSwipeHandler(element, swiper, loop = true) {
 	}, { passive: true });
 
 	element.addEventListener('touchend', (e) => {
+		// 自身、または現在表示中のスライド内にある Swiper がズーム中ならスワイプを無視
+		const isZooming = (s) => s && s.zoom && s.zoom.scale > 1 && !s.isReturningToSingleScale;
+
+		if (isZooming(swiper)) return;
+
+		// mainSwiper の場合、中にある cropSwiper 等のズーム状態もチェック
+		const activeSlide = swiper.slides[swiper.activeIndex];
+		if (activeSlide) {
+			const nestedSwiperEl = activeSlide.querySelector('.swiper-initialized');
+			if (nestedSwiperEl && nestedSwiperEl.swiper && isZooming(nestedSwiperEl.swiper)) return;
+		}
+
 		touchEndX = e.changedTouches[0].screenX;
-		const threshold = 40;
+		const threshold = 40; // Minimum distance for a swipe to be recognized
 		
 		// 左フリック（指を左へ動かす） -> 次のスライドへ（右端なら左端へ）
 		if (touchEndX < touchStartX - threshold) {
 			if (loop && swiper.activeIndex === swiper.slides.length - 1) {
 				swiper.slideTo(0);
-			} else if (loop || swiper.activeIndex < maxReachedStep) {
-				swiper.slideNext();
+			} else if (swiper.activeIndex < swiper.slides.length - 1) {
+				// 解放済みのステップ（インスタンス保持）を超えてのスワイプを禁止
+				if (!loop && swiper.maxReachedStep !== undefined && swiper.activeIndex >= swiper.maxReachedStep) return;
+				swiper.slideTo(swiper.activeIndex + 1);
 			}
 		}
 		// 右フリック（指を右へ動かす） -> 前のスライドへ（左端なら右端へ）
 		if (touchEndX > touchStartX + threshold) {
 			if (loop && swiper.activeIndex === 0) {
 				swiper.slideTo(swiper.slides.length - 1);
-			} else {
-				swiper.slidePrev();
+			} else if (swiper.activeIndex > 0) {
+				swiper.slideTo(swiper.activeIndex - 1);
 			}
 		}
 	}, { passive: true });
@@ -333,17 +363,21 @@ function updateMainTabs(index) {
 }
 
 // ステップバーの更新
-function updateStepBar(index) {
-	const items = document.querySelectorAll('.step-item');
+function updateStepBar(index, maxStep = 0) {
+	// 現在アクティブなメインタブ（スライド）内にあるステップ項目のみを対象にする
+	const activeMainSlide = document.querySelector('.main-swiper > .swiper-wrapper > .swiper-slide-active');
+	if (!activeMainSlide) return;
+
+	const items = activeMainSlide.querySelectorAll('.step-item');
 	items.forEach((item, i) => {
-		item.classList.remove('active', 'completed', 'locked');
+		item.classList.remove('active', 'completed', 'locked'); // 既存のクラスを全て削除
 		if (i === index) {
 			item.classList.add('active');
 		} else if (i < index) {
 			item.classList.add('completed');
 		}
 		
-		if (i > maxReachedStep) {
+		if (maxStep !== undefined && i > maxStep) {
 			item.classList.add('locked');
 		}
 	});
@@ -432,12 +466,12 @@ function showMainMenu() {
 	// ズーム操作のイベントリスナーを設定
 	dialog.querySelector('#zoom-in').addEventListener('click', (e) => {
 		e.stopPropagation();
-		const current = parseFloat(document.body.style.zoom) || 1.0;
+		const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-zoom')) || 1.0;
 		applyZoom(current + 0.05);
 	});
 	dialog.querySelector('#zoom-out').addEventListener('click', (e) => {
 		e.stopPropagation();
-		const current = parseFloat(document.body.style.zoom) || 1.0;
+		const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-zoom')) || 1.0;
 		applyZoom(current - 0.05);
 	});
 	dialog.querySelector('#zoom-reset').addEventListener('click', (e) => {
@@ -503,7 +537,7 @@ function showVersionInfo() {
 // ズーム操作の適用
 function applyZoom(scale) {
 	const newZoom = Math.max(0.5, Math.min(2.0, Math.round(scale * 20) / 20));
-	document.body.style.zoom = newZoom;
+	document.documentElement.style.setProperty('--app-zoom', newZoom);
 	localStorage.setItem('appZoom', newZoom);
 	const zoomLevelEl = document.querySelector('#main-menu-dialog #zoom-level');
 	if (zoomLevelEl) zoomLevelEl.textContent = `${Math.round(newZoom * 100)}%`;
@@ -514,11 +548,94 @@ window.addEventListener('storage', (event) => {
 	if (event.key === 'appZoom') applyZoom(parseFloat(event.newValue) || 1.0);
 });
 
+// ズーム可能なSwiperインスタンスを作成するヘルパー関数
+function createZoomableSwiper(selector, mainSwiperInstance, slideChangeCallback = null) {
+	const swiperInstance = new Swiper(selector, {
+		observer: true,
+		observeParents: true,
+		nested: true,
+		allowTouchMove: true,
+		allowSlideNext: true,
+		allowSlidePrev: true,
+		noSwiping: true,
+		noSwipingClass: 'swiper-slide',
+		zoom: {
+			maxRatio: 3,
+			minRatio: 1, // 縮小時、appZoom の倍率で止まるように設定
+			toggle: false,
+		},
+		speed: 300,
+		on: {
+			zoomChange: function(swiper, scale) {
+				// ズーム中のみスワイプによるステップ遷移（内側）とタブ遷移（外側）を禁止
+				const isZoomed = scale > 1;
+				swiper.allowSlideNext = !isZoomed;
+				swiper.allowSlidePrev = !isZoomed;
+				swiper.params.noSwiping = !isZoomed;
+
+				// 親である mainSwiper もロックする
+				if (mainSwiperInstance) {
+					mainSwiperInstance.allowSlideNext = !isZoomed;
+					mainSwiperInstance.allowSlidePrev = !isZoomed;
+					mainSwiperInstance.allowTouchMove = !isZoomed;
+				}
+			},
+			'zoom.onGestureEnd': function(swiper, event) {
+				const scale = swiper.zoom.scale;
+
+				if (scale > 1 && scale < 1.1) {
+					swiper.zoom.out();
+					swiper.isReturningToSingleScale = true;
+					swiper.allowSlideNext = true;
+					swiper.allowSlidePrev = true;
+					swiper.params.noSwiping = true;
+					if (mainSwiperInstance) {
+						mainSwiperInstance.allowSlideNext = true;
+						mainSwiperInstance.allowSlidePrev = true;
+						mainSwiperInstance.allowTouchMove = true;
+					}
+					setTimeout(() => {
+						swiper.isReturningToSingleScale = false;
+						swiper.update();
+					}, 300);
+				} else {
+					const isZoomed = scale > 1;
+					swiper.allowSlideNext = !isZoomed;
+					swiper.allowSlidePrev = !isZoomed;
+					swiper.params.noSwiping = !isZoomed;
+					if (mainSwiperInstance) {
+						mainSwiperInstance.allowSlideNext = !isZoomed;
+						mainSwiperInstance.allowSlidePrev = !isZoomed;
+						mainSwiperInstance.allowTouchMove = !isZoomed;
+					}
+					if (!isZoomed) swiper.update();
+				}
+			},
+			slideChange: function() {
+				// 未開放ステップへのスワイプを制限
+				if (this.maxReachedStep !== undefined && this.activeIndex > this.maxReachedStep) {
+					this.slideTo(this.maxReachedStep);
+					return;
+				}
+				if (slideChangeCallback) {
+					slideChangeCallback.call(this); // Swiperインスタンスのコンテキストでコールバックを呼び出す
+				}
+			}
+		}
+	});
+
+	swiperInstance.maxReachedStep = 0; // 最大到達ステップを 0 で初期化
+	return swiperInstance;
+}
+
 let mainJump;
 let stepJump;
 let cropManager; // 作物タブ専用マネージャ
 
 window.addEventListener('DOMContentLoaded', async () => {
+
+	// 初期ズーム適用
+	applyZoom(parseFloat(localStorage.getItem('appZoom')) || 1.0);
 
 	//データベース読込
 	if (db === null) await fetchDB();
@@ -530,41 +647,32 @@ window.addEventListener('DOMContentLoaded', async () => {
 		observer: true,
 		observeParents: true,
 		allowTouchMove: true,
-		noSwiping: true,
+		allowSlideNext: true, 
+		allowSlidePrev: true,
+		noSwiping: true, // タブコンテントのスワイプでタブが切り替わるのを防止するため noSwiping オプションは必須
 		noSwipingClass: 'swiper-slide',
-		zoom: {
-			maxRatio: 3,
-			minRatio: 1, // 縮小時、appZoom の倍率で止まるように設定
-			toggle: false,
-		},
 		speed: 300,
 		on: {
 			slideChange: function() {
 				updateMainTabs(this.activeIndex);
-			}
+			},
 		}
 	});
 
-	// 2. 作物内部のSwiper
-	const cropSwiper = new Swiper('.crop-swiper', {
-		observer: true,
-		observeParents: true,
-		nested: true,
-		allowTouchMove: true,
-		noSwiping: true,
-		noSwipingClass: 'swiper-slide',
-		zoom: {
-			maxRatio: 3,
-			minRatio: 1, // 縮小時、appZoom の倍率で止まるように設定
-			toggle: false,
-		},
-		speed: 300,
-		// スライドが切り替わった時にインジケータを更新
-		on: {
-			slideChange: function() {
-				updateStepBar(this.activeIndex);
-			}
-		}
+	// 2. 作物タブのSwiper
+	const cropSwiper = createZoomableSwiper('.crop-swiper', mainSwiper, function() {
+		// slideChangeCallback: cropSwiper の slideChange イベントでステップバーを更新
+		updateStepBar(this.activeIndex, this.maxReachedStep);
+	});
+
+	// 3. 病害虫タブのSwiper
+	const pestSwiper = createZoomableSwiper('.pest-swiper', mainSwiper, function() {
+		updateStepBar(this.activeIndex, this.maxReachedStep);
+	});
+
+	// 4. 薬剤タブのSwiper
+	const chemSwiper = createZoomableSwiper('.chem-swiper', mainSwiper, function() {
+		updateStepBar(this.activeIndex, this.maxReachedStep);
 	});
 
 	// クリック時のジャンプ
@@ -574,16 +682,31 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 	// ステップのジャンプ
 	stepJump = function(index) {
-		if (index <= maxReachedStep) {
-			cropSwiper.slideTo(index);
+		// 現在のメインタブにある「中身（内側）のSwiper」を動的に取得する
+		const activeMainSlide = mainSwiper.slides[mainSwiper.activeIndex];
+		const nestedSwiperEl = activeMainSlide.querySelector('.swiper-initialized');
+
+		if (nestedSwiperEl && nestedSwiperEl.swiper) {
+			const targetSwiper = nestedSwiperEl.swiper;
+			// 解放済みのステップ（maxReachedStep以下）であれば遷移を許可
+			if (index <= targetSwiper.maxReachedStep) {
+				targetSwiper.slideTo(index);
+			}
 		}
 	};
 
 	// タブバーのスワイプ
 	addSwipeHandler(document.querySelector('.main-nav'), mainSwiper, true);
 
-	// ステップバーのスワイプ
-	addSwipeHandler(document.querySelector('.step-bar'), cropSwiper, false);
+	// ステップバーのスワイプ (各タブのSwiperに対して個別に設定)
+	[
+		{ el: '.crop-swiper', instance: cropSwiper },
+		{ el: '.pest-swiper', instance: pestSwiper },
+		{ el: '.chem-swiper', instance: chemSwiper }
+	].forEach(item => {
+		const bar = document.querySelector(item.el)?.closest('.tab-container')?.querySelector('.step-bar');
+		if (bar) addSwipeHandler(bar, item.instance, false);
+	});
 
 	// 作物ツリーの生成とイベントハンドラ設定
 	try {
@@ -592,20 +715,17 @@ window.addEventListener('DOMContentLoaded', async () => {
 			':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
 			from m_sakumotsu where sakumotsu not like '%除く%';
 		`;
-		cropManager = new CropTreeManager('#cropTreeMobile', onCropCheckMobile, false);
+		cropManager = new CropTreeManager('#cropTreeCrop', onCropCheckMobile, false);
 		cropManager.init(cropTreeSql);
 	} catch (e) {
 		console.error("作物ツリーの生成に失敗しました:", e);
 		// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
-		document.querySelector('#cropTreeMobile').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
+		document.querySelector('#cropTreeCrop').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
 	}
 
 	// 初期状態のインジケータをセット
 	updateMainTabs(0);
 	updateStepBar(0);
-
-	// 初期ズーム適用
-	applyZoom(parseFloat(localStorage.getItem('appZoom')) || 1.0);
 
 });
 
@@ -614,15 +734,15 @@ function onCropCheckMobile(selectedCrops) {
 	const cropSwiper = document.querySelector('.crop-swiper').swiper;
 	if (selectedCrops.length > 0) {
 		// 選択があればステップ2（病害虫）を解放
-		if (maxReachedStep < 1) {
-			maxReachedStep = 1;
-			updateStepBar(cropSwiper.activeIndex);
+		if (cropSwiper.maxReachedStep < 1) {
+			cropSwiper.maxReachedStep = 1;
+			updateStepBar(cropSwiper.activeIndex, cropSwiper.maxReachedStep);
 		}
 	} else {
 		// 選択がなければリセット
-		maxReachedStep = 0;
+		cropSwiper.maxReachedStep = 0;
 		if (cropSwiper.activeIndex > 0) cropSwiper.slideTo(0);
-		updateStepBar(0);
+		updateStepBar(0, cropSwiper.maxReachedStep);
 	}
 }
 </script>
@@ -653,9 +773,9 @@ function onCropCheckMobile(selectedCrops) {
 		
 		<!-- 【作物タブ】 -->
 		<div class="swiper-slide">
-			<div class="crop-container">
+			<div class="tab-container">
 				<!-- ステップバー -->
-				<div class="step-bar swiper-no-swiping">
+				<div class="step-bar">
 					<div class="step-item active" onclick="stepJump(0)">1</div>
 					<div class="step-item" onclick="stepJump(1)">2</div>
 					<div class="step-item" onclick="stepJump(2)">3</div>
@@ -668,39 +788,45 @@ function onCropCheckMobile(selectedCrops) {
 						<!-- ① 作物ツリー -->
 						<div class="swiper-slide step-fixed">
 							<div class="swiper-zoom-container">
-								<div id="cropTreeMobile" class="swiper-zoom-target"></div>
+								<div id="cropTreeCrop" class="swiper-zoom-target step-zoom-target"></div>
 							</div>
 						</div>
 
 						<!-- ② 病害虫選択 -->
 						<div class="swiper-slide step-fixed">
-							<div class="swiper-zoom-container swiper-zoom-target">
-								<h4>対象病害虫</h4>
-								<div class="list-box" style="padding:10px;">
-									<p style="color: #666;">病害虫選択のコンテンツがここに表示されます。</p>
-									<!-- ここに病害虫選択のUIを実装 -->
+							<div class="swiper-zoom-container">
+								<div class="swiper-zoom-target step-zoom-target">
+									<h4>対象病害虫</h4>
+									<div class="list-box">
+										<p style="color: #666;">病害虫選択のコンテンツがここに表示されます。</p>
+										<!-- ここに病害虫選択のUIを実装 -->
+									</div>
 								</div>
 							</div>
 						</div>
 
 						<!-- ③ 農薬選択 -->
 						<div class="swiper-slide step-fixed">
-							<div class="swiper-zoom-container swiper-zoom-target">
-								<h4>農薬リスト</h4>
-								<div class="list-box" style="padding:10px;">
-									<p style="color: #666;">農薬選択のコンテンツがここに表示されます。</p>
-									<!-- ここに農薬選択のUIを実装 -->
+							<div class="swiper-zoom-container">
+								<div class="swiper-zoom-target step-zoom-target">
+									<h4>農薬リスト</h4>
+									<div class="list-box">
+										<p style="color: #666;">農薬選択のコンテンツがここに表示されます。</p>
+										<!-- ここに農薬選択のUIを実装 -->
+									</div>
 								</div>
 							</div>
 						</div>
 
 						<!-- ④ 詳細表示 -->
 						<div class="swiper-slide step-scrollable">
-							<div class="swiper-zoom-container swiper-zoom-target">
-								<h4>登録情報詳細</h4>
-								<div class="content-info">
-									<p style="color: #666;">ここに選択された農薬の詳細情報が表示されます。</p>
-									<!-- ここに詳細表示のコンテンツを実装 -->
+							<div class="swiper-zoom-container">
+								<div class="swiper-zoom-target step-zoom-target">
+									<h4>登録情報詳細</h4>
+									<div class="content-info">
+										<p style="color: #666;">ここに選択された農薬の詳細情報が表示されます。</p>
+										<!-- ここに詳細表示のコンテンツを実装 -->
+									</div>
 								</div>
 							</div>
 						</div>
@@ -709,18 +835,56 @@ function onCropCheckMobile(selectedCrops) {
 			</div>
 		</div>
 		<!-- 【病害虫タブ】 -->
-		<div class="swiper-slide" style="padding:20px;">
-			<div class="swiper-zoom-container swiper-zoom-target">
-				<p style="color: #666;">病害虫から検索の内容</p>
+		<div class="swiper-slide">
+			<div class="tab-container">
+				<!-- ステップバー -->
+				<div class="step-bar">
+					<div class="step-item active" onclick="stepJump(0)">1</div>
+					<div class="step-item locked" onclick="stepJump(1)">2</div>
+					<div class="step-item locked" onclick="stepJump(2)">3</div>
+				</div>
+
+				<!-- 内部Swiper -->
+				<div class="swiper pest-swiper">
+					<div class="swiper-wrapper">
+						<div class="swiper-slide step-fixed">
+							<div class="swiper-zoom-container">
+								<div class="swiper-zoom-target step-zoom-target">
+									<h4>病害虫検索</h4>
+									<p style="color: #666;">病害虫・雑草名からの検索画面をここに実装します。</p>
+								</div>
+							</div>
+						</div>
+						<!-- 以降のステップ（検索結果、詳細等）は必要に応じて追加 -->
+					</div>
+				</div>
 			</div>
 		</div>
 		<!-- 【薬剤タブ】 -->
-		<div class="swiper-slide" style="padding:20px;">
-			<div class="swiper-zoom-container swiper-zoom-target">
-				<p style="color: #666;">薬剤から検索の内容</p>
+		<div class="swiper-slide">
+			<div class="tab-container">
+				<!-- ステップバー -->
+				<div class="step-bar">
+					<div class="step-item active" onclick="stepJump(0)">1</div>
+					<div class="step-item locked" onclick="stepJump(1)">2</div>
+				</div>
+
+				<!-- 内部Swiper -->
+				<div class="swiper chem-swiper">
+					<div class="swiper-wrapper">
+						<div class="swiper-slide step-fixed">
+							<div class="swiper-zoom-container">
+								<div class="swiper-zoom-target step-zoom-target">
+									<h4>薬剤検索</h4>
+									<p style="color: #666;">薬剤名・成分名からの検索画面をここに実装します。</p>
+								</div>
+							</div>
+						</div>
+						<!-- 以降のステップは必要に応じて追加 -->
+					</div>
+				</div>
 			</div>
 		</div>
-
 	</div>
 </div>
 </body>

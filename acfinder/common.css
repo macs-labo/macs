@@ -43,6 +43,10 @@ html, body {
 	--bg-color-icon-hover: #ddd;
 	--scrollbar-track-color: rgba(220, 220, 220, 0.8);
 	--scrollbar-tumb-color: rgba(128, 128, 128, 0.8);
+	/* Swiper 用 */
+	--bg-color-accent: var(--border-color-focus);
+	--text-color-accent: var(--bg-color);
+	--text-color-step: var(--text-color-light);
 	/*	これ以降は handsontable 専用	*/
 	--border-color-ht-common: #ccc;
 	--bg-color-ht-header: #eee;
@@ -232,23 +236,15 @@ button {
 	transition: background-color 0.3s ease-out;
 }
 
-/*
-button:focus {
-	outline: none;
-}
-*/
-
 button:hover {
 	background-color: var(--bg-color-icon-hover);
 	color: var(--text-color-dark);
 	transition: var(--mouse-in-transition); 
 }
 
-/*
-dialog:focus {
+dialog {
 	outline: none;
 }
-*/
 
 .hidden {
 	display: none;

@@ -3,7 +3,6 @@
 	flex: 1;
 	flex-direction: column;
 	min-height: 0; /* Flexアイテムが親より小さくなれるようにする 2026.1.26 追加 */
-	height: fit-content; /* 2026.1.26 追加 */
 }
 
 /*

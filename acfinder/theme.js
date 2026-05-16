@@ -14,6 +14,7 @@ css: `:root {
 	--bg-color-filter-header: #70D0D0b0; /* フィルター列背景色（視認性向上のため少し濃く修正） */
 	--bg-color-fixed-header: #70d0d050;  /* 固定列背景色 */
 	--selection-border-color: #008b8b;   /* 選択罫線色 */
+	--bg-color-accent: #107d81;          /* 選択スライド色 */
 }` },
 	{ name: 'light-soft-sepia', title: 'UDソフトセピア(眼精疲労軽減)',
 css: `:root {
@@ -83,6 +84,7 @@ css: `:root {
 	--bg-color-fixed-header: #B9E7B0;   /* 固定列背景色 */
 	--selection-border-color: #005aff;  /* 選択罫線色 */
 	--db-update-text-color: #0041b0;    /* 更新文字色 */
+	--bg-color-accent: #0c47ad;         /* 選択スライド色 */
 }` },
 	{ name: 'light-green-positive', title: 'UD ポジティブ・グリーン(T型色覚)',
 css: `:root {
@@ -94,6 +96,7 @@ css: `:root {
 	--bg-color-fixed-header: #d0eac0;   /* 固定列背景色 */
 	--selection-border-color: #67c23a;  /* 選択罫線色 */
 	--db-update-text-color: #1e7e34;    /* 更新文字色 */
+	--bg-color-accent: #1d8548;         /* 選択スライド色 */
 }` },
 	{ name: 'light-mono', title: 'UDモノクローム(明暗差重視)',
 css: `:root {
@@ -136,6 +139,8 @@ css: `:root {
 	--selection-border-color: #0000ff;  /* 選択罫線色（鮮明な青） */
 	--border-color-focus: #0000ff;      /* フォーカス枠（明瞭化） */
 	--db-update-text-color: #d00000;    /* 更新箇所（高彩度赤） */
+	--bg-color-accent: #0000bb;         /* 選択スライド色 */
+	--text-color-step: #dddddd;         /* スライドステップ文字色 */
 }` },
 	{ name: 'dark', title: '標準ダークテーマ', css: '' },
 	{ name: 'dark-soft-night', title: 'UDダークソフトナイト(眼精疲労軽減)',
@@ -164,6 +169,7 @@ css: `[data-theme="dark"] {
 	--selection-border-color: #ff9d00;  /* 選択罫線色 */
 	--db-update-text-color: #7abaff;    /* 更新文字色 */
 	--bg-color-even-row: #22252a;       /* 偶数行背景色 */
+	--bg-color-accent: #ff9d00;         /* スライドステップ背景色 */
 }` },
 	{ name: 'dark-high-contrast', title: 'UDダークハイコントラスト(明瞭度重視)',
 css: `[data-theme="dark"] {
@@ -187,6 +193,7 @@ css: `[data-theme="dark"] {
 	--selection-border-color: #ffff00;  /* 選択罫線色 */
 	--db-update-text-color: #ffff00;    /* 更新文字色 */
 	--bg-color-even-row: #222222;       /* 偶数行背景色（明確化） */
+	--text-color-step: #222222;         /* スライドステップ文字色 */
 }` },
 ];
 
