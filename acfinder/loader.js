@@ -1438,6 +1438,11 @@ function showNotificationDialog() {
 					localStorage.setItem('notice', 'true');
 				}
 				await render(); // 表示を最新の状態に更新
+				// noticeBell がある場合は、その表示も更新
+				if (noticeBell) {
+					const iconUse = noticeBell.querySelector('use');
+					iconUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `icons.svg#${isRegistered ? 'bell' : 'bell-off'}`);
+				}
 			} catch (err) {
 				console.error(err);
 				alert('通知設定の変更に失敗しました。ブラウザの設定で通知が許可されているか確認してください。');
