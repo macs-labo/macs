@@ -268,6 +268,8 @@ insert into tsushoruby values('ƒXƒiƒbƒvƒVƒ‡ƒbƒg—±Ü', '‚·‚È‚Á‚Õ‚µ‚å‚Á‚Æ‚è‚ã‚¤‚´‚
 insert into tsushoruby values('ƒ^[ƒUƒCƒ“ƒvƒDF', '‚½[‚´‚¢‚ñ‚Õ‚ëDF');
 insert into tsushoruby values('ƒpƒ[ƒJ[ƒu…˜aÜ', '‚Ï‚í[‚©[‚Ô‚·‚¢‚í‚´‚¢');
 insert into tsushoruby values('ƒ^[ƒUƒCƒ“…˜aÜ', '‚½[‚´‚¢‚ñ‚·‚¢‚í‚´‚¢');
+insert into tsushoruby values('ƒAƒeƒNƒ]ƒtƒƒAƒuƒ‹', '‚ ‚Ä‚­‚¼‚Ó‚ë‚ ‚Ô‚é');
+insert into tsushoruby values('ƒTƒCƒ‚ƒfƒBƒXDC', '‚³‚¢‚à‚Å‚¡‚·DC');
 insert into tsushoruby values('ƒXƒ^ƒEƒgè÷—±…˜aÜ', '‚·‚½‚¤‚Æ‚©‚è‚ã‚¤‚·‚¢‚í‚´‚¢');
 insert into tsushoruby values('ƒ‹[ƒ`ƒ“ƒV[ƒhFS', '‚é[‚¿‚ñ‚µ[‚ÇFS');
 insert into tsushoruby values('ƒ‹[ƒ`ƒ“ƒtƒƒAƒuƒ‹', '‚é[‚¿‚ñ‚Ó‚ë‚ ‚Ô‚é');

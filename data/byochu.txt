@@ -1,5 +1,5 @@
 --/d
-/* 2026.05.15 現在の農水省農薬登録情報提供システムに基づく病害虫・雑草マスター (2021.05.10) */
+/* 2026.05.22 現在の農水省農薬登録情報提供システムに基づく病害虫・雑草マスター (2021.05.10) */
 /* 検索用病害虫マスター 2014.01.15 */
 begin transaction;
 drop table if exists m_byochu;
@@ -777,7 +777,8 @@ insert into m_byochu values(2, 49, '20491000', 'ミカンハダニ', 'みかんはだに');
 insert into m_byochu values(2, 49, '20491200', 'リンゴハダニ', 'りんごはだに');
 insert into m_byochu values(2, 49, '20491400', 'コウノアケハダニ', 'こうのあけはだに');
 insert into m_byochu values(2, 49, '20491500', 'ホモノハダニ', 'ほものはだに');
-insert into m_byochu values(2, 49, '20491600', 'ブドウヒメハダニ', 'ぶどうひめはだに');
+insert into m_byochu values(2, 49, '20491600', 'ナンセイナミハダニ', 'なんせいなみはだに');
+insert into m_byochu values(2, 49, '20491700', 'ブドウヒメハダニ', 'ぶどうひめはだに');
 insert into m_byochu values(2, 50, '20500100', 'ハバチ類', 'はばちるい');
 insert into m_byochu values(2, 50, '20500101', 'ハバチ類(若～中齢幼虫)', 'はばちるい(じゃく～ちゅうれいようちゅう)');
 insert into m_byochu values(2, 50, '20500200', 'カブラハバチ', 'かぶらはばち');
