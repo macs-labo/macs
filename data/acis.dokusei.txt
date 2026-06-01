@@ -1,7 +1,7 @@
 --/d
-/* 有効成分毒性マスター 2026.04.30 */
+/* 有効成分毒性マスター 2026.06.01 */
 create table if not exists info (item varchar primary key, value varchar);
-insert or replace into info (item, value) values ('m_dokusei', '2026.04.30');
+insert or replace into info (item, value) values ('m_dokusei', '2026.06.01');
 drop table if exists m_dokusei;
 create table m_dokusei (ippanmei varchar, nai varchar, yoto varchar, biko varchar, ojas varchar, rac varchar, dokusei varchar, adi varchar, arfd varchar, wqs varchar, eqs varchar, hatsutoroku varchar, jogai varchar);
 begin transaction;
@@ -18,6 +18,7 @@ insert into m_dokusei values ('アリガタシマアザミウマ','Franklinothrips vespifor
 insert into m_dokusei values ('アレスリン','Allethrin','虫',NULL,NULL,'I-3A','普','0.0083',NULL,'-','-','1967.04.25',NULL);
 insert into m_dokusei values ('イサエアヒメコバチ','Diglyphus isaea (Walker) ','虫','天','○','-(生)','-','-','-','-','-','1997.12.24',NULL);
 insert into m_dokusei values ('イソキサチオン','Isoxathion','虫',NULL,NULL,'I-1B','劇','0.002','0.003','0.005','0.02','1972.06.30','2%普');
+insert into m_dokusei values ('イソシクロセラム','Isocycloseram','虫',NULL,NULL,'I-30','普','0.009','0.15 (0.075)','0.02','0.0037','2026.05.20',NULL);
 insert into m_dokusei values ('イミシアホス','Imicyafos','虫',NULL,NULL,'I-1B','劇','0.0005','0.01','0.001','52','2010.01.18','1.5%普');
 insert into m_dokusei values ('イミダクロプリド','Imidacloprid','虫',NULL,NULL,'I-4A','劇','0.057','0.077','0.15','1.9','1992.11.04','2%普');
 insert into m_dokusei values ('インドキサカルブ','Indoxacarb','虫',NULL,NULL,'I-22A','普','0.0052',NULL,'0.013','60','2010.08.10',NULL);
@@ -327,7 +328,7 @@ insert into m_dokusei values ('アジムスルフロン','Azimsulfuron','草',NULL,NULL,'
 insert into m_dokusei values ('アシュラム','Asulam','草',NULL,NULL,'H-18','普','0.36','3','1','9000','1972.02.19',NULL);
 insert into m_dokusei values ('アトラジン','Atrazine','草',NULL,NULL,'H-5','普','0.004',NULL,NULL,'150','1965.04.27',NULL);
 insert into m_dokusei values ('アミカルバゾン','Amicarbazone','草',NULL,NULL,'H-5','普','-','-','0.042','180','2016.11.14',NULL);
-insert into m_dokusei values ('アラクロール','Alachlor','草',NULL,NULL,'H-15','普','0.01',NULL,'0.02','4.7','1970.03.07',NULL);
+insert into m_dokusei values ('アラクロール','Alachlor','草',NULL,NULL,'H-15','普','0.01','1.5','0.02','4.7','1970.03.07',NULL);
 insert into m_dokusei values ('イソキサベン','Isoxaben','草',NULL,NULL,'H-29','普','-','-','0.13','130','1991.11.20',NULL);
 insert into m_dokusei values ('イプフェンカルバゾン','Ipfencarbazone','草',NULL,NULL,'H-15','普','0.00099',NULL,'0.0026','21','2013.08.06',NULL);
 insert into m_dokusei values ('イマザキン','Imazaquin','草',NULL,NULL,'H-2','普',NULL,NULL,NULL,'9600','1994.09.28',NULL);
