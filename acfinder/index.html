@@ -9,10 +9,6 @@
 <title>ACFinderBE Mobile</title>
 <script>
 (function() {
-	// 当面、公開ディレクトリの場合は強制的にデスクトップ版にリダイレクト
-	if (window.location.href.includes('/acfinder/')) {
-		window.location.href = 'crop.html';
-	}
 	// ディスプレイの論理幅が 1280px 以上ならデスクトップ版にリダイレクト
 	const isDesktopSize = window.screen.width >= 1280;
 	if (isDesktopSize) {
