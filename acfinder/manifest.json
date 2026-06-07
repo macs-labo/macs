@@ -2,7 +2,7 @@
   "name": "ACFinder Browser Edition for Mobile",
   "short_name": "ACFinderBE Mobile",
   "description": "農薬検索システム ACFinderBE モバイル版",
-  "start_url": "./index.html?mode=mobile",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#fdfdfd",
   "theme_color": "#1f3e92",

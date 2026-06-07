@@ -60,11 +60,9 @@ function applyFilter(tree, filerInput) {
 			if (node.parent !== null) {
 				node.state.open = false;
 				tree.closeNode(node);
-				tree.update();
 			}
 		});
 		tree.unfilter();
-		tree.update();
 	} else {
 		const checkNodeAndDescendants = (node) => {
 			let hasMatchingDescendant = false;
@@ -106,9 +104,8 @@ function applyFilter(tree, filerInput) {
 		matchedNodes.forEach(node => {
 			tree.closeNode(node);
 		});
-
-		tree.update();
 	}
+	tree.update();
 }
 
 // zip ファイルからファイルツリーを構築
@@ -117,7 +114,7 @@ function makeFileTree(selector, zip, selectHandler, option = {}) {
 	const fileTree = document.querySelector(selector);
 	fileTree.innerHTML = `
 		<form id="filerForm" class="inputbar" onsubmit="return false;">
-			<input type="text" id="filerInput" name="filerInput" placeholder="絞込ファイル名(空白で解除)" autocomplete="on" />
+			<input type="text" id="filerInput" name="filerInput" placeholder="絞込ファイル名" autocomplete="on" />
 			<button type="button" id="filerButton">絞込</button>
 		</form>
 		<div class="treebox">
@@ -192,6 +189,7 @@ function makeFileTree(selector, zip, selectHandler, option = {}) {
 			autoOpen: false,
 			selectable: true,
 			rowRenderer: rowRenderer,
+			noDataText: '該当するファイルが見つかりませんでした。',
 		});
 		
 		window.currentZip = zip; // グローバルに保存
@@ -208,9 +206,41 @@ function makeFileTree(selector, zip, selectHandler, option = {}) {
 		// フィルタリング設定
 		const filterInput = document.querySelector('#filerInput');
 		const filterButton = document.querySelector('#filerButton');
-		filterButton.addEventListener('click', () => applyFilter(tree, filterInput));
-		filterInput.addEventListener('change', (event) => applyFilter(tree, filterInput));
-		filterInput.addEventListener('input', (event) => { if(event.target.value === '') applyFilter(tree, filterInput) });
+
+		let isFiltering = false;
+		const doFilter = async () => {
+			if (isFiltering) return;
+			isFiltering = true;
+			if (filterButton.textContent === '解除') filterInput.value = '';
+			filterButton.textContent = filterInput.value === '' ? '絞込' : '解除';
+			// 重い処理を非同期にすることで UI の応答性を維持します
+			await waiting(true, '絞り込み中...');
+			try {
+				applyFilter(tree, filterInput);
+				if (filterButton.textContent === '解除') filterInput.blur();
+			} finally {
+				isFiltering = false;
+				await waiting(false);
+			}
+		};
+
+		// 二重発火防止
+		filterButton.addEventListener('mousedown', (e) => {
+			if (document.activeElement === filterInput) e.preventDefault();
+		});
+		filterButton.addEventListener('click', doFilter);
+		filterInput.addEventListener('change', doFilter);
+		filterInput.addEventListener('input', (e) => {
+			if (e.target.value === '') {
+				if (typeof isMobile === 'undefined' || !isMobile) {
+					doFilter();
+				} else {
+					filterButton.textContent = '絞込';
+				}
+			} else {
+				if (filterButton.textContent === '解除') filterButton.textContent = '絞込';
+			}
+		});
 		document.querySelector('#filerForm').addEventListener('submit', (e) => e.preventDefault());
 
 	} catch (error) {

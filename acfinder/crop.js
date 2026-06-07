@@ -199,35 +199,74 @@ class CropTreeManager {
 		this.selector = selector;
 		this.onCheckCallback = onCheckCallback;
 		this.isGlobal = isGlobal;
-
-		this.checkedCrops = [];
-		this.infiniteTree = null;
+		this.searchMethod = ' and ';
 		this.containerElement = null;
 		this.domHandlers = {};
+		this.idSuffix = '';
+		this.checkedCrops = [];
 	}
 
-	init(sql) {
+	async init(sql, options = {}) {
 		this.containerElement = document.querySelector(this.selector);
 		if (!this.containerElement) return;
 
-		this.reset();
+		this.reset(false, true); // 再構築時は選択状態を維持する
 
-		const idSuffix = this.selector.replace(/[^a-zA-Z0-9]/g, '_');
+		this.idSuffix = this.selector.replace(/[^a-zA-Z0-9]/g, '_');
+		const idSuffix = this.idSuffix;
+
+		// 再構築時（除外条件変更など）に選択状態を復元する
+		if (this.isGlobal && Array.isArray(window.checkedCrops)) {
+			this.checkedCrops = [...window.checkedCrops];
+		}
+
+		// UIパーツの構築（コンテナ内部に集約）
+		let methodHtml = '';
+		if (options.showSearchMethod) {
+			methodHtml = `
+				<div class="selector">
+					<h3>複数作物選択時検索方法</h3>
+					<select id="searchMethod${idSuffix}">
+						<option value=" and " ${this.searchMethod === ' and ' ? 'selected' : ''}>AND検索</option>
+						<option value=" or " ${this.searchMethod === ' or ' ? 'selected' : ''}>OR検索</option>
+					</select>
+				</div>`;
+		}
+		const excluderHtml = options.showExcluder ? `<div id="excluder${idSuffix}"></div>` : '';
+
 		this.containerElement.innerHTML = `
+			${excluderHtml}
+			${methodHtml}
 			<h3>作物名選択</h3>
 			<form id="filterForm${idSuffix}" class="inputbar" onsubmit="return false;">
-				<input type="text" id="filterInput${idSuffix}" name="filterInput" placeholder="絞込作物名(空白で解除)" title="指定例： [なす]部分一致 [:なす]前方一致 [なす:]後方一致 [:なす:]完全一致" autocomplete="on" />
+				<input type="text" id="filterInput${idSuffix}" name="filterInput" placeholder="絞込作物名" title="指定例： [なす]部分一致 [:なす]前方一致 [なす:]後方一致 [:なす:]完全一致" autocomplete="on" />
 				<button type="button" id="filterButton${idSuffix}">絞込</button>
 			</form>
 			<div class="treebox">
-				<div><input type="checkbox" id="clearAll${idSuffix}" autocomplete="off" disabled /><label for="clearAll${idSuffix}">全解除</label></div>
+				<div class="checkListItem"><input type="checkbox" id="clearAll${idSuffix}" autocomplete="off" disabled /><label for="clearAll${idSuffix}">全解除</label></div>
 				<div id="treeInner${idSuffix}"></div>
 			</div>
 		`;
-		this.containerElement.style.display = 'block';
+		this.containerElement.classList.remove('hidden');
+
+		// 全解除ボタンの状態を同期
+		const clearAll = this.containerElement.querySelector(`#clearAll${idSuffix}`);
+		if (clearAll) {
+			clearAll.checked = this.checkedCrops.length > 0;
+			clearAll.disabled = !clearAll.checked;
+		}
 
 		try {
+			// 除外セレクタの初期化
+			if (options.showExcluder) {
+				makeExcludeSelector(`#excluder${idSuffix}`, this.onCheckCallback);
+			}
+
+			// 描画を一度確定させてから重い処理に入る
+			await new Promise(resolve => setTimeout(resolve, 0));
 			const sqlResult = db.exec(sql);
+			// SQL実行後に再度解放
+			await new Promise(resolve => setTimeout(resolve, 0));
 			const treeData = buildCropTree(sqlResult);
 			const treeContainer = this.containerElement.querySelector(`#treeInner${idSuffix}`);
 			
@@ -240,6 +279,7 @@ class CropTreeManager {
 					return rowRenderer(node, opts);
 				},
 				togglerClass: 'infinite-tree-toggler',
+				noDataText: '該当する作物が見つかりませんでした。',
 			});
 
 			this._setupListeners(idSuffix);
@@ -256,6 +296,13 @@ class CropTreeManager {
 	_setupListeners(idSuffix) {
 		const tree = this.infiniteTree;
 		const filterInput = this.containerElement.querySelector(`#filterInput${idSuffix}`);
+		const searchMethodSelect = this.containerElement.querySelector(`#searchMethod${idSuffix}`);
+		if (searchMethodSelect) {
+			searchMethodSelect.addEventListener('change', (e) => {
+				this.searchMethod = e.target.value;
+				this.onCheckCallback(this.checkedCrops);
+			});
+		}
 		const filterButton = this.containerElement.querySelector(`#filterButton${idSuffix}`);
 		const filterForm = this.containerElement.querySelector(`#filterForm${idSuffix}`);
 		const clearAll = this.containerElement.querySelector(`#clearAll${idSuffix}`);
@@ -264,7 +311,8 @@ class CropTreeManager {
 		const changeHandler = (event) => {
 			const target = event.target;
 			if (target && target.matches('.checkbox')) {
-				const node = tree.getNodeById(target.id);
+				const nodeId = target.getAttribute('data-node-id');
+				const node = tree.getNodeById(nodeId);
 				if (!node) return;
 				node.state.checked = !node.state.checked;
 				
@@ -279,8 +327,11 @@ class CropTreeManager {
 				if (clearAll) {
 					clearAll.checked = this.checkedCrops.length > 0;
 					clearAll.disabled = !clearAll.checked;
-				} // onCheckCallback を直接呼び出す
-				this.onCheckCallback(this.checkedCrops);
+				}
+				// UIの更新（チェックマークの表示等）を優先し、重い処理（SQL実行やDOM生成）を非同期にする
+				setTimeout(() => {
+					this.onCheckCallback(this.checkedCrops);
+				}, 0);
 				event.stopPropagation();
 			}
 		};
@@ -290,7 +341,8 @@ class CropTreeManager {
 		// トグル・スクロール時のチェック復元
 		const restoreChecks = () => {
 			this.checkedCrops.forEach(c => {
-				const cb = tree.contentElement.querySelector(`input[id="${c.id}"]`);
+				const inputId = `crop_${this.idSuffix}_${c.id}`;
+				const cb = tree.contentElement.querySelector(`input[id="${inputId}"]`);
 				if (cb) cb.checked = true;
 			});
 		};
@@ -315,10 +367,43 @@ class CropTreeManager {
 		tree.scrollElement.addEventListener('scroll', restoreChecks);
 
 		// フィルタ
-		const doFilter = () => this._applyFilter(filterInput.value);
+		let isFiltering = false;
+		const doFilter = async () => {
+			if (isFiltering) return;
+			isFiltering = true;
+			if (filterButton.textContent === '解除') filterInput.value = '';
+			const val = filterInput.value;
+			filterButton.textContent = val === '' ? '絞込' : '解除';
+
+			// 描画を確実に行わせるため、waiting() を利用して一旦制御をブラウザに戻します。
+			// これにより「絞込」から「解除」への表示変更や、ローディング表示が即座に反映されます。
+			await waiting(true, '絞り込み中...');
+
+			try {
+				this._applyFilter(val);
+				if (filterButton.textContent === '解除') filterInput.blur();
+			} finally {
+				isFiltering = false;
+				await waiting(false);
+			}
+		};
+		// ボタンクリック時に入力欄の blur による change イベントの重複発火を防止します
+		filterButton.addEventListener('mousedown', (e) => {
+			if (document.activeElement === filterInput) e.preventDefault();
+		});
 		filterButton.addEventListener('click', doFilter);
 		filterInput.addEventListener('change', doFilter);
-		filterInput.addEventListener('input', (e) => { if (e.target.value === '') doFilter(); });
+		filterInput.addEventListener('input', (e) => {
+			if (e.target.value === '') {
+				if (typeof isMobile === 'undefined' || !isMobile) {
+					doFilter();
+				} else {
+					filterButton.textContent = '絞込';
+				}
+			} else {
+				if (filterButton.textContent === '解除') filterButton.textContent = '絞込';
+			}
+		});
 		filterForm.addEventListener('submit', (e) => e.preventDefault());
 
 		// 全解除
@@ -327,7 +412,7 @@ class CropTreeManager {
 
 	_applyFilter(text) {
 		const tree = this.infiniteTree;
-		const filterText = romajiConv(text).toHiragana().replaceAll('：', ':');
+		const filterText = romajiConv(text).toHiragana().replaceAll('：', ':').trim();
 		const matchedNodes = new Set();
 
 		if (!filterText) {
@@ -359,9 +444,19 @@ class CropTreeManager {
 		while (this.checkedCrops.length > 0) {
 			const item = this.checkedCrops.pop();
 			const node = this.infiniteTree.getNodeById(item.id);
-			if (node) this.infiniteTree.checkNode(node, false);
-			const cb = this.infiniteTree.contentElement.querySelector(`input[id="${item.id}"]`);
-			if (cb) cb.checked = false;
+			if (node) {
+				const parent = node.getParent();
+				// 親ノードが閉じていると checkNode() がエラーになるので、先に親ノードの開閉状況を確認
+				if (!parent || parent.state.open) {
+					// 親ノードがトップノードまたは開いている場合は checkNode() でアンチェック　node.state.checked = false だけでは tree.update() で反映されない
+					this.infiniteTree.checkNode(node, false); // エラーを気にしないなら、この結果が false なら強制アンチェックするのでも OK
+				}
+				// 見えていない node では chckeNode() に失敗するので、node.state.checked と checkbox を強制アンチェック
+				const inputId = `crop_${this.idSuffix}_${item.id}`;
+				const cb = this.infiniteTree.contentElement.querySelector(`input[id="${inputId}"]`);
+				if (cb) cb.checked = false;
+				node.state.checked = false;
+			}
 		}
 		if (this.isGlobal) window.checkedCrops = [];
 		this.infiniteTree.update();
@@ -370,12 +465,21 @@ class CropTreeManager {
 		if (!silent) this.onCheckCallback(this.checkedCrops);
 	}
 
-	reset() {
+	reset(hidden = false, keepSelection = false) {
+		if (this.containerElement) {
+			this.containerElement.innerHTML = '';
+			if (hidden) this.containerElement.classList.add('hidden');
+		}
+
 		if (!this.infiniteTree) return;
-		this.clearAll(true);
+
+		if (!keepSelection) {
+			this.clearAll(true);
+		}
+
 		this.infiniteTree.clear();
 		this.infiniteTree = null;
-		if (this.isGlobal) {
+		if (this.isGlobal && !keepSelection) {
 			currentInfinitTree = null;
 			currentCropTree = null;
 			window.checkedCrops = [];
@@ -385,15 +489,16 @@ class CropTreeManager {
 
 let _defaultCropTreeManager = null;
 
-function makeCropTree(selector, sql, onCheckCallback) {
-	if (arguments.length === 3) {
+async function makeCropTree(selector, sql, onCheckCallback, options = {}) {
+	if (arguments.length >= 3) {
 		if (!_defaultCropTreeManager || _defaultCropTreeManager.selector !== selector) {
 			_defaultCropTreeManager = new CropTreeManager(selector, (checked) => {
 				window.checkedCrops = checked;
 				onCheckCallback(checked);
 			}, true);
 		}
-		_defaultCropTreeManager.init(sql);
+		console.log(sql);
+		await _defaultCropTreeManager.init(sql, options);
 		return _defaultCropTreeManager;
 	}
 	return null;
@@ -403,8 +508,8 @@ function clearAllReset() {
 	if (_defaultCropTreeManager) _defaultCropTreeManager.clearAll(true);
 }
 
-function resetCropTree() {
-	if (_defaultCropTreeManager) _defaultCropTreeManager.reset();
+function resetCropTree(hidden = false) {
+	if (_defaultCropTreeManager) _defaultCropTreeManager.reset(hidden);
 }
 
 // rowRenderer 定義
@@ -448,6 +553,7 @@ const rowRenderer = (node, treeOptions) => {
 	const nodeName = loadOnDemand ? '(loadOnDemand)' + name : name;
 	const indent = depth * 20;
 	let itemClass = 'infinite-tree-item';
+	const inputId = node.manager ? `crop_${node.manager.idSuffix}_${id}` : `crop_${id}`;
 	const dataTotal = total > 0 ? `data-total="${total}"` : '';
 	const dataExpanded = more && open ? ' data-expanded' : '';
 	itemClass += selected ? ' infinite-tree-selected' : '';
@@ -459,8 +565,8 @@ const rowRenderer = (node, treeOptions) => {
 		`<div class="${itemClass}" data-id="${id}" data-depth="${depth}" data-path="${path}" data-children="${childrenLength}"${dataTotal}${dataExpanded}${dataSelected}>`,
 			`<div class="infinite-tree-node" style="margin-left: ${indent}px"${hint}>`,
 				`<a class="${togglerClass}">${togglerContent}</a>`,
-				`<input type="checkbox" class="checkbox" id="${id}" ${dataChecked}${dataIndeterminate}${cbChecked}${cbDisabled} autocomplete="off" />`,
-				`<label for="${id}" class="infinite-tree-title${labelClass}">${nodeName}</label>${addinfo}`,
+				`<input type="checkbox" class="checkbox" id="${inputId}" data-node-id="${id}" ${dataChecked}${dataIndeterminate}${cbChecked}${cbDisabled} autocomplete="off" />`,
+				`<label for="${inputId}" class="infinite-tree-title${labelClass}">${nodeName}</label>${addinfo}`,
 			'</div>',
 		'</div>',
 		''
@@ -518,23 +624,36 @@ function makeCropCondition(crops) {
 
 let excludeCondition = '';
 let excluderChanged = false;
+// セレクタごとの設定を保持するキャッシュ
+const _cropTreeConfigs = new Map();
 
 // excluder 用標準作物ツリー設定
-function setupCropTree(containerSelector = '#cropTree', callback = searchCrop) {
+async function setupCropTree(containerSelector = '#cropTree', callback = (typeof searchCrop === 'function' ? searchCrop : null), options = {}) {
+	// 引数が空の場合、キャッシュから前回の設定を復元する
+	if (Object.keys(options).length === 0 && _cropTreeConfigs.has(containerSelector)) {
+		const config = _cropTreeConfigs.get(containerSelector);
+		callback = config.callback;
+		options = config.options;
+	} else {
+		// 新しい設定を保存
+		_cropTreeConfigs.set(containerSelector, { callback, options });
+	}
+
 	const exclude = excludeCondition.replace(/^and/, 'where');
 	//let sql = exclude ? `with tSakumotsu as (select distinct sakumotsu, 1 as exist from t_tekiyo ${exclude})` : '';
 	let sql = `with tSakumotsu as (select distinct sakumotsu, 1 as exist from t_tekiyo ${exclude})`;
 	sql += `
-		select idsaku, class, toroku * ifnull(exist, 0) as toroku, sakumotsu, shukakubui, betsumei, 
+		select idsaku, class, toroku * ifnull(exist, 0) as toroku, sakumotsu, shukakubui, betsumei,
 		':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
 		from m_sakumotsu left join tSakumotsu using(sakumotsu) where sakumotsu not like '%除く%';
 	`;
-	makeCropTree(containerSelector, sql, callback);
 	excluderChanged = false;
+	const manager = await makeCropTree(containerSelector, sql, callback, options);
+	return manager;
 }
 
 // 検索除外薬剤セレクタ設置
-function makeExcludeSelector(containerSelector = '#excluder', callback = searchCrop) {
+function makeExcludeSelector(containerSelector = '#excluder', callback = (typeof searchCrop === 'function' ? searchCrop : null), treeSelector = '#cropTree') {
 	const defaultIndex = parseInt(localStorage.getItem('excludeIndex')) || 1;
 	const options = [
 		{ value: "", text: 'なし' },
@@ -562,13 +681,19 @@ function makeExcludeSelector(containerSelector = '#excluder', callback = searchC
 	excludeContainer.appendChild(excludeSelect);
 
 	// イベントハンドラ設定
-	excludeSelect.onchange = () => { // グローバル変数として維持
+	excludeSelect.onchange = async () => {
 		excludeCondition = excludeSelect.value;
 		excluderChanged = true;
-		if (typeof tables !== 'undefined' && tables) { // tables が定義されているかチェック
-			callback(); // 検索関数を実行
+		localStorage.setItem('excludeIndex', excludeSelect.selectedIndex);
+		
+		if (window.checkedCrops && window.checkedCrops.length > 0) {
+			// 既に作物が選択されている場合は検索結果のみ更新（ツリーのちらつき防止）
+			if (typeof callback === 'function') {
+				callback(window.checkedCrops);
+			}
 		} else {
-			setupCropTree(); // 作物ツリーを再構築
+			// 作物が選択されていない場合は、次の選択のためにツリーの有効/無効状態を更新
+			await setupCropTree(treeSelector);
 		}
 	}
 }

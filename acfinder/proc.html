@@ -10,16 +10,8 @@
 <script type="text/javascript" src="./header.js"></script>
 <script type="text/javascript" src="./custom.js"></script>
 <script type="text/javascript" src="./loader.js"></script>
-<!--
-<script type="text/javascript" src="./crop.js"></script>
-<script type="text/javascript" src="./filer.js"></script>
--->
 <link rel="stylesheet" type="text/css" href="./common.css" />
 <link rel="stylesheet" type="text/css" href="./loader.css" />
-<!--
-<link rel="stylesheet" type="text/css" href="./crop.css" />
-<link rel="stylesheet" type="text/css" href="./filer.css" />
--->
 <!-- 最低限必要な外部ライブラリ -->
 
 <!--	タブ専用の style -->
@@ -41,7 +33,7 @@ async function loadTabHtml(event) {
 		const templateHtml = await file.text();
 		sessionStorage.setItem('procTemplateHtml', templateHtml);
 		sessionStorage.setItem('procTemplateFileName', file.name);
-		window.location.reload();
+		window.location.reload(true);
 	} catch (e) {
 		console.error('ファイルの読み込み中にエラーが発生しました:', e);
 		waiting(false);

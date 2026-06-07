@@ -38,17 +38,6 @@
 <script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
 <!--	タブ専用スタイル -->
 <style>
-#cropTree {
-	display: flex;
-	flex-direction: column;
-	flex: 1;
-}
-
-.infinite-tree-scroll {
-	min-height: 230px;
-	max-height: calc(100vh - 304px);
-}
-
 </style>
 <!--	タブ専用の view や table の設定 -->
 <script type="text/plain" id="views_or_tables">
@@ -64,11 +53,13 @@ async function searchCrop() {
 	if (checkedCrops.length === 0) {
 		title.innerHTML = '';
 		title.classList.add('hidden');
-		if (excluderChanged) setupCropTree();
+		if (excluderChanged) cropManager = await setupCropTree('#cropTree', searchCrop, {
+			showExcluder: true
+		});
 		return;
 	}
 	const crops = checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
-	title.innerHTML = crops.join(',');
+	title.innerHTML = crops.join(' | ');
 	title.classList.remove('hidden');
 	let sql = `
 		select distinct
@@ -113,14 +104,11 @@ window.addEventListener('DOMContentLoaded', async function() {
 	//データベース読込
 	if (db === null) await fetchDB();
 
-	// 除外薬剤セレクタの生成とイベントハンドラ設定
-	makeExcludeSelector();
-
 	// currentListing を 表示項目セレクタから取得
 	currentListing = document.querySelector('#listing').value;
 
 	// 作物ツリーの生成とイベントハンドラ設定
-	setupCropTree();
+	cropManager = await setupCropTree('#cropTree', searchCrop, { showExcluder: true });
 
 	// firefox のリロード時 checkbox 状態復元対策
 	clearAllReset();
@@ -135,7 +123,6 @@ window.addEventListener('DOMContentLoaded', async function() {
 <div class="tab_content">
 	<div class="flex_container">
 		<div id="conditionPane">
-			<div id="excluder"></div>
 			<div class="selector">
 				<h3>表示形式</h3>
 				<select id="listing" onchange="handleListingChange(event)">

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v4.10'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v5.02'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -15,10 +15,13 @@ const ASSETS_TO_CACHE = [
 	'./prop.html',
 	'./index.html',
 	'./stdsql.zip',
+	'./custom.js',
 	'./header.js',
 	'./loader.js',
 	'./table.js',
 	'./crop.js',
+	'./pest.js',
+	'./chem.js',
 	'./filer.js',
 	'./theme.js',
 	'./common.css',
@@ -34,8 +37,12 @@ const ASSETS_TO_CACHE = [
 	'./previews/resizable.html',
 	'./previews/preview.js',
 	'./previews/preview.css',
+	'./manifest.json',
+	'../android-chrome-192x192.png',
+	'../apple-touch-icon-180x180.png',
 	// 外部ライブラリもキャッシュしてオフライン対応を強化
 	'https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.min.js',
+	'https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.wasm',
 	'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
 	'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
 	'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js',
@@ -56,6 +63,8 @@ const ASSETS_TO_CACHE = [
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/eclipse.css',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/darcula.css',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.css',
+	'https://cdn.jsdelivr.net/npm/codemirror-colorpicker@1.9.80/dist/codemirror-colorpicker.css',
+	'https://cdn.jsdelivr.net/npm/codemirror-colorpicker@1.9.80/dist/codemirror-colorpicker.min.js',
 	'https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.js',
 	'https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.css'
 ];
@@ -91,7 +100,7 @@ self.addEventListener('sync', (event) => {
 	}
 });
 
-// 背景でのダウンロードと IndexedDB 保存処理
+// バックグラウンドでのダウンロードと IndexedDB 保存処理
 async function downloadAndCacheUpdate() {
 	const dbName = 'fileCacheDB';
 	const storeName = 'files';
@@ -131,7 +140,8 @@ self.addEventListener('push', (event) => {
 	let data = { 
 		title: 'ACFinder 更新通知', 
 		body: 'データベースが更新されました。',
-		tag: 'default-update' // デフォルトのタグ
+		tag: 'default-update', // デフォルトのタグ
+		type: 'db'             // デフォルトのタイプ (db or app)
 	};
 
 	if (event.data) {
@@ -142,8 +152,18 @@ self.addEventListener('push', (event) => {
 		}
 	}
 
+	const isAppUpdate = data.type === 'app';
+
+	// アプリ本体の更新通知は、公開版 (/acfinder/ ディレクトリ配下) の場合のみ表示する
+	if (isAppUpdate && !self.registration.scope.includes('/acfinder/')) {
+		console.log('[SW] App update notification suppressed in non-production scope.');
+		return;
+	}
+
+	const bodyText = isAppUpdate ? `${data.body}\n今すぐアップデート版をダウンロードしますか？` : `${data.body}\nバックグラウンドダウンロード予約しますか？`;
+
 	const options = {
-		body: `${data.body}\nバックグラウンドダウンロード予約しますか？`,
+		body: bodyText,
 		icon: './android-chrome-192x192.png',
 		badge: './android-chrome-192x192.png',
 		// YAML側で設定した tag (acis-update や spec-update) を使用する
@@ -164,19 +184,25 @@ self.addEventListener('push', (event) => {
 // 通知クリック時のイベントリスナー
 self.addEventListener('notificationclick', (event) => {
 	event.notification.close();
+	const payload = event.notification.data || {};
 
 	// 「OK」ボタンがクリックされた場合
 	if (event.action === 'reserve-download') {
-		if ('sync' in self.registration) {
-			event.waitUntil(self.registration.sync.register('download-db-update'));
+		if (payload.type === 'app') {
+			// アプリ自体の更新の場合: Service Worker の更新をチェック
+			// これによりバックグラウンドで新しい ASSETS_TO_CACHE のダウンロードが開始されます
+			event.waitUntil(self.registration.update());
 		} else {
-			// Background Sync 非対応ブラウザの場合は直接ダウンロード処理を試みる
-			event.waitUntil(downloadAndCacheUpdate());
+			// データベースの更新の場合: Background Sync を登録
+			if ('sync' in self.registration) {
+				event.waitUntil(self.registration.sync.register('download-db-update'));
+			} else {
+				// Background Sync 非対応ブラウザの場合は直接ダウンロード処理を試みる
+				event.waitUntil(downloadAndCacheUpdate());
+			}
 		}
 		return;
 	}
-
-	const payload = event.notification.data;
 
 	event.waitUntil(
 		clients.matchAll({ type: 'window', includeUncontrolled: true }).then(async (clientList) => {
@@ -199,9 +225,12 @@ self.addEventListener('notificationclick', (event) => {
 
 self.addEventListener('activate', (event) => {
 	event.waitUntil(
-		caches.keys().then((keys) => Promise.all(
-			keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
-		))
+		Promise.all([
+			caches.keys().then((keys) => Promise.all(
+				keys.filter(key => key !== CACHE_NAME).map(key => caches.delete(key))
+			)),
+			self.clients.claim() // すぐに現在のページを制御下に置く
+		])
 	);
 });
 
@@ -232,15 +261,21 @@ self.addEventListener('fetch', (event) => {
 					method: 'HEAD', 
 					cache: 'no-cache', 
 					signal: controller.signal 
-				});
+				}).catch(() => { throw new Error('offline'); });
 				clearTimeout(timeoutId);
 
 				// 2. 1秒以内に HEAD が成功したなら GET で実データを取得
 				const networkResponse = await fetch(event.request, { redirect: "follow", cache: 'no-cache' });
 
-				if (networkResponse.ok) {
-					const cache = await caches.open(CACHE_NAME);
-					await cache.put(event.request, networkResponse.clone());
+				// 正常なレスポンスのみキャッシュを更新（不完全なデータや404を防ぐ）
+				if (networkResponse && networkResponse.ok) {
+					// custom.js 等、意図的に 404 になる可能性のあるものは無視
+					const isStaticAsset = ASSETS_TO_CACHE.some(asset => new URL(asset, self.location.href).href === event.request.url);
+					const isCdn = event.request.url.includes('cdn.jsdelivr.net');
+					if (isStaticAsset || isCdn) {
+						const cache = await caches.open(CACHE_NAME);
+						await cache.put(event.request, networkResponse.clone());
+					}
 				}
 				return networkResponse;
 			} catch (err) {

@@ -38,19 +38,10 @@
 <script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
 <!--	タブ専用スタイル -->
 <style>
+
 #selectRac select {
 	margin-top: 5px;
 	height: 28px;
-}
-
-#cropTree {
-	margin-top: 15px;
-	height: fit-content
-}
-
-.infinite-tree-scroll {
-	min-height: 230px;
-	max-height: calc(100vh - 233px);/* 232px */
 }
 
 </style>
@@ -72,7 +63,7 @@ async function searchCrop() {
 		return;
 	}
 	const crops = checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
-	title.innerHTML = crops.join(',');
+	title.innerHTML = crops.join(' & ');
 	title.classList.remove('hidden');
 	const mode = currentRac.toUpperCase().slice(0, 1);
 	const expandCropFlags = crops.map(crop => `max(${expandCrops(crop)}) as ${normalizeColName(crop)}`);
@@ -132,7 +123,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 		':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
 		from m_sakumotsu where sakumotsu not like '%除く%';
 	`;
-	makeCropTree('#cropTree', sql, searchCrop);
+	await makeCropTree('#cropTree', sql, searchCrop);
 
 	// firefox のリロード時 checkbox 状態復元対策
 	clearAllReset();
@@ -148,7 +139,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 <div class="tab_content">
 	<div class="flex_container">
 		<div id="conditionPane">
-			<div id="selectRac">
+			<div id="selectRac" class="selector">
 				<h3>RAC区分</h3>
 				<select onchange="handleRacChange(event)">
 					<option value="frac" selected>FRAC</option>
@@ -156,6 +147,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 					<option value="hrac">HRAC</option>
 				</select>
 			</div>
+			<div></div>
 			<div id="cropTree"></div>
 		</div>
 		<div id="resultPane">

@@ -23,11 +23,13 @@
 	min-height: 0; /* Flexアイテムが親より小さくなれるようにする 2026.1.26 追加 */
 }
 
+/*
 label[for^="clearAll"] {
 	position: relative;
 	top: -3px;
 	left: 0.5rem;
 }
+*/
 
 input[type="checkbox"]:not(:disabled) + label[for^="clearAll"] {
 	cursor: pointer;
@@ -42,24 +44,13 @@ input[type="checkbox"]:not(:disabled) + label[for^="clearAll"] {
 }
 
 .infinite-tree-node span, .infinite-tree-node label {
-	position: relative;
-	top: -5px;
-	margin: 0;
+	display: inline-block;
 	line-height: 1;
-}
-
-div.infinite-tree-node {
-	position: relative;
-}
-
-.infinite-tree-node input[type="checkbox"] {
-	top: -2px;
-	left: 3px;
 }
 
 .infinite-tree-node label.infinite-tree-title {
 	/* top: -20px; */
-	margin-left: 4px;
+	/* margin-left: 4px; */
 	padding-right: 0.5rem;
 	color: var(--text-color);
 	cursor: default;

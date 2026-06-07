@@ -175,6 +175,7 @@ span.separator {
 /* handsontable の css 変数設定 */
 .ht-theme-classic,
 .ht-theme-classic-dark {
+	--ht-line-height: 19px; /* handsontable 17.0 から追加された */
 	--ht-border-color: var(--border-color-ht-common);
 	--ht-wrapper-border-color: var(--border-color-ht-common);
 	--ht-cell-horizontal-border-color: var(--border-color-ht-common);

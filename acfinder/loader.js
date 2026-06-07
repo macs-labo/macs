@@ -17,7 +17,13 @@ const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
 const isElectron = typeof window.electronAPI !== 'undefined';
 
-//const sleep = time => new Promise(resolve => setTimeout(resolve, time));
+// 公開用の自動ログキャンセル
+if (!debug) {
+	const noop = function() {};
+	console.log = noop;
+	console.info = noop;
+	console.warn = noop; // 警告も消したい場合
+}
 
 //IndexedDB を削除
 //const DBDeleteRequest = window.indexedDB.deleteDatabase('fileCacheDB');
@@ -885,7 +891,9 @@ async function waiting(sw = true, msg = '', msg2 = '') {
 //DBオブジェクト初期化
 function initDB() {
 	registerCustomFunctions(); // ユーザ定義関数を登録
-	db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成するよう変更
+	//const ram = navigator.deviceMemory || 4;
+	//db.run(`pragma temp_store = ${ram >=8 ? 2 : 1};`); // メモリが 8GB 以上ならテンポラリファイルをメモリに作成
+	db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成
 	console.log("Database initialized.");
 	lastUpdate = db.exec("select * from info where item = 'LastUpdate'")[0].values[0][1];
 
@@ -1396,12 +1404,12 @@ function showNotificationDialog() {
 						<use href="icons.svg#${iconId}"></use>
 					</svg>
 					<h2>${statusText}</h2>
-					<p>データベースが更新された際、お使いの<br>デバイスにプッシュ通知を送信します。</p>
+					<p>農薬DB及びアプリが更新された際、<br>お使いのデバイスに通知を送信し、<br>自動更新可能にします。</p>
 					<button type="button" id="notice-toggle-btn">${btnText}</button>
 				</div>
 			</div>
 			<form method="dialog">
-				<span>DB更新通知設定</span><button style="outline:none;">閉じる</button>
+				<span>DB/アプリ更新通知</span><button>閉じる</button>
 			</form>
 		`;
 
@@ -1438,11 +1446,6 @@ function showNotificationDialog() {
 					localStorage.setItem('notice', 'true');
 				}
 				await render(); // 表示を最新の状態に更新
-				// noticeBell がある場合は、その表示も更新
-				if (noticeBell) {
-					const iconUse = noticeBell.querySelector('use');
-					iconUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `icons.svg#${isRegistered ? 'bell' : 'bell-off'}`);
-				}
 			} catch (err) {
 				console.error(err);
 				alert('通知設定の変更に失敗しました。ブラウザの設定で通知が許可されているか確認してください。');
@@ -1531,7 +1534,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		titleBar.appendChild(tabHeader);
 		const titleWrapper= document.createElement('div');
 		const title = document.createElement('h1');
-		title.textContent = 'ACFinderBE';
+		title.textContent = 'ACFinderBE DT';
 		titleWrapper.appendChild(title);
 		const version = document.createElement('span');
 		const baseUrl = debug ? '.' : 'https://raw.githubusercontent.com/macs-labo/macs/main/acfinder';
@@ -1541,7 +1544,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		const subtitle = document.createElement('h2');
 		let year = appVer.split('.')[0];
 		if (year !== '2025') year = '2025-' + year;
-		subtitle.innerHTML = `Agricultural Chemicals Finder / Browser Edition<br/>&copy; ${year} TEAM ACFinder / Licensed under the MIT License`;
+		subtitle.innerHTML = `Agricultural Chemicals Finder Browser Edition for Desktop<br/>&copy; ${year} TEAM ACFinder / Licensed under the MIT License`;
 		titleBar.appendChild(subtitle);
 		const dataWrapper= document.createElement('div');
 		const dbUpdate =  document.createElement('p');
@@ -1559,7 +1562,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		const noticeIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
 		noticeIcon.classList.add('icon');
 		const iconHint = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-		iconHint.textContent = 'DB更新通知受信設定';
+		iconHint.textContent = 'DB/アプリ更新通知設定';
 		noticeIcon.appendChild(iconHint);
 		const iconUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
 		const iconId = noticeRegistered ? 'bell-off' : 'bell';

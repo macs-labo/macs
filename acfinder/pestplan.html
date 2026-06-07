@@ -40,18 +40,7 @@
 <style>
 
 :root {
-	--listbox-height: 225px;
-}
-
-#cropTree {
-	display: flex;
-	flex-direction: column;
-	flex: 1;
-}
-
-.infinite-tree-scroll {
-	min-height: 200px;
-	max-height: calc(100vh - 160px);
+	--listbox-height: 220px;
 }
 
 #yakuzai,
@@ -101,7 +90,7 @@
 	height: var(--listbox-height);
 	overflow-Y: auto;
 	border: 1px solid var(--border-color-strong);
-	border-radius: 8px;
+	border-radius: 6px;
 	background-color: var(--bg-color-listbox);
 	padding: 2px 0.5rem;
 	margin: 1px;
@@ -113,26 +102,18 @@
 	margin-top: 4px;
 }
 
-
 #byochuSelect > div {
-	line-height: 1.5;
+	line-height: 1.7;
 	transition: var(--list-mouse-out-transition);
+	display: flex;
+	align-items: center;
+	white-space: nowrap;
+	gap: 5px;
 }
 
 #byochuSelect > div:hover {
 	background-color: var(--bg-color-icon-hover);
 	transition: var(--mouse-in-transition); 
-}
-
-input[type="checkbox"] {
-	position: relative;
-	top: 3px;
-	margin-left: 5px;
-}
-
-label {
-	margin-left: 4px;
-	cursor: pointer;
 }
 
 #byochuButtons {
@@ -180,6 +161,8 @@ select option:checked {
 	color: var(--bg-color);
 }
 
+#yakuzai_flex .inputbar { margin: 0; }
+
 #selectYoto {
 	width: 10rem;
 	height: 182px;
@@ -192,10 +175,7 @@ select option:checked {
 #planContainer > div {
 	overflow-x: auto;
 }
-/*
-.icon.disabled,
-.svg_button.disabled {
-*/
+
 svg.disabled {
 	pointer-events: none;
 	cursor: not-allowed;
@@ -285,12 +265,6 @@ svg.disabled {
 .actions {
 	white-space: nowrap;
 }
-/*
-[data-theme="dark"] .captionLabel {
-	background-color: #444;
-	color: var(--text-color-dark);
-}
-*/
 
 </style>
 <!--	タブ専用の view や table の設定 -->
@@ -344,7 +318,7 @@ async function searchCrop() {
 	}
 	const crops = checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
 	currentSakumotsu = makeCropCondition(crops); // 現在の作物条件を更新
-	title.innerHTML = crops.join(',');
+	title.innerHTML = crops.join(' | ');
 	title.classList.remove('hidden');
 	//他の SQL
 	setCbyochuList();
@@ -503,6 +477,7 @@ async function setYakuzaiList(sqlOption = '') {
 	const sqlResult = await dbExec(sqlYakuzai);
 	const yakuzaiDiv = document.getElementById('yakuzaiContainer');
 	yakuzaiDiv?.clearContent();
+	let lastSelectedYakuzai = null;
 
 	// 薬剤名フィルタリング用の入力ボックスを作成
 	const yakuzaiInputWrapper = document.createElement('div');
@@ -510,7 +485,7 @@ async function setYakuzaiList(sqlOption = '') {
 	const inputYakuzai = document.createElement("input");
 	inputYakuzai.type = "text";
 	inputYakuzai.id = "inputYakuzai";
-	inputYakuzai.placeholder = "絞込薬剤名/用途(空白で解除)";
+	inputYakuzai.placeholder = "絞込薬剤名/用途";
 	yakuzaiInputWrapper.appendChild(inputYakuzai);
 	const filterButton = document.createElement('button');
 	filterButton.textContent = '絞込';
@@ -533,6 +508,7 @@ async function setYakuzaiList(sqlOption = '') {
 	}
 
 	const filterYakuzaiList = () => {
+		if (filterButton.textContent === '解除') inputYakuzai.value = '';
 		const filterText = romajiConv(inputYakuzai.value.toLowerCase()).toHiragana();
 		const options = selectBox.options;
 
@@ -546,16 +522,26 @@ async function setYakuzaiList(sqlOption = '') {
 				option.classList.add('hidden');
 			}
 		}
+		filterButton.textContent = inputYakuzai.value.trim() === '' ? '絞込' : '解除';
+		if (filterButton.textContent === '解除') inputYakuzai.blur();
 	};
 	filterButton.onclick = filterYakuzaiList;
+	filterButton.addEventListener('mousedown', (e) => {
+		if (document.activeElement === inputYakuzai) e.preventDefault();
+	});
 	inputYakuzai.onchange = filterYakuzaiList;
 
 	// 空白入力でフィルター解除
 	inputYakuzai.addEventListener('input', () => {
-		if (inputYakuzai.value !== '') return;
-		// selectBox のオプションを全て表示
-		for (let i = 0; i < selectBox.options.length; i++) {
-			selectBox.options[i].classList.remove('hidden');
+		if (inputYakuzai.value === '') {
+			if (typeof isMobile === 'undefined' || !isMobile) {
+				filterYakuzaiList();
+				lastSelectedYakuzai = null;
+			} else {
+				filterButton.textContent = '絞込';
+			}
+		} else if (filterButton.textContent === '解除') {
+			filterButton.textContent = '絞込';
 		}
 	});
 
@@ -565,9 +551,13 @@ async function setYakuzaiList(sqlOption = '') {
 	// クリックで適用候補テーブルを表示するイベントリスナー
 	selectBox.addEventListener('click', (event) => {
 		const selectedOption = event.target;
-		if (selectedOption && selectedOption.value) {
-			// addYakuzaiToPlan(selectedOption.value); // 計画テーブルへの直接追加を停止
-			showYakuzaiTekiyo(selectedOption.value); // 適用候補テーブルを表示する関数を呼び出す
+		const currentValue = selectedOption.value;
+		if (selectedOption && currentValue === lastSelectedYakuzai) {
+			return;
+		} else {
+			lastSelectedYakuzai = currentValue;
+			// addYakuzaiToPlan(currentValue); // 計画テーブルへの直接追加を停止
+			showYakuzaiTekiyo(currentValue); // 適用候補テーブルを表示する関数を呼び出す
 		}
 	});
 
@@ -601,7 +591,7 @@ async function setRacList(byochu = false) {
 	const inputRac = document.createElement("input");
 	inputRac.type = "text";
 	inputRac.id = "inputRac";
-	inputRac.placeholder = "絞込RACコード/系統名(空白で解除)";
+	inputRac.placeholder = "絞込RACコード/系統名";
 
 	const filterButton = document.createElement('button');
 	filterButton.textContent = '絞込';
@@ -642,6 +632,7 @@ async function setRacList(byochu = false) {
 		lastSelectedRac = null;
 		selectBox.value = '';
 		//selectBox.selectedIndex = -1;
+		filterButton.textContent = '絞込';
 		currentYakuzai = null;
 		// 薬剤リストを初期化
 		const sql = currentByochu ? ` and (byochu in (${currentByochu}) or mokuteki in (${currentByochu}))` : '';
@@ -651,6 +642,7 @@ async function setRacList(byochu = false) {
 
 	// RAC セレクトボックスフィルタリング
 	const filterRacList = () => {
+		if (filterButton.textContent === '解除') inputRac.value = '';
 		if (inputRac.value === '') {
 			deselectRac();
 			return;
@@ -668,15 +660,28 @@ async function setRacList(byochu = false) {
 				option.classList.add('hidden');
 			}
 		}
+		filterButton.textContent = '解除';
+		inputRac.blur();
 	};
 	// 絞込ボタンクリックで RACリストをフィルタリングする
 	filterButton.onclick = filterRacList;
+	filterButton.addEventListener('mousedown', (e) => {
+		if (document.activeElement === inputRac) e.preventDefault();
+	});
 	inputRac.onchange = filterRacList;
 
 
 	// 空白入力でフィルター解除
 	inputRac.addEventListener('input', () => {
-		if (inputRac.value === '') deselectRac(); // RAC選択解除
+		if (inputRac.value === '') {
+			if (typeof isMobile === 'undefined' || !isMobile) {
+				deselectRac(); // RAC選択解除
+			} else {
+				filterButton.textContent = '絞込';
+			}
+		} else if (filterButton.textContent === '解除') {
+			filterButton.textContent = '絞込';
+		}
 	});
 
 	// クリックイベントのリスナーを追加
@@ -684,8 +689,9 @@ async function setRacList(byochu = false) {
 		const selectedOption = event.target;
 		const currentValue = selectedOption.value;
 		if (currentValue && currentValue === lastSelectedRac) {
-			inputRac.value = '';
-			deselectRac();
+			//inputRac.value = '';
+			//deselectRac();
+			return;
 		} else {
 			selectBox.value = currentValue; // クリックしたオプションを選択状態にする
 			if (currentValue) {
@@ -1738,7 +1744,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 		':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
 		from m_sakumotsu where sakumotsu not like '%除く%';
 	`;
-	makeCropTree('#cropTree', sql, searchCrop);
+	await makeCropTree('#cropTree', sql, searchCrop);
 
 	// firefox のリロード時 checkbox 状態復元対策
 	clearAllReset();

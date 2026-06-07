@@ -12,12 +12,13 @@
 <script type="text/javascript" src="./loader.js"></script>
 <script type="text/javascript" src="./table.js"></script>
 <script type="text/javascript" src="./crop.js"></script>
+<script type="text/javascript" src="./pest.js"></script>
 <link rel="stylesheet" type="text/css" href="./common.css" />
 <link rel="stylesheet" type="text/css" href="./loader.css" />
 <link rel="stylesheet" type="text/css" href="./crop.css" />
 <!-- 本プロジェクト共通外部ライブラリ -->
 <!-- SQL.js ライブラリ -->
-<script src="https://cdn.jsdelivr.net/npm/sql.js@1.13.0/dist/sql-wasm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.min.js"></script>
 <!-- JSZip.js ライブラリ -->
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <!-- ExcelJS ライブラリ -->
@@ -25,31 +26,36 @@
 <!-- FileSaver ライブラリ -->
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
 <!-- Handsontable ライブラリ -->
-<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/handsontable.min.css" rel="stylesheet">
-<link href="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/styles/ht-theme-classic.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/handsontable.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/handsontable@16.2.0/dist/languages/ja-JP.js"></script>
+<link href="https://cdn.jsdelivr.net/npm/handsontable@17.0.1/styles/handsontable.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/handsontable@17.0.1/styles/ht-theme-classic.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/handsontable@17.0.1/dist/handsontable.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/handsontable@17.0.1/dist/languages/ja-JP.js"></script>
 <link rel="stylesheet" type="text/css" href="./table.css" />
 <!-- infinit-tree ライブラリ -->
 <script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css">
 <!-- タブ専用外部ライブラリ -->
 <!-- romaji-conv ライブラリ / 作物タブ・病害虫タブ・薬剤タブ -->
-<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.32/dist/romaji-conv.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
 <!--	タブ専用スタイル -->
 <style>
-.selector {
-	margin-bottom: 15px;
-}
 
 #cropTree {
-	height: fit-content;
-	/* height: Calc(100vh - 131px); */
+	flex: 0;
+	min-height: calc(50% + 21px);
 }
 
-.infinite-tree-scroll {
-	min-height: 230px;
-	max-height: calc(100vh - 377px);
+#selectPest {
+	position: relative;
+	margin-top: 15px;
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0;
+}
+
+#selectPest.hidden {
+	display: none;
 }
 
 </style>
@@ -60,33 +66,85 @@
 <script>
 
 let currentListing;
+let cropManager;
+let pestManager;
 
-async function searchCrop() {
-	const title = document.querySelector('#title');
+async function searchCrop(skipPestUpdate = false) {
 	tables = resetTables(tables);
+
+	const title = document.querySelector('#title');
 	if (checkedCrops.length === 0) {
+		pestManager.reset(true);
 		title.innerHTML = '';
 		title.classList.add('hidden');
-		if (excluderChanged) setupCropTree();
+		if (excluderChanged) cropManager = await setupCropTree('#cropTree', (checked) => searchCrop(pestManager && pestManager.checkedPests.length > 0), {
+			showSearchMethod: true,
+			showExcluder: true,
+			onSearchMethodChange: () => { if (tables) searchCrop(pestManager && pestManager.checkedPests.length > 0); }
+		});
 		return;
 	}
-	const crops = checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
-	title.innerHTML = crops.join(',');
+
+	const skip = skipPestUpdate === true;
+	if (!skip) pestManager.update([], true); // クリア（再帰呼び出し防止のため silent）
+
+	const checkedPests = pestManager.checkedPests;
+	const pests = checkedPests.map(item => item.byochu);
+
+	const searchMethod = cropManager.searchMethod;
+	const crops = checkedCrops.map(item => item.sakumotsu);
+	let titleHtml = crops.join(searchMethod === ' or ' ? ' | ' : ' & ');
+	if (checkedPests.length > 0) {
+		titleHtml += ' ／ ' + pests.join(' & ');
+	}
+	title.innerHTML = titleHtml;
 	title.classList.remove('hidden');
-	const expandCropFlags = crops.map(crop => `max(${expandCrops(crop)}) as ${normalizeColName(crop)}`);
-	let sql =`
-		with tTsusho as (
-			select tsusho,${expandCropFlags.join(',')}
-			from m_tekiyo left join m_kihon using(bango) left join m_sakumotsu using(sakumotsu) left join sakuhojo using(idsaku)
-			where sakumotsu in (${makeCropCondition(crops)}) ${excludeCondition} group by tsusho
-		),
-		tTekiyo as (
-			select * from tv_tsushoTekiyo where tsusho in (select tsusho from tTsusho where ${normalizeColName(crops.join(currentSearchMethod))}) and sakumotsu in (${makeCropCondition(crops)})
-		)
+
+	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`);
+	const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
+	const excluder = excludeCondition.replace(/^and/i, 'where');
+	const cropMethodFlags = normalizeColName(crops.join(searchMethod));
+	let sql = skip ? '' :`
+		drop table if exists t_cropTekiyo;
+		create temp table t_cropTekiyo as
+		with t_sakumotsu as (select sakumotsu, ${expandCropFlags.join(',')} from m_sakumotsu left join sakuhojo using(idsaku)),
+		t_tekiyo as (select * from tv_tsushoTekiyo where sakumotsu in (${makeCropCondition(crops)})),
+		t_byochu1 as (select idbyochu, byochu as byochu2, betsumei as byochuruby from m_byochu),
+		t_byochu2 as (select distinct ifnull(byochu, ifnull(mokuteki, hoho)) as byochu2 from m_tekiyo),
+		t_byochu3 as (select ifnull(idbyochu, '59999999') as idbyochu, byochu2, iif(byochu2 = '添加', 'てんか', byochuruby) as byochuruby from t_byochu2 left join t_byochu1 using(byochu2) order by idbyochu)
+		select * from t_tekiyo left join t_sakumotsu using(sakumotsu) left join  t_byochu3 on ifnull(byochu, ifnull(mokuteki, hoho)) = byochu2 ${excluder};
+		delete from t_cropTekiyo where tsusho not in (
+			with t_tsusho1 as (select tsusho, ${cropFlags} from t_cropTekiyo group by tsusho)
+			select tsusho from t_tsusho1 where ${cropMethodFlags}
+		);
 	`;
+
+	// 病害虫フィルタ条件の構築
+	let pestCte = '';
+	if (checkedPests.length > 0) {
+		const results = checkedPests.map(pest => {
+			const cond = pest.id.includes('%') ? `idbyochu like '${pest.id}'` : `byochu2 = '${pest.byochu}'`;
+			return { cond, col: `(${cond}) as ${normalizeColName(pest.byochu)}` };
+		});
+		const pestCondition = results.map(r => r.cond).join(' or ');
+		const pestColumns = results.map(r => r.col).join(', ');
+		const pestFlags = pests.map(pest => `max(${normalizeColName(pest)}) as ${normalizeColName(pest)}`).join(', ');
+		const cropColumns = crops.map(crop => `${normalizeColName(crop)}`).join(', ');
+		pestCte = `
+			with t_byochu as (select distinct byochu2, ${pestColumns} from t_cropTekiyo where (${pestCondition})),
+			t_tsusho1 as (select tsusho, ${pestFlags}, ${cropColumns} from t_byochu left join t_cropTekiyo using(byochu2) group by tsusho, ${cropColumns}),
+			t_tsusho2 as (select tsusho, ${cropFlags} from t_tsusho1 where (${normalizeColName(pests.join(' and '))}) group by tsusho),
+			t_filtered_tekiyo as (select * from t_cropTekiyo where tsusho in (select tsusho from t_tsusho2 where (${cropMethodFlags})))
+		`;
+	} else {
+		pestCte = `with t_filtered_tekiyo as (select * from t_cropTekiyo)`;
+	}
+	console.log(pestCte);
+
 	switch(currentListing) {
 		case 1: // 使用方法毎に集約
 			sql += `
+				${pestCte}
 				select 
 					tsusho, seizaidokusei, zaikei, seizaiyoto, sakumotsu,
 					gn_concat(', ', n_concat('/', byochu, mokuteki)||' '||baisu) as 対象病害虫等,
@@ -98,13 +156,14 @@ async function searchCrop() {
 					seibun4, kaisu4, mid4, keito4, rem4, risk4,
 					seibun5, kaisu5, mid5, keito5, rem5, risk5,
 					shurui, kongo, seizaikoka
-				from tTekiyo
+				from t_filtered_tekiyo
 				group by tsusho, sakumotsu, kaisu, jiki, hoho, ekiryo, basho, jikan, ondo, chitai, tekiyaku
 				order by seizaiyoto, tsusho;
 			`;
 			break;
 		case 2: // 防除記録様式
 			sql += `
+				${pestCte}
 				select
 					seizaiyoto, sakumotsu, tsusho, seizaidokusei, jiki,
 					gn_concat(', ', n_concat('/', byochu, mokuteki)||' '||baisu) as 対象病害虫等,
@@ -124,13 +183,25 @@ async function searchCrop() {
 					seibun4, kaisu4, mid4, keito4, rem4, risk4,
 					seibun5, kaisu5, mid5, keito5, rem5, risk5,
 					shurui, kongo, zaikei, seizaikoka
-				from tTekiyo
+				from t_filtered_tekiyo
 				group by sakumotsu, tsusho, kaisu, jiki, hoho, basho, jikan, ondo, chitai, tekiyaku
 				order by seizaiyoto, tsusho;
 			`;
 			break;
 		default: // 標準(集約無し)
-			sql += 'select * from tTekiyo;';
+			sql += `
+				${pestCte}
+				select 
+					tsusho, seizaidokusei, zaikei, seizaiyoto, sakumotsu, byochu, mokuteki,baisu,
+					jiki, kaisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku,
+					seibun1, kaisu1, mid1, keito1, rem1, risk1,
+					seibun2, kaisu2, mid2, keito2, rem2, risk2,
+					seibun3, kaisu3, mid3, keito3, rem3, risk3,
+					seibun4, kaisu4, mid4, keito4, rem4, risk4,
+					seibun5, kaisu5, mid5, keito5, rem5, risk5,
+					shurui, kongo, seizaikoka
+				from t_filtered_tekiyo
+			`;
 	}
 	if (debug) console.log(sql);
 	await waiting(true, 'データベース検索中');
@@ -138,23 +209,42 @@ async function searchCrop() {
 		let searchTime = -performance.now();
 		let result = db.exec(sql);
 		searchTime += performance.now();
-		const common = currentSearchMethod === ' and ' ? '共通して' : '';
-		tables = outputTable('#result', result, { caption: `「${crops.join('」「')}」に${common}使用可能な薬剤の適用`, hideFooterU20: false });
+		const pest = pests.length === 0 ? '' : `の「${pests.join('」「')}」`;
+		const common = cropManager.searchMethod === ' and ' && checkedCrops.length > 1 ? '共通して' : '';
+		tables = outputTable('#result', result, { caption: `「${crops.join('」「')}」${pest}に${common}使用可能な薬剤の適用`, hideFooterU20: false });
+
+		if (!skip) {
+			sql = `
+				with t_byochu as (select distinct byochu2 as byochu from t_cropTekiyo),
+				t_gByochu as (select cid, gid, format('%d%03d%', cid, gid) as idbyochu, gname as byochu, strconv(gname) as byochuruby
+				from t_byochu left join m_byochu using(byochu) left join gbyochu using(cid, gid) where gname is not null)
+				select distinct idbyochu, byochu2, byochuruby from t_cropTekiyo where byochu not regexp '菌(\\)|による)'
+				union select idbyochu, byochu, byochuruby from t_gByochu order by idbyochu;
+			`;
+			if (debug) console.log(sql);
+			result = db.exec(sql);
+			if (result?.[0]?.values) {
+				const pests = result[0].values.map(row => ({
+					idbyochu: row[0],
+					byochu: row[1],
+					betsumei: row[2]
+				}));
+				pestManager.update(pests, true); // リスト更新（再帰呼び出し防止のため silent）
+				document.querySelector('#selectPest').classList.remove('hidden');
+			}
+		}
+
 	} catch (error) {
 		console.error(`エラー: ${error.message}`);
 	} finally {
 		await waiting(false);
 	}
+
 }
 
 function handleListingChange(event) {
 	currentListing = parseInt(event.target.value);
-	if (tables) searchCrop();
-}
-
-function handleSearchMethodChange(event) {
-	currentSearchMethod = event.target.value;
-	if (tables) searchCrop();
+	if (tables) searchCrop(true);
 }
 
 // DOM読込完了時の初期設定
@@ -163,16 +253,21 @@ window.addEventListener('DOMContentLoaded', async function() {
 	if (db === null) await fetchDB();
 
 	// currentListing を表示形式セレクタから取得
-	currentListing = parseInt(document.getElementById('listing').value);
-
-	// currentSearchMethod を表示形式セレクタから取得
-	currentSearchMethod = document.getElementById('searchMethod').value;
-
-	// 除外薬剤セレクタの生成とイベントハンドラ設定
-	makeExcludeSelector();
+	const listingEl = document.getElementById('listing');
+	currentListing = listingEl ? parseInt(listingEl.value) : 0;
 
 	// 作物ツリーの生成とイベントハンドラ設定
-	setupCropTree();
+	cropManager = await setupCropTree('#cropTree', (checked) => searchCrop(pestManager && pestManager.checkedPests.length > 0), {
+		showSearchMethod: true,
+		showExcluder: true,
+		onSearchMethodChange: () => { if (tables) searchCrop(pestManager && pestManager.checkedPests.length > 0); }
+	});
+
+	// 病害虫リストマネージャ初期化
+	pestManager = new PestListManager('#selectPest', () => { searchCrop(true); });
+	pestManager.init({ title: '病害虫名等選択', showCategory: true });
+	//pestManager.update([]);
+	pestManager.reset(true);
 
 	// firefox のリロード時 checkbox 状態復元対策
 	clearAllReset();
@@ -188,7 +283,6 @@ window.addEventListener('DOMContentLoaded', async function() {
 <div class="tab_content">
 	<div class="flex_container">
 		<div id="conditionPane">
-			<div id="excluder"></div>
 			<div class="selector">
 				<h3>表示形式</h3>
 				<select id="listing" onchange="handleListingChange(event)">
@@ -197,14 +291,8 @@ window.addEventListener('DOMContentLoaded', async function() {
 					<option value="2">防除記録様式</option>
 				</select>
 			</div>
-			<div class="selector">
-				<h3>複数作物選択時検索方法</h3>
-				<select id="searchMethod" onchange="handleSearchMethodChange(event)">
-					<option value=" or " selected>OR検索</option>
-					<option value=" and ">AND検索</option>
-				</select>
-			</div>
 			<div id="cropTree"></div>
+			<div id="selectPest"></div>
 		</div>
 		<div id="resultPane">
 			<h3 id="title" class="hidden"></h3>

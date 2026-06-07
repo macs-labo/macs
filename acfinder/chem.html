@@ -36,26 +36,24 @@
 <script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
 <!--	タブ専用スタイル -->
 <style>
-#selectYakuzai > h3 {
-	margin-bottom: 0.5rem;
-}
 
 #selectYakuzai {
-	/* display: flex; */
+	display: flex;
 	flex-direction: column;
-	width: 100%;
+	flex: 1;
+	min-height: 0;
 }
 
 /* 薬剤リストボックスのスタイル */
 #yakuzaiListbox {
 	width: 100%; /* コンテナの幅に追従 */
+	height: 100%; /* コンテナの高さに追従 */
 	padding: 4px 8px;
-	min-height: 480px;
-	height: calc(100vh - 166px); /* ビューポートの高さからヘッダーや見出しの高さを引いた分 */
 	overflow: auto;
 	background-color: var(--bg-color-listbox);
 	border: 1px solid var(--border-color-strong);
-	border-radius: 8px;
+	border-radius: 6px;
+	margin-top: 6px;
 }
 
 /* 薬剤グループのスタイル */
@@ -102,92 +100,127 @@ div.noresult {
 </script>
 <!--	タブ専用の script -->
 <script>
-//薬剤候補リスト作成 optGroup 版 
-function setYakuzaiList(yakuzaiInput) {
+// フィルター実行
+async function yakuzaiFilter() {
+	const yakuzaiInput = document.querySelector('#yakuzaiInput');
+	const yakuzaiButton = document.querySelector('#yakuzaiButton');
+	const listBox = document.getElementById("yakuzaiListbox");
+
+	if (yakuzaiButton.textContent === '解除') {
+		yakuzaiInput.value = '';
+	}
+
 	// 入力キーワードをノーマライズ
 	const rawKeyword = yakuzaiInput.value;
 	// 全角記号を半角に、スペース類を半角スペースに統一し、連続するスペースを1つにまとめる
 	const normalizedInput = rawKeyword.replace(/[｜，,]/g, '|').replace(/[　＆&]/g, ' ').replace(/\s+/g, ' ').trim();
+	const originalWords = normalizedInput.split(' ').filter(Boolean);
+	const filterText = originalWords.map(word => {
+		const original = word.toLowerCase();
+		const hiragana = (typeof romajiConv !== 'undefined' ? romajiConv(word).toHiragana() : word).toLowerCase();
+		return original === hiragana ? original : `${original}|${hiragana}`;
+	}).join(' ');
+	const keywords = filterText.split(' ').filter(Boolean).map(k => new RegExp(k));
 
-	// まず半角スペースでAND条件のグループに分割
-	const andGroups = normalizedInput.split(' ').filter(group => group.length > 0);
+	await waiting(true, 'フィルタリング中...');
 
-	// 各ANDグループを処理して、最終的な検索キーワード配列を作成
-	const chems = andGroups.map(group => {
-		// グループ内を'|'でOR条件の単語に分割
-		const orWords = group.split('|').filter(word => word.length > 0);
+	try {
 
-		// 各OR単語を処理し、ひらがな変換を追加
-		const processedOrWords = orWords.flatMap(word => {
-			const patterns = [word];
-			if (/^[a-z\-]+$/i.test(word)) {
-				const hiragana = romajiConv(word).toHiragana();
-				if (hiragana && hiragana !== word) patterns.push(hiragana);
+		const options = listBox.querySelectorAll('.yakuzaiOption');
+		let visibleCount = 0;
+		let lastVisible = null;
+
+		options.forEach(opt => {
+			const info = (opt.dataset.info || '').toLowerCase();
+			// AND 検索
+			const isMatch = keywords.every(re => info.match(re));
+			opt.classList.toggle('hidden', !isMatch);
+			if (isMatch) {
+				visibleCount++;
+				lastVisible = opt;
 			}
-			return patterns;
-		});
-		// OR条件を'|'で再結合
-		return processedOrWords.join('|');
-	});
-	//console.log(chems);
-	const chemConditions = chems.map(chem => { return `(kws regexp '${chem}' or cast(bango as text) regexp '^(${chem})$')`; });
-	const whereCondition = chemConditions.length > 0 ? chemConditions.join(' and ') : '1=1';
-	let sql = `
-		select distinct tsusho, bango, meisho from kihon left join tsushoruby using(tsusho) left join kwlists using(bango)
-		where ${whereCondition} order by ruby;
-	`;
-
-	const sqlResult = db.exec(sql);
-
-	// Create a select options
-	const listBox = document.getElementById("yakuzaiListbox");
-	listBox.innerHTML = ""; // Clear previous options
-
-	// Check if sqlResult has data
-	if (sqlResult && sqlResult[0] && sqlResult[0].values && sqlResult[0].values.length > 0) {
-		// Group results by tsusho
-		let groups = new Map();
-		sqlResult[0].values.forEach(row => {
-			const tsusho = row[0] || '';
-			const bango = row[1] || '';
-			const meisho = row[2] || '';
-			if (!groups.has(tsusho)) {
-				groups.set(tsusho, []);
-			}
-			groups.get(tsusho).push({ bango: bango, meisho: meisho });
 		});
 
-		// Iterate through groups to create list items
-		groups.forEach((items, tsusho) => {
-			if (tsusho) {
-				const optgroupLabel = document.createElement("div");
-				optgroupLabel.className = "yakuzaiGroup";
-				optgroupLabel.textContent = tsusho;
-				listBox.appendChild(optgroupLabel);
+		// グループラベルの表示切り替え
+		const groups = listBox.querySelectorAll('.yakuzaiGroup');
+		groups.forEach(group => {
+			let next = group.nextElementSibling;
+			let hasVisible = false;
+			while (next && next.classList.contains('yakuzaiOption')) {
+				if (!next.classList.contains('hidden')) {
+					hasVisible = true;
+					break;
+				}
+				next = next.nextElementSibling;
 			}
-			items.forEach(item => {
-				const option = document.createElement("div");
-				option.className = "yakuzaiOption";
-				option.dataset.bango = item.bango; // Store bango as data attribute
-				option.textContent = `${item.bango} ${item.meisho}`; // Display as two columns with space
-				option.title = option.textContent; // Mouse over hint text
-				listBox.appendChild(option);
-			});
+			group.classList.toggle('hidden', !hasVisible);
 		});
-	} else {
-		const option = document.createElement("option");
-		option.text = "No results found";
-		option.disabled = true;
-		listBox.appendChild(option);
+		listBox.querySelector('.nodata')?.classList.toggle('hidden', visibleCount > 0);
+
+		yakuzaiButton.textContent = normalizedInput === '' ? '絞込' : '解除';
+
+		// 選択肢が1つしかない場合は自動的にクリックイベントを発火
+		if (visibleCount === 1 && lastVisible && !lastVisible.classList.contains('selected')) {
+			lastVisible.click();
+		}
+	} catch(e) {
+		console.error(e);
+	} finally {
+		await waiting(false);
 	}
-	// #selectYakuzai を表示
-	const selectYakuzai = document.getElementById("selectYakuzai");
-	selectYakuzai.classList.remove("hidden");;
 
-	// 選択肢が1つしかない場合は自動的にクリックイベントを発火
-	const options = listBox.querySelectorAll('.yakuzaiOption');
-	if (options.length === 1) {
-		options[0].click();
+}
+
+// 薬剤候補リスト作成 optGroup 版
+async function setYakuzaiList() {
+	const listBox = document.getElementById("yakuzaiListbox");
+
+	// 薬剤リスト作成
+	await waiting(true, '薬剤リストを取得中...');
+
+	try {
+		let sql = `
+			select distinct tsusho, bango, meisho, kws from kihon left join tsushoruby using(tsusho) left join kwlists using(bango) order by ruby;
+		`;
+
+		console.log(sql);
+
+		const sqlResult = db.exec(sql);
+
+		let html = "";
+		// Check if sqlResult has data
+		if (sqlResult && sqlResult[0] && sqlResult[0].values && sqlResult[0].values.length > 0) {
+			// Group results by tsusho
+			let groups = new Map();
+			sqlResult[0].values.forEach(row => {
+				const [tsusho, bango, meisho, kws_val] = row;
+				if (!groups.has(tsusho)) {
+					groups.set(tsusho, []);
+				}
+				groups.get(tsusho || '').push({ bango: bango || '', meisho: meisho || '', kws: kws_val || ''});
+			});
+
+			// HTML 文字列を構築
+			groups.forEach((items, tsusho) => {
+				if (tsusho) {
+					html += `<div class="yakuzaiGroup">${tsusho}</div>`;
+				}
+				items.forEach(item => {
+					html += `<div class="yakuzaiOption" data-bango="${item.bango}" data-info="${item.bango};${item.kws}" title="${item.bango} ${item.meisho}">${item.bango} ${item.meisho}</div>`;
+				});
+			});
+		}
+		html += '<p class="nodata hidden">該当する薬剤が見つかりませんでした。</p>';
+
+		listBox.innerHTML = html;
+
+		// #selectYakuzai を表示
+		const selectYakuzai = document.getElementById("selectYakuzai");
+		selectYakuzai.classList.remove("hidden");
+	} catch(e) {
+		console.error('薬剤リストの取得に失敗しました:', e);
+	} finally {
+		await waiting(false);
 	}
 }
 
@@ -277,24 +310,30 @@ window.addEventListener('DOMContentLoaded', async function() {
 	const yakuzaiButton = document.querySelector('#yakuzaiButton');
 	const yakuzaiSelection = document.querySelector('#yakuzaiListbox');
 
+	yakuzaiInput.addEventListener('keydown', (e) => {
+		if (e.key === 'Enter') {
+			e.preventDefault();
+			yakuzaiFilter();
+			yakuzaiInput.blur();
+		}
+	});
 	// submitイベントはオートコンプリートの履歴保存のためにのみ使用し、ページの再読み込みを防ぐ
 	yakuzaiForm.addEventListener('submit', (event) => {
 		event.preventDefault();
+		yakuzaiFilter();
+		yakuzaiInput.blur();
 	});
 	// ボタンクリックで検索を実行
 	yakuzaiButton.addEventListener('click', () => {
-		setYakuzaiList(yakuzaiInput);
+		yakuzaiFilter();
 	});
 	// 入力確定時に検索を実行
 	yakuzaiInput.addEventListener('change', () => {
-		setYakuzaiList(yakuzaiInput);
+		yakuzaiFilter();
 	});
-	// 空白入力時に selectYakuzai と resultPane を非表示にする
 	yakuzaiInput.addEventListener('input', () => {
-		if (yakuzaiInput.value.trim() === '') {
-			document.getElementById("selectYakuzai").classList.add("hidden");
-			document.getElementById("result").innerHTML = '';
-			document.getElementById("selectedValue").classList.add("hidden");
+		if (yakuzaiButton.textContent === '解除' || yakuzaiInput.value.trim() === '') {
+			yakuzaiButton.textContent = '絞込';
 		}
 	});
 
@@ -321,11 +360,10 @@ window.addEventListener('DOMContentLoaded', async function() {
 	const keyword = urlParams.get('keyword');
 	if (keyword) {
 		yakuzaiInput.value = keyword;
-		setYakuzaiList(yakuzaiInput); // 検索を実行
 	}
-
+	// 薬剤リストを作成
+	setYakuzaiList();
 });
-
 </script>
 </head>
 <body>
@@ -339,9 +377,9 @@ window.addEventListener('DOMContentLoaded', async function() {
 			<h3>薬剤名・成分名等検索</h3>
 			<form id="yakuzaiForm" class="inputbar" onsubmit="return false;">
 				<input type="text" id="yakuzaiInput" name="yakuzaiInput" placeholder="薬剤名・成分名等を入力" title="空白検索で全薬剤検索" autocomplete="on" />
-				<button type="button" id="yakuzaiButton">検索</button>
+				<button type="button" id="yakuzaiButton">絞込</button>
 			</form>
-			<div id="selectYakuzai" class="hidden">
+			<div id="selectYakuzai">
 				<h3>薬剤選択</h3>
 				<div id="yakuzaiListbox"></div>
 			</div>

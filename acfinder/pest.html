@@ -12,6 +12,7 @@
 <script type="text/javascript" src="./loader.js"></script>
 <script type="text/javascript" src="./table.js"></script>
 <script type="text/javascript" src="./crop.js"></script>
+<script type="text/javascript" src="./pest.js"></script>
 <link rel="stylesheet" type="text/css" href="./common.css" />
 <link rel="stylesheet" type="text/css" href="./loader.css" />
 <link rel="stylesheet" type="text/css" href="./crop.css" />
@@ -38,25 +39,34 @@
 <script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
 <!--	タブ専用スタイル -->
 <style>
+
 #selectPest {
+	display: flex;
+	flex-direction: column;
 	width: 100%;
-	min-height: 240px;
-	height: Calc(50vh - 131px);
+	min-height: 0;
+	flex: 0;
+	min-height: calc(50% - 5px);
 	margin-bottom: 15px;
 }
 
-#byochuListbox p {
-	padding: 10px;
-	text-align: center;
+#selectPest .list-box {
+	flex: 1;
+	overflow-y: auto;
+	border: 1px solid var(--border-color-strong);
+	border-radius: 6px;
+	background-color: var(--bg-color-listbox);
+	padding: 4px;
 }
 
+/*
 #cropTree {
-	height: Calc(50vh - 21px);
+	height: 50%;
 }
+*/
 
-.infinite-tree-scroll {
-	min-height: 230px;
-	max-height: calc(50vh - 114px);
+#cropTree.hidden {
+	display: none;
 }
 
 #conditionPane span {
@@ -74,92 +84,35 @@ div.noresult {
 </script>
 <!--	タブ専用の script -->
 <script>
-//病害虫選択リスト作成
-function setByochuList(byochuInput) {
-	let byochuText = byochuInput.value;
-	if (new RegExp(/^[a-z\-]+$/i).test(byochuText)) {
-		byochuText = romajiConv(byochuText).toHiragana();
-	}
-	// ByochuText のスペースの連接と全角 '｜' を半角 '|' に変換
-	const pests = byochuText.replace(/[　\s]+|｜/g, '|');
-	const whereCondition = pests.length > 0 ? `concat('、',byochu,betsumei) regexp '${pests}'` : '1=1';
-	let sql = `select idbyochu, byochu, betsumei from m_byochu where (${whereCondition}) and (byochu not like '%(%' or byochu regexp '菌(\\)|による)');`;
-	//console.log("sql: ",sql);
-
-	const sqlResult = db.exec(sql);
-	//console.log("sqlResult", sqlResult);
-	const byochuListbox = document.getElementById("byochuListbox");
-	// Clear previous content in the div
-	byochuListbox.innerHTML = "";
-	// Check if sqlResult has data
-	if (sqlResult && sqlResult[0] && sqlResult[0].values) {
-		// Iterate through the SQL results
-		sqlResult[0].values.forEach(row => {
-			const checkboxItem = document.createElement("div");
-			checkboxItem.classList.add('checkListItem');
-			let hint = row[2] ? ` [別名:${row[2]}]` : '';
-			hint = row[1] + hint;
-			checkboxItem.title = hint; // マウスオーバーでヒントに病害虫名・別名を表示
-			const checkbox = document.createElement("input");
-			checkbox.type = "checkbox";
-			checkbox.value = row[1]; // Assuming byochu is the first column
-			checkbox.id = String(row[0]);
-			
-			const label = document.createElement("label");
-			label.htmlFor = checkbox.id;
-			label.textContent = row[1];
-			
-			checkboxItem.appendChild(checkbox);
-			checkboxItem.appendChild(label);
-			byochuListbox.appendChild(checkboxItem);
-		});
-	} else {
-		// If no results, add a default message
-		const message = document.createElement("p");
-		message.textContent = "No results found";
-		byochuListbox.appendChild(message);
-		resetCropTree();
-	}
-	const selectPest = document.querySelector("#selectPest");
-	selectPest.classList.remove("hidden");
-}
+let byochuManager;
 
 // 病害虫選択リストと結果リセット
 function resetByochuSelection() {
 	// テーブルインスタンスを破棄
 	tables = resetTables(tables);
-	resetCropTree();
+	resetCropTree(true);
 	const resultTitle = document.getElementById("resultTitle");
 	resultTitle.textContent = "";
 	resultTitle.classList.add("hidden");
 }
 
-function checkedByochu() {
-	const container = document.getElementById("byochuListbox");
-	const checkboxes = container.querySelectorAll("input[type='checkbox']");
-	const selected = [];
-	checkboxes.forEach(checkbox => {
-		if (checkbox.checked) selected.push(checkbox.value);
-	});
-	return selected;
-}
-
 // handleByochuSelection のデバウンス用タイマー
 let byochuSelectionTimer = null;
 
-function handleByochuSelection(event) {
-	if (event.target.type !== "checkbox") return;
-
+async function handleByochuSelection(selected) {
 	const display = document.getElementById("resultTitle");
-
-	const selected = checkedByochu();
 	if (selected.length > 0) {
 		// 連続クリックをまとめるためのデバウンス処理
 		clearTimeout(byochuSelectionTimer);
-		byochuSelectionTimer = setTimeout(() => { // 100ミリ秒待ってから実行
-			const selectedByochuCsv = selected.map(item => `'${item}'`).join(',');
+		byochuSelectionTimer = setTimeout(async () => {
+			await waiting(true, '病害虫選択を反映中...');
+			// UIスレッドを解放してLoading表示を確実にする
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			const selectedNames = selected.map(item => item.byochu);
+			const selectedByochuCsv = selectedNames.map(item => `'${item}'`).join(',');
 			//console.log("Selected Byochu:", selectedByochuCsv);
-			display.textContent = `${selected}`;
+			display.textContent = `${selectedNames.join(' | ')}`;
 			display.classList.remove("hidden");
 
 			// sql 実行
@@ -174,59 +127,77 @@ function handleByochuSelection(event) {
 					)
 				);
 			`;
-			//console.log("sql: ", sql);
-			db.exec(sql);
+			console.log(sql);
+			try {
+				db.exec(sql);
+				// SQL実行後に一度スレッドを解放
+				await new Promise(resolve => setTimeout(resolve, 0));
 
-			// 作物ツリーを更新
-			setSakumotsuTree();
-			// テーブルを初期表示
-			const option = { caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' };
-			executeSQLsetGrid(option);
+				// 作物ツリーを更新
+				await setSakumotsuTree();
+				
+				// テーブルを初期表示
+				const option = { caption: `「${selectedNames.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' };
+				await executeSQLsetGrid(option);
+			} finally {
+				await waiting(false);
+			}
 		}, 100);
 	} else {
 		// チェックが0になった場合は即時実行
 		clearTimeout(byochuSelectionTimer);
 		resetByochuSelection();
-		resetCropTree();
 	}
 }
 
 // 作物ツリーのチェック状態が変更されたときに呼び出される関数
-function searchCrop() {
+async function searchCrop() {
 	const display = document.getElementById("resultTitle");
-	const selected = checkedByochu();
+	const selected = byochuManager.checkedPests.map(p => p.byochu);
 
 	if (checkedCrops.length > 0) {
-		const selectedCrops = checkedCrops.map(item => item.sakumotsu);
-		display.textContent = `${selected.join(',')} ／ ${selectedCrops.join(',')}`;
+		const crops = checkedCrops.map(item => item.sakumotsu);
+		display.textContent = `${selected.join(' | ')} ／ ${crops.join(' & ')}`;
+		const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
+		const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(', ');
 		
 		const option = {
-			caption: `「${selected.join('」「')}」に登録がある薬剤の「${selectedCrops.join('」「')}」及びその上位作物群に対する適用`,
-			query: `select * FROM ttTekiyoByochu WHERE sakumotsu in (${makeCropCondition(selectedCrops)});`
+			caption: `「${selected.join('」「')}」に登録がある薬剤の「${crops.join('」「')}」及びその上位作物群に対する適用`,
+			query: `
+				with t_sakumotsu as (
+					select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)
+				),
+				t_tekiyo1 as (
+					select * from ttTekiyobyochu left join t_sakumotsu using(sakumotsu)
+					where sakumotsu in (${makeCropCondition(crops)}) group by tsusho, sakumotsu
+				),
+				t_tsusho as (select tsusho, ${cropFlags} from t_tekiyo1 group by tsusho)
+				select * from t_tekiyo1 where tsusho in (select tsusho from t_tsusho where (${normalizeColName(crops.join(' and '))}));
+			`
 		};
-		executeSQLsetGrid(option);
+		console.log(option.query);
+		await executeSQLsetGrid(option);
 
 	} else {
 		// 作物選択がクリアされた場合
-		display.textContent = selected.join(',');
+		display.textContent = selected.join(' | ');
 
 		// 病害虫が選択されていれば、病害虫のみで絞り込んだ結果を再表示
-		const checked = checkedByochu();
-		if (checked.length > 0) { // UIの状態ではなく、チェックボックスの状態で判定
+		if (selected.length > 0) {
 			const option = { caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' };
-			executeSQLsetGrid(option);
+			await executeSQLsetGrid(option);
 		}
 	}
 }
 
 // 作物ツリー作成
-function setSakumotsuTree() {
+async function setSakumotsuTree() {
 	sql = `
-		with t_idsaku as (select distinct idsaku, 1 as registered from ttTekiyoByochu left join m_sakumotsu using(sakumotsu) where sakumotsu not like '%除く%' order by idsaku)
-		,t_idlist as (select n_concat(',','"'||substr(idsaku,1,2)||'00000000000000"','"'||substr(idsaku,1,4)||'000000000000"','"'||substr(idsaku,1,6)||'0000000000"','"'||substr(idsaku,1,8)||'00000000"','"'||substr(idsaku,1,12)||'0000"','"'||idsaku||'"') as idlist from t_idsaku)
+		with t_idsaku as (select distinct idsaku, 1 as registered from ttTekiyoByochu left join m_sakumotsu using(sakumotsu) where sakumotsu not like '%除く%' order by idsaku),
+		t_idlist as (select n_concat(',','"'||substr(idsaku,1,2)||'00000000000000"','"'||substr(idsaku,1,4)||'000000000000"','"'||substr(idsaku,1,6)||'0000000000"','"'||substr(idsaku,1,8)||'00000000"','"'||substr(idsaku,1,12)||'0000"','"'||idsaku||'"') as idlist from t_idsaku)
 		select idsaku, class, ifnull(registered, 0) as toroku, sakumotsu, shukakubui, betsumei, ':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords from m_sakumotsu left join t_idsaku using(idsaku) where like_in(idsaku, (select '['||gn_concat(',',idlist)||']' from t_idlist));
 	`;
-	makeCropTree('#cropTree', sql, searchCrop);
+	await makeCropTree('#cropTree', sql, searchCrop);
 }
 
 // sql 実行 結果グリッド作成
@@ -256,41 +227,27 @@ window.addEventListener('DOMContentLoaded', async function() {
 	//データベース読込
 	if (db === null) await fetchDB();
 
-	// タブ内容読込後に実行する scrip は、この下に書いても OK
-	// 薬剤候補トリガー登録
-	const byochuForm = document.querySelector('#byochuForm');
-	const byochuInput = document.querySelector('#byochuInput');
-	const byochuButton = document.querySelector('#byochuButton');
-
-	// submitイベントはオートコンプリートの履歴保存のためにのみ使用し、ページの再読み込みを防ぐ
-	byochuForm.addEventListener('submit', (event) => {
-		event.preventDefault();
-	});
-	// ボタンクリックで検索を実行
-	byochuButton.addEventListener('click', () => {
-		setByochuList(byochuInput);
-	});
-	// 入力確定時に検索を実行
-	byochuInput.addEventListener('change', () => {
-		setByochuList(byochuInput);
+	// 病害虫マネージャ初期化
+	byochuManager = new PestListManager('#selectPest', (selected) => {
+		handleByochuSelection(selected);
 	});
 
-	// 病害虫選択リストのイベントリスナー（イベントデリゲーション）
-	document.getElementById("byochuListbox").addEventListener("change", (event) => {
-		handleByochuSelection(event);
-	});
-
-	// 入力欄がクリアされた時にリストと結果をクリアする
-	byochuInput.addEventListener('input', () => {
-		if (byochuInput.value === '') {
-			resetByochuSelection();
-			const byochuListbox = document.getElementById("byochuListbox");
-			byochuListbox.innerHTML = "";
-			const selectPest = document.getElementById("selectPest");
-			selectPest.classList.add('hidden');
+	byochuManager.init({
+		title: '病害虫名等選択',
+		showCategory: true,
+		onSearch: async () => {
+			const sql = `select idbyochu, byochu, betsumei from m_byochu where byochu not like '%(%' or byochu regexp '菌(\\)|による)' order by idbyochu;`;
+			
+			await waiting(true, '病害虫名等を検索中...');
+			const res = db.exec(sql);
+			if (res?.[0]) {
+				byochuManager.update(res[0].values.map(r => ({ idbyochu: r[0], byochu: r[1], betsumei: r[2] })));
+			} else {
+				byochuManager.update([]);
+			}
+			waiting(false);
 		}
 	});
-
 });
 
 </script>
@@ -303,15 +260,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 <div class="tab_content">
 	<div class="flex_container">
 		<div id="conditionPane">
-			<h3>病害虫・雑草名等検索</h3>
-			<form id="byochuForm" class="inputbar" onsubmit="return false;">
-				<input type="text" id="byochuInput" name="byochuInput" placeholder="病害虫・雑草名等を入力" title="空白検索で全病害虫・雑草等検索" autocomplete="on" />
-				<button type="button" id="byochuButton">検索</button>
-			</form>
-			<div id="selectPest" class="hidden">
-				<h3>病害虫名等選択</h3>
-				<div id="byochuListbox"></div>
-			</div>
+			<div id="selectPest"></div>
 			<div id="cropTree" class="hidden"></div>
 		</div>
 		<div id="resultPane">

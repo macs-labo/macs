@@ -22,15 +22,137 @@
 			window.location.href = 'crop.html';
 		}
 	}
+
+	// 公開ディレクトリの場合ここで終了
+	if (window.location.href.includes('/acfinder/')) return;
+	// タッチデバイスでない場合はここで終了
+	if (!('ontouchstart' in window)) return;
+
+	// 開発版はデバッガーを画面の真ん中に巨大なログ画面を出す（タッチスクロール可能）
+	// 既存のデバッガーがあれば消す
+	document.getElementById('pwa-logger-v2')?.remove();
+
+	const div = document.createElement('div');
+	div.id = 'pwa-logger-v2';
+	// 画面中央に配置、背景を濃くして文字を大きく（16px）、タッチ操作を100%許可
+	div.style.cssText = 'position:fixed;top:10%;left:5%;width:90%;height:70%;overflow-y:scroll;background:rgba(10,10,10,0.95);color:#00ff00;font-family:monospace;font-size:16px;z-index:999999;padding:15px;box-sizing:border-box;border:3px solid #ff5555;pointer-events:auto;user-select:text;-webkit-overflow-scrolling:touch;';
+	div.style.display = 'none';
+
+	// 閉じるボタンを上部に配置
+	const closeBtn = document.createElement('button');
+	closeBtn.textContent = '【ログを閉じる】';
+	closeBtn.style.cssText = 'width:100%;padding:10px;background:#333;color:#fff;font-size:16px;font-weight:bold;margin-bottom:15px;border:none;';
+	closeBtn.onclick = () => div.style.display = 'none';
+	div.appendChild(closeBtn);
+
+	document.documentElement.appendChild(div);
+
+	const originalLog = console.log;
+	console.log = function(...args) {
+		originalLog.apply(console, args);
+		const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+		const logLine = document.createElement('div');
+		logLine.style.cssText = 'border-bottom:1px solid #333;padding:5px 0;white-space:pre-wrap;word-break:break-all;';
+		logLine.textContent = `[LOG] ${msg}`;
+		div.appendChild(logLine);
+		div.scrollTop = div.scrollHeight;
+	};
+
+	// エラーを検知したら、一番目立つように赤文字で大きく追加
+	window.addEventListener('error', function(e) {
+		const logLine = document.createElement('div');
+		logLine.style.cssText = 'color:#ff3333;font-weight:bold;border:2px solid #ff3333;padding:10px;margin:10px 0;background:rgba(255,0,0,0.1);white-space:pre-wrap;word-break:break-all;';
+		logLine.textContent = `🚨 [ERR] ${e.message}\n📍 at ${e.filename}\n🔢 line: ${e.lineno}:${e.colno}`;
+		div.insertBefore(logLine, div.firstChild); // 最新のエラーを一番上に表示
+		div.style.display = 'block'; // 隠れていても強制表示
+	});
+
+	// 👈 【追加】画面を「3本指でタップ」するたびに、ログ画面を表示・非表示にする
+	window.addEventListener('touchstart', function(e) {
+		if (e.touches.length === 3) { // 3本指タッチを検知
+			if (div.style.display === 'none') {
+				div.style.display = 'block';
+				// 開いた瞬間に、通常ログの最下部（最新）へスクロールさせる
+				div.scrollTop = div.scrollHeight;
+			} else {
+				div.style.display = 'none';
+			}
+		}
+	});
+
+	// --- グローバル・一時的ピンチズームの実装 ---
+	(function initGlobalPinchZoom() {
+		let startDist = 0;
+		let startZoom = 1;
+		let isPinching = false;
+		let targetEl = null;
+
+		// 現在表示中のアクティブなコンテンツ要素を取得する
+		const getActiveContent = () => {
+			const activeMain = document.querySelector('.main-swiper > .swiper-wrapper > .swiper-slide-active');
+			if (!activeMain) return null;
+			const nested = activeMain.querySelector('.swiper-wrapper > .swiper-slide-active');
+			const targetSlide = nested || activeMain;
+			// Swiperのレイアウト崩れを防ぐため、スライド内部のコンテナを対象にする
+			return targetSlide.querySelector('.step-fixed, .step-scrollable') || targetSlide;
+		};
+
+		window.addEventListener('touchstart', (e) => {
+			if (e.touches.length === 2) {
+				isPinching = true;
+				targetEl = getActiveContent();
+				if (!targetEl) return;
+
+				startDist = Math.hypot(
+					e.touches[0].pageX - e.touches[1].pageX,
+					e.touches[0].pageY - e.touches[1].pageY
+				);
+				// コンテンツの現在の相対ズーム値を取得
+				startZoom = parseFloat(targetEl.style.zoom) || 1.0;
+			}
+		}, { passive: false });
+
+		window.addEventListener('touchmove', (e) => {
+			if (isPinching && e.touches.length === 2 && targetEl) {
+				e.preventDefault(); // ネイティブのズームやスクロールを防止
+				const dist = Math.hypot(
+					e.touches[0].pageX - e.touches[1].pageX,
+					e.touches[0].pageY - e.touches[1].pageY
+				);
+				const ratio = (dist * 0.6) / startDist; 
+
+				let newZoom = startZoom * ratio;
+				// 1.0未満（appZoom相当）にならないよう制限
+				if (newZoom < 1.0) newZoom = 1.0;
+				if (newZoom > 2) newZoom = 2; // 最大ズーム制限（任意）
+
+				targetEl.style.zoom = newZoom;
+				// ズーム中はスクロール可能にする
+				if (newZoom > 1.0) {
+					targetEl.style.overflow = 'auto';
+				} else {
+					targetEl.style.overflow = '';
+				}
+			}
+		}, { passive: false });
+
+		window.addEventListener('touchend', () => { 
+			isPinching = false; 
+			targetEl = null;
+		});
+	})();
 })();
 </script>
 <script type="text/javascript" src="./header.js"></script>
 <script type="text/javascript" src="./loader.js"></script>
 <script type="text/javascript" src="./theme.js"></script>
 <script type="text/javascript" src="./crop.js"></script>
+<script type="text/javascript" src="./pest.js"></script>
+<script type="text/javascript" src="./chem.js"></script>
+<script type="text/javascript" src="./table.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.32/dist/romaji-conv.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.css" />
 <script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
@@ -41,12 +163,46 @@
 <style>
 :root,
 [data-theme="dark"] {
-	--header-height: 48px;
-	--tab-height: 44px;
+	--header-height: 46px;
+	--tab-height: 40px;
 	--step-bar-height: 40px;
+	--touch-bar-width: 25px;
+	--content-area-margin: 12px;
 	--app-zoom: 1;
+	--bolder:	0 -0.1px 0 currentColor,0.1px -0.1px 0 currentColor,0.1px 0 0 currentColor,0.1px 0.1px 0 currentColor,0 0.1px 0 currentColor,-0.1px 0.1px 0 currentColor,0.1px 0 0 currentColor,-0.1px -0.1px 0 currentColor;
 }
-body { zoom: var(--app-zoom); }
+body {
+	position: relative;
+	zoom: var(--app-zoom);
+}
+
+/* スライド送り／戻しバー */
+.prev-touch-bar,
+.next-touch-bar {
+	position: fixed;
+	display: flex;
+	top: 0;
+	color: var(--border-color-strong);
+	font: 20px;
+	/* vertical-align: middle; */
+	align-items: center;
+	width: var(--touch-bar-width);
+	height: calc(100vh / var(--app-zoom, 1));
+	z-index: 10000;
+	pointer-events: auto; /* クリックに反応させる */
+	/* ズームやタップ時の意図しない挙動を防ぐ */
+	-webkit-tap-highlight-color: transparent;
+	touch-action: none; /* ブラウザ標準のジェスチャーを無効化し、クリックを優先させる */
+}
+.prev-touch-bar { left: 0; justify-content: left; }
+.next-touch-bar { right: 0; justify-content: right; }
+
+.infinite-tree-node a,
+input, button, select, svg.icon {
+  position: relative; /* z-indexを効かせるため */
+  z-index: 11000;      /* タップエリアより大きくする */
+  pointer-events: auto; /* 自身のクリックイベントを優先し、背面への透過を防ぐ */
+}
 
 header {
 	height: var(--header-height);
@@ -54,8 +210,10 @@ header {
 	color: var(--bg-color);
 	display: flex;
 	justify-content: space-between;
+	gap: 10px;
 	align-items: center;
 	padding: 0 15px;
+	touch-action: none;
 }
 
 header .title {
@@ -63,24 +221,28 @@ header .title {
 	flex-direction: column;
 	justify-content: space-between;
 	height: var(--header-height);
-	padding: 6px 0;
+	padding: 5px 0;
+	white-space: nowrap;
+	overflow-x: auto;
+	touch-action: pan-x;
 }
 
 header h1 {
-	font-size: 20px;
+	font-size: 19px;
 	font-weight: bold;
 	line-height: 1;
-	height: 20px;
 }
 
 #db-update {
-	font-size: 13px;
+	font-size: 12px;
 	font-weight: normal;
 	line-height: 1;
-	height: 13px;
 }
 
+#db-update.cached-mode { color: var(--ul-unaccepted-link-color); }
+
 header .menu {
+	flex-shrink: 0;;
 	height: 32px;
 	width: 32px;
 }
@@ -90,9 +252,18 @@ header .icon {
 }
 
 .button:focus { background: var(--bg-color-button); }
+.inputbar input[type="text"] { height: 28px; }
+.inputbar button { height: 30px; 	border-radius: 5px; }
+select { height: 28px; }
 
 /* メインタブ */
-.main-nav { display: flex; height: var(--tab-height); background: var(--bg-color-button); border-bottom: 1px solid var(--border-color); }
+.main-nav {
+	display: flex;
+	height: var(--tab-height);
+	background: var(--bg-color-button);
+	border-bottom: 1px solid var(--border-color);
+	touch-action: none;
+}
 .main-btn { flex: 1; border: none; border-radius: 0; font-size: 14px; color: var(--border-color); }
 .main-btn:hover { color: var(--border-color); background: var(--bg-color-button); }
 .main-btn.active { color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
@@ -103,11 +274,18 @@ header .icon {
 	width: 100%;
 }
 
+/* インタラクション無効化の統一定義 */
+.disabled, .locked {
+	pointer-events: none !important;
+}
+
 /* --- タブ内の内部構造 --- */
 .tab-container {
 	display: flex;
 	flex-direction: column;
 	height: 100%;
+	width: 100%;
+	min-width: 0;
 }
 
 /* ステップインジケータ */
@@ -117,8 +295,10 @@ header .icon {
 	background: var(--bg-color-header);
 	align-items: center;
 	justify-content: center;
-	gap: 25px;
+	gap: calc(20px / var(--app-zoom, 1));
+	position: relative;
 	border-bottom: 1px solid var(--border-color);
+	touch-action: none;
 }
 .step-item {
 	width: 24px;
@@ -146,44 +326,162 @@ header .icon {
 }
 .step-item.locked {
 	opacity: 0.2;
-	cursor: not-allowed;
+}
+.prev-step,
+.next-step {
+	width: calc(18vw / var(--app-zoom, 1));
+	color: var(--border-color-focus);
+	font-size: 15px;
+	cursor: pointer;
+	height: var(--step-bar-height);
+	line-height: var(--step-bar-height);
+	vertical-align: middle;
+	position: absolute;
+	top: 0;
+	-webkit-tap-highlight-color: transparent;
+}
+.prev-step {
+	left: 0;
+	padding-left: var(--touch-bar-width);
+	text-align: left;
+}
+.next-step {
+	right: 0;
+	padding-right: var(--touch-bar-width);
+	text-align: right;;
+}
+.disabled {
+	color: var(--border-color);
+	opacity: 0.4; /* 矢印やタッチバーを薄く表示 */
 }
 
-/* 内側のSwiper (作物ステップ用) */
-.crop-swiper {
+/* 内部Swiper (各タブ共通) */
+.crop-swiper,
+.pest-swiper,
+.chem-swiper {
 	flex: 1;
 	width: 100%;
+	min-width: 0;
 }
 
-/* ①〜③：スクロールなしのコンテナ */
+/* 内部Swiperのスライドをフレックスコンテナにする */
+.crop-swiper .swiper-slide,
+.pest-swiper .swiper-slide,
+.chem-swiper .swiper-slide {
+	display: flex;
+	flex-direction: column;
+}
+
+/* スクロールなしのコンテナ */
 .step-fixed {
-	height: 100%;
+	flex: 1;
+	min-height: 0;
 	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	padding: 10px;
+	padding: var(--content-area-margin);
 	box-sizing: border-box;
 }
 
-/* ④：詳細表示（スクロールあり） */
+/* スクロールありのコンテナ */
 .step-scrollable {
-	height: 100%;
-	overflow-y: auto;
+	flex: 1;
+	overflow: auto;
 	-webkit-overflow-scrolling: touch;
 	padding: 10px;
 	box-sizing: border-box;
 }
 
-/* 共通のリストボックススタイル */
-.list-box {
-	flex: 1;
-	background: white;
-	border: 1px solid #ddd;
-	border-radius: 4px;
-	overflow-y: auto; /* ボックス内のみスクロール */
-	padding: 10px;
+.swiper-slide h2 {
+	display: flex;
+	/* justify-content: center; */
+	align-items: center;
+	font-size: 14px;
+	font-weight: bold;
+	color: var(--text-color-accent);
+	background: var(--bg-color-accent);
+	line-height: 1.2;
+	height: 30px;
+	padding: 0 7px;
+	overflow-x: auto;
+	white-space: nowrap;
+	text-overflow: ellipsis
 }
-.content-info { background: white; padding: 15px; border-radius: 4px; margin-bottom: 50px; border: 1px solid #ddd;}
+
+/* 病害虫マネージャ（Wrapper）のレイアウト調整 */
+#cropPestWrapper,
+#pestPestWrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	min-width: 0;
+	width: 100%;
+}
+/* 中のリストボックスを最大まで広げる */
+#cropPestWrapper .list-box,
+#pestPestWrapper .list-box {
+	flex: 1;
+	min-width: 0;
+	width: 100%;
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+	/* 以前の Swiper zoom クラスが残っている場合の中央寄せ設定を解除 */
+	justify-content: flex-start;
+	align-items: flex-start;
+	text-align: left;
+}
+
+#cropPestWrapper .pest-list-container,
+#pestPestWrapper .pest-list-container,
+#cropChemWrapper .chem-list-container,
+#pestChemWrapper .chem-list-container,
+#chemChemWrapper .chem-list-container {
+	min-width: 100%;
+	width: max-content;
+}
+
+/* 薬剤マネージャ（Wrapper）のレイアウト調整 */
+#cropChemWrapper,
+#cropDetailWrapper,
+#pestChemWrapper,
+#pestDetailWrapper,
+#chemChemWrapper,
+/* #chemCropTree, */
+#chemDetailWrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	min-width: 0;
+	width: 100%;
+}
+
+#cropChemWrapper .list-box,
+#pestChemWrapper .list-box,
+#chemChemWrapper .list-box {
+	flex: 1;
+	min-width: 0;
+	width: 100%;
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+}
+
+.checkListItem em {
+	/* font-weight: bolder; */
+	font-style: normal;
+	color: var(--text-color-dark);
+	text-shadow: var(--bolder);
+}
+
+.checkListItem small {
+	font-size: 12px;
+	color: var(--text-color-light);
+}
+
+.checkListItem:hover { background-color: none; }
 
 /* ステップ用ズームターゲットの基本クラス */
 .step-zoom-target {
@@ -192,34 +490,11 @@ header .icon {
 	display: flex !important;
 	flex-direction: column;
 	text-align: left;
-}
-
-#cropTreeCrop { height: fit-content; }
-/* .treebox { height: fit-content; } */
-#cropTreeCrop .infinite-tree-scroll { max-height: calc(100dvh / var(--app-zoom, 1) - 249px); }
-
-/* Swiper Zoom Container adjustments */
-.swiper-zoom-container {
-	display: flex;
-/*
-	justify-content: center;
-	align-items: center;
-*/
-	justify-content: flex-start; /* 子要素を主軸の開始位置（上端）に揃える */
-	align-items: flex-start;    /* 子要素を交差軸の開始位置（左端）に揃える */
 	width: 100%;
-	height: 100%;
-	text-align: left;
+	min-width: 0;
 }
 
-/* ズーム中の内部スクロール競合を抑制 (パン操作を最優先させる) */
-.swiper-slide-zoomed .list-box,
-.swiper-slide-zoomed .treebox,
-.swiper-slide-zoomed .infinite-tree-scroll {
-	overflow: hidden !important;
-}
-
-/* #main-menu-dialog { outline: none; } */
+.treebox > .checkListItem { padding-left: 10px; }
 
 .menu-item {
 	height: 32px;
@@ -299,8 +574,120 @@ form button:hover {
 	font-weight: bold;
 	color: var(--text-color);
 }
+
+input[type="radio"] {
+	position: relative;
+	flex-shrink: 0;
+	width: 14px;
+	height: 14px;
+	appearance: none;
+	-webkit-appearance: none;
+	border: 1px solid var(--border-color);
+	border-radius: 9999px;
+	cursor: pointer;
+}
+
+input[type="radio"]:checked {
+	border: 1px solid var(--border-color-focus);
+}
+
+input[type="radio"]:checked::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	width: 10px;
+	height: 10px;
+	margin: auto;
+	border-radius: 9999px;
+	background-color: var(--border-color-focus);
+}
+
+.step-scrollable h3 {
+	font-size: 14px;
+	font-weight: bold;
+	padding: 3px;
+	line-height: 1.2;
+	border-top: 1px solid var(--border-color-strong);
+	border-bottom: 1px solid var(--border-color-strong);
+	margin-bottom: 5px;
+}
+
+table.row-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+	background-color: var(--bg-color);
+	border: 1px solid var(--border-color-strong);
+	line-height: 1.2;
+}
+.row-data-table th, .row-data-table td {
+	font-size: 13px;
+	padding: 3px 5px;
+	text-align: left;
+	/* line-height: 1.2; */
+  border: 1px solid var(--border-color-ht-common);
+	border-bottom: none;
+}
+.row-data-table th {
+	font-weight: normal;
+	color: var(--text-color-dark);
+	width: 1px; /* ラベル幅を最小化して内容に密着させ、値(td)の影響を受けないようにする */
+	border-left: none;
+	white-space: nowrap;
+	vertical-align: top;
+}
+.row-data-table td {
+	color: var(--text-color);
+	border-right: none;
+}
+.row-title {
+	font-size: 13px;
+	font-weight: bold;
+	line-height: 1.2;
+	/* text-shadow: var(--bolder); */
+	color: var(--text-color-dark);
+	text-align: left;
+	padding: 3px 5px;
+	background-color: var(--bg-color-ht-header);
+	border: 1px solid var(--border-color-strong);
+	border-bottom: none;
+	margin-top: 2px; /* 各カードを隙間なくくっ付けるなら -1px */
+	white-space: nowrap;
+	overflow-x: auto;
+}
+.row-data-table .even-row {
+	background-color: var(--bg-color-even-row);
+}
+.bottom-spacer {
+	height: var(--content-area-margin); /* スクロール可能な領域の末尾に余白を確保 */
+}
+.toast {
+	visibility: hidden;           /* 通常は隠す */
+	min-width: 250px;
+	background-color: #333;       /* ダークグレー */
+	color: #fff;                  /* 文字は白 */
+	text-align: center;
+	border-radius: 25px;          /* 丸みのあるデザイン */
+	padding: 12px;
+	position: fixed;
+	z-index: 9999;                /* 最前面に */
+	left: 50%;
+	bottom: 50px;                 /* 画面下から少し浮かせる */
+	transform: translateX(-50%);  /* 中央寄せ */
+	opacity: 0;
+	transition: opacity 0.3s, visibility 0.3s;
+}
+
+/* 表示中用のクラス */
+.toast.show {
+	visibility: visible;
+	opacity: 1;
+}
+
 </style>
 <script>
+window.isMobile = true;
+
 // --- 共通の簡易スワイプ検知関数 ---
 
 function addSwipeHandler(element, swiper, loop = true) {
@@ -363,24 +750,56 @@ function updateMainTabs(index) {
 }
 
 // ステップバーの更新
-function updateStepBar(index, maxStep = 0) {
+function updateStepBar(swiperInstance, maxStep) {
+	if (!swiperInstance) return;
+
+	// 一時ズーム中ならリセット
+	if (swiperInstance.zoom && swiperInstance.zoom.scale > 1) swiperInstance.zoom.out();
+
+	// maxStep が指定された場合は更新する
+	if (maxStep !== undefined) swiperInstance.maxReachedStep = maxStep;
+
+	const index = swiperInstance.activeIndex;
+	const currentMax = swiperInstance.maxReachedStep;
+
 	// 現在アクティブなメインタブ（スライド）内にあるステップ項目のみを対象にする
 	const activeMainSlide = document.querySelector('.main-swiper > .swiper-wrapper > .swiper-slide-active');
 	if (!activeMainSlide) return;
 
-	const items = activeMainSlide.querySelectorAll('.step-item');
-	items.forEach((item, i) => {
+	// ステップアイテム (1, 2, 3...) の表示更新
+	activeMainSlide.querySelectorAll('.step-item').forEach((item, i) => {
 		item.classList.remove('active', 'completed', 'locked'); // 既存のクラスを全て削除
 		if (i === index) {
 			item.classList.add('active');
 		} else if (i < index) {
 			item.classList.add('completed');
 		}
-		
-		if (maxStep !== undefined && i > maxStep) {
+		if (i > currentMax) {
 			item.classList.add('locked');
 		}
 	});
+
+	// ナビゲーションボタンとタッチバーの更新
+	const isFirstStep = index === 0;
+	const isLastStep = index === currentMax;
+
+	// アイコン（◀ ▶）と画面端のタッチバー（« »）の両方を更新
+	activeMainSlide.querySelectorAll('.prev-step').forEach(el => el.classList.toggle('disabled', isFirstStep));
+	activeMainSlide.querySelectorAll('.next-step').forEach(el => el.classList.toggle('disabled', isLastStep));
+	document.querySelectorAll('.prev-touch-bar').forEach(el => el.classList.toggle('disabled', isFirstStep));
+	document.querySelectorAll('.next-touch-bar').forEach(el => el.classList.toggle('disabled', isLastStep));
+}
+
+// リロード中であることを示すフラグ
+let isAppReloading = false;
+
+function hardReload() {
+	// リロード直前にフラグを立てて beforeunload を回避
+	isAppReloading = true;
+	//const url = new URL(window.location.href);
+	//url.searchParams.set('t', Date.now());
+	//window.location.href = url.toString();
+	window.location.reload();
 }
 
 // メインメニューの表示
@@ -428,7 +847,7 @@ function showMainMenu() {
 					<div class="menu-item-name">🎨 テーマ選択</div>
 				</li>
 				<li class="menu-item" onclick="showNotificationDialog()">
-					<div class="menu-item-name">🔔 DB更新通知受信</div>
+					<div class="menu-item-name">🔔 DB/アプリ更新通知</div>
 				</li>
 				<li class="menu-item" onclick="document.getElementById('main-menu-dialog').close();">
 					<div class="menu-item-name">
@@ -447,7 +866,7 @@ function showMainMenu() {
 				<li class="menu-item" onclick="showVersionInfo()">
 					<div class="menu-item-name">ℹ️ バージョン情報</div>
 				</li>
-				<li class="menu-item" onclick="location.reload();">
+				<li class="menu-item" onclick="hardReload();">
 					<div class="menu-item-name">🔄 リロード</div>
 				</li>
 				<li class="menu-item" onclick="location.href='crop.html?mode=desktop'">
@@ -538,14 +957,27 @@ function showVersionInfo() {
 function applyZoom(scale) {
 	const newZoom = Math.max(0.5, Math.min(2.0, Math.round(scale * 20) / 20));
 	document.documentElement.style.setProperty('--app-zoom', newZoom);
+	// 永続設定変更時は一時的なズーム（インラインスタイル）をクリアする
+	document.body.style.zoom = '';
 	localStorage.setItem('appZoom', newZoom);
 	const zoomLevelEl = document.querySelector('#main-menu-dialog #zoom-level');
 	if (zoomLevelEl) zoomLevelEl.textContent = `${Math.round(newZoom * 100)}%`;
 }
 
+// すべてのスライドの一時ズームをリセットする
+function clearAllSlideZoom() {
+	document.querySelectorAll('.step-fixed, .step-scrollable').forEach(el => {
+		el.style.zoom = '';
+		el.style.overflow = '';
+	});
+}
+
 // 他のタブでのズーム変更を検知して反映
 window.addEventListener('storage', (event) => {
-	if (event.key === 'appZoom') applyZoom(parseFloat(event.newValue) || 1.0);
+	if (event.key === 'appZoom') {
+		applyZoom(parseFloat(event.newValue) || 1.0);
+		clearAllSlideZoom();
+	}
 });
 
 // ズーム可能なSwiperインスタンスを作成するヘルパー関数
@@ -558,60 +990,11 @@ function createZoomableSwiper(selector, mainSwiperInstance, slideChangeCallback 
 		allowSlideNext: true,
 		allowSlidePrev: true,
 		noSwiping: true,
-		noSwipingClass: 'swiper-slide',
-		zoom: {
-			maxRatio: 3,
-			minRatio: 1, // 縮小時、appZoom の倍率で止まるように設定
-			toggle: false,
-		},
+		noSwipingClass: 'no-swipe',
 		speed: 300,
 		on: {
-			zoomChange: function(swiper, scale) {
-				// ズーム中のみスワイプによるステップ遷移（内側）とタブ遷移（外側）を禁止
-				const isZoomed = scale > 1;
-				swiper.allowSlideNext = !isZoomed;
-				swiper.allowSlidePrev = !isZoomed;
-				swiper.params.noSwiping = !isZoomed;
-
-				// 親である mainSwiper もロックする
-				if (mainSwiperInstance) {
-					mainSwiperInstance.allowSlideNext = !isZoomed;
-					mainSwiperInstance.allowSlidePrev = !isZoomed;
-					mainSwiperInstance.allowTouchMove = !isZoomed;
-				}
-			},
-			'zoom.onGestureEnd': function(swiper, event) {
-				const scale = swiper.zoom.scale;
-
-				if (scale > 1 && scale < 1.1) {
-					swiper.zoom.out();
-					swiper.isReturningToSingleScale = true;
-					swiper.allowSlideNext = true;
-					swiper.allowSlidePrev = true;
-					swiper.params.noSwiping = true;
-					if (mainSwiperInstance) {
-						mainSwiperInstance.allowSlideNext = true;
-						mainSwiperInstance.allowSlidePrev = true;
-						mainSwiperInstance.allowTouchMove = true;
-					}
-					setTimeout(() => {
-						swiper.isReturningToSingleScale = false;
-						swiper.update();
-					}, 300);
-				} else {
-					const isZoomed = scale > 1;
-					swiper.allowSlideNext = !isZoomed;
-					swiper.allowSlidePrev = !isZoomed;
-					swiper.params.noSwiping = !isZoomed;
-					if (mainSwiperInstance) {
-						mainSwiperInstance.allowSlideNext = !isZoomed;
-						mainSwiperInstance.allowSlidePrev = !isZoomed;
-						mainSwiperInstance.allowTouchMove = !isZoomed;
-					}
-					if (!isZoomed) swiper.update();
-				}
-			},
 			slideChange: function() {
+				clearAllSlideZoom();
 				// 未開放ステップへのスワイプを制限
 				if (this.maxReachedStep !== undefined && this.activeIndex > this.maxReachedStep) {
 					this.slideTo(this.maxReachedStep);
@@ -628,9 +1011,734 @@ function createZoomableSwiper(selector, mainSwiperInstance, slideChangeCallback 
 	return swiperInstance;
 }
 
+// 作物タブ setp.1: 作物選択
+function setupCropCrop() {
+	// 作物ツリーの生成
+	try {
+		const cropTreeSql = `
+			select idsaku, class, toroku, sakumotsu, shukakubui, betsumei,
+			':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
+			from m_sakumotsu where sakumotsu not like '%除く%';
+		`;
+		cropCropManager = new CropTreeManager('#cropCropTree', onCheckCropCrop, false);
+		cropCropManager.init(cropTreeSql, {
+			showSearchMethod: true,
+			onSearchMethodChange: () => {
+				if (cropCropManager.checkedCrops.length > 1) setupCropPest();
+			}
+		});
+	} catch (e) {
+		console.error("作物ツリーの生成に失敗しました:", e);
+		// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
+		document.querySelector('#cropCropTree').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
+	}
+}
+
+// 作物タブ step.1 の作物ツリーチェック時のコールバック関数
+function onCheckCropCrop(selectedCrops) {
+	const cropSwiper = document.querySelector('.crop-swiper').swiper;
+	if (selectedCrops.length > 0) {
+		// 選択があれば step.2 (病害虫)を解放
+		const newMax = Math.max(cropSwiper.maxReachedStep, 1);
+		updateStepBar(cropSwiper, newMax);
+		// step.2 作成
+		setupCropPest();
+	} else {
+		// 選択がなければリセット
+		if (cropSwiper.activeIndex > 0) cropSwiper.slideTo(0);
+		updateStepBar(cropSwiper, 0);
+	}
+}
+
+// 作物タブ step.2: 病害虫選択
+async function setupCropPest() {
+	// ヘッダ設定
+	const title = document.querySelector('#cropHead2');
+	const crops = cropCropManager.checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
+	const searchMethod = cropCropManager.searchMethod;
+	title.innerHTML = crops.join(searchMethod.includes('or') ? ' | ' : ' & ');
+
+	// 病害虫リスト作成
+	await waiting(true, '病害虫リストを取得中...');
+
+	const cropSwiper = document.querySelector('.crop-swiper').swiper;
+	const byochuListbox = document.getElementById("cropPestList");
+
+	// SQL実行とDOM更新を一つの関数にまとめる
+	const executeUpdate = async () => {
+		try {
+			// UI スレッドを一度解放して、Loading 表示のレンダリングを確定させる
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`);
+			const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
+			const sql =`
+				drop table if exists t_cropTekiyo;
+				create temp table t_cropTekiyo as
+				with t_sakumotsu as (select sakumotsu, ${expandCropFlags.join(',')} from m_sakumotsu left join sakuhojo using(idsaku)),
+				t_tekiyo as (select * from tv_tsushoTekiyo where sakumotsu in (${makeCropCondition(crops)})),
+				t_byochu1 as (select idbyochu, byochu as byochu2, betsumei as byochuruby from m_byochu),
+				t_byochu2 as (select distinct ifnull(byochu, ifnull(mokuteki, hoho)) as byochu2 from m_tekiyo),
+				t_byochu3 as (select ifnull(idbyochu, '59999999') as idbyochu, byochu2, iif(byochu2 = '添加', 'てんか', byochuruby) as byochuruby from t_byochu2 left join t_byochu1 using(byochu2) order by idbyochu)
+				select * from t_tekiyo left join t_sakumotsu using(sakumotsu) left join  t_byochu3 on ifnull(byochu, ifnull(mokuteki, hoho)) = byochu2;
+				delete from t_cropTekiyo where tsusho not in (
+					with t_tsusho1 as (select tsusho, ${cropFlags} from t_cropTekiyo group by tsusho)
+					select tsusho from t_tsusho1 where ${normalizeColName(crops.join(searchMethod))}
+				);
+				with t_byochu as (select distinct byochu2 as byochu from t_cropTekiyo),
+				t_gByochu as (select cid, gid, format('%d%03d%', cid, gid) as idbyochu, gname as byochu, strconv(gname) as byochuruby
+				from t_byochu left join m_byochu using(byochu) left join gbyochu using(cid, gid) where gname is not null)
+				select distinct idbyochu, byochu2, byochuruby from t_cropTekiyo where byochu not regexp '菌(\\)|による)'
+				union select idbyochu, byochu, byochuruby from t_gByochu order by idbyochu;
+			`;
+			if (debug) console.log(sql.replace(/^\t+/gm, ''));
+
+			const sqlResult = db.exec(sql);
+
+			// 重い SQL 実行後に再度スレッドを解放し、DOM 更新によるフリーズを防ぐ
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			if (sqlResult?.[0]?.values) {
+				const pests = sqlResult[0].values.map(row => ({
+					idbyochu: row[0],
+					byochu: row[1],
+					betsumei: row[2]
+				}));
+				cropPestManager.update(pests);			// スライドを病害虫選択まで開放（次以降は未開放にする）
+				updateStepBar(cropSwiper, 1);
+			} else {
+				cropPestManager.update([]);
+				cropSwiper.slideTo(0);
+				updateStepBar(cropSwiper, 0);
+			}
+		} catch (e) {
+			console.error("病害虫リスト取得エラー:", e);
+		} finally {
+			waiting(false);
+		}
+	};
+
+	// アニメーション中の負荷を避けるため、スライド完了を待ってから実行
+	if (cropSwiper.activeIndex === 1) {
+		// 既にStep 2にいる場合は即座に(ただし非同期で)実行
+		setTimeout(executeUpdate, 50);
+	} else {
+		// ハンドラ自体が時間を占有しないよう、イベント内からさらに非同期で実行
+		cropSwiper.once('transitionEnd', () => {
+			setTimeout(executeUpdate, 0);
+		});
+		cropSwiper.slideTo(1);
+	}
+
+}
+
+// 作物タブ step.3: 薬剤選択
+async function setupCropChem() {
+	// ヘッダ設定
+	const title = document.querySelector('#cropHead3');
+	const checkedPests = cropPestManager.checkedPests;
+	const pests = checkedPests.map(pest => pest.byochu);
+	title.innerHTML = pests.join(' & ');
+
+	await waiting(true, '薬剤リストを作成中...');
+
+	const cropSwiper = document.querySelector('.crop-swiper').swiper;
+	const chemListbox = document.getElementById("cropChemList");
+	const results = checkedPests.map(pest => {
+		const cond = pest.id.includes('%') ? `idbyochu like '${pest.id}'` : `byochu2 = '${pest.byochu}'`;
+		return { cond, col: `(${cond}) as ${normalizeColName(pest.byochu)}` };
+	});
+	const pestCondition = results.map(r => r.cond).join(' or ');
+	const pestColumns = results.map(r => r.col).join(', ');
+	const pestFlags = pests.map(pest => `max(${normalizeColName(pest)}) as ${normalizeColName(pest)}`).join(', ');
+	const crops = cropCropManager.checkedCrops.map(item => item.sakumotsu);
+	const cropColumns = crops.map(crop => `${normalizeColName(crop)}`).join(', ');
+	const cropFlags = crops.map(crops => `max(${normalizeColName(crops)}) as ${normalizeColName(crops)}`).join(', ');
+
+	const executeUpdate = async () => {
+		try {
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			// Step 2 で作成された t_cropTekiyo を使用して薬剤を抽出
+			const sql = `
+				with t_byochu as (select distinct byochu2, ${pestColumns} from t_cropTekiyo where (${pestCondition})),
+				t_tsusho1 as (select tsusho, ${pestFlags}, ${cropColumns} from t_byochu left join t_cropTekiyo using(byochu2) group by tsusho, ${cropColumns}),
+				t_tsusho2 as (select tsusho, ${cropFlags} from t_tsusho1 where (${normalizeColName(pests.join(' and '))}) group by tsusho),
+				t_tsusho3 as (select tsusho from t_tsusho2 where (${normalizeColName(crops.join(cropCropManager.searchMethod))}) and (${pestCondition})),
+				t_tekiyo as (select tsusho, sakumotsu,
+					gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
+					n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), ruby) as keywords
+					from t_cropTekiyo left join tsushoruby using(tsusho) where tsusho in (select tsusho from t_tsusho3)
+					group by tsusho, sakumotsu order by ruby
+				)
+				select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo group by tsusho;
+			`;
+			if (debug) console.log(sql.replace(/^\t+/gm, ''));
+
+			const sqlResult = db.exec(sql);
+
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			if (sqlResult?.[0]?.values) {
+				const chems = sqlResult[0].values.map(row => ({
+					tsusho: row[0],
+					tekiyo: row[1],
+					keywords: row[2]
+				}));
+				cropChemManager.update(chems);
+				// スライドを薬剤選択まで開放（次以降は未開放にする）
+				updateStepBar(cropSwiper, 2);
+			} else {
+				cropChemManager.update([]);
+				updateStepBar(cropSwiper, 1);
+			}
+		} catch (e) {
+			console.error("薬剤リスト作成エラー:", e);
+		} finally {
+			waiting(false);
+		}
+	};
+
+	if (cropSwiper.activeIndex === 2) {
+		setTimeout(executeUpdate, 50);
+	} else {
+		cropSwiper.once('transitionEnd', () => {
+			setTimeout(executeUpdate, 0);
+		});
+		cropSwiper.slideTo(2);
+	}
+}
+
+// 作物タブ step.4: 詳細表示
+async function setupCropDetail() {
+	const title = document.querySelector('#cropHead4');
+	const chem = cropChemManager.selectedChem;
+
+	title.innerHTML = chem;
+
+	await waiting(true, '詳細情報を取得中...');
+	const cropSwiper = document.querySelector('.crop-swiper').swiper;
+
+	const executeUpdate = async () => {
+		try {
+			await new Promise(resolve => setTimeout(resolve, 0));
+			await cropDetailManager.update(chem, 't_cropTekiyo');
+		} catch (e) {
+			console.error("詳細表示エラー:", e);
+		} finally {
+			waiting(false);
+		}
+	};
+
+	if (cropSwiper.activeIndex === 3) {
+		setTimeout(executeUpdate, 50);
+	} else {
+		cropSwiper.once('transitionEnd', () => {
+			setTimeout(executeUpdate, 0);
+		});
+		cropSwiper.slideTo(3);
+	}
+}
+
+function initCropTab() {
+	// 病害虫マネージャ初期化
+	cropPestManager = new PestListManager('#cropPestWrapper', () => {
+		const checkedPests = cropPestManager.checkedPests;
+		const cropSwiper = document.querySelector('.crop-swiper').swiper;
+		if (checkedPests.length > 0) {
+			updateStepBar(cropSwiper, Math.max(cropSwiper.maxReachedStep, 2));
+			setupCropChem();
+		} else {
+			updateStepBar(cropSwiper, 1);
+		}
+	});
+	cropPestManager.init({ title: '病害虫等選択', showCategory: true });
+
+	// 薬剤マネージャ初期化
+	cropChemManager = new ChemListManager('#cropChemWrapper', (chem) => {
+		const cropSwiper = document.querySelector('.crop-swiper').swiper;
+		if (chem) {
+			updateStepBar(cropSwiper, Math.max(cropSwiper.maxReachedStep, 3));
+			setupCropDetail();
+		}
+	});
+	cropChemManager.init({ title: '薬剤選択' });
+
+	// 薬剤詳細マネージャ初期化
+	cropDetailManager = new ChemDetailManager('#cropDetailWrapper');
+	cropDetailManager.init();
+
+	// 作物タブ step.1 作成
+	setupCropCrop();
+
+}
+
+// 病害虫タブ setp.2: 作物選択
+async function setupPestCrop() {
+	const checkedPests = pestPestManager.checkedPests;
+	const title = document.querySelector('#pestHead2');
+	const pests = checkedPests.map(pest => pest.byochu);
+	title.innerHTML = pests.join(' | ');
+
+	await waiting(true, '作物ツリーを構築中...');
+	const pestSwiper = document.querySelector('.pest-swiper').swiper;
+
+	// 作物ツリーの生成
+	const executeUpdate = async () => {
+		await new Promise(resolve => setTimeout(resolve, 0));
+		try {
+			const selectedByochuCsv = pests.map(item => `'${item}'`).join(',');
+			const cropTreeSql = `
+				DROP TABLE IF EXISTS ttTekiyoByochu;
+				CREATE TEMP TABLE ttTekiyoByochu AS
+				select * from tv_tsushoTekiyo where tsusho in
+				(select distinct tsusho from t_tekiyo where
+					like_in(':'||concat_ws(':', replace(byochu, '、', ':'), mokuteki)||':',
+						(select json_group_array('%:'||byochu||'%') from m_byochu where byochu in (${selectedByochuCsv}))
+					)
+				);
+				with t_idsaku as (select distinct idsaku, 1 as registered from ttTekiyoByochu left join m_sakumotsu using(sakumotsu) where sakumotsu not like '%除く%' order by idsaku)
+				,t_idlist as (select n_concat(',','"'||substr(idsaku,1,2)||'00000000000000"','"'||substr(idsaku,1,4)||'000000000000"','"'||substr(idsaku,1,6)||'0000000000"','"'||substr(idsaku,1,8)||'00000000"','"'||substr(idsaku,1,12)||'0000"','"'||idsaku||'"') as idlist from t_idsaku)
+				select idsaku, class, ifnull(registered, 0) as toroku, sakumotsu, shukakubui, betsumei, ':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords from m_sakumotsu left join t_idsaku using(idsaku) where like_in(idsaku, (select '['||gn_concat(',',idlist)||']' from t_idlist));
+			`;
+			if (debug) console.log(cropTreeSql.replace(/^\t+/gm, ''));
+			pestCropManager = new CropTreeManager('#pestCropTree', onCheckPestCrop, false);
+			pestCropManager.init(cropTreeSql, { showSearchMethod: false });
+		} catch (e) {
+			console.error("作物ツリーの生成に失敗しました:", e);
+			// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
+			document.querySelector('#pestCropTree').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
+		} finally {
+			waiting(false);
+		}
+	};
+
+	if (pestSwiper.activeIndex === 1) {
+		setTimeout(executeUpdate, 50);
+	} else {
+		pestSwiper.once('transitionEnd', () => {
+			setTimeout(executeUpdate, 0);
+		});
+		pestSwiper.slideTo(1);
+	}
+}
+
+// 病害虫タブ step.3: 薬剤選択
+async function setupPestChem() {
+	// ヘッダ設定
+	const title = document.querySelector('#pestHead3');
+	const checkedCrops = pestCropManager.checkedCrops;
+	const crops = checkedCrops.map(crop => crop.sakumotsu);
+	title.innerHTML = crops.join(' & ');
+
+	await waiting(true, '薬剤リストを作成中...');
+
+	const pestSwiper = document.querySelector('.pest-swiper').swiper;
+	const chemListbox = document.getElementById("pestChemList");
+	const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
+	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
+	const executeUpdate = async () => {
+		try {
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			// Step 2 で作成された ttTekiyoByochu を使用して薬剤を抽出
+			const sql = `
+				with t_sakumotsu as (
+					select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)
+				),
+				t_tekiyo1 as (
+					select * from ttTekiyobyochu left join t_sakumotsu using(sakumotsu)
+					where sakumotsu in (${makeCropCondition(crops)}) group by tsusho, sakumotsu
+				),
+				t_tsusho as (select tsusho, ${cropFlags} from t_tekiyo1 group by tsusho),
+				t_tekiyo2 as (select * from t_tekiyo1 where tsusho in (select tsusho from t_tsusho where (${normalizeColName(crops.join(' and '))}))),
+				t_tekiyo3 as (select tsusho, sakumotsu,
+					gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
+					n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), ruby) as keywords
+					from t_tekiyo2 left join tsushoruby using(tsusho) group by tsusho, sakumotsu order by ruby
+				)
+				select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo3 group by tsusho;
+			`;
+			if (debug) console.log(sql.replace(/^\t+/gm, ''));
+
+			const sqlResult = db.exec(sql);
+
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			if (sqlResult?.[0]?.values) {
+				const chems = sqlResult[0].values.map(row => ({
+					tsusho: row[0],
+					tekiyo: row[1],
+					keywords: row[2]
+				}));
+				pestChemManager.update(chems);
+				// スライドを薬剤選択まで開放（次以降は未開放にする）
+				updateStepBar(pestSwiper, 2);
+			} else {
+				pestChemManager.update([]);
+				updateStepBar(pestSwiper, 1);
+			}
+		} catch (e) {
+			console.error("薬剤リスト作成エラー:", e);
+		} finally {
+			waiting(false);
+		}
+	};
+
+	if (pestSwiper.activeIndex === 2) {
+		setTimeout(executeUpdate, 50);
+	} else {
+		pestSwiper.once('transitionEnd', () => {
+			setTimeout(executeUpdate, 0);
+		});
+		pestSwiper.slideTo(2);
+	}
+}
+// 病害虫タブ step.2 の作物ツリーチェック時のコールバック関数
+function onCheckPestCrop(selectedCrops) {
+	const pestSwiper = document.querySelector('.pest-swiper').swiper;
+	if (selectedCrops.length > 0) {
+		// 選択があれば step.3 (薬剤選択)を解放
+		const newMax = Math.max(pestSwiper.maxReachedStep, 2);
+		updateStepBar(pestSwiper, newMax);
+		// step.3 作成
+		setupPestChem();
+	} else {
+		// 選択がなければリセット
+		if (pestSwiper.activeIndex > 1) pestSwiper.slideTo(1);
+		updateStepBar(pestSwiper, 1);
+	}
+}
+
+// 病害虫タブ step.4: 詳細表示
+async function setupPestDetail() {
+	const title = document.querySelector('#pestHead4');
+	const chem = pestChemManager.selectedChem;
+	title.innerHTML = chem;
+
+	await waiting(true, '詳細情報を取得中...');
+	const pestSwiper = document.querySelector('.pest-swiper').swiper;
+
+	const crops = pestCropManager.checkedCrops.map(crop => crop.sakumotsu);
+	const pests = pestPestManager.checkedPests.map(pest => `'${pest.byochu}'`).join(',');
+
+	const sqls = [
+		{ target: 'usage', caption: '作物の適用カード', query: `
+			SELECT
+				row_number() over(order by (select null)) as idx, sakumotsu, gn_concat(',', ifnull(byochu, mokuteki)) as 病害虫等,
+				jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
+			FROM ttTekiyoByochu WHERE tsusho = '${chem}' and sakumotsu in (${makeCropCondition(crops)})
+			group by tsusho, sakumotsu, jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
+		`},
+		{ name: 'pestUsage', caption: `病害虫等の適用カード`, prefix: '適用', query: `
+			SELECT
+				row_number() over(order by (select null)) as idx, byochu as 病害虫等, gn_concat(',', sakumotsu) as sakumotsu,
+				baisu, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
+			FROM ttTekiyoByochu WHERE tsusho = '${chem}' and byochu in (${pests})
+			group by tsusho, byochu, baisu, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
+		`}
+	];
+
+	const executeUpdate = async () => {
+		try {
+			await new Promise(resolve => setTimeout(resolve, 0));
+			// 病害虫タブでは setupPestCrop で作成された ttTekiyoByochu を使用
+			await pestDetailManager.update(chem, 'ttTekiyoByochu', sqls);
+		} catch (e) {
+			console.error("詳細表示エラー:", e);
+		} finally {
+			waiting(false);
+		}
+	};
+
+	if (pestSwiper.activeIndex === 3) {
+		setTimeout(executeUpdate, 50);
+	} else {
+		pestSwiper.once('transitionEnd', () => {
+			setTimeout(executeUpdate, 0);
+		});
+		pestSwiper.slideTo(3);
+	}
+}
+
+function initPestTab() {
+	// 病害虫タブ用 Managers
+	pestPestManager = new PestListManager('#pestPestWrapper', (selected) => {
+		const pestSwiper = document.querySelector('.pest-swiper').swiper;
+		if (selected.length > 0) {
+			updateStepBar(pestSwiper, 1);
+			setupPestCrop(); // 次のステップ（作物選択）の構築へ
+		} else {
+			updateStepBar(pestSwiper, 0);
+		}
+	});
+
+	// ページ初期化時に全件表示
+	pestPestManager.init({
+		title: '病害虫・雑草名等選択',
+		showCategory: true,
+		onSearch: async () => {
+			const sql = `select idbyochu, byochu, betsumei from m_byochu where byochu not like '%(%' or byochu regexp '菌(\\)|による)' order by idbyochu;`;
+			
+			await waiting(true, '病害虫名等を検索中...');
+			const res = db.exec(sql);
+			if (res?.[0]) {
+				pestPestManager.update(res[0].values.map(r => ({ idbyochu: r[0], byochu: r[1], betsumei: r[2] })));
+			} else {
+				pestPestManager.update([]);
+			}
+			waiting(false);
+		}
+	});
+
+	// 薬剤マネージャ初期化
+	pestChemManager = new ChemListManager('#pestChemWrapper', (chem) => {
+		const pestSwiper = document.querySelector('.pest-swiper').swiper;
+		if (chem) {
+			updateStepBar(pestSwiper, Math.max(pestSwiper.maxReachedStep, 3));
+			setupPestDetail();
+		}
+	});
+	pestChemManager.init({ title: '薬剤選択' });
+
+	// 薬剤詳細マネージャ初期化
+	pestDetailManager = new ChemDetailManager('#pestDetailWrapper');
+	pestDetailManager.init();
+}
+
+// 薬剤タブ setp.1: 作物選択
+function setupChemCrop() {
+	// 作物ツリーの生成
+	try {
+		const cropTreeSql = `
+			select idsaku, class, toroku, sakumotsu, shukakubui, betsumei,
+			':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
+			from m_sakumotsu where sakumotsu not like '%除く%';
+		`;
+		chemCropManager = new CropTreeManager('#chemCropTree', onCheckChemCrop, false);
+		chemCropManager.init(cropTreeSql, {
+			showSearchMethod: true,
+			onSearchMethodChange: () => {
+				if (chemCropManager.checkedCrops.length > 1) setupChemChem();
+			}
+		});
+	} catch (e) {
+		console.error("作物ツリーの生成に失敗しました:", e);
+		// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
+		document.querySelector('#cropCropTree').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
+	}
+}
+
+// 薬剤タブ step.1 の作物ツリーチェック時のコールバック関数
+function onCheckChemCrop(selectedCrops) {
+	const chemSwiper = document.querySelector('.chem-swiper').swiper;
+	if (selectedCrops.length > 0) {
+		// 選択があれば step.2 (薬剤)を解放
+		const newMax = Math.max(chemSwiper.maxReachedStep, 1);
+		updateStepBar(chemSwiper, newMax);
+		// step.2 作成
+		setupChemChem();
+	} else {
+		// 選択がなければリセット
+		if (chemSwiper.activeIndex > 0) chemSwiper.slideTo(0);
+		updateStepBar(chemSwiper, 0);
+	}
+}
+
+// 薬剤タブ step.2: 薬剤選択
+async function setupChemChem() {
+	// ヘッダ設定
+	const title = document.querySelector('#chemHead2');
+	const crops = chemCropManager.checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
+	title.innerHTML = crops.join(chemCropManager.searchMethod.includes('or') ? ' | ' : ' & ');
+
+	await waiting(true, '薬剤リストを作成中...');
+
+	const chemSwiper = document.querySelector('.chem-swiper').swiper;
+	const chemListbox = document.getElementById("chemChemList");
+	const expandCropCondition = crops.map(crop => `(${expandCrops(crop)})`).join(' or ');
+	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
+	const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(', ');
+	const sql =`
+		drop table if exists t_chemTekiyo;
+		create temp table t_chemTekiyo as
+		with t_sakumotsu as (select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)),
+		t_tekiyo as (select * from tv_meishoTekiyo where sakumotsu in (${makeCropCondition(crops)}))
+		select * from t_tekiyo left join t_sakumotsu using(sakumotsu) where (${normalizeColName(crops.join(' or '))});
+		delete from t_chemTekiyo where bango not in (
+			with t_bango as (select bango, ${cropFlags} from t_chemTekiyo group by bango)
+			select bango from t_bango where (${normalizeColName(crops.join(cropCropManager.searchMethod))})
+		);
+		with t_tekiyo1 as (select bango, meisho, tsusho, ruby, sakumotsu,
+			gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
+			n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
+			from t_chemTekiyo left join tsushoruby using(tsusho) group by bango, sakumotsu
+		),
+		t_tekiyo2 as (select bango, meisho, tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo1 group by bango order by ruby, bango)
+		select * from t_tekiyo2;
+	`;
+	if (debug) console.log(sql.replace(/^\t+/gm, ''));
+
+	let group = '';
+	const renderer = (row) => {
+		const tsusho = row.tsusho;
+		const info = `${row.tekiyo}|${row.keywords}`;
+		let groupItem = '';
+		if (group !== tsusho) {
+			group = tsusho;
+			groupItem = `
+				<div class="checkListItem" data-group title="${tsusho}|${info}">
+					<span><em>${tsusho}</em></span><!--&nbsp;--><span><small>${info}</small></span>
+				</div>
+			`;
+		}
+		const bango = row.bango;
+		const name = `${bango} ${row.meisho}`;
+		return `${groupItem}
+			<div class="checkListItem" title="${name}|${info}">
+				<input type="radio" name="chemSelect" value="${name}" id="${bango}"><label for="${bango}">${name}</label>
+			</div>
+		`;
+	};
+
+	const executeUpdate = async () => {
+		try {
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			const sqlResult = db.exec(sql);
+
+			await new Promise(resolve => setTimeout(resolve, 0));
+
+			if (sqlResult?.[0]?.values) {
+				const chems = sqlResult[0].values.map(row => ({
+					bango: row[0],
+					meisho: row[1],
+					tsusho: row[2],
+					tekiyo: row[3],
+					keywords: row[4]
+				}));
+				chemChemManager.update(chems, renderer);
+				// スライドを薬剤選択まで開放（次以降は未開放にする）
+				updateStepBar(chemSwiper, 1);
+			} else {
+				chemChemManager.update([]);
+				updateStepBar(chemSwiper, 0);
+			}
+		} catch (e) {
+			console.error("薬剤リスト作成エラー:", e);
+		} finally {
+			waiting(false);
+		}
+	};
+
+	if (chemSwiper.activeIndex === 1) {
+		setTimeout(executeUpdate, 50);
+	} else {
+		chemSwiper.once('transitionEnd', () => {
+			setTimeout(executeUpdate, 0);
+		});
+		chemSwiper.slideTo(1);
+	}
+}
+
+// 薬剤タブ step.3: 詳細表示
+async function setupChemDetail() {
+	const title = document.querySelector('#chemHead3');
+	const chem = chemChemManager.selectedChem;
+	title.innerHTML = chem;
+
+	const tableName = 't_chemTekiyo';
+	const bango = chem.split(' ')[0];
+
+	await waiting(true, '詳細情報を取得中...');
+	const chemSwiper = document.querySelector('.chem-swiper').swiper;
+
+	const sqls = [
+		{
+			target: 'summary',
+			query: `
+				with
+					t_meisho as (select bango, meisho, tsusho from m_kihon where bango = ${bango}),
+					t_bangoAll as (select bango from m_kihon where tsusho = (select tsusho from t_meisho group by tsusho)),
+					t_tazai as (select tsusho, gn_concat('<br>', format('%d %s', bango, meisho)) as tazai from m_kihon where bango in (select bango from t_bangoAll where bango != ${bango})),
+					t_ojas as (select bango, ojas from t_tokusai)
+				select format('%d %s', bango, meisho) as meisho,
+					iif(shurui like '%'||zaikei||'%', shurui, format('%s [剤型: %s]',shurui,zaikei)) as 種類, dokusei,
+					iif(yoto like '%'||koka||'%', yoto, format('%s [効果: %s]', yoto, koka)) as yoto, ojas, torokubi, ryakusho,
+					tazai as 同名他剤, replace(chuijiko, '#', '<br>') as 注意事項
+				from m_kihon left join suisan using(bango) left join t_tazai using(tsusho) left join t_ojas using(bango) left join seizai using(bango)
+				where bango = ${bango};
+			`
+		},
+		{
+			target: 'ingredients',
+			query: `
+				select distinct row_number() over(order by (ippanmei)) as idx, ippanmei, nodo, seibun, iso,dokusei, jogai, keito, mid, rackeito, sayoten, sayokiko, fgroup, risk, ojas
+				from kihon left join ${tableName} using(bango)
+				where bango = ${bango} group by ippanmei
+			`
+		},
+		{
+			target: 'usage',
+			query: `
+				SELECT
+					row_number() over(order by (select null)) as idx, sakumotsu, gn_concat(',', ifnull(byochu, mokuteki)) as 病害虫等,
+					jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
+				FROM ${tableName} WHERE bango = ${bango}
+				group by sakumotsu, jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
+			`
+		}
+	];
+
+	const executeUpdate = async () => {
+		try {
+			await new Promise(resolve => setTimeout(resolve, 0));
+			await chemDetailManager.update(chem, 't_chemTekiyo', sqls);
+		} catch (e) {
+			console.error("詳細表示エラー:", e);
+		} finally {
+			waiting(false);
+		}
+	};
+
+	if (chemSwiper.activeIndex === 2) {
+		setTimeout(executeUpdate, 50);
+	} else {
+		chemSwiper.once('transitionEnd', () => {
+			setTimeout(executeUpdate, 0);
+		});
+		chemSwiper.slideTo(2);
+	}
+}
+
+function initChemTab() {
+	// 薬剤タブ用 Managers
+	chemChemManager = new ChemListManager('#chemChemWrapper', (chem) => {
+		const chemSwiper = document.querySelector('.chem-swiper').swiper;
+		if (chem) {
+			updateStepBar(chemSwiper, Math.max(chemSwiper.maxReachedStep, 2));
+			setupChemDetail();
+		}
+	});
+
+	chemChemManager.init({ title: '薬剤選択', showCategory: true });
+
+	// 薬剤詳細マネージャ初期化
+	chemDetailManager = new ChemDetailManager('#chemDetailWrapper');
+	chemDetailManager.init();
+
+	// 薬剤タブ step.1 作成
+	setupChemCrop();
+
+}
+
 let mainJump;
 let stepJump;
-let cropManager; // 作物タブ専用マネージャ
+let stepMove;
+let cropCropManager, cropPestManager, cropChemManager, cropDetailManager; // 作物タブ用
+let pestPestManager, pestCropManager, pestChemManager, pestDetailManager; // 病害虫タブ用
+let chemChemManager, chemCropManager, chemDetailManager; // 薬剤タブ用
+let initializedTabs = [true, false, false]; // 作物タブ(0)は初期ロード時に初期化済み
 
 window.addEventListener('DOMContentLoaded', async () => {
 
@@ -649,30 +1757,42 @@ window.addEventListener('DOMContentLoaded', async () => {
 		allowTouchMove: true,
 		allowSlideNext: true, 
 		allowSlidePrev: true,
-		noSwiping: true, // タブコンテントのスワイプでタブが切り替わるのを防止するため noSwiping オプションは必須
-		noSwipingClass: 'swiper-slide',
+		noSwiping: true,
+		noSwipingClass: 'tab-container', // スライド自体ではなく、中身のコンテナを指定
 		speed: 300,
 		on: {
 			slideChange: function() {
+				clearAllSlideZoom();
 				updateMainTabs(this.activeIndex);
+				// タブに初めて移動したときに初期化を実行
+				if (!initializedTabs[this.activeIndex]) {
+					if (this.activeIndex === 1) initPestTab();
+					if (this.activeIndex === 2) initChemTab();
+					initializedTabs[this.activeIndex] = true;
+				}
 			},
+			// After main tab changes, update the step navigation buttons for the new active nested Swiper
+			transitionEnd: function() { // transitionEnd を使用して、スライドが完全に切り替わってから実行
+				const nestedSwiperEl = this.slides[this.activeIndex].querySelector('.swiper-initialized');
+				if (nestedSwiperEl && nestedSwiperEl.swiper) updateStepBar(nestedSwiperEl.swiper);
+			}
 		}
 	});
 
 	// 2. 作物タブのSwiper
 	const cropSwiper = createZoomableSwiper('.crop-swiper', mainSwiper, function() {
 		// slideChangeCallback: cropSwiper の slideChange イベントでステップバーを更新
-		updateStepBar(this.activeIndex, this.maxReachedStep);
+		updateStepBar(this);
 	});
 
 	// 3. 病害虫タブのSwiper
 	const pestSwiper = createZoomableSwiper('.pest-swiper', mainSwiper, function() {
-		updateStepBar(this.activeIndex, this.maxReachedStep);
+		updateStepBar(this);
 	});
 
 	// 4. 薬剤タブのSwiper
 	const chemSwiper = createZoomableSwiper('.chem-swiper', mainSwiper, function() {
-		updateStepBar(this.activeIndex, this.maxReachedStep);
+		updateStepBar(this);
 	});
 
 	// クリック時のジャンプ
@@ -688,12 +1808,29 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 		if (nestedSwiperEl && nestedSwiperEl.swiper) {
 			const targetSwiper = nestedSwiperEl.swiper;
-			// 解放済みのステップ（maxReachedStep以下）であれば遷移を許可
-			if (index <= targetSwiper.maxReachedStep) {
-				targetSwiper.slideTo(index);
-			}
+			// 未解放ステップは pointer-events: none になっているため、
+			// ここに到達した時点でジャンプ可能なステップであることが保証される
+			targetSwiper.slideTo(index);
+
 		}
 	};
+
+	// ステップの前後移動
+	stepMove = function(direction) {
+		const activeMainSlide = mainSwiper.slides[mainSwiper.activeIndex];
+		const nestedSwiperEl = activeMainSlide.querySelector('.swiper-initialized');
+		if (nestedSwiperEl && nestedSwiperEl.swiper) {
+			const targetSwiper = nestedSwiperEl.swiper; // Get the nested Swiper instance
+
+			// 移動できないステップへの前後移動タッチエリアは pointer-events: none になっているため、
+			// ここに到達した時点で前後移動可能であることが保証される
+			if (direction === 'prev') {
+				targetSwiper.slidePrev();
+			} else {
+				targetSwiper.slideNext();
+			}
+		}
+	}
 
 	// タブバーのスワイプ
 	addSwipeHandler(document.querySelector('.main-nav'), mainSwiper, true);
@@ -708,51 +1845,80 @@ window.addEventListener('DOMContentLoaded', async () => {
 		if (bar) addSwipeHandler(bar, item.instance, false);
 	});
 
-	// 作物ツリーの生成とイベントハンドラ設定
-	try {
-		const cropTreeSql = `
-			select idsaku, class, toroku, sakumotsu, shukakubui, betsumei,
-			':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
-			from m_sakumotsu where sakumotsu not like '%除く%';
-		`;
-		cropManager = new CropTreeManager('#cropTreeCrop', onCropCheckMobile, false);
-		cropManager.init(cropTreeSql);
-	} catch (e) {
-		console.error("作物ツリーの生成に失敗しました:", e);
-		// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
-		document.querySelector('#cropTreeCrop').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
-	}
+	// 作物タブ初期化
+	initCropTab();
 
 	// 初期状態のインジケータをセット
 	updateMainTabs(0);
-	updateStepBar(0);
+	updateStepBar(cropSwiper, 0); // Initial step bar and navigation update
 
 });
 
-// モバイル版の作物チェック時のコールバック関数（仮）
-function onCropCheckMobile(selectedCrops) {
-	const cropSwiper = document.querySelector('.crop-swiper').swiper;
-	if (selectedCrops.length > 0) {
-		// 選択があればステップ2（病害虫）を解放
-		if (cropSwiper.maxReachedStep < 1) {
-			cropSwiper.maxReachedStep = 1;
-			updateStepBar(cropSwiper.activeIndex, cropSwiper.maxReachedStep);
+let backTapCount = 0;
+let backTimer = null;
+
+// 1. 起動時（最初のタップが必要）
+window.addEventListener('load', () => {
+	const initHistory = () => {
+		// Entry 0 (境界線)
+		history.replaceState({ isBottom: false }, ''); 
+		// Entry 1 (アプリ本体)
+		history.pushState({ isBottom: true }, ''); 
+		
+		window.removeEventListener('click', initHistory);
+	};
+	window.addEventListener('click', initHistory);
+});
+
+// 2. 戻るボタンの監視
+window.addEventListener('popstate', (event) => {
+	if (!event.state || !event.state.isBottom) {
+		// 💡 境界線に触れた
+		backTapCount++;
+
+		if (backTapCount >= 2) {
+			// 2回連続で戻ったなら、そのままアプリ終了（前のサイトへ戻る）
+			// ここで何もしなければ、ブラウザの自然な挙動で終了します
+		} else {
+			// 1回目の「戻る」：即座に履歴を Entry 1 に復帰させて、メッセージを出す
+			history.pushState({ isBottom: true }, '');
+			
+			showToast("もう一度戻ると終了します"); // 自作の通知
+
+			// 一定時間（例: 2秒）経ったらカウントをリセット
+			clearTimeout(backTimer);
+			backTimer = setTimeout(() => {
+				backTapCount = 0;
+			}, 2000);
 		}
-	} else {
-		// 選択がなければリセット
-		cropSwiper.maxReachedStep = 0;
-		if (cropSwiper.activeIndex > 0) cropSwiper.slideTo(0);
-		updateStepBar(0, cropSwiper.maxReachedStep);
 	}
+});
+
+function showToast(message) {
+	const toast = document.getElementById("toast");
+	
+	// メッセージをセット
+	toast.innerText = message;
+	
+	// クラスを付与して表示
+	toast.classList.add("show");
+
+	// 2秒後にクラスを外して隠す
+	setTimeout(() => {
+		toast.classList.remove("show");
+	}, 2000);
 }
+
 </script>
 </head>
 <body>
 <div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div class="prev-touch-bar" onclick="stepMove('prev')">«</div><!-- 前に戻るタッチ領域 -->
+<div class="next-touch-bar" onclick="stepMove('next')">»</div><!-- 次に進むタッチ領域 -->
 <header>
 	<div class="title">
 		<h1>ACFinderBE Mobile</h1>
-		<h2 id="db-update"></h2>
+		<p id="db-update"></p>
 	</div>
 	<div class="menu">
 		<svg class="icon" onclick="showMainMenu()">
@@ -776,116 +1942,149 @@ function onCropCheckMobile(selectedCrops) {
 			<div class="tab-container">
 				<!-- ステップバー -->
 				<div class="step-bar">
+					<div class="prev-step" onclick="stepMove('prev')">◀</div>
 					<div class="step-item active" onclick="stepJump(0)">1</div>
 					<div class="step-item" onclick="stepJump(1)">2</div>
 					<div class="step-item" onclick="stepJump(2)">3</div>
 					<div class="step-item" onclick="stepJump(3)">4</div>
+					<div class="next-step" onclick="stepMove('next')">▶</div>
 				</div>
 
 				<!-- 内部Swiper -->
 				<div class="swiper crop-swiper">
 					<div class="swiper-wrapper">
-						<!-- ① 作物ツリー -->
-						<div class="swiper-slide step-fixed">
-							<div class="swiper-zoom-container">
-								<div id="cropTreeCrop" class="swiper-zoom-target step-zoom-target"></div>
+						<!-- ① 作物選択 -->
+						<div class="swiper-slide no-swipe">
+							<div class="step-fixed">
+								<div id="cropCropTree"></div>
 							</div>
 						</div>
 
 						<!-- ② 病害虫選択 -->
-						<div class="swiper-slide step-fixed">
-							<div class="swiper-zoom-container">
-								<div class="swiper-zoom-target step-zoom-target">
-									<h4>対象病害虫</h4>
-									<div class="list-box">
-										<p style="color: #666;">病害虫選択のコンテンツがここに表示されます。</p>
-										<!-- ここに病害虫選択のUIを実装 -->
-									</div>
-								</div>
+						<div class="swiper-slide no-swipe">
+							<h2 id="cropHead2"></h2>
+							<div class="step-fixed">
+								<div id="cropPestWrapper"></div>
 							</div>
 						</div>
 
-						<!-- ③ 農薬選択 -->
-						<div class="swiper-slide step-fixed">
-							<div class="swiper-zoom-container">
-								<div class="swiper-zoom-target step-zoom-target">
-									<h4>農薬リスト</h4>
-									<div class="list-box">
-										<p style="color: #666;">農薬選択のコンテンツがここに表示されます。</p>
-										<!-- ここに農薬選択のUIを実装 -->
-									</div>
-								</div>
+						<!-- ③ 薬剤選択 -->
+						<div class="swiper-slide no-swipe">
+							<h2 id="cropHead3"></h2>
+							<div class="step-fixed">
+								<div id="cropChemWrapper"></div>
 							</div>
 						</div>
 
 						<!-- ④ 詳細表示 -->
-						<div class="swiper-slide step-scrollable">
-							<div class="swiper-zoom-container">
-								<div class="swiper-zoom-target step-zoom-target">
-									<h4>登録情報詳細</h4>
-									<div class="content-info">
-										<p style="color: #666;">ここに選択された農薬の詳細情報が表示されます。</p>
-										<!-- ここに詳細表示のコンテンツを実装 -->
-									</div>
-								</div>
+						<div class="swiper-slide">
+							<h2 id="cropHead4" class="no-swipe"></h2>
+							<div class="step-scrollable">
+								<div id="cropDetailWrapper"></div>
 							</div>
 						</div>
+
 					</div>
 				</div>
 			</div>
 		</div>
+
 		<!-- 【病害虫タブ】 -->
 		<div class="swiper-slide">
 			<div class="tab-container">
 				<!-- ステップバー -->
 				<div class="step-bar">
+					<div class="prev-step" onclick="stepMove('prev')">◀</div>
 					<div class="step-item active" onclick="stepJump(0)">1</div>
-					<div class="step-item locked" onclick="stepJump(1)">2</div>
-					<div class="step-item locked" onclick="stepJump(2)">3</div>
+					<div class="step-item" onclick="stepJump(1)">2</div>
+					<div class="step-item" onclick="stepJump(2)">3</div>
+					<div class="step-item" onclick="stepJump(3)">4</div>
+					<div class="next-step" onclick="stepMove('next')">▶</div>
 				</div>
 
 				<!-- 内部Swiper -->
 				<div class="swiper pest-swiper">
 					<div class="swiper-wrapper">
-						<div class="swiper-slide step-fixed">
-							<div class="swiper-zoom-container">
-								<div class="swiper-zoom-target step-zoom-target">
-									<h4>病害虫検索</h4>
-									<p style="color: #666;">病害虫・雑草名からの検索画面をここに実装します。</p>
-								</div>
+
+						<!-- ① 病害虫選択 -->
+						<div class="swiper-slide no-swipe">
+							<div class="step-fixed">
+								<div id="pestPestWrapper"></div>
 							</div>
 						</div>
-						<!-- 以降のステップ（検索結果、詳細等）は必要に応じて追加 -->
+
+						<!-- ① 作物選択 -->
+						<div class="swiper-slide no-swipe">
+							<h2 id="pestHead2"></h2>
+							<div class="step-fixed">
+								<div id="pestCropTree"></div>
+							</div>
+						</div>
+
+						<!-- ③ 農薬選択 -->
+						<div class="swiper-slide no-swipe">
+							<h2 id="pestHead3"></h2>
+							<div class="step-fixed">
+								<div id="pestChemWrapper"></div>
+							</div>
+						</div>
+
+						<!-- ④ 詳細表示 -->
+						<div class="swiper-slide">
+							<h2 id="pestHead4" class="no-swipe"></h2>
+							<div class="step-scrollable">
+								<div id="pestDetailWrapper"></div>
+							</div>
+						</div>
+
 					</div>
 				</div>
 			</div>
 		</div>
+
 		<!-- 【薬剤タブ】 -->
 		<div class="swiper-slide">
 			<div class="tab-container">
 				<!-- ステップバー -->
 				<div class="step-bar">
+					<div class="prev-step" onclick="stepMove('prev')">◀</div>
 					<div class="step-item active" onclick="stepJump(0)">1</div>
-					<div class="step-item locked" onclick="stepJump(1)">2</div>
+					<div class="step-item" onclick="stepJump(1)">2</div>
+					<div class="step-item" onclick="stepJump(2)">3</div>
+					<div class="next-step" onclick="stepMove('next')">▶</div>
 				</div>
 
 				<!-- 内部Swiper -->
 				<div class="swiper chem-swiper">
 					<div class="swiper-wrapper">
-						<div class="swiper-slide step-fixed">
-							<div class="swiper-zoom-container">
-								<div class="swiper-zoom-target step-zoom-target">
-									<h4>薬剤検索</h4>
-									<p style="color: #666;">薬剤名・成分名からの検索画面をここに実装します。</p>
-								</div>
+
+						<!-- ① 作物選択 -->
+						<div class="swiper-slide no-swipe">
+							<div class="step-fixed">
+								<div id="chemCropTree"></div>
 							</div>
 						</div>
-						<!-- 以降のステップは必要に応じて追加 -->
-					</div>
-				</div>
+
+						<!-- ② 農薬選択 -->
+						<div class="swiper-slide no-swipe">
+							<h2 id="chemHead2"></h2>
+							<div class="step-fixed">
+								<div id="chemChemWrapper"></div>
+							</div>
+						</div>
+
+						<!-- ③ 詳細表示 -->
+						<div class="swiper-slide">
+							<h2 id="chemHead3" class="no-swipe"></h2>
+							<div class="step-scrollable">
+								<div id="chemDetailWrapper"></div>
+							</div>
+						</div>
+
 			</div>
 		</div>
 	</div>
 </div>
+<div id="toast" class="toast">もう一度バックボタンをタップすると終了します</div>
 </body>
 </html>

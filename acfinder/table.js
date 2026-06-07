@@ -139,7 +139,7 @@ function getScrollbarWidth() {
  * @returns {Array<{columns: string[], values: Array<Array<any>>}>} クリーンアップされた検索結果
  */
 function cleanSqlResult(result) {
-	if (result.length === 0) return [];
+	if (!result || !result.columns || result.columns.length === 0) return result;
 
 	const originalColumns = result.columns;
 	const originalValues = result.values;
@@ -230,9 +230,9 @@ function outputTable(selector, result, option = {}) {
 
 	const rowsTableWindow = localStorage.getItem('rowsTableWindow') || '20';
 	let currentRowsWindow = parseInt(rowsTableWindow, 10);
-	const defPaginHeight = 41 + 2; // ページネーションの高さ
+	const defPaginHeight = 44 + 1; // ページネーションの高さ
 	const rowHeight = 24; // 1行の高さ
-	const headerHeight = 24; // ヘッダーの高さ
+	const headerHeight = 25; // ヘッダーの高さ
 	const defTableHeight = rowHeight * currentRowsWindow + headerHeight + defPaginHeight; // rowsTableWindow 行分の高さとページネーションの合計
 	const scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ取得
 
