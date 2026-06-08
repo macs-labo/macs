@@ -41,17 +41,19 @@
 <style>
 
 #cropTree {
-	flex: 0;
-	min-height: calc(50% + 21px);
+	flex: none;
+	height: calc(50% + 21px);
+	min-height: 280px;
+	margin-bottom: 7px;
 }
 
 #selectPest {
 	position: relative;
-	margin-top: 15px;
 	display: flex;
 	flex-direction: column;
 	flex: 1;
-	min-height: 0;
+	min-height: 220px;
+	margin-top: 7px;
 }
 
 #selectPest.hidden {
@@ -266,7 +268,6 @@ window.addEventListener('DOMContentLoaded', async function() {
 	// 病害虫リストマネージャ初期化
 	pestManager = new PestListManager('#selectPest', () => { searchCrop(true); });
 	pestManager.init({ title: '病害虫名等選択', showCategory: true });
-	//pestManager.update([]);
 	pestManager.reset(true);
 
 	// firefox のリロード時 checkbox 状態復元対策
@@ -292,6 +293,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 				</select>
 			</div>
 			<div id="cropTree"></div>
+			<div id="h-splitter" class="splitter"></div>
 			<div id="selectPest"></div>
 		</div>
 		<div id="resultPane">

@@ -1666,7 +1666,7 @@ window.addEventListener('DOMContentLoaded', function() {
 // ページロード完了時の初期設定
 window.addEventListener('DOMContentLoaded', async function() {
 
-	// conditionpane が存在すれば conditionpane 開閉機能設定
+	// conditionPane が存在すれば conditionPane 開閉機能設定
 	document.getElementById('sideToggler')?.remove(); // #sideToggler があれば削除
 	const conditionPane = document.getElementById('conditionPane');
 	if (conditionPane) {
@@ -1732,10 +1732,8 @@ window.addEventListener('DOMContentLoaded', async function() {
 		document.addEventListener('mousemove', function(e) {
 			if (!isResizing) return;
 			const newWidth = e.clientX - conditionPane.getBoundingClientRect().left;
-			//if (newWidth > 100) { // 最小幅制限
-				conditionPane.style.width = newWidth + 'px';
-				conditionPane.style.flex = 'none';
-			//}
+			conditionPane.style.width = newWidth + 'px';
+			conditionPane.style.flex = 'none';
 		});
 
 		document.addEventListener('mouseup', function(e) {
@@ -1748,6 +1746,80 @@ window.addEventListener('DOMContentLoaded', async function() {
 				// 幅の保存
 				if (sidebarWidth === '1') localStorage.setItem(widthKey, conditionPane.style.width);
 			}
+		});
+
+		// タッチイベント
+		let startTouchClientX;
+		let startTouchWidth;
+
+		const onTouchMove = function(e) {
+			if (!isResizing) return;
+			e.preventDefault(); // デフォルトのスクロール動作を防止
+			const newWidth = startTouchWidth + (e.touches[0].clientX - startTouchClientX);
+			conditionPane.style.width = newWidth + 'px';
+			conditionPane.style.flex = 'none';
+		};
+
+		const onTouchEnd = function() {
+			if (isResizing) {
+				isResizing = false;
+				splitter.classList.remove('dragging');
+				document.body.style.userSelect = ''; // テキスト選択防止を解除
+				if (sidebarWidth === '1') localStorage.setItem(widthKey, conditionPane.style.width);
+				document.removeEventListener('touchmove', onTouchMove);
+				document.removeEventListener('touchend', onTouchEnd);
+			}
+		};
+
+		splitter.addEventListener('touchstart', function(e) {
+			e.preventDefault(); // デフォルトのタッチ動作 (スクロールなど) を防止
+			isResizing = true;
+			splitter.classList.add('dragging');
+			document.body.style.userSelect = 'none'; // テキスト選択防止
+			startTouchClientX = e.touches[0].clientX;
+			startTouchWidth = conditionPane.offsetWidth;
+			document.addEventListener('touchmove', onTouchMove, { passive: false }); // passive: false で preventDefault を有効にする
+			document.addEventListener('touchend', onTouchEnd);
+		});
+	}
+
+
+	// conditionPane に #h-splitter が存在すれば、リサイズ機能設定 (タッチ対応)
+	const splitterH = conditionPane.querySelector('#h-splitter');
+	const topPane = splitterH?.previousElementSibling;
+	if (splitterH && topPane) {
+		let topPaneTop;
+		let offsetInSplitter;
+
+		const onMoveH = (e) => {
+			e.preventDefault(); // デフォルトのスクロール動作を防止
+			const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+			const newHeight = clientY - topPaneTop - offsetInSplitter;
+			topPane.style.height = newHeight + 'px';
+		};
+		const onEndH = () => {
+			document.removeEventListener('mousemove', onMoveH);
+			document.removeEventListener('mouseup', onEndH);
+			document.removeEventListener('touchmove', onMoveH);
+			document.removeEventListener('touchend', onEndH);
+		};
+
+		// マウスイベント
+		splitterH.addEventListener('mousedown', function(e) {
+			e.preventDefault();
+			topPaneTop = topPane.getBoundingClientRect().top;
+			offsetInSplitter = e.clientY - splitterH.getBoundingClientRect().top;
+			document.addEventListener('mousemove', onMoveH);
+			document.addEventListener('mouseup', onEndH);
+		});
+
+		// タッチイベント
+		splitterH.addEventListener('touchstart', function(e) {
+			e.preventDefault(); // デフォルトのタッチ動作 (スクロールなど) を防止
+			topPaneTop = topPane.getBoundingClientRect().top;
+			offsetInSplitter = e.touches[0].clientY - splitterH.getBoundingClientRect().top;
+			document.addEventListener('touchmove', onMoveH, { passive: false }); // passive: false で preventDefault を有効にする
+			document.addEventListener('touchend', onEndH);
 		});
 	}
 

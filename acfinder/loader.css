@@ -467,6 +467,18 @@ p.error {
 	display: none;
 }
 
+/* conditionPane 水平スプリッターのスタイル */
+#h-splitter.splitter {
+	left: -15px;
+	top: -3px;
+	width: calc(100% + 30px);
+	height: 6px;
+	/* margin: -3px; */
+	cursor: row-resize;
+	border-bottom: 1px dashed var(--border-color);
+	flex-shrink: 0;
+}
+
 /* Loading 表示 */
 #loading {
 	position: fixed;
