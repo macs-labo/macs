@@ -5,10 +5,10 @@ const cautionDate = Date.parse('2026/3/1');
 
 // データベース設定
 const debug = !window.location.href.includes('/acfinder/');
-var db = null;
-var tables = []; // テーブルインスタンスを保持する配列
-var lastUpdate = '';
-var dbStatusCached = false;
+let db = null;
+let tables = []; // テーブルインスタンスを保持する配列
+let lastUpdate = '';
+let dbStatusCached = false;
 
 const isCloud = window.location.hostname.match(/\.(vercel\.app|pages\.dev|github\.io)$/); // クラウドホスティング判定: ドメイン名が vercel.app, pages.dev, github.io
 const datdir = isCloud ? 'https://raw.githubusercontent.com/macs-labo/macs/main/data/' : '../data/'; // 実サーバ以外では github から取得
@@ -1514,24 +1514,6 @@ window.addEventListener('storage', (event) => {
 // タブの実行状況
 let tabExecuted = false;
 
-// 新しい関数: ローカルファイル選択時の処理
-async function handleLocalFileSelection(file) {
-	if (!file) return;
-
-	waiting(true, 'ファイルを読み込んでいます...');
-	try {
-		const templateHtml = await file.text();
-		sessionStorage.setItem('procTemplateHtml', templateHtml);
-		sessionStorage.setItem('procTemplateFileName', file.name);
-		// proc.html を現在のタブで開く（既に proc.html の場合はリロードされる）
-		window.open('proc.html', '_self');
-	} catch (e) {
-		console.error('ファイルの読み込み中にエラーが発生しました:', e);
-		waiting(false);
-		alert('ファイルの読み込みに失敗しました。');
-	}
-}
-
 // DOM読込完了時の初期設定
 window.addEventListener('DOMContentLoaded', function() {
 
@@ -1646,29 +1628,7 @@ window.addEventListener('DOMContentLoaded', function() {
 			item.className = 'menu-item';
 			item.innerHTML = `<div class="menu-item-name">${option.name}</div><div class="menu-item-title">${option.title}</div>`;
 			item.addEventListener('click', () => {
-				let handler = option.handler;
-				// file プロパティがなく、名前が「ローカル」ならデフォルトのファイル選択ハンドラを設定
-				if (!handler && !option.file && option.name === 'ローカル') {
-					handler = () => {
-						const fileInput = document.createElement('input');
-						fileInput.type = 'file';
-						fileInput.accept = '.html';
-						fileInput.className = 'hidden';
-						fileInput.addEventListener('change', (e) => {
-							const file = e.target.files[0];
-							if (file) handleLocalFileSelection(file);
-							fileInput.remove();
-						});
-						document.body.appendChild(fileInput);
-						fileInput.click();
-					};
-				}
-
-				if (handler) {
-					handler();
-				} else if (option.file) {
-					window.open(option.file, tabExecuted ? '_blank' : '_self');
-				}
+				window.open(option.file, tabExecuted ? '_blank' : '_self');
 				dialog.close();
 			});
 			menuList.appendChild(item);
@@ -1825,44 +1785,42 @@ window.addEventListener('DOMContentLoaded', async function() {
 
 
 	// conditionPane に #h-splitter が存在すれば、リサイズ機能設定 (タッチ対応)
-	if (conditionPane) {
-		const splitterH = conditionPane.querySelector('#h-splitter');
-		const topPane = splitterH?.previousElementSibling;
-		if (splitterH && topPane) {
-			let topPaneTop;
-			let offsetInSplitter;
+	const splitterH = conditionPane.querySelector('#h-splitter');
+	const topPane = splitterH?.previousElementSibling;
+	if (splitterH && topPane) {
+		let topPaneTop;
+		let offsetInSplitter;
 
-			const onMoveH = (e) => {
-				e.preventDefault(); // デフォルトのスクロール動作を防止
-				const clientY = e.touches ? e.touches[0].clientY : e.clientY;
-				const newHeight = clientY - topPaneTop - offsetInSplitter;
-				topPane.style.height = newHeight + 'px';
-			};
-			const onEndH = () => {
-				document.removeEventListener('mousemove', onMoveH);
-				document.removeEventListener('mouseup', onEndH);
-				document.removeEventListener('touchmove', onMoveH);
-				document.removeEventListener('touchend', onEndH);
-			};
+		const onMoveH = (e) => {
+			e.preventDefault(); // デフォルトのスクロール動作を防止
+			const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+			const newHeight = clientY - topPaneTop - offsetInSplitter;
+			topPane.style.height = newHeight + 'px';
+		};
+		const onEndH = () => {
+			document.removeEventListener('mousemove', onMoveH);
+			document.removeEventListener('mouseup', onEndH);
+			document.removeEventListener('touchmove', onMoveH);
+			document.removeEventListener('touchend', onEndH);
+		};
 
-			// マウスイベント
-			splitterH.addEventListener('mousedown', function(e) {
-				e.preventDefault();
-				topPaneTop = topPane.getBoundingClientRect().top;
-				offsetInSplitter = e.clientY - splitterH.getBoundingClientRect().top;
-				document.addEventListener('mousemove', onMoveH);
-				document.addEventListener('mouseup', onEndH);
-			});
+		// マウスイベント
+		splitterH.addEventListener('mousedown', function(e) {
+			e.preventDefault();
+			topPaneTop = topPane.getBoundingClientRect().top;
+			offsetInSplitter = e.clientY - splitterH.getBoundingClientRect().top;
+			document.addEventListener('mousemove', onMoveH);
+			document.addEventListener('mouseup', onEndH);
+		});
 
-			// タッチイベント
-			splitterH.addEventListener('touchstart', function(e) {
-				e.preventDefault(); // デフォルトのタッチ動作 (スクロールなど) を防止
-				topPaneTop = topPane.getBoundingClientRect().top;
-				offsetInSplitter = e.touches[0].clientY - splitterH.getBoundingClientRect().top;
-				document.addEventListener('touchmove', onMoveH, { passive: false }); // passive: false で preventDefault を有効にする
-				document.addEventListener('touchend', onEndH);
-			});
-		}
+		// タッチイベント
+		splitterH.addEventListener('touchstart', function(e) {
+			e.preventDefault(); // デフォルトのタッチ動作 (スクロールなど) を防止
+			topPaneTop = topPane.getBoundingClientRect().top;
+			offsetInSplitter = e.touches[0].clientY - splitterH.getBoundingClientRect().top;
+			document.addEventListener('touchmove', onMoveH, { passive: false }); // passive: false で preventDefault を有効にする
+			document.addEventListener('touchend', onEndH);
+		});
 	}
 
 	// 注意事項未承諾の場合、resultPane に注意事項を表示

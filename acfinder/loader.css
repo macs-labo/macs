@@ -404,7 +404,6 @@ p.error {
 
 /* パネル開閉トグラーのスタイル */
 #sideToggler,
-#condToggler,
 #topToggler {
 	position: absolute;
 	top: 0; /* 常に #resultPane の上端に配置 */
@@ -413,7 +412,7 @@ p.error {
 	align-items: center; /* 垂直中央揃え */
 	justify-content: center; /* 水平中央揃え */
 	font-size: 8px;
-	background-color: transparent;
+	background-color: var(--bg-color);
 	color: var(--border-color);
 	transition: var(--icon-mouse-out-transition); 
 }
@@ -423,31 +422,26 @@ p.error {
 	height: 100%;
 	writing-mode: vertical-rl; /* テキストを縦書きにする */
 	cursor: ew-resize; /* 水平方向のリサイズカーソル */
-	z-index: 5;
+	z-index: 10;
 }
 
-#condToggler,
 #topToggler {
 	height: 10px; /* クリック領域の幅 */
 	width: 100%;
 	cursor: ns-resize;
-	z-index: 10;
+	z-index: 5;
 }
 
 #sideToggler:hover,
-#condToggler:hover,
 #topToggler:hover,
 #sideToggler.closed:hover,
-#condToggler.closed:hover,
 #topToggler.closed:hover {
 	color: var(--bg-color);
 	background-color: var(--border-color-strong);
-	transition: var(--mouse-in-transition);
-	z-index: 15;
+	transition: var(--mouse-in-transition); 
 }
 
 #sideToggler.closed,
-#condToggler.closed,
 #topToggler.closed {
 	color: var(--text-color-light);
 	background-color: var(--bg-color-button);
@@ -475,7 +469,7 @@ p.error {
 
 /* conditionPane 水平スプリッターのスタイル */
 #h-splitter.splitter {
-	left: -12px;
+	left: -15px;
 	top: -3px;
 	width: calc(100% + 30px);
 	height: 6px;

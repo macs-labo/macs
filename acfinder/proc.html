@@ -13,9 +13,44 @@
 <link rel="stylesheet" type="text/css" href="./common.css" />
 <link rel="stylesheet" type="text/css" href="./loader.css" />
 <!-- 最低限必要な外部ライブラリ -->
+
+<!--	タブ専用の style -->
+<style>
+input[type="file"] {
+	margin: 15px;
+}
+</style>
 <!--	タブ専用の script -->
 <script>
-window.addEventListener('DOMContentLoaded', async function() {
+// ローカルファイル読み込み処理
+async function loadTabHtml(event) {
+	const file = event.target.files[0];
+  console.log('file:', file);
+	if (!file) return;
+
+	waiting(true, 'ファイルを読み込んでいます...');
+	try {
+		const templateHtml = await file.text();
+		sessionStorage.setItem('procTemplateHtml', templateHtml);
+		sessionStorage.setItem('procTemplateFileName', file.name);
+		window.location.reload(true);
+	} catch (e) {
+		console.error('ファイルの読み込み中にエラーが発生しました:', e);
+		waiting(false);
+		alert('ファイルの読み込みに失敗しました。');
+	}
+}
+
+// DOM読込完了時の初期設定
+window.addEventListener('DOMContentLoaded', async function onDOMContentLoaded() {
+	window.removeEventListener('DOMContentLoaded', onDOMContentLoaded);
+
+	const fileInput = document.getElementById('tabFile');
+	if (fileInput) {
+		fileInput.addEventListener('change', loadTabHtml);
+		fileInput.addEventListener('click', (e) => { e.target.value = ''; });
+	}
+
 	const templateHtml = sessionStorage.getItem('procTemplateHtml');
 	const templateFileName = sessionStorage.getItem('procTemplateFileName');
 	if (templateHtml) {
@@ -123,11 +158,6 @@ window.addEventListener('DOMContentLoaded', async function() {
 		}
 	}
 });
-
-/* window.addEventListener('load', () => {
-	document.getElementById('tabFile')?.click()
-});
- */
 </script>
 </head>
 <body>
@@ -135,7 +165,12 @@ window.addEventListener('DOMContentLoaded', async function() {
 <div id="loading"></div><!-- loading メッセージ表示領域確保 -->
 <div id="title-bar"></div><!--	タイトル表示領域確保 -->
 <div id="tab-header" class="tab_header"></div><!--	タブヘッダー表示領域確保 -->
-<!--	このタブの表示内容は動的に挿入されます -->
+<!--	このタブの表示内容 -->
 <div class="tab_content">
-	<p>「ローカル」タブからファイルを選択してください。</p>
-</div>
+	<input type="file" id="tabFile" accept=".html">
+</div><!-- End of tab-content -->
+<!--  タブ内容読込後に実行する script -->
+<script>
+</script>
+</body>
+</html>
