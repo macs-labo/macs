@@ -76,6 +76,16 @@
 		}
 	});
 
+	// ブラウザのタッチエミュレータの場合はマウス右ボタンででログ表示
+	window.addEventListener('contextmenu', function(e) {
+		e.preventDefault();
+		if (div.style.display === 'none') {
+			div.style.display = 'block';
+		} else {
+			div.style.display = 'none';
+		}
+	});
+
 	// --- グローバル・一時的ピンチズームの実装 ---
 	(function initGlobalPinchZoom() {
 		let startDist = 0;
@@ -352,18 +362,14 @@ select { height: 28px; }
 }
 
 /* 内部Swiper (各タブ共通) */
-.crop-swiper,
-.pest-swiper,
-.chem-swiper {
+.swiper {
 	flex: 1;
 	width: 100%;
 	min-width: 0;
 }
 
 /* 内部Swiperのスライドをフレックスコンテナにする */
-.crop-swiper .swiper-slide,
-.pest-swiper .swiper-slide,
-.chem-swiper .swiper-slide {
+.swiper-wrapper .swiper-slide {
 	display: flex;
 	flex-direction: column;
 }
@@ -404,77 +410,21 @@ select { height: 28px; }
 	text-overflow: ellipsis
 }
 
-/* 病害虫マネージャ（Wrapper）のレイアウト調整 */
-#cropPestWrapper,
-#pestPestWrapper {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
-	min-width: 0;
-	width: 100%;
-}
-/* 中のリストボックスを最大まで広げる */
-#cropPestWrapper .list-box,
-#pestPestWrapper .list-box {
+/* 各リストボックス共通設定 */
+.list-box {
 	flex: 1;
 	min-width: 0;
 	width: 100%;
 	overflow: auto;
 	display: flex;
 	flex-direction: column;
-	/* 以前の Swiper zoom クラスが残っている場合の中央寄せ設定を解除 */
-	justify-content: flex-start;
-	align-items: flex-start;
-	text-align: left;
 }
 
-#cropPestWrapper .pest-list-container,
-#pestPestWrapper .pest-list-container,
-#cropChemWrapper .chem-list-container,
-#pestChemWrapper .chem-list-container,
-#chemChemWrapper .chem-list-container {
+/* 各リストコンテナ共通設定 */
+.pest-list-container,
+.chem-list-container {
 	min-width: 100%;
 	width: max-content;
-}
-
-/* 薬剤マネージャ（Wrapper）のレイアウト調整 */
-#cropChemWrapper,
-#cropDetailWrapper,
-#pestChemWrapper,
-#pestDetailWrapper,
-#chemChemWrapper,
-/* #chemCropTree, */
-#chemDetailWrapper {
-	flex: 1;
-	display: flex;
-	flex-direction: column;
-	min-height: 0;
-	min-width: 0;
-	width: 100%;
-}
-
-#cropChemWrapper .list-box,
-#pestChemWrapper .list-box,
-#chemChemWrapper .list-box {
-	flex: 1;
-	min-width: 0;
-	width: 100%;
-	overflow: auto;
-	display: flex;
-	flex-direction: column;
-}
-
-.checkListItem em {
-	/* font-weight: bolder; */
-	font-style: normal;
-	color: var(--text-color-dark);
-	text-shadow: var(--bolder);
-}
-
-.checkListItem small {
-	font-size: 12px;
-	color: var(--text-color-light);
 }
 
 .checkListItem:hover { background-color: none; }
@@ -571,33 +521,6 @@ form button:hover {
 	color: var(--text-color);
 }
 
-input[type="radio"] {
-	position: relative;
-	flex-shrink: 0;
-	width: 14px;
-	height: 14px;
-	appearance: none;
-	-webkit-appearance: none;
-	border: 1px solid var(--border-color);
-	border-radius: 9999px;
-	cursor: pointer;
-}
-
-input[type="radio"]:checked {
-	border: 1px solid var(--border-color-focus);
-}
-
-input[type="radio"]:checked::after {
-	content: "";
-	position: absolute;
-	inset: 0;
-	width: 10px;
-	height: 10px;
-	margin: auto;
-	border-radius: 9999px;
-	background-color: var(--border-color-focus);
-}
-
 .step-scrollable h3 {
 	font-size: 14px;
 	font-weight: bold;
@@ -608,6 +531,7 @@ input[type="radio"]:checked::after {
 	margin-bottom: 5px;
 }
 
+/* 薬剤詳細テーブルスタイル */
 table.row-data-table {
   width: 100%;
   border-collapse: collapse;
@@ -616,6 +540,7 @@ table.row-data-table {
 	border: 1px solid var(--border-color-strong);
 	line-height: 1.2;
 }
+
 .row-data-table th, .row-data-table td {
 	font-size: 13px;
 	padding: 3px 5px;
@@ -624,6 +549,7 @@ table.row-data-table {
   border: 1px solid var(--border-color-ht-common);
 	border-bottom: none;
 }
+
 .row-data-table th {
 	font-weight: normal;
 	color: var(--text-color-dark);
@@ -632,10 +558,12 @@ table.row-data-table {
 	white-space: nowrap;
 	vertical-align: top;
 }
+
 .row-data-table td {
 	color: var(--text-color);
 	border-right: none;
 }
+
 .row-title {
 	font-size: 13px;
 	font-weight: bold;
@@ -651,12 +579,15 @@ table.row-data-table {
 	white-space: nowrap;
 	overflow-x: auto;
 }
+
 .row-data-table .even-row {
 	background-color: var(--bg-color-even-row);
 }
+
 .bottom-spacer {
 	height: var(--content-area-margin); /* スクロール可能な領域の末尾に余白を確保 */
 }
+
 .toast {
 	visibility: hidden;           /* 通常は隠す */
 	min-width: 250px;
@@ -680,6 +611,20 @@ table.row-data-table {
 	opacity: 1;
 }
 
+/* 動的タブの閉じるボタン */
+.main-btn.dynamic-tab-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	padding-right: 5px; /* 閉じるボタンの分だけパディングを調整 */
+}
+.main-btn.dynamic-tab-btn .close-tab-btn {
+	font-size: 12px;
+	font-weight: bold;
+	color: var(--text-color-light);
+	cursor: pointer;
+}
 </style>
 <script>
 window.isMobile = true;
@@ -839,6 +784,9 @@ function showMainMenu() {
 		<div class="menu-container">
 			${zoomControlsHtml}
 			<ul class="menu-list">
+				<li class="menu-item" onclick="showAddTabMenu();">
+					<div class="menu-item-name">➕ 新規タブ</div>
+				</li>
 				<li class="menu-item" onclick="showThemeSelection()">
 					<div class="menu-item-name">🎨 テーマ選択</div>
 				</li>
@@ -865,8 +813,8 @@ function showMainMenu() {
 				<li class="menu-item" onclick="hardReload();">
 					<div class="menu-item-name">🔄 リロード</div>
 				</li>
-				<li class="menu-item" onclick="location.href='crop.html?mode=desktop'">
-					<div class="menu-item-name">🖥️ デスクトップ版へ切替</div>
+				<li class="menu-item" onclick="window.open('crop.html?mode=desktop', '_blank'); document.getElementById('main-menu-dialog').close();">
+					<div class="menu-item-name">🖥️ デスクトップ版を起動</div>
 				</li>
 			</ul>
 		</div>
@@ -960,6 +908,53 @@ function applyZoom(scale) {
 	if (zoomLevelEl) zoomLevelEl.textContent = `${Math.round(newZoom * 100)}%`;
 }
 
+// オプションタブ追加メニューの表示
+function showAddTabMenu() {
+	document.getElementById('main-menu-dialog')?.close(); // メインメニューを閉じる
+
+	const dialogId = 'add-tab-menu-dialog';
+	let dialog = document.getElementById(dialogId);
+	
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		document.body.appendChild(dialog);
+	}
+
+	// 位置をアイコンの直下に固定 (メインメニューと同じ位置)
+	const icon = document.querySelector('header .menu');
+	const rect = icon.getBoundingClientRect();
+	dialog.style.position = 'fixed';
+	dialog.style.margin = '0';
+	dialog.style.top = (rect.bottom + 5) + 'px';
+	dialog.style.right = '10px';
+	dialog.style.left = 'auto';
+
+	dialog.innerHTML = `
+		<div class="menu-container">
+			<ul class="menu-list">
+				<li class="menu-item" onclick="addDynamicTab('防除記録', 'tab-pa-rec.html'); document.getElementById('${dialogId}').close();">
+					<div class="menu-item-name">✍ 防除記録</div>
+				</li>
+				<li class="menu-item" onclick="document.getElementById('localTabFileInput').click(); document.getElementById('${dialogId}').close();">
+					<div class="menu-item-name">📂 ローカルファイル</div>
+				</li>
+			</ul>
+		</div>
+		<form method="dialog">
+			<span>新規タブ</span><button>閉じる</button>
+		</form>
+	`;
+
+	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+	dialog.showModal();
+
+	// ローカルファイル入力のイベントリスナー
+	const localFileInput = document.getElementById('localTabFileInput');
+	localFileInput.onchange = loadLocalTabFile;
+}
+
 // すべてのスライドの一時ズームをリセットする
 function clearAllSlideZoom() {
 	document.querySelectorAll('.step-fixed, .step-scrollable').forEach(el => {
@@ -1007,747 +1002,235 @@ function createZoomableSwiper(selector, mainSwiperInstance, slideChangeCallback 
 	return swiperInstance;
 }
 
-// 作物タブ setp.1: 作物選択
-function setupCropCrop() {
-	// 作物ツリーの生成
+let mainJump, stepJump, stepMove, addDynamicTab;
+let mainSwiper; // mainSwiper をグローバル変数として宣言
+let initializedTabs = []; // 全てのタブは初期ロード時に未初期化状態
+let tabSwiperInstances = []; // 各タブの Swiper インスタンスを格納する配列
+const tabTitles = tabs.slice(0, 3).map(tab => tab.name); // タブの表示名管理 (header.js の tabs から初期化)
+const tabSources = tabs.slice(0, 3).map(tab => `mob-${tab.file}`); // タブのソース管理 (header.js の tabs から初期化)
+let tabInits = []; // タブごとの初期化関数名
+
+/**
+ * 外部HTMLファイルを読み込んで要素に注入し、スタイルとスクリプトを適用する
+ */
+async function loadTabContent(selector, source, isContent = false) { // isContent パラメータを追加
+	let html;
+	if (isContent) {
+		html = source;
+	} else {
+		const response = await fetch(source); // url ではなく source を使用
+		if (!response.ok) throw new Error(`Failed to load ${source}`); // url ではなく source を使用
+		html = await response.text();
+	}
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const target = document.querySelector(selector);
+	
+	// メタタグから初期化関数名を取得
+	const initFnMeta = doc.querySelector('meta[name="initFn"]');
+	const initFnName = initFnMeta ? initFnMeta.getAttribute('content') : null;
+
+	// スタイルの注入
+	doc.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => {
+		if (el.tagName === 'STYLE') {
+			const newStyle = document.createElement('style');
+			newStyle.textContent = el.textContent;
+			document.head.appendChild(newStyle);
+		} else { // link[rel="stylesheet"]
+			document.head.appendChild(el.cloneNode(true));
+		}
+	});
+	
+	// コンテンツの注入
+	target.innerHTML = doc.body.innerHTML;
+
+	// スクリプトの順次実行
+	const scripts = Array.from(doc.querySelectorAll('script'));
+	for (const oldScript of scripts) {
+		await new Promise((resolve) => {
+			const newScript = document.createElement('script');
+			Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+			newScript.textContent = oldScript.textContent;
+			if (newScript.src) {
+				newScript.onload = resolve;
+				newScript.onerror = resolve;
+				document.head.appendChild(newScript);
+			} else {
+				target.appendChild(newScript);
+				resolve();
+			}
+		});
+	}
+	return initFnName;
+}
+
+/**
+ * メニューから動的にタブを追加し、表示・初期化する
+ * @param {string} title タブの表示名
+ * @param {string} source タブコンテンツのURLまたはHTML文字列
+ * @param {boolean} isContent sourceがHTML文字列であるか
+ */
+addDynamicTab = async function(title, source, isContent = false) {
+	document.getElementById('main-menu-dialog')?.close();
+	document.getElementById('add-tab-menu-dialog')?.close(); // オプションタブメニューも閉じる
+	await waiting(true, `${title}を読み込み中...`);
 	try {
-		const cropTreeSql = `
-			select idsaku, class, toroku, sakumotsu, shukakubui, betsumei,
-			':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
-			from m_sakumotsu where sakumotsu not like '%除く%';
-		`;
-		cropCropManager = new CropTreeManager('#cropCropTree', onCheckCropCrop, false);
-		cropCropManager.init(cropTreeSql, {
-			showSearchMethod: true,
-			onSearchMethodChange: () => {
-				if (cropCropManager.checkedCrops.length > 1) setupCropPest();
+		// 2重起動防止: 同じ名前（タイトル）または同じソースのタブが既に開かれているかチェック
+		const existingIndex = (tabTitles.indexOf(title) !== -1) ? tabTitles.indexOf(title) : tabSources.indexOf(source);
+		if (existingIndex !== -1) {
+			mainJump(existingIndex);
+			showToast(`「${title}」は既に開いています`);
+			waiting(false);
+			return;
+		}
+
+		const nav = document.querySelector('.main-nav');
+		const wrapper = document.querySelector('.main-swiper > .swiper-wrapper');
+		const index = nav.querySelectorAll('.main-btn').length; // 現在のタブ数 = 新しいタブのインデックス
+		const placeholderId = `dynamic-tab-${index}`;
+
+		// 1. ナビボタン追加
+		const newBtn = document.createElement('button');
+		newBtn.className = 'main-btn dynamic-tab-btn';
+		newBtn.innerHTML = `<span>${title}</span><span class="close-tab-btn">✖</span>`;
+		newBtn.onclick = (e) => {
+			if (e.target.classList.contains('close-tab-btn')) {
+				e.stopPropagation();
+				closeTab(index);
+			} else {
+				mainJump(index);
 			}
-		});
+		};
+		nav.appendChild(newBtn);
+
+		// 2. スライド追加
+		mainSwiper.appendSlide(`<div class="swiper-slide" id="${placeholderId}"></div>`);
+		// 3. Swiper更新
+		mainSwiper.update();
+		// 4. コンテンツ読み込み
+		const initFnName = await loadTabContent(`#${placeholderId}`, source, isContent);
+
+		// 5. 初期化関数の登録
+		tabInits.push(initFnName);
+		tabSources.push(source);
+		tabTitles.push(title);
+		initializedTabs[index] = false; // 動的に追加されたタブは未初期化状態
+
+		// 6. 移動
+		mainJump(index);
 	} catch (e) {
-		console.error("作物ツリーの生成に失敗しました:", e);
-		// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
-		document.querySelector('#cropCropTree').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
+		console.error("タブの追加に失敗しました:", e);
+		alert("タブの追加に失敗しました。");
+	} finally {
+		waiting(false);
 	}
+};
+
+/**
+ * ローカルHTMLファイルを読み込んで動的タブとして追加する
+ */
+async function loadLocalTabFile(event) {
+	const file = event.target.files[0];
+	if (!file) return;
+
+	const reader = new FileReader();
+	reader.onload = async (e) => {
+		const htmlContent = e.target.result;
+		let tabName = file.name.replace(/\.html$/, '');
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(htmlContent, 'text/html');
+		const titleElement = doc.querySelector('title');
+		if (titleElement && titleElement.textContent.trim() !== '') {
+			tabName = titleElement.textContent.trim();
+		}
+		await addDynamicTab(tabName, htmlContent, true); // isContent = true を追加
+	};
+	reader.readAsText(file);
+	event.target.value = ''; // 同じファイルを再度選択できるように、inputの値をクリアする
 }
 
-// 作物タブ step.1 の作物ツリーチェック時のコールバック関数
-function onCheckCropCrop(selectedCrops) {
-	const cropSwiper = document.querySelector('.crop-swiper').swiper;
-	if (selectedCrops.length > 0) {
-		// 選択があれば step.2 (病害虫)を解放
-		const newMax = Math.max(cropSwiper.maxReachedStep, 1);
-		updateStepBar(cropSwiper, newMax);
-		// step.2 作成
-		setupCropPest();
+
+/**
+ * 動的に追加されたタブを閉じる
+ * @param {number} indexToClose 閉じるタブのインデックス
+ */
+function closeTab(indexToClose) {
+	const nav = document.querySelector('.main-nav');
+	const mainSwiper = document.querySelector('.main-swiper').swiper;
+
+	// 1. ナビボタンを削除
+	const btnToRemove = nav.children[indexToClose];
+	if (btnToRemove) btnToRemove.remove();
+
+	// 2. Swiperスライドを削除
+	mainSwiper.removeSlide(indexToClose);
+
+	// 3. tabInits と initializedTabs を更新
+	const swiperToDestroy = tabSwiperInstances[indexToClose];
+	tabInits.splice(indexToClose, 1);
+	tabSources.splice(indexToClose, 1);
+	tabTitles.splice(indexToClose, 1);
+	initializedTabs.splice(indexToClose, 1);
+	tabSwiperInstances.splice(indexToClose, 1); // Swiperインスタンスも削除
+
+	// 4. Swiperを更新し、必要に応じてアクティブなタブを調整 & 閉じるSwiperを破棄
+	mainSwiper.update();
+
+	// 閉じたタブがアクティブだった場合、または最後のタブだった場合、有効なタブに移動
+	if (mainSwiper.activeIndex >= mainSwiper.slides.length) {
+		mainJump(Math.max(0, mainSwiper.slides.length - 1));
 	} else {
-		// 選択がなければリセット
-		if (cropSwiper.activeIndex > 0) cropSwiper.slideTo(0);
-		updateStepBar(cropSwiper, 0);
+		// 閉じたタブより前のタブがアクティブだった場合、Swiperは自動でインデックスを調整するが、
+		// UIの状態を確実に同期するため、現在のactiveIndexに再度slideToを呼び出す
+		mainSwiper.slideTo(mainSwiper.activeIndex);
 	}
-}
+	// Swiperインスタンスを破棄
+	if (swiperToDestroy && typeof swiperToDestroy.destroy === 'function') {
+		swiperToDestroy.destroy(true, true); // true, true でDOM要素とイベントリスナーを完全にクリーンアップ
+	}
 
-// 作物タブ step.2: 病害虫選択
-async function setupCropPest() {
-	// ヘッダ設定
-	const title = document.querySelector('#cropHead2');
-	const crops = cropCropManager.checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
-	const searchMethod = cropCropManager.searchMethod;
-	title.innerHTML = crops.join(searchMethod.includes('or') ? ' | ' : ' & ');
-
-	// 病害虫リスト作成
-	await waiting(true, '病害虫リストを取得中...');
-
-	const cropSwiper = document.querySelector('.crop-swiper').swiper;
-	const byochuListbox = document.getElementById("cropPestList");
-
-	// SQL実行とDOM更新を一つの関数にまとめる
-	const executeUpdate = async () => {
-		try {
-			// UI スレッドを一度解放して、Loading 表示のレンダリングを確定させる
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`);
-			const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
-			const sql =`
-				drop table if exists t_cropTekiyo;
-				create temp table t_cropTekiyo as
-				with t_sakumotsu as (select sakumotsu, ${expandCropFlags.join(',')} from m_sakumotsu left join sakuhojo using(idsaku)),
-				t_tekiyo as (select * from tv_tsushoTekiyo where sakumotsu in (${makeCropCondition(crops)})),
-				t_byochu1 as (select idbyochu, byochu as byochu2, betsumei as byochuruby from m_byochu),
-				t_byochu2 as (select distinct ifnull(byochu, ifnull(mokuteki, hoho)) as byochu2 from m_tekiyo),
-				t_byochu3 as (select ifnull(idbyochu, '59999999') as idbyochu, byochu2, iif(byochu2 = '添加', 'てんか', byochuruby) as byochuruby from t_byochu2 left join t_byochu1 using(byochu2) order by idbyochu)
-				select * from t_tekiyo left join t_sakumotsu using(sakumotsu) left join  t_byochu3 on ifnull(byochu, ifnull(mokuteki, hoho)) = byochu2;
-				delete from t_cropTekiyo where tsusho not in (
-					with t_tsusho1 as (select tsusho, ${cropFlags} from t_cropTekiyo group by tsusho)
-					select tsusho from t_tsusho1 where ${normalizeColName(crops.join(searchMethod))}
-				);
-				with t_byochu as (select distinct byochu2 as byochu from t_cropTekiyo),
-				t_gByochu as (select cid, gid, format('%d%03d%', cid, gid) as idbyochu, gname as byochu, strconv(gname) as byochuruby
-				from t_byochu left join m_byochu using(byochu) left join gbyochu using(cid, gid) where gname is not null)
-				select distinct idbyochu, byochu2, byochuruby from t_cropTekiyo where byochu not regexp '菌(\\)|による)'
-				union select idbyochu, byochu, byochuruby from t_gByochu order by idbyochu;
-			`;
-			if (debug) console.log(sql.replace(/^\t+/gm, ''));
-
-			const sqlResult = db.exec(sql);
-
-			// 重い SQL 実行後に再度スレッドを解放し、DOM 更新によるフリーズを防ぐ
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			if (sqlResult?.[0]?.values) {
-				const pests = sqlResult[0].values.map(row => ({
-					idbyochu: row[0],
-					byochu: row[1],
-					betsumei: row[2]
-				}));
-				cropPestManager.update(pests);			// スライドを病害虫選択まで開放（次以降は未開放にする）
-				updateStepBar(cropSwiper, 1);
+	// ナビボタンのインデックスを再調整 (onclickハンドラ内のindexがずれるため)
+	nav.querySelectorAll('.main-btn').forEach((btn, i) => {
+		btn.onclick = (e) => {
+			if (e.target.classList.contains('close-tab-btn')) {
+				e.stopPropagation();
+				closeTab(i);
 			} else {
-				cropPestManager.update([]);
-				cropSwiper.slideTo(0);
-				updateStepBar(cropSwiper, 0);
+				mainJump(i);
 			}
-		} catch (e) {
-			console.error("病害虫リスト取得エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
-
-	// アニメーション中の負荷を避けるため、スライド完了を待ってから実行
-	if (cropSwiper.activeIndex === 1) {
-		// 既にStep 2にいる場合は即座に(ただし非同期で)実行
-		setTimeout(executeUpdate, 50);
-	} else {
-		// ハンドラ自体が時間を占有しないよう、イベント内からさらに非同期で実行
-		cropSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		cropSwiper.slideTo(1);
-	}
-
-}
-
-// 作物タブ step.3: 薬剤選択
-async function setupCropChem() {
-	// ヘッダ設定
-	const title = document.querySelector('#cropHead3');
-	const checkedPests = cropPestManager.checkedPests;
-	const pests = checkedPests.map(pest => pest.byochu);
-	title.innerHTML = pests.join(' & ');
-
-	await waiting(true, '薬剤リストを作成中...');
-
-	const cropSwiper = document.querySelector('.crop-swiper').swiper;
-	const chemListbox = document.getElementById("cropChemList");
-	const results = checkedPests.map(pest => {
-		const cond = pest.id.includes('%') ? `idbyochu like '${pest.id}'` : `byochu2 = '${pest.byochu}'`;
-		return { cond, col: `(${cond}) as ${normalizeColName(pest.byochu)}` };
+		};
 	});
-	const pestCondition = results.map(r => r.cond).join(' or ');
-	const pestColumns = results.map(r => r.col).join(', ');
-	const pestFlags = pests.map(pest => `max(${normalizeColName(pest)}) as ${normalizeColName(pest)}`).join(', ');
-	const crops = cropCropManager.checkedCrops.map(item => item.sakumotsu);
-	const cropColumns = crops.map(crop => `${normalizeColName(crop)}`).join(', ');
-	const cropFlags = crops.map(crops => `max(${normalizeColName(crops)}) as ${normalizeColName(crops)}`).join(', ');
-
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			// Step 2 で作成された t_cropTekiyo を使用して薬剤を抽出
-			const sql = `
-				with t_byochu as (select distinct byochu2, ${pestColumns} from t_cropTekiyo where (${pestCondition})),
-				t_tsusho1 as (select tsusho, ${pestFlags}, ${cropColumns} from t_byochu left join t_cropTekiyo using(byochu2) group by tsusho, ${cropColumns}),
-				t_tsusho2 as (select tsusho, ${cropFlags} from t_tsusho1 where (${normalizeColName(pests.join(' and '))}) group by tsusho),
-				t_tsusho3 as (select tsusho from t_tsusho2 where (${normalizeColName(crops.join(cropCropManager.searchMethod))}) and (${pestCondition})),
-				t_tekiyo as (select tsusho, sakumotsu,
-					gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
-					n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), ruby) as keywords
-					from t_cropTekiyo left join tsushoruby using(tsusho) where tsusho in (select tsusho from t_tsusho3)
-					group by tsusho, sakumotsu order by ruby
-				)
-				select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo group by tsusho;
-			`;
-			if (debug) console.log(sql.replace(/^\t+/gm, ''));
-
-			const sqlResult = db.exec(sql);
-
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			if (sqlResult?.[0]?.values) {
-				const chems = sqlResult[0].values.map(row => ({
-					tsusho: row[0],
-					tekiyo: row[1],
-					keywords: row[2]
-				}));
-				cropChemManager.update(chems);
-				// スライドを薬剤選択まで開放（次以降は未開放にする）
-				updateStepBar(cropSwiper, 2);
-			} else {
-				cropChemManager.update([]);
-				updateStepBar(cropSwiper, 1);
-			}
-		} catch (e) {
-			console.error("薬剤リスト作成エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (cropSwiper.activeIndex === 2) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		cropSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		cropSwiper.slideTo(2);
-	}
 }
-
-// 作物タブ step.4: 詳細表示
-async function setupCropDetail() {
-	const title = document.querySelector('#cropHead4');
-	const chem = cropChemManager.selectedChem;
-
-	title.innerHTML = chem;
-
-	await waiting(true, '詳細情報を取得中...');
-	const cropSwiper = document.querySelector('.crop-swiper').swiper;
-
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-			await cropDetailManager.update(chem, 't_cropTekiyo');
-		} catch (e) {
-			console.error("詳細表示エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (cropSwiper.activeIndex === 3) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		cropSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		cropSwiper.slideTo(3);
-	}
-}
-
-function initCropTab() {
-	// 病害虫マネージャ初期化
-	cropPestManager = new PestListManager('#cropPestWrapper', () => {
-		const checkedPests = cropPestManager.checkedPests;
-		const cropSwiper = document.querySelector('.crop-swiper').swiper;
-		if (checkedPests.length > 0) {
-			updateStepBar(cropSwiper, Math.max(cropSwiper.maxReachedStep, 2));
-			setupCropChem();
-		} else {
-			updateStepBar(cropSwiper, 1);
-		}
-	});
-	cropPestManager.init({ title: '病害虫等選択', showCategory: true });
-
-	// 薬剤マネージャ初期化
-	cropChemManager = new ChemListManager('#cropChemWrapper', (chem) => {
-		const cropSwiper = document.querySelector('.crop-swiper').swiper;
-		if (chem) {
-			updateStepBar(cropSwiper, Math.max(cropSwiper.maxReachedStep, 3));
-			setupCropDetail();
-		}
-	});
-	cropChemManager.init({ title: '薬剤選択' });
-
-	// 薬剤詳細マネージャ初期化
-	cropDetailManager = new ChemDetailManager('#cropDetailWrapper');
-	cropDetailManager.init();
-
-	// 作物タブ step.1 作成
-	setupCropCrop();
-
-}
-
-// 病害虫タブ setp.2: 作物選択
-async function setupPestCrop() {
-	const checkedPests = pestPestManager.checkedPests;
-	const title = document.querySelector('#pestHead2');
-	const pests = checkedPests.map(pest => pest.byochu);
-	title.innerHTML = pests.join(' | ');
-
-	await waiting(true, '作物ツリーを構築中...');
-	const pestSwiper = document.querySelector('.pest-swiper').swiper;
-
-	// 作物ツリーの生成
-	const executeUpdate = async () => {
-		await new Promise(resolve => setTimeout(resolve, 0));
-		try {
-			const selectedByochuCsv = pests.map(item => `'${item}'`).join(',');
-			const cropTreeSql = `
-				DROP TABLE IF EXISTS ttTekiyoByochu;
-				CREATE TEMP TABLE ttTekiyoByochu AS
-				select * from tv_tsushoTekiyo where tsusho in
-				(select distinct tsusho from t_tekiyo where
-					like_in(':'||concat_ws(':', replace(byochu, '、', ':'), mokuteki)||':',
-						(select json_group_array('%:'||byochu||'%') from m_byochu where byochu in (${selectedByochuCsv}))
-					)
-				);
-				with t_idsaku as (select distinct idsaku, 1 as registered from ttTekiyoByochu left join m_sakumotsu using(sakumotsu) where sakumotsu not like '%除く%' order by idsaku)
-				,t_idlist as (select n_concat(',','"'||substr(idsaku,1,2)||'00000000000000"','"'||substr(idsaku,1,4)||'000000000000"','"'||substr(idsaku,1,6)||'0000000000"','"'||substr(idsaku,1,8)||'00000000"','"'||substr(idsaku,1,12)||'0000"','"'||idsaku||'"') as idlist from t_idsaku)
-				select idsaku, class, ifnull(registered, 0) as toroku, sakumotsu, shukakubui, betsumei, ':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords from m_sakumotsu left join t_idsaku using(idsaku) where like_in(idsaku, (select '['||gn_concat(',',idlist)||']' from t_idlist));
-			`;
-			if (debug) console.log(cropTreeSql.replace(/^\t+/gm, ''));
-			pestCropManager = new CropTreeManager('#pestCropTree', onCheckPestCrop, false);
-			pestCropManager.init(cropTreeSql, { showSearchMethod: false });
-		} catch (e) {
-			console.error("作物ツリーの生成に失敗しました:", e);
-			// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
-			document.querySelector('#pestCropTree').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (pestSwiper.activeIndex === 1) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		pestSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		pestSwiper.slideTo(1);
-	}
-}
-
-// 病害虫タブ step.3: 薬剤選択
-async function setupPestChem() {
-	// ヘッダ設定
-	const title = document.querySelector('#pestHead3');
-	const checkedCrops = pestCropManager.checkedCrops;
-	const crops = checkedCrops.map(crop => crop.sakumotsu);
-	title.innerHTML = crops.join(' & ');
-
-	await waiting(true, '薬剤リストを作成中...');
-
-	const pestSwiper = document.querySelector('.pest-swiper').swiper;
-	const chemListbox = document.getElementById("pestChemList");
-	const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
-	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			// Step 2 で作成された ttTekiyoByochu を使用して薬剤を抽出
-			const sql = `
-				with t_sakumotsu as (
-					select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)
-				),
-				t_tekiyo1 as (
-					select * from ttTekiyobyochu left join t_sakumotsu using(sakumotsu)
-					where sakumotsu in (${makeCropCondition(crops)}) group by tsusho, sakumotsu
-				),
-				t_tsusho as (select tsusho, ${cropFlags} from t_tekiyo1 group by tsusho),
-				t_tekiyo2 as (select * from t_tekiyo1 where tsusho in (select tsusho from t_tsusho where (${normalizeColName(crops.join(' and '))}))),
-				t_tekiyo3 as (select tsusho, sakumotsu,
-					gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
-					n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), ruby) as keywords
-					from t_tekiyo2 left join tsushoruby using(tsusho) group by tsusho, sakumotsu order by ruby
-				)
-				select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo3 group by tsusho;
-			`;
-			if (debug) console.log(sql.replace(/^\t+/gm, ''));
-
-			const sqlResult = db.exec(sql);
-
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			if (sqlResult?.[0]?.values) {
-				const chems = sqlResult[0].values.map(row => ({
-					tsusho: row[0],
-					tekiyo: row[1],
-					keywords: row[2]
-				}));
-				pestChemManager.update(chems);
-				// スライドを薬剤選択まで開放（次以降は未開放にする）
-				updateStepBar(pestSwiper, 2);
-			} else {
-				pestChemManager.update([]);
-				updateStepBar(pestSwiper, 1);
-			}
-		} catch (e) {
-			console.error("薬剤リスト作成エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (pestSwiper.activeIndex === 2) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		pestSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		pestSwiper.slideTo(2);
-	}
-}
-// 病害虫タブ step.2 の作物ツリーチェック時のコールバック関数
-function onCheckPestCrop(selectedCrops) {
-	const pestSwiper = document.querySelector('.pest-swiper').swiper;
-	if (selectedCrops.length > 0) {
-		// 選択があれば step.3 (薬剤選択)を解放
-		const newMax = Math.max(pestSwiper.maxReachedStep, 2);
-		updateStepBar(pestSwiper, newMax);
-		// step.3 作成
-		setupPestChem();
-	} else {
-		// 選択がなければリセット
-		if (pestSwiper.activeIndex > 1) pestSwiper.slideTo(1);
-		updateStepBar(pestSwiper, 1);
-	}
-}
-
-// 病害虫タブ step.4: 詳細表示
-async function setupPestDetail() {
-	const title = document.querySelector('#pestHead4');
-	const chem = pestChemManager.selectedChem;
-	title.innerHTML = chem;
-
-	await waiting(true, '詳細情報を取得中...');
-	const pestSwiper = document.querySelector('.pest-swiper').swiper;
-
-	const crops = pestCropManager.checkedCrops.map(crop => crop.sakumotsu);
-	const pests = pestPestManager.checkedPests.map(pest => `'${pest.byochu}'`).join(',');
-
-	const sqls = [
-		{ target: 'usage', caption: '作物の適用カード', query: `
-			SELECT
-				row_number() over(order by (select null)) as idx, sakumotsu, gn_concat(',', ifnull(byochu, mokuteki)) as 病害虫等,
-				jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
-			FROM ttTekiyoByochu WHERE tsusho = '${chem}' and sakumotsu in (${makeCropCondition(crops)})
-			group by tsusho, sakumotsu, jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
-		`},
-		{ name: 'pestUsage', caption: `病害虫等の適用カード`, prefix: '適用', query: `
-			SELECT
-				row_number() over(order by (select null)) as idx, byochu as 病害虫等, gn_concat(',', sakumotsu) as sakumotsu,
-				baisu, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
-			FROM ttTekiyoByochu WHERE tsusho = '${chem}' and byochu in (${pests})
-			group by tsusho, byochu, baisu, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
-		`}
-	];
-
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-			// 病害虫タブでは setupPestCrop で作成された ttTekiyoByochu を使用
-			await pestDetailManager.update(chem, 'ttTekiyoByochu', sqls);
-		} catch (e) {
-			console.error("詳細表示エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (pestSwiper.activeIndex === 3) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		pestSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		pestSwiper.slideTo(3);
-	}
-}
-
-function initPestTab() {
-	// 病害虫タブ用 Managers
-	pestPestManager = new PestListManager('#pestPestWrapper', (selected) => {
-		const pestSwiper = document.querySelector('.pest-swiper').swiper;
-		if (selected.length > 0) {
-			updateStepBar(pestSwiper, 1);
-			setupPestCrop(); // 次のステップ（作物選択）の構築へ
-		} else {
-			updateStepBar(pestSwiper, 0);
-		}
-	});
-
-	// ページ初期化時に全件表示
-	pestPestManager.init({
-		title: '病害虫・雑草名等選択',
-		showCategory: true,
-		onSearch: async () => {
-			const sql = `select idbyochu, byochu, betsumei from m_byochu where byochu not like '%(%' or byochu regexp '菌(\\)|による)' order by idbyochu;`;
-			
-			await waiting(true, '病害虫名等を検索中...');
-			const res = db.exec(sql);
-			if (res?.[0]) {
-				pestPestManager.update(res[0].values.map(r => ({ idbyochu: r[0], byochu: r[1], betsumei: r[2] })));
-			} else {
-				pestPestManager.update([]);
-			}
-			waiting(false);
-		}
-	});
-
-	// 薬剤マネージャ初期化
-	pestChemManager = new ChemListManager('#pestChemWrapper', (chem) => {
-		const pestSwiper = document.querySelector('.pest-swiper').swiper;
-		if (chem) {
-			updateStepBar(pestSwiper, Math.max(pestSwiper.maxReachedStep, 3));
-			setupPestDetail();
-		}
-	});
-	pestChemManager.init({ title: '薬剤選択' });
-
-	// 薬剤詳細マネージャ初期化
-	pestDetailManager = new ChemDetailManager('#pestDetailWrapper');
-	pestDetailManager.init();
-}
-
-// 薬剤タブ setp.1: 作物選択
-function setupChemCrop() {
-	// 作物ツリーの生成
-	try {
-		const cropTreeSql = `
-			select idsaku, class, toroku, sakumotsu, shukakubui, betsumei,
-			':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
-			from m_sakumotsu where sakumotsu not like '%除く%';
-		`;
-		chemCropManager = new CropTreeManager('#chemCropTree', onCheckChemCrop, false);
-		chemCropManager.init(cropTreeSql, {
-			showSearchMethod: true,
-			onSearchMethodChange: () => {
-				if (chemCropManager.checkedCrops.length > 1) setupChemChem();
-			}
-		});
-	} catch (e) {
-		console.error("作物ツリーの生成に失敗しました:", e);
-		// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
-		document.querySelector('#cropCropTree').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
-	}
-}
-
-// 薬剤タブ step.1 の作物ツリーチェック時のコールバック関数
-function onCheckChemCrop(selectedCrops) {
-	const chemSwiper = document.querySelector('.chem-swiper').swiper;
-	if (selectedCrops.length > 0) {
-		// 選択があれば step.2 (薬剤)を解放
-		const newMax = Math.max(chemSwiper.maxReachedStep, 1);
-		updateStepBar(chemSwiper, newMax);
-		// step.2 作成
-		setupChemChem();
-	} else {
-		// 選択がなければリセット
-		if (chemSwiper.activeIndex > 0) chemSwiper.slideTo(0);
-		updateStepBar(chemSwiper, 0);
-	}
-}
-
-// 薬剤タブ step.2: 薬剤選択
-async function setupChemChem() {
-	// ヘッダ設定
-	const title = document.querySelector('#chemHead2');
-	const crops = chemCropManager.checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
-	title.innerHTML = crops.join(chemCropManager.searchMethod.includes('or') ? ' | ' : ' & ');
-
-	await waiting(true, '薬剤リストを作成中...');
-
-	const chemSwiper = document.querySelector('.chem-swiper').swiper;
-	const chemListbox = document.getElementById("chemChemList");
-	const expandCropCondition = crops.map(crop => `(${expandCrops(crop)})`).join(' or ');
-	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
-	const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(', ');
-	const sql =`
-		drop table if exists t_chemTekiyo;
-		create temp table t_chemTekiyo as
-		with t_sakumotsu as (select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)),
-		t_tekiyo as (select * from tv_meishoTekiyo where sakumotsu in (${makeCropCondition(crops)}))
-		select * from t_tekiyo left join t_sakumotsu using(sakumotsu) where (${normalizeColName(crops.join(' or '))});
-		delete from t_chemTekiyo where bango not in (
-			with t_bango as (select bango, ${cropFlags} from t_chemTekiyo group by bango)
-			select bango from t_bango where (${normalizeColName(crops.join(cropCropManager.searchMethod))})
-		);
-		with t_tekiyo1 as (select bango, meisho, tsusho, ruby, sakumotsu,
-			gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
-			n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
-			from t_chemTekiyo left join tsushoruby using(tsusho) group by bango, sakumotsu
-		),
-		t_tekiyo2 as (select bango, meisho, tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo1 group by bango order by ruby, bango)
-		select * from t_tekiyo2;
-	`;
-	if (debug) console.log(sql.replace(/^\t+/gm, ''));
-
-	let group = '';
-	const renderer = (row) => {
-		const tsusho = row.tsusho;
-		const info = `${row.tekiyo}|${row.keywords}`;
-		let groupItem = '';
-		if (group !== tsusho) {
-			group = tsusho;
-			groupItem = `
-				<div class="checkListItem" data-group title="${tsusho}|${info}">
-					<span><em>${tsusho}</em></span><!--&nbsp;--><span><small>${info}</small></span>
-				</div>
-			`;
-		}
-		const bango = row.bango;
-		const name = `${bango} ${row.meisho}`;
-		return `${groupItem}
-			<div class="checkListItem" title="${name}|${info}">
-				<input type="radio" name="chemSelect" value="${name}" id="${bango}"><label for="${bango}">${name}</label>
-			</div>
-		`;
-	};
-
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			const sqlResult = db.exec(sql);
-
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			if (sqlResult?.[0]?.values) {
-				const chems = sqlResult[0].values.map(row => ({
-					bango: row[0],
-					meisho: row[1],
-					tsusho: row[2],
-					tekiyo: row[3],
-					keywords: row[4]
-				}));
-				chemChemManager.update(chems, renderer);
-				// スライドを薬剤選択まで開放（次以降は未開放にする）
-				updateStepBar(chemSwiper, 1);
-			} else {
-				chemChemManager.update([]);
-				updateStepBar(chemSwiper, 0);
-			}
-		} catch (e) {
-			console.error("薬剤リスト作成エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (chemSwiper.activeIndex === 1) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		chemSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		chemSwiper.slideTo(1);
-	}
-}
-
-// 薬剤タブ step.3: 詳細表示
-async function setupChemDetail() {
-	const title = document.querySelector('#chemHead3');
-	const chem = chemChemManager.selectedChem;
-	title.innerHTML = chem;
-
-	const tableName = 't_chemTekiyo';
-	const bango = chem.split(' ')[0];
-
-	await waiting(true, '詳細情報を取得中...');
-	const chemSwiper = document.querySelector('.chem-swiper').swiper;
-
-	const sqls = [
-		{
-			target: 'summary',
-			query: `
-				with
-					t_meisho as (select bango, meisho, tsusho from m_kihon where bango = ${bango}),
-					t_bangoAll as (select bango from m_kihon where tsusho = (select tsusho from t_meisho group by tsusho)),
-					t_tazai as (select tsusho, gn_concat('<br>', format('%d %s', bango, meisho)) as tazai from m_kihon where bango in (select bango from t_bangoAll where bango != ${bango})),
-					t_ojas as (select bango, ojas from t_tokusai)
-				select format('%d %s', bango, meisho) as meisho,
-					iif(shurui like '%'||zaikei||'%', shurui, format('%s [剤型: %s]',shurui,zaikei)) as 種類, dokusei,
-					iif(yoto like '%'||koka||'%', yoto, format('%s [効果: %s]', yoto, koka)) as yoto, ojas, torokubi, ryakusho,
-					tazai as 同名他剤, replace(chuijiko, '#', '<br>') as 注意事項
-				from m_kihon left join suisan using(bango) left join t_tazai using(tsusho) left join t_ojas using(bango) left join seizai using(bango)
-				where bango = ${bango};
-			`
-		},
-		{
-			target: 'ingredients',
-			query: `
-				select distinct row_number() over(order by (ippanmei)) as idx, ippanmei, nodo, seibun, iso,dokusei, jogai, keito, mid, rackeito, sayoten, sayokiko, fgroup, risk, ojas
-				from kihon left join ${tableName} using(bango)
-				where bango = ${bango} group by ippanmei
-			`
-		},
-		{
-			target: 'usage',
-			query: `
-				SELECT
-					row_number() over(order by (select null)) as idx, sakumotsu, gn_concat(',', ifnull(byochu, mokuteki)) as 病害虫等,
-					jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
-				FROM ${tableName} WHERE bango = ${bango}
-				group by sakumotsu, jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
-			`
-		}
-	];
-
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-			await chemDetailManager.update(chem, 't_chemTekiyo', sqls);
-		} catch (e) {
-			console.error("詳細表示エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (chemSwiper.activeIndex === 2) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		chemSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		chemSwiper.slideTo(2);
-	}
-}
-
-function initChemTab() {
-	// 薬剤タブ用 Managers
-	chemChemManager = new ChemListManager('#chemChemWrapper', (chem) => {
-		const chemSwiper = document.querySelector('.chem-swiper').swiper;
-		if (chem) {
-			updateStepBar(chemSwiper, Math.max(chemSwiper.maxReachedStep, 2));
-			setupChemDetail();
-		}
-	});
-
-	chemChemManager.init({ title: '薬剤選択', showCategory: true });
-
-	// 薬剤詳細マネージャ初期化
-	chemDetailManager = new ChemDetailManager('#chemDetailWrapper');
-	chemDetailManager.init();
-
-	// 薬剤タブ step.1 作成
-	setupChemCrop();
-
-}
-
-let mainJump;
-let stepJump;
-let stepMove;
-let cropCropManager, cropPestManager, cropChemManager, cropDetailManager; // 作物タブ用
-let pestPestManager, pestCropManager, pestChemManager, pestDetailManager; // 病害虫タブ用
-let chemChemManager, chemCropManager, chemDetailManager; // 薬剤タブ用
-let initializedTabs = [true, false, false]; // 作物タブ(0)は初期ロード時に初期化済み
 
 window.addEventListener('DOMContentLoaded', async () => {
+	// 1. データベース読込 (最優先で実行)
+	if (db === null) await fetchDB();
+
+	// 2. 各タブのコンテンツを非同期で読み込む (init*Tab 関数が window スコープに定義される)
+	try {
+		tabInits = await Promise.all([
+			loadTabContent('#crop-tab-placeholder', tabSources[0], false), // isContent: false を明示
+			loadTabContent('#pest-tab-placeholder', tabSources[1], false), // isContent: false を明示
+			loadTabContent('#chem-tab-placeholder', tabSources[2], false)  // isContent: false を明示
+		]); // Initial tabs are loaded. Dynamic tabs will be appended.
+		initializedTabs = tabInits.map(() => false);
+	} catch (e) { // catch ブロックを追加
+		console.error("初期タブの読み込みに失敗しました:", e);
+	}
 
 	// 初期ズーム適用
 	applyZoom(parseFloat(localStorage.getItem('appZoom')) || 1.0);
 
-	//データベース読込
-	if (db === null) await fetchDB();
+	// 既存のメインタブボタンのテキストを更新
+	const mainNavButtons = document.querySelectorAll('.main-nav .main-btn');
+	mainNavButtons.forEach((button, index) => {
+		if (tabTitles[index]) {
+			button.textContent = tabTitles[index];
+		}
+	});
 
-	// --- Swiperの初期化 ---
-
-	// 1. メインタブのSwiper
-	const mainSwiper = new Swiper('.main-swiper', {
+	// 3. メインタブ Swiper の初期化
+	mainSwiper = new Swiper('.main-swiper', {
 		observer: true,
 		observeParents: true,
 		allowTouchMove: true,
@@ -1760,11 +1243,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 			slideChange: function() {
 				clearAllSlideZoom();
 				updateMainTabs(this.activeIndex);
-				// タブに初めて移動したときに初期化を実行
-				if (!initializedTabs[this.activeIndex]) {
-					if (this.activeIndex === 1) initPestTab();
-					if (this.activeIndex === 2) initChemTab();
-					initializedTabs[this.activeIndex] = true;
+				// 該当タブの初期化関数が未実行なら呼び出す
+				const initFn = tabInits[this.activeIndex];
+				if (initFn && !initializedTabs[this.activeIndex]) {
+					if (typeof window[initFn] === 'function') {
+						tabSwiperInstances[this.activeIndex] = window[initFn](); // Swiperインスタンスを格納
+						initializedTabs[this.activeIndex] = true;
+					}
 				}
 			},
 			// After main tab changes, update the step navigation buttons for the new active nested Swiper
@@ -1775,22 +1260,14 @@ window.addEventListener('DOMContentLoaded', async () => {
 		}
 	});
 
-	// 2. 作物タブのSwiper
-	const cropSwiper = createZoomableSwiper('.crop-swiper', mainSwiper, function() {
-		// slideChangeCallback: cropSwiper の slideChange イベントでステップバーを更新
-		updateStepBar(this);
-	});
+	// 4. 作物タブの初期化 (db と mainSwiper が利用可能になった後)
+	const initFn = tabInits[0];
+	if (initFn && typeof window[initFn] === 'function') {
+		tabSwiperInstances[0] = window[initFn](); // Swiperインスタンスを格納
+		initializedTabs[0] = true;
+	}
 
-	// 3. 病害虫タブのSwiper
-	const pestSwiper = createZoomableSwiper('.pest-swiper', mainSwiper, function() {
-		updateStepBar(this);
-	});
-
-	// 4. 薬剤タブのSwiper
-	const chemSwiper = createZoomableSwiper('.chem-swiper', mainSwiper, function() {
-		updateStepBar(this);
-	});
-
+	// 5. グローバル関数の定義
 	// クリック時のジャンプ
 	mainJump = function(index) {
 		mainSwiper.slideTo(index);
@@ -1831,22 +1308,12 @@ window.addEventListener('DOMContentLoaded', async () => {
 	// タブバーのスワイプ
 	addSwipeHandler(document.querySelector('.main-nav'), mainSwiper, true);
 
-	// ステップバーのスワイプ (各タブのSwiperに対して個別に設定)
-	[
-		{ el: '.crop-swiper', instance: cropSwiper },
-		{ el: '.pest-swiper', instance: pestSwiper },
-		{ el: '.chem-swiper', instance: chemSwiper }
-	].forEach(item => {
-		const bar = document.querySelector(item.el)?.closest('.tab-container')?.querySelector('.step-bar');
-		if (bar) addSwipeHandler(bar, item.instance, false);
-	});
-
-	// 作物タブ初期化
-	initCropTab();
+	// 各タブのステップバーのスワイプハンドラは、それぞれのタブの init 関数内で設定される
+	// (Swiper インスタンスがそのスコープ内で利用可能になるため)
 
 	// 初期状態のインジケータをセット
 	updateMainTabs(0);
-	updateStepBar(cropSwiper, 0); // Initial step bar and navigation update
+	updateStepBar(tabSwiperInstances[0], 0); // Initial step bar and navigation update
 
 });
 
@@ -1879,7 +1346,7 @@ window.addEventListener('popstate', (event) => {
 			// 1回目の「戻る」：即座に履歴を Entry 1 に復帰させて、メッセージを出す
 			history.pushState({ isBottom: true }, '');
 			
-			showToast("もう一度戻ると終了します"); // 自作の通知
+			showToast("もう一度戻るをタップすると終了します"); // 自作の通知
 
 			// 一定時間（例: 2秒）経ったらカウントをリセット
 			clearTimeout(backTimer);
@@ -1925,162 +1392,26 @@ function showToast(message) {
 </header>
 
 <nav class="main-nav">
-	<button class="main-btn active" onclick="mainJump(0)">作物</button>
-	<button class="main-btn" onclick="mainJump(1)">病害虫</button>
-	<button class="main-btn" onclick="mainJump(2)">薬剤</button>
+	<button class="main-btn active" onclick="mainJump(0)"></button>
+	<button class="main-btn" onclick="mainJump(1)"></button>
+	<button class="main-btn" onclick="mainJump(2)"></button>
 </nav>
 
 <div class="swiper main-swiper">
 	<div class="swiper-wrapper">
 		
 		<!-- 【作物タブ】 -->
-		<div class="swiper-slide">
-			<div class="tab-container">
-				<!-- ステップバー -->
-				<div class="step-bar">
-					<div class="prev-step" onclick="stepMove('prev')">◀</div>
-					<div class="step-item active" onclick="stepJump(0)">1</div>
-					<div class="step-item" onclick="stepJump(1)">2</div>
-					<div class="step-item" onclick="stepJump(2)">3</div>
-					<div class="step-item" onclick="stepJump(3)">4</div>
-					<div class="next-step" onclick="stepMove('next')">▶</div>
-				</div>
-
-				<!-- 内部Swiper -->
-				<div class="swiper crop-swiper">
-					<div class="swiper-wrapper">
-						<!-- ① 作物選択 -->
-						<div class="swiper-slide no-swipe">
-							<div class="step-fixed">
-								<div id="cropCropTree"></div>
-							</div>
-						</div>
-
-						<!-- ② 病害虫選択 -->
-						<div class="swiper-slide no-swipe">
-							<h2 id="cropHead2"></h2>
-							<div class="step-fixed">
-								<div id="cropPestWrapper"></div>
-							</div>
-						</div>
-
-						<!-- ③ 薬剤選択 -->
-						<div class="swiper-slide no-swipe">
-							<h2 id="cropHead3"></h2>
-							<div class="step-fixed">
-								<div id="cropChemWrapper"></div>
-							</div>
-						</div>
-
-						<!-- ④ 詳細表示 -->
-						<div class="swiper-slide">
-							<h2 id="cropHead4" class="no-swipe"></h2>
-							<div class="step-scrollable">
-								<div id="cropDetailWrapper"></div>
-							</div>
-						</div>
-
-					</div>
-				</div>
-			</div>
-		</div>
+		<div class="swiper-slide" id="crop-tab-placeholder"></div>
 
 		<!-- 【病害虫タブ】 -->
-		<div class="swiper-slide">
-			<div class="tab-container">
-				<!-- ステップバー -->
-				<div class="step-bar">
-					<div class="prev-step" onclick="stepMove('prev')">◀</div>
-					<div class="step-item active" onclick="stepJump(0)">1</div>
-					<div class="step-item" onclick="stepJump(1)">2</div>
-					<div class="step-item" onclick="stepJump(2)">3</div>
-					<div class="step-item" onclick="stepJump(3)">4</div>
-					<div class="next-step" onclick="stepMove('next')">▶</div>
-				</div>
-
-				<!-- 内部Swiper -->
-				<div class="swiper pest-swiper">
-					<div class="swiper-wrapper">
-
-						<!-- ① 病害虫選択 -->
-						<div class="swiper-slide no-swipe">
-							<div class="step-fixed">
-								<div id="pestPestWrapper"></div>
-							</div>
-						</div>
-
-						<!-- ① 作物選択 -->
-						<div class="swiper-slide no-swipe">
-							<h2 id="pestHead2"></h2>
-							<div class="step-fixed">
-								<div id="pestCropTree"></div>
-							</div>
-						</div>
-
-						<!-- ③ 農薬選択 -->
-						<div class="swiper-slide no-swipe">
-							<h2 id="pestHead3"></h2>
-							<div class="step-fixed">
-								<div id="pestChemWrapper"></div>
-							</div>
-						</div>
-
-						<!-- ④ 詳細表示 -->
-						<div class="swiper-slide">
-							<h2 id="pestHead4" class="no-swipe"></h2>
-							<div class="step-scrollable">
-								<div id="pestDetailWrapper"></div>
-							</div>
-						</div>
-
-					</div>
-				</div>
-			</div>
-		</div>
+		<div class="swiper-slide" id="pest-tab-placeholder"></div>
 
 		<!-- 【薬剤タブ】 -->
-		<div class="swiper-slide">
-			<div class="tab-container">
-				<!-- ステップバー -->
-				<div class="step-bar">
-					<div class="prev-step" onclick="stepMove('prev')">◀</div>
-					<div class="step-item active" onclick="stepJump(0)">1</div>
-					<div class="step-item" onclick="stepJump(1)">2</div>
-					<div class="step-item" onclick="stepJump(2)">3</div>
-					<div class="next-step" onclick="stepMove('next')">▶</div>
-				</div>
-
-				<!-- 内部Swiper -->
-				<div class="swiper chem-swiper">
-					<div class="swiper-wrapper">
-
-						<!-- ① 作物選択 -->
-						<div class="swiper-slide no-swipe">
-							<div class="step-fixed">
-								<div id="chemCropTree"></div>
-							</div>
-						</div>
-
-						<!-- ② 農薬選択 -->
-						<div class="swiper-slide no-swipe">
-							<h2 id="chemHead2"></h2>
-							<div class="step-fixed">
-								<div id="chemChemWrapper"></div>
-							</div>
-						</div>
-
-						<!-- ③ 詳細表示 -->
-						<div class="swiper-slide">
-							<h2 id="chemHead3" class="no-swipe"></h2>
-							<div class="step-scrollable">
-								<div id="chemDetailWrapper"></div>
-							</div>
-						</div>
-
-			</div>
-		</div>
+		<div class="swiper-slide" id="chem-tab-placeholder"></div>
 	</div>
 </div>
-<div id="toast" class="toast">もう一度バックボタンをタップすると終了します</div>
+<input type="file" id="localTabFileInput" accept=".html" class="hidden">
+</div>
+<div id="toast" class="toast"></div>
 </body>
 </html>
