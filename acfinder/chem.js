@@ -138,7 +138,7 @@ class ChemListManager {
 			const tekiyo = row.tekiyo;
 			const info = `${tekiyo}|${row.keywords}`;
 			const inputId = `chem_${this.idSuffix}_${name}`;
-			return `<div class="checkListItem" title="${name}|${info}">` +
+			return `<div class="checkListItem" data-info="${name}|${info}" title="${name}">` +
 				`<input type="radio" name="chemSelect_${this.idSuffix}" value="${name}" id="${inputId}">` +
 				`<label for="${inputId}"><em>${name}</em><br><small>${info}</small></label>` +
 				`</div>`;
@@ -164,6 +164,7 @@ class ChemListManager {
 			return str.replace(/[！-～]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/　/g, " ");
 		}
 		const normalizedText = toHan(inputText).replace(/\s/g, ' ').trim();
+		console.log(normalizedText);
 		const filtersOrg = normalizedText.split(' ').filter(Boolean);
 		const filtersHira = typeof romajiConv !== 'undefined' ? romajiConv(normalizedText).toHiragana().split(' ').filter(Boolean) : [];
 		const filters = filtersOrg.map((val, i) => `${val}|${filtersHira[i] || val}`);
@@ -172,10 +173,10 @@ class ChemListManager {
 		let visibleCount = 0;
 		this.container.querySelectorAll('.checkListItem').forEach(item => {
 			// カテゴリーマッチ判定
-			const matchesCat = catText === '' || !!item.title.match(new RegExp(catText));
+			const matchesCat = catText === '' || !!item.dataset.info.match(new RegExp(catText));
 			// テキストマッチ判定 (AND検索)
 			const matchesText = filters.length === 0 || filters.every(f => {
-				return !!item.title.match(new RegExp(f, 'i'));
+				return !!item.dataset.info.match(new RegExp(f, 'i'));
 			});
 
 			const visible = matchesCat && matchesText;

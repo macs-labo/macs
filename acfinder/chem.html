@@ -5,14 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
 <link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
-<title></title>
+<title>薬剤</title>
 <!-- 本プロジェクト専用ライブラリ -->
 <script type="text/javascript" src="./header.js"></script>
 <script type="text/javascript" src="./custom.js"></script>
 <script type="text/javascript" src="./loader.js"></script>
 <script type="text/javascript" src="./table.js"></script>
+<script type="text/javascript" src="./crop.js"></script>
+<script type="text/javascript" src="./chem.js"></script>
 <link rel="stylesheet" type="text/css" href="./common.css" />
 <link rel="stylesheet" type="text/css" href="./loader.css" />
+<link rel="stylesheet" type="text/css" href="./crop.css" />
 <!-- 本プロジェクト共通外部ライブラリ -->
 <!-- SQL.js ライブラリ -->
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.min.js"></script>
@@ -37,11 +40,27 @@
 <!--	タブ専用スタイル -->
 <style>
 
+#h-splitter.closed,
+#cropTree.closed {
+	display: none;
+}
+
+#cropTree {
+	flex: none;
+	height: calc(50% - 79px);
+	min-height: 202px;
+	margin-bottom: 7px;
+}
+
+.flex-wrapper {
+	margin-top: 7px;
+}
+
 #selectYakuzai {
 	display: flex;
 	flex-direction: column;
+	min-height: 300px;
 	flex: 1;
-	min-height: 0;
 }
 
 /* 薬剤リストボックスのスタイル */
@@ -94,12 +113,16 @@ div.noresult {
 	display: none;
 }
 
+
 </style>
 <!--	タブ専用の view や table の設定 -->
 <script type="text/plain" id="views_or_tables">
 </script>
 <!--	タブ専用の script -->
 <script>
+// Declare chemListManager globally
+var chemListManager;
+
 // フィルター実行
 async function yakuzaiFilter() {
 	const yakuzaiInput = document.querySelector('#yakuzaiInput');
@@ -172,47 +195,56 @@ async function yakuzaiFilter() {
 }
 
 // 薬剤候補リスト作成 optGroup 版
-async function setYakuzaiList() {
-	const listBox = document.getElementById("yakuzaiListbox");
-
+async function setYakuzaiList(sql = '') {
 	// 薬剤リスト作成
 	await waiting(true, '薬剤リストを取得中...');
 
 	try {
-		let sql = `
-			select distinct tsusho, bango, meisho, kws from kihon left join tsushoruby using(tsusho) left join kwlists using(bango) order by ruby;
+		if (!sql) {
+			sql = `
+				drop table if exists t_chemTekiyo;
+				create temp table t_chemTekiyo as select * from tv_meishoTekiyo;
+			`;
+		}
+		sql += `
+			with t_kihon as (select distinct bango, meisho, tsusho from t_chemTekiyo)
+			select distinct tsusho, bango, meisho, kws from t_kihon left join tsushoruby using(tsusho) left join kwlists using(bango) order by ruby;
 		`;
-
-		console.log(sql);
-
+		console.log('薬剤リスト作成: ', sql);
 		const sqlResult = db.exec(sql);
 
-		let html = "";
+		let chemsData = [];
 		// Check if sqlResult has data
 		if (sqlResult && sqlResult[0] && sqlResult[0].values && sqlResult[0].values.length > 0) {
-			// Group results by tsusho
-			let groups = new Map();
-			sqlResult[0].values.forEach(row => {
-				const [tsusho, bango, meisho, kws_val] = row;
-				if (!groups.has(tsusho)) {
-					groups.set(tsusho, []);
-				}
-				groups.get(tsusho || '').push({ bango: bango || '', meisho: meisho || '', kws: kws_val || ''});
-			});
-
-			// HTML 文字列を構築
-			groups.forEach((items, tsusho) => {
-				if (tsusho) {
-					html += `<div class="yakuzaiGroup">${tsusho}</div>`;
-				}
-				items.forEach(item => {
-					html += `<div class="yakuzaiOption" data-bango="${item.bango}" data-info="${item.bango};${item.kws}" title="${item.bango} ${item.meisho}">${item.bango} ${item.meisho}</div>`;
-				});
-			});
+			chemsData = sqlResult[0].values.map(row => ({
+				tsusho: row[0],
+				bango: row[1],
+				meisho: row[2],
+				keywords: row[3] // kws_val
+			}));
 		}
-		html += '<p class="nodata hidden">該当する薬剤が見つかりませんでした。</p>';
 
-		listBox.innerHTML = html;
+		// Custom renderer for ChemListManager to display bango and meisho
+		let group = '';
+		const renderer = (row) => {
+			const tsusho = row.tsusho;
+			const info = `${tsusho}|${row.keywords}`;
+			let groupItem = '';
+			if (group !== tsusho) {
+				group = tsusho;
+				groupItem = `
+					<div class="checkListItem" data-group data-info="${tsusho}|${info}" title="${tsusho}"><em>${tsusho}</em></div>
+				`;
+			}
+			const bango = row.bango;
+			const name = `${bango} ${row.meisho}`;
+			return `${groupItem}
+				<div class="checkListItem" data-info="${bango}|${tsusho}|${info}" title="${name}">
+					<input type="radio" name="chemSelect" value="${name}" id="${bango}"><label for="${bango}">${name}</label>
+				</div>
+			`;
+		};
+		chemListManager.update(chemsData, renderer);
 
 		// #selectYakuzai を表示
 		const selectYakuzai = document.getElementById("selectYakuzai");
@@ -225,20 +257,22 @@ async function setYakuzaiList() {
 }
 
 // Function to return bango on selectBox selection (change event)
-function handleYakuzaiSelection(event) {
-	const bango = event.target.value;
-	//console.log("Selected bango:", bango);
+// This will be called by ChemListManager's onChangeCallback
+function handleYakuzaiSelection(selected) {
+	if (!selected) return;
+	console.log('選択薬剤: ', selected);
+	const [bango, meisho] = selected.split(' ');
 
-	const selectedOption = event.target.selectedOptions[0];
-	const selectedText = selectedOption.text;
-	const parts = selectedText.split(' ', 2);
-	const meisho = parts[1] || '';
+	// Find the selected chemical data from chemListManager's internal list
+	//const selectedChem = chemListManager.chems.find(chem => chem.bango === bango);
+	//const meisho = selectedChem ? selectedChem.meisho : '';
 
 	const display = document.getElementById("selectedValue");
+	const crops = checkedCrops.length === 0 ? '' : ' ／ ' + checkedCrops.map(item => item.sakumotsu).join(searchMethod === ' or ' ? ' | ' : ' & ');
+	const sakumotsu = checkedCrops.length === 0 ? '' : `「${checkedCrops.map(item => item.sakumotsu).join('」「')}」及びその上位作物群に対する`;
 
-	//return selectedBango; // Returns the bango value
 	if (bango) {
-		display.textContent = `${bango} ${meisho}`;
+		display.textContent = `${bango} ${meisho}${crops}`;
 		display.classList.remove("hidden");
 		// caption と sql 設定
 		const sqls = [
@@ -255,15 +289,52 @@ function handleYakuzaiSelection(event) {
 					mid, rackeito, sayoten, sayokiko, fgroup, risk, ojas
 				FROM kihon WHERE bango = '${bango}'
 			`},
-			{ caption: `「${bango} ${meisho}」の適用`, query: `
-				select * from tv_meishoTekiyo where bango = '${bango}'
+			{ caption: `「${bango} ${meisho}」の${sakumotsu}適用`, query: `
+				select * from t_chemTekiyo where bango = '${bango}'
 			`}
 		];
 		executeSQLsetGrid(sqls);
 
 	} else {
 		display.textContent = "";
+		tables = resetTables(tables); // Clear tables if no chemical is selected
 	}
+}
+
+let searchMethod = ' and ';
+
+function searchCrop() {
+	tables = resetTables(tables);
+	searchMethod = _defaultCropTreeManager.searchMethod;
+	const title = document.querySelector('#selectedValue');
+	if (checkedCrops.length === 0) {
+		title.innerHTML = '';
+		title.classList.add('hidden');
+		console.log('作物選択解除時の薬剤リスト');
+		setYakuzaiList(); // Reset to full list if no crops selected
+		return;
+	}
+
+	const crops = checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
+	title.innerHTML = crops.join(searchMethod === ' or ' ? ' | ' : ' & ');
+	title.classList.remove('hidden');
+
+	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(',');
+	const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
+	const dropCols = crops.map(crop => `alter table t_chemTekiyo drop column ${normalizeColName(crop)}`).join(';\n');
+	const sql = `
+		drop table if exists t_chemTekiyo;
+		create temp table t_chemTekiyo as
+		with t_sakumotsu as (select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku))
+		select * from tv_meishoTekiyo left join t_sakumotsu using(sakumotsu) where sakumotsu in (${makeCropCondition(crops)});
+		delete from t_chemTekiyo where bango not in (
+			with t_bango1 as (select bango, ${cropFlags} from t_chemTekiyo group by bango)
+			select bango from t_bango1 where ${normalizeColName(crops.join(searchMethod))}
+		);
+		${dropCols};
+	`;
+	console.log('作物選択時の薬剤リスト', sql);
+	setYakuzaiList(sql);
 }
 
 // sql 実行 結果グリッド作成
@@ -303,66 +374,49 @@ window.addEventListener('DOMContentLoaded', async function() {
 	//データベース読込
 	if (db === null) await fetchDB();
 	
-	// タブ内容読込後に実行する scrip は、この下に書いても OK
-	// 薬剤候補トリガー登録
-	const yakuzaiForm = document.querySelector('#yakuzaiForm');
-	const yakuzaiInput = document.querySelector('#yakuzaiInput');
-	const yakuzaiButton = document.querySelector('#yakuzaiButton');
-	const yakuzaiSelection = document.querySelector('#yakuzaiListbox');
+	// ChemListManager の初期化
+	chemListManager = new ChemListManager('#selectYakuzai', (selected) => {
+		handleYakuzaiSelection(selected);
+	});
+	chemListManager.init({ title: '薬剤選択', showCategory: true });
 
-	yakuzaiInput.addEventListener('keydown', (e) => {
-		if (e.key === 'Enter') {
-			e.preventDefault();
-			yakuzaiFilter();
-			yakuzaiInput.blur();
-		}
-	});
-	// submitイベントはオートコンプリートの履歴保存のためにのみ使用し、ページの再読み込みを防ぐ
-	yakuzaiForm.addEventListener('submit', (event) => {
-		event.preventDefault();
-		yakuzaiFilter();
-		yakuzaiInput.blur();
-	});
-	// ボタンクリックで検索を実行
-	yakuzaiButton.addEventListener('click', () => {
-		yakuzaiFilter();
-	});
-	// 入力確定時に検索を実行
-	yakuzaiInput.addEventListener('change', () => {
-		yakuzaiFilter();
-	});
-	yakuzaiInput.addEventListener('input', () => {
-		if (yakuzaiButton.textContent === '解除' || yakuzaiInput.value.trim() === '') {
-			yakuzaiButton.textContent = '絞込';
-		}
+	// 作物ツリーの生成とイベントハンドラ設定
+	const sql = `
+		select idsaku, class, toroku, sakumotsu, shukakubui, betsumei, 
+		':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
+		from m_sakumotsu where sakumotsu not like '%除く%';
+	`;
+	await makeCropTree('#cropTree', sql, searchCrop, { showSearchMethod: true });
+
+	// 作物ツリー開閉トグラーイベントハンドラ設定
+	const condToggler = document.getElementById('condToggler');
+	condToggler.textContent = '▲▼';
+	condToggler.title = '作物ツリーを開閉';
+	condToggler.addEventListener('click', () => {
+		const hSplitter = document.getElementById('h-splitter');
+		const cropTree = document.getElementById('cropTree');
+		condToggler.classList.toggle('closed');
+		cropTree.classList.toggle('closed');
+		hSplitter.classList.toggle('closed');
+
 	});
 
-	// 薬剤選択リストのイベントリスナー
-	document.getElementById("selectYakuzai").addEventListener("click", (event) => {
-		if (event.target && event.target.classList.contains("yakuzaiOption")) {
-			// 選択状態をクリア
-			document.querySelectorAll(".yakuzaiOption.selected").forEach(el => {
-				el.classList.remove("selected");
-			});
-			// 選択されたオプションを強調表示
-			event.target.classList.add("selected");
+	// 薬剤リストを作成
+	console.log('起動時の薬剤リスト');
+	setYakuzaiList();
 
-			// 選択された薬剤の番号を取得
-			const bango = event.target.dataset.bango;
-
-			// 選択処理を実行
-			handleYakuzaiSelection({ target: { value: bango, selectedOptions: [{ text: event.target.textContent }] } });
-		}
-	});
+	// firefox のリロード時 checkbox 状態復元対策
+	clearAllReset();
 
 	// URLパラメータからkeywordを取得して自動検索
 	const urlParams = new URLSearchParams(window.location.search);
 	const keyword = urlParams.get('keyword');
 	if (keyword) {
-		yakuzaiInput.value = keyword;
+		if (chemListManager.filterInput) {
+			chemListManager.filterInput.value = keyword;
+			chemListManager._handleFilter(); // Manually trigger filter
+		}
 	}
-	// 薬剤リストを作成
-	setYakuzaiList();
 });
 </script>
 </head>
@@ -374,14 +428,11 @@ window.addEventListener('DOMContentLoaded', async function() {
 <div class="tab_content">
 	<div class="flex_container">
 		<div id="conditionPane">
-			<h3>薬剤名・成分名等検索</h3>
-			<form id="yakuzaiForm" class="inputbar" onsubmit="return false;">
-				<input type="text" id="yakuzaiInput" name="yakuzaiInput" placeholder="薬剤名・成分名等を入力" title="空白検索で全薬剤検索" autocomplete="on" />
-				<button type="button" id="yakuzaiButton">絞込</button>
-			</form>
-			<div id="selectYakuzai">
-				<h3>薬剤選択</h3>
-				<div id="yakuzaiListbox"></div>
+			<div id="condToggler"></div>
+			<div id="cropTree"></div>
+			<div id="h-splitter" class="splitter"></div>
+			<div class="flex-wrapper">				
+				<div id="selectYakuzai"></div>
 			</div>
 		</div>
 		<div id="resultPane">

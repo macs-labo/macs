@@ -495,8 +495,47 @@ dialog {
 	background-color: var(--bg-color-ht-header);
 }
 
+.checkListItem em {
+	font-weight: bolder; /* Noto Sans は bolder と bold に差はない、500 は normal より太いが太さが足りない */
+	font-style: normal;
+	color: var(--text-color-dark);
+	/* text-shadow: var(--bolder); */
+}
+
+.checkListItem small {
+	font-size: 12px;
+	color: var(--text-color-light);
+}
+
+input[type="radio"] {
+	position: relative;
+	flex-shrink: 0;
+	width: 10px;
+	height: 10px;
+	appearance: none;
+	-webkit-appearance: none;
+	border: 1px solid var(--border-color);
+	border-radius: 9999px;
+	cursor: pointer;
+}
+
+input[type="radio"]:checked {
+	border: 1px solid var(--border-color-focus);
+}
+
+input[type="radio"]:checked::after {
+	content: "";
+	position: absolute;
+	inset: 0;
+	width: 6px;
+	height: 6px;
+	margin: auto;
+	border-radius: 9999px;
+	background-color: var(--border-color-focus);
+}
+
 /* CropTreeManager (crop.js) 共通レイアウト設定 */
-#cropTree, #cropCropTree, #pestCropTree, #chemCropTree {
+#cropTree {
 	display: flex;
 	flex-direction: column;
 	flex: 1;
@@ -519,6 +558,16 @@ dialog {
 	background: var(--bg-color-listbox);
 	border-radius: 4px;
 	border: 1px solid var(--border-color);
+}
+
+/* 各選択ラッパーコンテナ共通設定 */
+.flex-wrapper {
+	flex: 1;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	min-width: 0;
+	width: 100%;
 }
 
 .allItemsContainer {
