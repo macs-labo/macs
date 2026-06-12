@@ -3802,5 +3802,8 @@ insert into kwlists values(25045, 'ƒ‰ƒ“ƒhƒPƒAFS;ƒtƒ‹ƒLƒTƒsƒƒLƒTƒh…˜aÜ;–k‹»‰»Š
 insert into kwlists values(25046, 'ƒLƒ…ƒEƒ‹ƒAD;ƒ_ƒCƒAƒWƒmƒ“EƒLƒ…ƒEƒ‹ƒA–ûÜ;ƒTƒ“ƒPƒC‰»ŠwŠ”Ž®‰ïŽÐ;ŽE’ŽE—Uˆø;4-(p-ƒAƒZƒgƒIƒLƒVƒtƒFƒjƒ‹)-2-ƒuƒ^ƒmƒ“, ƒ_ƒCƒAƒWƒmƒ“;ƒ_ƒCƒAƒWƒmƒ“;‚»‚Ì‘¼, —L‹@ƒŠƒ“;—L‹@ƒŠƒ“Œn;I:1(B);ƒAƒZƒ`ƒ‹ƒRƒŠƒ“ƒGƒXƒeƒ‰[ƒ[(AChE)‘jŠQ;_Œoì—p;‚¾‚¢‚ ‚¶‚Ì‚ñE‚«‚ã‚¤‚é‚ ‚ä‚´‚¢;‚«‚ã‚¤‚é‚ D');
 insert into kwlists values(25047, 'ƒTƒCƒ‚ƒfƒBƒXDC;ƒCƒ\ƒVƒNƒƒZƒ‰ƒ€…˜aÜ;ƒVƒ“ƒWƒFƒ“ƒ^ ƒWƒƒƒpƒ“Š”Ž®‰ïŽÐ;ƒCƒ\ƒVƒNƒƒZƒ‰ƒ€;ƒCƒ\ƒIƒLƒTƒ]ƒŠƒ“Œn;I:30;GABAì“®«‰–‘fƒCƒIƒ“ƒ`ƒƒƒlƒ‹ƒAƒƒXƒeƒŠƒbƒN’²ß;_Œoì—p;‚¢‚»‚µ‚­‚ë‚¹‚ç‚Þ‚·‚¢‚í‚´‚¢;‚³‚¢‚à‚Å‚¡‚·DC;‚³‚¢‚à‚¶‚·DC');
 insert into kwlists values(25048, 'ƒAƒeƒNƒ]ƒtƒƒAƒuƒ‹;ƒCƒ\ƒVƒNƒƒZƒ‰ƒ€…˜aÜ;ƒVƒ“ƒWƒFƒ“ƒ^ ƒWƒƒƒpƒ“Š”Ž®‰ïŽÐ;ƒCƒ\ƒVƒNƒƒZƒ‰ƒ€;ƒCƒ\ƒIƒLƒTƒ]ƒŠƒ“Œn;I:30;GABAì“®«‰–‘fƒCƒIƒ“ƒ`ƒƒƒlƒ‹ƒAƒƒXƒeƒŠƒbƒN’²ß;_Œoì—p;‚¢‚»‚µ‚­‚ë‚¹‚ç‚Þ‚·‚¢‚í‚´‚¢;‚ ‚Ä‚­‚¼‚Ó‚ë‚ ‚Ô‚é');
+insert into kwlists values(25049, 'ƒlƒ}ƒLƒbƒN—±Ü;ƒCƒ~ƒVƒAƒzƒX—±Ü;ƒAƒOƒ ƒJƒlƒVƒ‡ƒEŠ”Ž®‰ïŽÐ;ŽEü’Ž;ƒCƒ~ƒVƒAƒzƒX;—L‹@ƒŠƒ“;—L‹@ƒŠƒ“Œn;I:1(B);ƒAƒZƒ`ƒ‹ƒRƒŠƒ“ƒGƒXƒeƒ‰[ƒ[(AChE)‘jŠQ;_Œoì—p;‚¢‚Ý‚µ‚ ‚Ù‚·‚è‚ã‚¤‚´‚¢;‚Ë‚Ü‚«‚Á‚­‚è‚ã‚¤‚´‚¢');
+insert into kwlists values(25050, 'TKIƒVƒ“ƒo[;ƒ^[ƒoƒVƒ‹…˜aÜ;TKI JAPANŠ”Ž®‰ïŽÐ;œ‘;ƒ^[ƒoƒVƒ‹;ƒ_ƒCƒAƒWƒ“;ƒEƒ‰ƒVƒ‹;H:5;Œõ‡¬(Œõ‰»ŠwŒnII)‘jŠQ(ƒZƒŠƒ“264ƒoƒCƒ“ƒ_[);ROSŒõŠˆ«‰»;HRAC‹Œ•ª—Þ: C1;‚½[‚Î‚µ‚é‚·‚¢‚í‚´‚¢;TKI‚µ‚ñ‚Î[');
+insert into kwlists values(25051, 'TKIƒ][ƒo[;ƒ^[ƒoƒVƒ‹EDCMU…˜aÜ;TKI JAPANŠ”Ž®‰ïŽÐ;œ‘;DCMU, ƒ^[ƒoƒVƒ‹;ƒWƒEƒƒ“;”A‘f, ƒ_ƒCƒAƒWƒ“;ƒEƒŒƒA, ƒEƒ‰ƒVƒ‹;H:5;Œõ‡¬(Œõ‰»ŠwŒnII)‘jŠQ(ƒZƒŠƒ“264ƒoƒCƒ“ƒ_[);ROSŒõŠˆ«‰»;HRAC‹Œ•ª—Þ: C2, HRAC‹Œ•ª—Þ: C1;‚½[‚Î‚µ‚éEDCMU‚·‚¢‚í‚´‚¢;TKI‚¼[‚Î[');
 commit;
 create index idxkwlists on kwlists (kws);

@@ -1542,6 +1542,7 @@ insert into tsushoruby values('タフブロック', 'たふぶろっく');
 insert into tsushoruby values('タフブロックSP', 'たふぶろっくSP');
 insert into tsushoruby values('ネコソギエースW粒剤', 'ねこそぎえーすWりゅうざい');
 insert into tsushoruby values('レールウェイEX粒剤', 'れーるうぇいEXりゅうざい');
+insert into tsushoruby values('TKIゾーバー', 'TKIぞーばー');
 insert into tsushoruby values('ゾーバー', 'ぞーばー');
 insert into tsushoruby values('ラーチT粒剤', 'らーちTりゅうざい');
 insert into tsushoruby values('ノンウィード粒剤', 'のんうぃーどりゅうざい');
@@ -1574,6 +1575,7 @@ insert into tsushoruby values('ジャスタウェイI粒剤', 'じゃすたうぇいIりゅうざい'
 insert into tsushoruby values('ネコソギブロックI粒剤', 'ねこそぎぶろっくIりゅうざい');
 insert into tsushoruby values('クサハンターW粒剤', 'くさはんたーWりゅうざい');
 insert into tsushoruby values('レールシャープW粒剤', 'れーるしゃーぷWりゅうざい');
+insert into tsushoruby values('TKIシンバー', 'TKIしんばー');
 insert into tsushoruby values('シンバー', 'しんばー');
 insert into tsushoruby values('ダイアジノンMC', 'だいあじのんMC');
 insert into tsushoruby values('ダイアジノンSLゾル', 'だいあじのんSLぞる');
