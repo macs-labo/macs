@@ -113,8 +113,8 @@
 					e.touches[0].pageX - e.touches[1].pageX,
 					e.touches[0].pageY - e.touches[1].pageY
 				);
-				// コンテンツの現在の相対ズーム値を取得
-				startZoom = parseFloat(targetEl.style.zoom) || 1.0;
+				// コンテンツの現在の相対ズーム値を取得 (computed style から取得)
+				startZoom = parseFloat(getComputedStyle(targetEl).zoom) || 1.0;
 			}
 		}, { passive: false });
 
