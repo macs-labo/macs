@@ -19,11 +19,74 @@
 		}
 	}
 
-	// 公開ディレクトリの場合ここで終了
-	if (window.location.href.includes('/acfinder/')) return;
 	// タッチデバイスでない場合はここで終了
 	if (!('ontouchstart' in window)) return;
+	// --- グローバル・一時的ピンチズームの実装 ---
+	(function initGlobalPinchZoom() {
+		let startDist = 0;
+		let startZoom = 1;
+		let isPinching = false;
+		let targetEl = null;
 
+		// 現在表示中のアクティブなコンテンツ要素を取得する
+		const getActiveContent = () => {
+			const activeMain = document.querySelector('.main-swiper > .swiper-wrapper > .swiper-slide-active');
+			if (!activeMain) return null;
+			const nested = activeMain.querySelector('.swiper-wrapper > .swiper-slide-active');
+			const targetSlide = nested || activeMain;
+			// Swiperのレイアウト崩れを防ぐため、スライド内部のコンテナを対象にする
+			return targetSlide.querySelector('.step-fixed, .step-scrollable') || targetSlide;
+		};
+
+		window.addEventListener('touchstart', (e) => {
+			if (e.touches.length === 2) {
+				isPinching = true;
+				targetEl = getActiveContent();
+				if (!targetEl) return;
+
+				startDist = Math.hypot(
+					e.touches[0].pageX - e.touches[1].pageX,
+					e.touches[0].pageY - e.touches[1].pageY
+				);
+				// コンテンツの現在の相対ズーム値を取得
+				startZoom = parseFloat(targetEl.style.zoom) || 1.0;
+				// コンテンツの現在の相対ズーム値を取得 (computed style から取得)
+				//startZoom = parseFloat(getComputedStyle(targetEl).zoom) || 1.0;
+			}
+		}, { passive: false });
+
+		window.addEventListener('touchmove', (e) => {
+			if (isPinching && e.touches.length === 2 && targetEl) {
+				e.preventDefault(); // ネイティブのズームやスクロールを防止
+				const dist = Math.hypot(
+					e.touches[0].pageX - e.touches[1].pageX,
+					e.touches[0].pageY - e.touches[1].pageY
+				);
+				const ratio = (dist * 0.6) / startDist; 
+
+				let newZoom = startZoom * ratio;
+				// 1.0未満（appZoom相当）にならないよう制限
+				if (newZoom < 1.0) newZoom = 1.0;
+				if (newZoom > 2) newZoom = 2; // 最大ズーム制限（任意）
+
+				targetEl.style.zoom = newZoom;
+				// ズーム中はスクロール可能にする
+				if (newZoom > 1.0) {
+					targetEl.style.overflow = 'auto';
+				} else {
+					targetEl.style.overflow = '';
+				}
+			}
+		}, { passive: false });
+
+		window.addEventListener('touchend', () => { 
+			isPinching = false; 
+			targetEl = null;
+		});
+	})();
+
+	// 公開ディレクトリの場合ここで終了
+	if (window.location.href.includes('/acfinder/')) return;
 	// 開発版はデバッガーを画面の真ん中に巨大なログ画面を出す（タッチスクロール可能）
 	// 既存のデバッガーがあれば消す
 	document.getElementById('pwa-logger-v2')?.remove();
@@ -85,68 +148,6 @@
 			div.style.display = 'none';
 		}
 	});
-
-	// --- グローバル・一時的ピンチズームの実装 ---
-	(function initGlobalPinchZoom() {
-		let startDist = 0;
-		let startZoom = 1;
-		let isPinching = false;
-		let targetEl = null;
-
-		// 現在表示中のアクティブなコンテンツ要素を取得する
-		const getActiveContent = () => {
-			const activeMain = document.querySelector('.main-swiper > .swiper-wrapper > .swiper-slide-active');
-			if (!activeMain) return null;
-			const nested = activeMain.querySelector('.swiper-wrapper > .swiper-slide-active');
-			const targetSlide = nested || activeMain;
-			// Swiperのレイアウト崩れを防ぐため、スライド内部のコンテナを対象にする
-			return targetSlide.querySelector('.step-fixed, .step-scrollable') || targetSlide;
-		};
-
-		window.addEventListener('touchstart', (e) => {
-			if (e.touches.length === 2) {
-				isPinching = true;
-				targetEl = getActiveContent();
-				if (!targetEl) return;
-
-				startDist = Math.hypot(
-					e.touches[0].pageX - e.touches[1].pageX,
-					e.touches[0].pageY - e.touches[1].pageY
-				);
-				// コンテンツの現在の相対ズーム値を取得 (computed style から取得)
-				startZoom = parseFloat(getComputedStyle(targetEl).zoom) || 1.0;
-			}
-		}, { passive: false });
-
-		window.addEventListener('touchmove', (e) => {
-			if (isPinching && e.touches.length === 2 && targetEl) {
-				e.preventDefault(); // ネイティブのズームやスクロールを防止
-				const dist = Math.hypot(
-					e.touches[0].pageX - e.touches[1].pageX,
-					e.touches[0].pageY - e.touches[1].pageY
-				);
-				const ratio = (dist * 0.6) / startDist; 
-
-				let newZoom = startZoom * ratio;
-				// 1.0未満（appZoom相当）にならないよう制限
-				if (newZoom < 1.0) newZoom = 1.0;
-				if (newZoom > 2) newZoom = 2; // 最大ズーム制限（任意）
-
-				targetEl.style.zoom = newZoom;
-				// ズーム中はスクロール可能にする
-				if (newZoom > 1.0) {
-					targetEl.style.overflow = 'auto';
-				} else {
-					targetEl.style.overflow = '';
-				}
-			}
-		}, { passive: false });
-
-		window.addEventListener('touchend', () => { 
-			isPinching = false; 
-			targetEl = null;
-		});
-	})();
 })();
 </script>
 <script type="text/javascript" src="./header.js"></script>
