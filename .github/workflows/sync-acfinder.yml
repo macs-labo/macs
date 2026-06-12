@@ -13,6 +13,7 @@ on:
           - 'full_sync'  # ZIP展開 ＋ サーバー同期
           - 'github_only'  # ZIP展開 ＋ リポジトリ更新のみ
           - 'site_sync_only'    # サーバー同期のみ
+          - 'push_notification_only' # プッシュ通知のみ
         default: 'full_sync'
       force_update:
         description: '実験室を強制更新（?update=1）しますか？'
@@ -24,19 +25,24 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    outputs:
+      app_updated: ${{ steps.process-zip.outputs.app_updated }}
+      app_version: ${{ steps.process-zip.outputs.app_version }}
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Process ZIP and Update Repository
-        # Push時、または手動で full_sync か github_only を選択した時のみ実行
+        id: process-zip
+        # Push時、または site_sync_only 以外が選択された時に実行
         if: |
           github.event_name == 'push' || 
           github.event.inputs.run_mode == 'full_sync' || 
-          github.event.inputs.run_mode == 'github_only'
+          github.event.inputs.run_mode == 'github_only' ||
+          github.event.inputs.run_mode == 'push_notification_only'
         run: |
-          # 1. まず Web UI や API で追加された最新の ZIP をローカル環境に持ってくる
+          # Web UI や API で追加された最新の ZIP をローカル環境に反映
           #git pull origin main
 
           # 2. その後、ディレクトリに移動して展開処理を行う
@@ -50,7 +56,15 @@ jobs:
           fi
 
           echo "Latest ZIP found: $TARGET_ZIP"
+          VERSION=$(basename "$TARGET_ZIP" .zip | sed 's/^acfinder//')
+          echo "app_version=$VERSION" >> $GITHUB_OUTPUT
           
+          # プッシュ通知のみの場合は、展開・コミットをスキップして終了
+          if [[ "${{ github.event.inputs.run_mode }}" == "push_notification_only" ]]; then
+            echo "app_updated=true" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           # ZIPを解凍してリポジトリを展開
           unzip -o "$TARGET_ZIP" -d ./
           
@@ -59,8 +73,13 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add .
-          git diff --cached --quiet || git commit -m "Auto deploy from $TARGET_ZIP [skip ci]"
-          git push
+          if ! git diff --cached --quiet; then
+            git commit -m "Auto deploy from $TARGET_ZIP [skip ci]"
+            git push
+            echo "app_updated=true" >> $GITHUB_OUTPUT
+          else
+            echo "app_updated=false" >> $GITHUB_OUTPUT
+          fi
 
       - name: Trigger Remote Sync
         # Push時、または手動で full_sync か site_sync_only を選択した時のみ実行
@@ -95,3 +114,52 @@ jobs:
           curl "${CURL_OPTS[@]}" "https://macs.kabe.info/acfinder/.sync.acfinder.php$OPT"
           curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/acfinder/.sync.acfinder.php$OPT"
           curl "${CURL_OPTS[@]}" "https://macs.coresv.net/acfinder/.sync.acfinder.php$OPT"
+
+  push-notification:
+    needs: sync-and-notify
+    # 成功かつアプリが更新された場合に通知を実行
+    if: always() && (needs.sync-and-notify.result == 'success') && (needs.sync-and-notify.outputs.app_updated == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Web Push
+        env:
+          VAPID_PUBLIC_KEY: ${{ secrets.VAPID_PUBLIC_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          VAPID_CONTACT_EMAIL: ${{ secrets.VAPID_CONTACT_EMAIL }}
+          # Vercel KV へのアクセス用
+          KV_REST_API_URL: ${{ secrets.KV_REST_API_URL }}
+          KV_REST_API_TOKEN: ${{ secrets.KV_REST_API_TOKEN }}
+          APP_VERSION: ${{ needs.sync-and-notify.outputs.app_version }}
+        run: |
+          npm install web-push @vercel/kv
+          node -e '
+            const { createClient } = require("@vercel/kv");
+            const webpush = require("web-push");
+            
+            async function run() {
+              const kv = createClient({
+                url: process.env.KV_REST_API_URL,
+                token: process.env.KV_REST_API_TOKEN,
+              });
+
+              const subject = process.env.VAPID_CONTACT_EMAIL.startsWith("http") ? process.env.VAPID_CONTACT_EMAIL : `mailto:${process.env.VAPID_CONTACT_EMAIL}`;
+              
+              webpush.setVapidDetails(subject, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
+              
+              const keys = await kv.keys("*");
+              const subs = await Promise.all(keys.map(k => kv.get(k)));
+              
+              const payload = JSON.stringify({
+                title: "ACFinder App Update",
+                body: "アプリ本体が更新されました (" + process.env.APP_VERSION + ")",
+                tag: "app-update",
+                type: "app",
+                data: { type: "app", version: process.env.APP_VERSION }
+              });
+
+              await Promise.all(subs.map(sub => 
+                webpush.sendNotification(sub, payload).catch(err => console.error("Push Error:", err))
+              ));
+            }
+            run();
+          '
