@@ -158,6 +158,9 @@ jobs:
               }
               const subs = await Promise.all(keys.map(k => kv.get(k)));
               
+              // キーと購読情報をペアにして、エラー時に削除できるようにする
+              const subscriptionsWithKeys = keys.map((key, index) => ({ key, sub: subs[index] }));
+
               const payload = JSON.stringify({
                 title: "ACFinder App Update",
                 body: "アプリ本体が更新されました (" + process.env.APP_VERSION + ")",
@@ -166,12 +169,22 @@ jobs:
                 data: { type: "app", version: process.env.APP_VERSION }
               });
 
-              console.log(`Sending notifications to ${subs.length} subscribers...`);
-              await Promise.all(subs.map(sub => {
-                if (!sub) return Promise.resolve();
-                // KVから取得した値が文字列の場合はパースする
+              console.log(`Sending notifications to ${subscriptionsWithKeys.length} subscribers...`);
+              await Promise.all(subscriptionsWithKeys.map(async ({ key, sub }) => {
+                if (!sub) return;
+                
                 const subscription = typeof sub === "string" ? JSON.parse(sub) : sub;
-                return webpush.sendNotification(subscription, payload).catch(err => console.error("Push Error:", err));
+                try {
+                  await webpush.sendNotification(subscription, payload);
+                } catch (err) {
+                  // 410 (Gone) や 404 (Not Found) は購読が無効なので KV から削除する
+                  if (err.statusCode === 410 || err.statusCode === 404) {
+                    console.log(`Removing invalid subscription for key: ${key}`);
+                    await kv.del(key);
+                  } else {
+                    console.error(`Push Error for key ${key}:`, err);
+                  }
+                }
               }));
             }
             run().catch(err => {
