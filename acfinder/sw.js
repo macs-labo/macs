@@ -117,24 +117,36 @@ async function downloadAndCacheUpdate() {
 	// IndexedDB を開く (loader.js と同じ構成)
 	const db = await new Promise((resolve, reject) => {
 		const request = indexedDB.open(dbName, 1);
+		request.onupgradeneeded = (event) => {
+			const db = event.target.result;
+			if (!db.objectStoreNames.contains(storeName)) {
+				db.createObjectStore(storeName, { keyPath: 'fileName' });
+			}
+		};
 		request.onsuccess = () => resolve(request.result);
 		request.onerror = () => reject(request.error);
 	});
 
 	for (const file of filesToUpdate) {
-		// HTTPキャッシュを完全に無視して最新を取得
-		const response = await fetch(file.url, { cache: 'no-store' });
-		const blob = await response.blob();
-		const timestamp = response.headers.get('Last-Modified') || new Date().toUTCString();
+		try {
+			// HTTPキャッシュを完全に無視して最新を取得
+			const response = await fetch(file.url, { cache: 'no-store' });
+			if (!response.ok) throw new Error(`Fetch failed: ${response.status}`);
+			
+			const blob = await response.blob();
+			const timestamp = response.headers.get('Last-Modified') || new Date().toUTCString();
 
-		await new Promise((resolve, reject) => {
-			const transaction = db.transaction(storeName, 'readwrite');
-			const store = transaction.objectStore(storeName);
-			const request = store.put({ fileName: file.name, blob, timestamp });
-			request.onsuccess = () => resolve();
-			request.onerror = () => reject(request.error);
-		});
-		console.log(`[SW] Background update saved: ${file.name}`);
+			await new Promise((resolve, reject) => {
+				const transaction = db.transaction(storeName, 'readwrite');
+				const store = transaction.objectStore(storeName);
+				const request = store.put({ fileName: file.name, blob, timestamp });
+				request.onsuccess = () => resolve();
+				request.onerror = () => reject(request.error);
+			});
+			console.log(`[SW] Background update saved: ${file.name}`);
+		} catch (err) {
+			console.error(`[SW] Failed to update ${file.name}:`, err);
+		}
 	}
 	db.close();
 }
