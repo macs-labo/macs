@@ -891,8 +891,6 @@ async function waiting(sw = true, msg = '', msg2 = '') {
 //DBオブジェクト初期化
 function initDB() {
 	registerCustomFunctions(); // ユーザ定義関数を登録
-	//const ram = navigator.deviceMemory || 4;
-	//db.run(`pragma temp_store = ${ram >=8 ? 2 : 1};`); // メモリが 8GB 以上ならテンポラリファイルをメモリに作成
 	db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成
 	console.log("Database initialized.");
 	lastUpdate = db.exec("select * from info where item = 'LastUpdate'")[0].values[0][1];
@@ -905,9 +903,11 @@ function initDB() {
 			dbUpdateElement.innerHTML = (dbStatusCached ? '保存DB:' : '最新DB:') + lastUpdate;
 			if (dbStatusCached) dbUpdateElement.className = 'cached-mode';
 		}
-		// クリックイベントを追加（重複登録防止のため一旦削除）
-		dbUpdateElement.removeEventListener('click', showReleaseDialog);
-		dbUpdateElement.addEventListener('click', showReleaseDialog);
+		// 最新 DB の場合はクリックイベントを追加、保存 DB の場合はオフラインなので DB 変更不可
+		if (!dbStatusCached) {
+			dbUpdateElement.removeEventListener('click', showReleaseDialog); //重複登録防止のため一旦削除
+			dbUpdateElement.addEventListener('click', showReleaseDialog);
+		}
 	}
 }
 
