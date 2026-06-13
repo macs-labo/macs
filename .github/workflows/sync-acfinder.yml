@@ -167,18 +167,12 @@ jobs:
               });
 
               console.log(`Sending notifications to ${subs.length} subscribers...`);
-              const results = await Promise.allSettled(subs.map(sub => {
+              await Promise.all(subs.map(sub => {
                 if (!sub) return Promise.resolve();
                 // KVから取得した値が文字列の場合はパースする
                 const subscription = typeof sub === "string" ? JSON.parse(sub) : sub;
-                return webpush.sendNotification(subscription, payload);
+                return webpush.sendNotification(subscription, payload).catch(err => console.error("Push Error:", err));
               }));
-
-              results.forEach((res, i) => {
-                if (res.status === "rejected") {
-                  console.error(`Push Error for subscriber ${i}:`, res.reason);
-                }
-              });
             }
             run().catch(err => {
               console.error("Fatal Error:", err);
