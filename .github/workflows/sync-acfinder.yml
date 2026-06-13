@@ -78,7 +78,12 @@ jobs:
             git push
             echo "app_updated=true" >> $GITHUB_OUTPUT
           else
-            echo "app_updated=false" >> $GITHUB_OUTPUT
+            # Pushイベントの場合はZIPファイル自体が更新されているため、展開後のファイルに変更がなくても更新ありとみなす
+            if [[ "${{ github.event_name }}" == "push" ]]; then
+              echo "app_updated=true" >> $GITHUB_OUTPUT
+            else
+              echo "app_updated=false" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Trigger Remote Sync
@@ -147,6 +152,10 @@ jobs:
               webpush.setVapidDetails(subject, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
               
               const keys = await kv.keys("*");
+              if (keys.length === 0) {
+                console.log("No subscriptions found.");
+                return;
+              }
               const subs = await Promise.all(keys.map(k => kv.get(k)));
               
               const payload = JSON.stringify({
@@ -157,9 +166,22 @@ jobs:
                 data: { type: "app", version: process.env.APP_VERSION }
               });
 
-              await Promise.all(subs.map(sub => 
-                webpush.sendNotification(sub, payload).catch(err => console.error("Push Error:", err))
-              ));
+              console.log(`Sending notifications to ${subs.length} subscribers...`);
+              const results = await Promise.allSettled(subs.map(sub => {
+                if (!sub) return Promise.resolve();
+                // KVから取得した値が文字列の場合はパースする
+                const subscription = typeof sub === "string" ? JSON.parse(sub) : sub;
+                return webpush.sendNotification(subscription, payload);
+              }));
+
+              results.forEach((res, i) => {
+                if (res.status === "rejected") {
+                  console.error(`Push Error for subscriber ${i}:`, res.reason);
+                }
+              });
             }
-            run();
+            run().catch(err => {
+              console.error("Fatal Error:", err);
+              process.exit(1);
+            });
           '
