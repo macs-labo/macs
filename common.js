@@ -51,7 +51,7 @@ ${style}
     <li>当サイト運営者は、FAMICホームページから取得した農薬登録情報の加工及び検索に万全を期していますが、本サービスを利用した結果いかなる損害が発生したとしても、一切責任を負いません。</li>
     <li>本サービスが使用するデータベースおよびプログラムのソースコードは MIT ライセンスで公開していますが、サービスの持続性確保のため、必ず「<a href="https://github.com/macs-labo/macs#readme" target="_blank">利用規約</a>」をご確認の上、不具合報告等のメインテナンスへの協力をお願いします。</li>
   </ul>
-  <p class="note">PC や大画面タブレットでは「ACFinder Browser Edition」、スマホや小画面タブレットでは「携帯農薬検索システム」をお使いください。</p>
+  <p class="note">「農薬検索システム ACFinderBE」メニューを選択すると、PC や横置大画面タブレットでは Desktop モード、スマホや小画面タブレット等では Mobile モードで自動起動します。</p>
 </div>
 <footer>
   <p>MACS Lab: Mobile Agricultural Chemicals Search Laboratory</p>
