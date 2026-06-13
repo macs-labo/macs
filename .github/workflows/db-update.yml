@@ -206,8 +206,15 @@ jobs:
               webpush.setVapidDetails(subject, process.env.VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
               
               const keys = await kv.keys("*");
+              if (keys.length === 0) {
+                console.log("No subscriptions found.");
+                return;
+              }
               const subs = await Promise.all(keys.map(k => kv.get(k)));
               
+              // キーと購読情報をペアにして、エラー時に削除できるようにする
+              const subscriptionsWithKeys = keys.map((key, index) => ({ key, sub: subs[index] }));
+
               const notifications = [];
               if (process.env.ACIS_CHANGED === "true") {
                 notifications.push({
@@ -228,10 +235,27 @@ jobs:
 
               for (const n of notifications) {
                 const payload = JSON.stringify(n);
-                await Promise.all(subs.map(sub => 
-                  webpush.sendNotification(sub, payload).catch(err => console.error("Push Error:", err))
-                ));
+                console.log(`Sending notification: ${n.tag} to ${subscriptionsWithKeys.length} subscribers...`);
+                await Promise.all(subscriptionsWithKeys.map(async ({ key, sub }) => {
+                  if (!sub) return;
+                  
+                  const subscription = typeof sub === "string" ? JSON.parse(sub) : sub;
+                  try {
+                    await webpush.sendNotification(subscription, payload);
+                  } catch (err) {
+                    // 410 (Gone) や 404 (Not Found) は購読が無効なので KV から削除する
+                    if (err.statusCode === 410 || err.statusCode === 404) {
+                      console.log(`Removing invalid subscription for key: ${key}`);
+                      await kv.del(key);
+                    } else {
+                      console.error(`Push Error for key ${key}:`, err);
+                    }
+                  }
+                }));
               }
             }
-            run();
+            run().catch(err => {
+              console.error("Fatal Error:", err);
+              process.exit(1);
+            });
           '
