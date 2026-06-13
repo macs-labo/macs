@@ -158,9 +158,10 @@ self.addEventListener('push', (event) => {
 
 	const isAppUpdate = data.type === 'app';
 
-	// アプリ本体の更新通知は、公開版 (/acfinder/ ディレクトリ配下) の場合のみ表示する
-	if (isAppUpdate && !self.registration.scope.includes('/acfinder/')) {
-		console.log('[SW] App update notification suppressed in non-production scope.');
+	// アプリ本体の更新通知は、公開版と見なされるスコープでのみ表示する
+	// /acfinder/ (外部サイト) または /macs/ (GitHub Pages) のいずれかを含むスコープで許可
+	if (isAppUpdate && !(self.registration.scope.includes('/acfinder/') || self.registration.scope.includes('/macs/'))) {
+		console.log('[SW] App update notification suppressed in non-production or unrecognized scope.');
 		return;
 	}
 
