@@ -1379,6 +1379,7 @@ function showNotificationDialog() {
 
 	// デスクトップ版（タイトルバーのベルアイコン）からの呼び出し時の位置調整
 	const noticeBell = document.querySelector('#title-bar .notice-bell');
+	let iconUse = null;
 	if (noticeBell) {
 		const rect = noticeBell.getBoundingClientRect();
 		dialog.style.position = 'fixed';
@@ -1386,6 +1387,7 @@ function showNotificationDialog() {
 		dialog.style.top = (rect.bottom + 5) + 'px';
 		dialog.style.right = '10px';
 		dialog.style.left = 'auto';
+		iconUse = noticeBell.querySelector('svg use');
 	} else {
 		// モバイル版などはスタイルをリセットして中央表示
 		dialog.style.cssText = '';
@@ -1432,6 +1434,7 @@ function showNotificationDialog() {
 						await subscription.unsubscribe();
 					}
 					localStorage.removeItem('notice');
+					if (iconUse) iconUse.href.baseVal = 'icons.svg#bell';
 				} else {
 					// 新規購読処理
 					const subscription = await registration.pushManager.subscribe({
@@ -1444,6 +1447,7 @@ function showNotificationDialog() {
 						headers: { 'Content-Type': 'application/json' }
 					});
 					localStorage.setItem('notice', 'true');
+					if (iconUse) iconUse.href.baseVal = 'icons.svg#bell-off';
 				}
 				await render(); // 表示を最新の状態に更新
 			} catch (err) {
