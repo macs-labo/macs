@@ -53,4 +53,3 @@ jobs:
           # 各拠点の .sync.macs.php を叩く
           curl "${CURL_OPTS[@]}" "https://macs.kabe.info/macs/.sync.macs.php$OPT"
           curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/macs/.sync.macs.php$OPT"
-          curl "${CURL_OPTS[@]}" "https://macs.coresv.net/macs/.sync.macs.php$OPT"
