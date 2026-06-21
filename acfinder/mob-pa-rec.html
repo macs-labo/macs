@@ -286,7 +286,7 @@ function onCheckPlanCrop(selectedCrops) {
 }
 
 // 防除記録タブ step.2: 薬剤選択
-async function setupPlanChem() {
+async function setupPlanChem(moveThis = true) {
 	const title = document.querySelector('#planHead2');
 	const crops = planCropManager.checkedCrops.map(item => item.sakumotsu);
 	title.innerHTML = crops.join(' & ');
@@ -325,20 +325,18 @@ async function setupPlanChem() {
 		} catch (e) {
 			console.error(e);
 		} finally {
-			const nextMax = planList.length > 0 ? 2 : 1;
-			updateStepBar(planSwiper, Math.max(planSwiper.maxReachedStep, nextMax));
 			waiting(false);
 		}
 	};
 
-	// まだ step.2 (index 1) にいない場合はスライド移動
-	if (planSwiper.activeIndex === 1) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		// スライド移動完了後にリスト作成を実行
-		planSwiper.once('transitionEnd', () => { setTimeout(executeUpdate, 50); });
+	// step.2 作成
+	await executeUpdate();
+	if (moveThis) {
+		// step.2 を開放して移動
+		updateStepBar(planSwiper, 1);
 		planSwiper.slideTo(1);
 	}
+
 }
 
 // 現在時刻を YYYYMMDD-hhmmss にフォーマット
@@ -421,7 +419,7 @@ function movePlanRow(index, direction) {
 }
 
 // JSONファイルを読み込んで計画を復元
-async function loadPlanFromJson(event) {
+function loadPlanFromJson(event) {
 	const file = event.target.files[0];
 	if (!file) return;
 
@@ -442,26 +440,22 @@ async function loadPlanFromJson(event) {
 			// 選択作物の初期化と再設定
 			//planCropManager.checkedCrops = [];
 			planCropManager.checkedCrops = data.crops || [];
+			planList = loadedPlan;
 
 			// 作物ツリーのチェック状態を視覚的に復元
 			if (typeof planCropManager.syncCheckState === 'function') {
 				planCropManager.syncCheckState();
 			}
-			// onCheckCallback をコールしてテーブル作成
-			onCheckPlanCrop(planCropManager.checkedCrops);
-
 			// step.2 のリストを現在の作物に合わせて更新
-			await setupPlanChem();
-
-			// step.3 作成
-			planList = loadedPlan;
+			await setupPlanChem(false);
+			// step.3 を作成
 			await setPlanRecord();
+			alert('防除計画を読み込みました。');
 
 			const planSwiper = document.querySelector('.plan-swiper').swiper;
-			//planSwiper.maxReachedStep = 2; // step.3 まで解放
+			// step.3 を開放して移動
 			updateStepBar(planSwiper, 2);
-			planSwiper.slideTo(2); // 使用予定薬剤(step.3)へジャンプ
-			alert('防除計画を読み込みました。');
+			planSwiper.slideTo(2); 
 		} catch (err) {
 			console.error(err);
 			alert('ファイルの読み込みに失敗しました。有効なJSONファイルを選択してください。');
