@@ -19,10 +19,10 @@ window.addEventListener('DOMContentLoaded', async function() {
 	const templateHtml = sessionStorage.getItem('procTemplateHtml');
 	const templateFileName = sessionStorage.getItem('procTemplateFileName');
 	if (templateHtml) {
-		sessionStorage.removeItem('procTemplateHtml');
-		if (templateFileName) sessionStorage.removeItem('procTemplateFileName');
-		
 		try {
+			// ローディング表示開始（描画を確実にするため await する）
+			await waiting(true, 'ローカルファイルを復元中...');
+
 			const parser = new DOMParser();
 			const newDoc = parser.parseFromString(templateHtml, 'text/html');
 
@@ -117,10 +117,20 @@ window.addEventListener('DOMContentLoaded', async function() {
 			// document.title = pageTitle; // ドキュメントタイトルは「ローカル」のままの方が分かりやすいのでコメントアウト
 			const tabNameEl = document.querySelector('.tab_header .current-tab-name');
 			if (tabNameEl) tabNameEl.textContent = pageTitle;
+
+			// 復元に成功してからデータを削除
+			sessionStorage.removeItem('procTemplateHtml');
+			if (templateFileName) sessionStorage.removeItem('procTemplateFileName');
 		} catch (e) {
 			console.error('画面の復元中にエラーが発生しました:', e);
 			alert('画面の復元中にエラーが発生しました。\n' + e.message);
+		} finally {
+			// 復元処理の終了（差し替え後の body 内に #loading があれば非表示にする）
+			await waiting(false);
 		}
+	} else {
+		// テンプレートがない場合（誤ってリロードした際など）のみメッセージを表示
+		document.getElementById('noDataMessage')?.classList.remove('hidden');
 	}
 });
 
@@ -137,5 +147,5 @@ window.addEventListener('DOMContentLoaded', async function() {
 <div id="tab-header" class="tab_header"></div><!--	タブヘッダー表示領域確保 -->
 <!--	このタブの表示内容は動的に挿入されます -->
 <div class="tab_content">
-	<p>「ローカル」タブからファイルを選択してください。</p>
+	<p id="noDataMessage" class="hidden" style="text-align: center; padding: 50px;">表示するデータがありません。「＋」メニューから「ローカル」を選択してファイルを開いてください。</p>
 </div>

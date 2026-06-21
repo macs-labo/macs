@@ -23,13 +23,9 @@
 	min-height: 0; /* Flexアイテムが親より小さくなれるようにする 2026.1.26 追加 */
 }
 
-/*
 label[for^="clearAll"] {
-	position: relative;
-	top: -3px;
-	left: 0.5rem;
+	cursor: default;
 }
-*/
 
 input[type="checkbox"]:not(:disabled) + label[for^="clearAll"] {
 	cursor: pointer;

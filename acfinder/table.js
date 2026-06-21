@@ -249,38 +249,6 @@ function outputTable(selector, result, option = {}) {
 	const footer = document.createElement('div');
 	footer.classList.add('table_footer');
 
-	// フィルター一括解除ボタン
-	const filterClear = document.createElement('span');
-	const filterSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	filterSvg.classList.add('icon');
-	const filterTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-	filterTitle.textContent = 'フィルター一括解除';
-	filterSvg.appendChild(filterTitle);
-	const filterUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-	filterUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg#filter-x');
-	filterSvg.appendChild(filterUse);
-	filterClear.appendChild(filterSvg);
-	footer.appendChild(filterClear);
-
-	// 非表示列一括再表示ボタン
-	const showAllColumnsButton = document.createElement('span');
-	const showAllColumnsSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	showAllColumnsSvg.classList.add('icon');
-	const showAllColumnsTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-	showAllColumnsTitle.textContent = '非表示列一括再表示';
-	showAllColumnsSvg.appendChild(showAllColumnsTitle);
-	const showAllColumnsUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-	showAllColumnsUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg#table-export');
-	showAllColumnsSvg.appendChild(showAllColumnsUse);
-	showAllColumnsButton.appendChild(showAllColumnsSvg);
-	footer.appendChild(showAllColumnsButton);
-
-	// セパレーター
-	const separator = document.createElement('span');
-	separator.classList.add('separator');
-	separator.textContent = '|';
-	footer.appendChild(separator);
-
 	// エクスポートボタン
 	const buttons = [
 		{ name: 'copy', src: 'icons.svg#clipboard-copy', title: 'クリップボードにコピー' },
@@ -288,26 +256,7 @@ function outputTable(selector, result, option = {}) {
 		{ name: 'xls', src: 'icons.svg#file-xls', title: 'Excel 形式で保存' },
 		{ name: 'html', src: 'icons.svg#printer', title: '印刷プレビューを開く'}
 	];
-	const footerExport = document.createElement('span');
-	var exportButtons =[];
-	buttons.forEach(button => {
-		const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		svg.classList.add('icon');
 
-		const title = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-		title.textContent = button.title;
-		svg.appendChild(title);
-
-		const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-		use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', button.src);
-		svg.appendChild(use);
-
-		footerExport.appendChild(svg);
-		exportButtons[button.name] = svg;
-	});
-	footer.appendChild(footerExport);
-
-	// 表示枠の行数選択
 	const rowsOption = [
 		{ value: '15', text: '表示枠:15行' },
 		{ value: '20', text: '表示枠:20行', selected: true },
@@ -316,24 +265,43 @@ function outputTable(selector, result, option = {}) {
 		{ value: '35', text: '表示枠:35行' },
 		{ value: '40', text: '表示枠:40行' },
 	];
-	const footerWinSize = document.createElement('span');
-	const rowsSelect = document.createElement('select');
-	rowsOption.forEach(optionData => {
-		const option = document.createElement('option');
-		option.value = optionData.value;
-		option.textContent = optionData.text;
-		if (optionData.disabled) option.disabled = true; //disabledプロパティがあれば設定
-		if (optionData.selected) option.selected = true; //selectedプロパティがあれば設定
-		rowsSelect.appendChild(option);
-	});
-	rowsSelect.value = rowsTableWindow; // 初期値を rowsTableWindow に設定
-	footerWinSize.appendChild(rowsSelect);
-	footer.appendChild(footerWinSize);
 
-	// その他テキスト
-	const footerText = document.createElement('span');
-	footerText.classList.add('footer_text');
-	footer.appendChild(footerText);
+	footer.innerHTML += `
+		<span data-action="filter-clear">
+			<svg class="icon"><title>フィルター一括解除</title><use xlink:href="icons.svg#filter-x"></use></svg>
+		</span>
+		<span data-action="show-all-columns">
+			<svg class="icon"><title>非表示列一括再表示</title><use xlink:href="icons.svg#table-export"></use></svg>
+		</span>
+		<span class="separator">|</span>
+		<span class="footer_export">
+			${buttons.map(button => `
+				<svg class="icon" data-export="${button.name}">
+					<title>${button.title}</title>
+					<use xlink:href="${button.src}"></use>
+				</svg>
+			`).join('')}
+		</span>
+		<span class="footer_win_size">
+			<select>
+				${rowsOption.map(optionData => `
+					<option value="${optionData.value}"${optionData.disabled ? ' disabled' : ''}${optionData.selected ? ' selected' : ''}>${optionData.text}</option>
+				`).join('')}
+			</select>
+		</span>
+		<span class="footer_text"></span>
+	`;
+
+	const filterClear = footer.querySelector('[data-action="filter-clear"]');
+	const showAllColumnsButton = footer.querySelector('[data-action="show-all-columns"]');
+	const rowsSelect = footer.querySelector('select');
+	const footerText = footer.querySelector('.footer_text');
+	const exportButtons = {};
+	buttons.forEach(button => {
+		exportButtons[button.name] = footer.querySelector(`svg[data-export="${button.name}"]`);
+	});
+
+	rowsSelect.value = rowsTableWindow; // 初期値を rowsTableWindow に設定
 
 	tableWrapper.appendChild(footer);
 

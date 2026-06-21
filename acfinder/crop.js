@@ -410,6 +410,42 @@ class CropTreeManager {
 		clearAll.addEventListener('click', () => this.clearAll(false));
 	}
 
+	// checkedCrops の状態をツリーのUIに同期させる
+	syncCheckState() {
+		if (!this.infiniteTree) return;
+		if (this.isGlobal) this.checkedCrops = window.checkedCrops;
+
+		// まず、現在のツリーのチェック状態をすべてクリア
+		this.infiniteTree.nodes.forEach(node => {
+			// 親ノードが閉じていると checkNode() がエラーになるので、先に親ノードの開閉状況を確認
+			if (!node.parent || node.parent.state.open) {
+				// 親ノードがトップノードまたは開いている場合は checkNode() でアンチェック　node.state.checked = false だけでは tree.update() で反映されない
+				this.infiniteTree.checkNode(node, false); // エラーを気にしないなら、この結果が false なら強制アンチェックするのでも OK
+			}
+			node.state.checked = false;
+			const inputId = this.isGlobal ? node.id : `crop_${this.idSuffix}_${node.id}`;
+			const cb = this.infiniteTree.contentElement.querySelector(`input[id="${inputId}"]`);
+			if (cb) cb.checked = false;
+		});
+
+		// this.checkedCrops に基づいてチェック状態を適用
+		this.checkedCrops.forEach(c => {
+			const node = this.infiniteTree.getNodeById(c.id);
+			node.state.checked = true;
+			const inputId = this.isGlobal ? c.id : `crop_${this.idSuffix}_${c.id}`;
+			const cb = this.infiniteTree.contentElement.querySelector(`input[id="${inputId}"]`);
+			if (cb) cb.checked = true;
+		});
+		this.infiniteTree.update();
+
+		// clearAll チェックボックスの設定
+		const clearAll = this.containerElement.querySelector(`#clearAll${this.idSuffix}`);
+		if (clearAll) {
+			clearAll.checked = this.checkedCrops.length > 0;
+			clearAll.disabled = !clearAll.checked;
+		}
+	}
+
 	_applyFilter(text) {
 		const tree = this.infiniteTree;
 		const filterText = romajiConv(text).toHiragana().replaceAll('：', ':').trim();
@@ -618,6 +654,9 @@ function expandCrops(crop) {
 
 // 単純作物名配列を in 用検索条件に変換
 function makeCropCondition(crops) {
+	if (crops.length === 0) {
+		return null; // No crops selected, return null
+	}
 	cropConditions = crops.map(crop => expandCrops(crop));
 	return `select sakumotsu from m_sakumotsu left join sakuhojo using(idsaku) where ${cropConditions.join(' or ')}`;
 }

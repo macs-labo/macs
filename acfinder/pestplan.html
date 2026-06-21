@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
 <link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
-<title></title>
+<title>防除計画</title>
 <!-- 本プロジェクト専用ライブラリ -->
 <script type="text/javascript" src="./header.js"></script>
 <script type="text/javascript" src="./custom.js"></script>
@@ -43,6 +43,11 @@
 	--listbox-height: 220px;
 }
 
+#cropTree.locked {
+	pointer-events: none;
+	opacity: 0.6;
+}
+
 #yakuzai,
 #byochu{
 	width: 20rem;
@@ -63,6 +68,8 @@
 	gap: 10px;
 	/* margin-bottom: 10px; */
 }
+
+#cbyochuSelect { width: auto; }
 
 #byochuContainer,
 #racContainer,
@@ -172,8 +179,16 @@ select option:checked {
 	padding: 4px;
 }
 
+/* 計画コンテナ用スタイル調整 */
+#planContainer .checkListItem {
+	margin: 10px 0 5px;
+	font-weight: bold;
+}
 #planContainer > div {
 	overflow-x: auto;
+}
+#planContainer table {
+	margin-top: 0;
 }
 
 svg.disabled {
@@ -185,7 +200,8 @@ svg.disabled {
 /* 薬剤候補テーブルのスタイル調整 */
 #yakuzaiTekiyo .handsontable-like,
 #planContainer .handsontable-like,
-#seibunContainer .handsontable-like {
+#seibunContainer .handsontable-like,
+#yakuzaiCountContainer .handsontable-like {
 	width: auto !important; /* テーブル幅を内容に合わせ、他のスタイルを上書きする */
 }
 
@@ -204,7 +220,8 @@ svg.disabled {
   100% { opacity: 1; } /* 表示 */
 }
 
-#seibunContainer em {
+#seibunContainer em,
+#yakuzaiCountContainer em {
 	font-style: normal;
 	font-weight: bold;
 	color: red;
@@ -219,7 +236,8 @@ svg.disabled {
 	margin: 0 2px;
 }
 
-#seibunContainer {
+#seibunContainer,
+#yakuzaiCountContainer {
 	overflow-x: auto;
 }
 
@@ -230,7 +248,6 @@ svg.disabled {
 }
 
 .handsontable-like th,
-.handsontable-like td,
 .handsontable-like td {
 	border: 1px solid var(--border-color); /* CSS変数を使用 */
 	padding: 2px;
@@ -240,10 +257,9 @@ svg.disabled {
 .handsontable-like th {
 	background-color: var(--bg-color-header); /* CSS変数を使用 */
 }
+.handsontable-like td.No { text-align: center;}
 
-.handsontable-like tfoot td {
-	font-weight: bold;
-}
+.handsontable-like tfoot td { font-weight: bold; }
 
 .captionLabel {
 	font-weight: bold;
@@ -262,10 +278,40 @@ svg.disabled {
 	gap: 10px;
 }
 
-.actions {
-	white-space: nowrap;
-}
+.actions { white-space: nowrap; }
 
+.timing {
+	display: flex;
+	gap: 2px;
+	border: none;
+}
+.timing-cell {
+	position: relative;
+	min-width: 85px;
+	cursor: pointer;
+}
+.timing-cell .date-display-wrapper label {
+	position: relative;
+	display: block;
+	width: 100%;
+	padding: 2px 2px;
+	z-index: 2; /* input(z-index:1)より上に配置してクリックを確実に受け取る */
+	cursor: pointer;
+}
+.timing-cell .date-display-wrapper input[type="date"] {
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	opacity: 0;
+	z-index: 1;
+	font-size: 16px; /* iOSの自動ズーム防止 */
+}
+.timing-month,
+.timing-period {
+	width: auto;
+}
 </style>
 <!--	タブ専用の view や table の設定 -->
 <script type="text/plain" id="views_or_tables">
@@ -274,6 +320,7 @@ svg.disabled {
 <script>
 
 // テーブルインスタンスを保存する大域変数
+let isRecordMode = false; // 記録モードフラグ
 let currentSakumotsu = null; // 現在選択されている作物条件
 let currentCbyochu = null;   // 現在選択されているcid
 // let currentYoto = null;   // 現在選択されている用途　未使用
@@ -282,10 +329,19 @@ let currentYakuzai = null;   // 現在選択されている薬剤
 
 // clearContent プロトタイプ宣言
 if (!HTMLElement.prototype.clearContent) {
-  HTMLElement.prototype.clearContent = function() {
-    this.textContent = '';
-  };
+	HTMLElement.prototype.clearContent = function() {
+		this.textContent = '';
+		//this.className = 'hidden';
+	};
 }
+
+// Helper function to format YYYY-MM-DD to YY-MM-DD
+/*
+function formatToYYMMDD(dateString) {
+	if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return '';
+	return dateString.substring(2); // "YYYY-MM-DD" -> "YY-MM-DD"
+}
+*/
 
 async function dbExec(sql) {
 	await waiting(true, 'データベース検索中');
@@ -300,24 +356,32 @@ async function dbExec(sql) {
 
 async function searchCrop() {
 	const title = document.querySelector('#title');
-
-	currentSakumotsu = null;
+	
+	// Reset all filters and lists
 	currentCbyochu = null;
 	currentYakuzai = null; // 作物選択が変わったら薬剤フィルターをリセット
-	// currentYoto = null;
 	currentByochu = null;  // 作物選択が変わったら病害虫フィルターをリセット
 	// 各コンテナをクリア
-	document.getElementById('byochuContainer')?.clearContent();
+	document.getElementById('byochuSelect')?.clearContent();
 	document.getElementById('racContainer')?.clearContent();
 	document.getElementById('yakuzaiContainer')?.clearContent();
 	document.getElementById('yakuzaiTekiyo')?.clearContent();
-	if (checkedCrops.length === 0) { // 作物が選択されてなかったら作物を非表示にして終了
+
+	// Determine currentSakumotsu based on checkedCrops (this can return null)
+	currentSakumotsu = makeCropCondition(checkedCrops.map(item => item.sakumotsu));
+
+	if (!currentSakumotsu) { // No crops selected or makeCropCondition returned null
 		title?.clearContent();
 		title.classList.add('hidden');
+		// Clear all related lists and show empty state
+		setYakuzaiList(); // These functions now handle null currentSakumotsu
+		setRacList();
+		setCbyochuList(); // This will populate the cbyochu select, but subsequent byochu filtering will be empty.
 		return;
 	}
+
+	// If currentSakumotsu is not null, proceed with populating lists
 	const crops = checkedCrops.map(item => item.sakumotsu); // checkedCrops から作物だけの配列を取り出し
-	currentSakumotsu = makeCropCondition(crops); // 現在の作物条件を更新
 	title.innerHTML = crops.join(' | ');
 	title.classList.remove('hidden');
 	//他の SQL
@@ -325,7 +389,7 @@ async function searchCrop() {
 	/* // yoto リスト用 未使用
 	const sqlYoto = `select distinct yoto from tv_tsushoTekiyo where sakumotsu in (${currentSakumotsu}) order by yoto;`;
 	setTimeout(() => {
-		if (sqlYoto){setYotoList(sqlYoto);}
+		if (sqlYoto){setYotoList(sqlYoto);} // この関数は現在未使用
 	},0);
 	*/
 
@@ -344,57 +408,32 @@ async function searchCrop() {
 }
 
 function setCbyochuList(){
-	const byochuContainer = document.getElementById('byochuContainer');
-	byochuContainer?.clearContent();
-	const container = document.createElement('div');
-	container.id = 'cbyochuContainer';
-	const cbyochu = ['病害', '害虫', '雑草', '鳥獣', 'その他'];
-	// #cbyochuContainer内に<select>要素を作成
-	const select = document.createElement('select');
-	select.id = 'cbyochuSelect';
-	// デフォルトオプション（選択なし）
-	const defaultOption = document.createElement('option');
-	defaultOption.value = '';
-	defaultOption.textContent = '病害虫区分：なし';
-	defaultOption.selected = true;
-	select.appendChild(defaultOption);
-	// 配列からオプションを追加
-	cbyochu.forEach(item => {
-		const option = document.createElement('option');
-		option.value = item;
-		option.textContent = item === 'その他' ? '使用目的' : item;
-		select.appendChild(option);
-	});
-	container.appendChild(select);
-	byochuContainer.appendChild(container);
+	const list = document.getElementById('byochuSelect');
+	if (list) list.innerHTML = '';
+	document.getElementById('byochuContainer').classList.remove('hidden');
+}
 
-	// アイテム選択時のイベント登録ひな形
-	// changeイベントを使用（selectの場合、クリックではなく選択変更時）
-	document.getElementById('cbyochuSelect').addEventListener('change', function(event) {
-		const cbyochu = event.target.value;
-		document.getElementById('byochuSelect')?.remove(); //病害虫リストを削除
-		if (cbyochu) {
-			currentCbyochu = cbyochu;
-			const sql = `select distinct n_concat(':',byochu,mokuteki) as byochu from m_tekiyo where sakumotsu in (${currentSakumotsu}) 
-				and (byochu in (select byochu from m_byochu left join cbyochu using(cid) where cname ='${currentCbyochu}')
-				or mokuteki in (select byochu from m_byochu left join cbyochu using(cid) where cname ='${currentCbyochu}'));`;
-			setByochuList(sql);
-		} else { // 選択が解除された場合の処理
-			// グローバル変数をリセット
-			currentByochu = null;
-			currentCbyochu = null;
-			// ボタンコンテナを削除
-			document.getElementById('byochuButtons')?.remove();
-			// 適用候補テーブルをクリア
-			document.getElementById('yakuzaiTekiyo')?.clearContent();
-
-			// 薬剤とRACリストを作物選択直後の状態に戻す
-			if (currentSakumotsu) {
-				setYakuzaiList();
-				setRacList();
-			}
+function onCbyochuChange(event) {
+	const cbyochu = event.target.value;
+	if (cbyochu) {
+		currentCbyochu = cbyochu;
+		const sql = `select distinct n_concat(':',byochu,mokuteki) as byochu from m_tekiyo where sakumotsu in (${currentSakumotsu}) 
+			and (byochu in (select byochu from m_byochu left join cbyochu using(cid) where cname ='${currentCbyochu}')
+			or mokuteki in (select byochu from m_byochu left join cbyochu using(cid) where cname ='${currentCbyochu}'));`;
+		setByochuList(sql);
+	} else { // 選択が解除された場合の処理
+		currentByochu = null;
+		currentCbyochu = null;
+		const buttons = document.getElementById('byochuButtons');
+		if (buttons) buttons.innerHTML = '';
+		const list = document.getElementById('byochuSelect');
+		if (list) list.innerHTML = '';
+		document.getElementById('yakuzaiTekiyo')?.clearContent();
+		if (currentSakumotsu) {
+			setYakuzaiList();
+			setRacList();
 		}
-	});
+	}
 }
 
 //------ 未使用
@@ -473,100 +512,95 @@ async function setYotoList(sqlYoto) {
 
 // 薬剤リスト作成 
 async function setYakuzaiList(sqlOption = '') {
-	const sqlYakuzai = `select distinct tsusho, seizaiyoto, ruby from tv_tsushoTekiyo left join tsushoruby using(tsusho) where sakumotsu in (${currentSakumotsu})${sqlOption};`;
+	// currentSakumotsu が null の場合、薬剤リストを空にする
+	if (!currentSakumotsu) {
+		const yakuzaiDiv = document.getElementById('yakuzaiContainer');
+		if (yakuzaiDiv) {
+			yakuzaiDiv.innerHTML = `
+				<div class="inputbar"><input type="text" id="inputYakuzai" placeholder="絞込薬剤名/用途" disabled><button id="btnFilterYakuzai" disabled>絞込</button></div>
+				<select id="yakuzaiSelect" size="10"></select>
+			`;
+		}
+		await waiting(false);
+		return;
+	}
+	const sqlYakuzai = `
+		select distinct tsusho, seizaiyoto, ruby from tv_tsushoTekiyo left join tsushoruby using(tsusho) where sakumotsu in (${currentSakumotsu})${sqlOption} order by ruby;
+	`;
 	const sqlResult = await dbExec(sqlYakuzai);
 	const yakuzaiDiv = document.getElementById('yakuzaiContainer');
-	yakuzaiDiv?.clearContent();
+	if (!yakuzaiDiv) return;
+
 	let lastSelectedYakuzai = null;
+	const rows = sqlResult[0]?.values || [];
 
-	// 薬剤名フィルタリング用の入力ボックスを作成
-	const yakuzaiInputWrapper = document.createElement('div');
-	yakuzaiInputWrapper.className = 'inputbar';
-	const inputYakuzai = document.createElement("input");
-	inputYakuzai.type = "text";
-	inputYakuzai.id = "inputYakuzai";
-	inputYakuzai.placeholder = "絞込薬剤名/用途";
-	yakuzaiInputWrapper.appendChild(inputYakuzai);
-	const filterButton = document.createElement('button');
-	filterButton.textContent = '絞込';
-	yakuzaiInputWrapper.appendChild(filterButton);
-	yakuzaiDiv.appendChild(yakuzaiInputWrapper);
+	yakuzaiDiv.innerHTML = `
+		<div class="inputbar">
+			<input type="text" id="inputYakuzai" placeholder="絞込薬剤名/用途">
+			<button id="btnFilterYakuzai">絞込</button>
+		</div>
+		<select id="yakuzaiSelect" size="10">
+			${rows.map(row => `<option value="${row[0]}" data-search="${row[0] || ''} ${row[1] || ''} ${row[2] || ''}">${row[0]}</option>`).join('')}
+		</select>
+	`;
 
-	// 薬剤選択用のセレクトボックスを作成
-	const selectBox = document.createElement("select");
-	selectBox.id = "yakuzaiSelect";
-	selectBox.size = 10; // Set size for list box appearance (adjust as needed)
-	if (sqlResult && sqlResult.length > 0 && sqlResult[0].values && sqlResult[0].values.length > 0) {
-		sqlResult[0].values.forEach(row => {
-			let option = document.createElement('option');
-			option.value = row[0]; // tsusho
-			option.textContent = row[0]; // tsusho
-
-			option.dataset.search = `${row[0] || ''} ${row[1] || ''} ${row[2] || ''}`; // tsusho と yoto ,ruby を検索対象に
-			selectBox.appendChild(option);
-		});
-	}
+	const inputYakuzai = yakuzaiDiv.querySelector('#inputYakuzai');
+	const filterButton = yakuzaiDiv.querySelector('#btnFilterYakuzai');
+	const selectBox = yakuzaiDiv.querySelector('#yakuzaiSelect');
 
 	const filterYakuzaiList = () => {
-		if (filterButton.textContent === '解除') inputYakuzai.value = '';
-		const filterText = romajiConv(inputYakuzai.value.toLowerCase()).toHiragana();
-		const options = selectBox.options;
-
-		for (let i = 0; i < options.length; i++) {
-			const option = options[i];
-			const optionText = romajiConv(option.dataset.search.toLowerCase()).toHiragana();
-
-			if (optionText.includes(filterText) || filterText === '') {
-				option.classList.remove('hidden');
-			} else {
-				option.classList.add('hidden');
-			}
+		let filterText = inputYakuzai.value.trim();
+		if (filterButton.textContent === '解除' || filterText === '') {
+			inputYakuzai.value = '';
+			Array.from(selectBox.options).forEach(option => { option.classList.remove('hidden'); });
+		} else {
+			filterText = romajiConv(filterText.toLowerCase()).toHiragana();
+			Array.from(selectBox.options).forEach(option => {
+				const optionText = romajiConv(option.dataset.search.toLowerCase()).toHiragana();
+				option.classList.toggle('hidden', !optionText.includes(filterText));
+			});
 		}
-		filterButton.textContent = inputYakuzai.value.trim() === '' ? '絞込' : '解除';
+		filterButton.textContent = inputYakuzai.value === '' ? '絞込' : '解除';
 		if (filterButton.textContent === '解除') inputYakuzai.blur();
 	};
-	filterButton.onclick = filterYakuzaiList;
-	filterButton.addEventListener('mousedown', (e) => {
-		if (document.activeElement === inputYakuzai) e.preventDefault();
-	});
-	inputYakuzai.onchange = filterYakuzaiList;
 
-	// 空白入力でフィルター解除
+	filterButton.onclick = filterYakuzaiList;
+	filterButton.addEventListener('mousedown', (e) => { if (document.activeElement === inputYakuzai) e.preventDefault(); });
+	inputYakuzai.onchange = filterYakuzaiList;
 	inputYakuzai.addEventListener('input', () => {
 		if (inputYakuzai.value === '') {
 			if (typeof isMobile === 'undefined' || !isMobile) {
 				filterYakuzaiList();
 				lastSelectedYakuzai = null;
-			} else {
-				filterButton.textContent = '絞込';
-			}
-		} else if (filterButton.textContent === '解除') {
-			filterButton.textContent = '絞込';
-		}
+			} else { filterButton.textContent = '絞込'; }
+		} else if (filterButton.textContent === '解除') { filterButton.textContent = '絞込'; }
 	});
 
-	// handsontable 表示確認用
-	//selectBox.addEventListener("change", handleYakuzaiSelection);
-
-	// クリックで適用候補テーブルを表示するイベントリスナー
 	selectBox.addEventListener('click', (event) => {
 		const selectedOption = event.target;
 		const currentValue = selectedOption.value;
-		if (selectedOption && currentValue === lastSelectedYakuzai) {
-			return;
-		} else {
+		if (currentValue && currentValue !== lastSelectedYakuzai) {
 			lastSelectedYakuzai = currentValue;
-			// addYakuzaiToPlan(currentValue); // 計画テーブルへの直接追加を停止
-			showYakuzaiTekiyo(currentValue); // 適用候補テーブルを表示する関数を呼び出す
+			showYakuzaiTekiyo(currentValue);
 		}
 	});
-
-	// 作成した要素をdivに追加
-	yakuzaiDiv.appendChild(selectBox);
 }
 
 // RACリストを作成する関数
 async function setRacList(byochu = false) {
+	// currentSakumotsu が null の場合、RACリストを空にする
+	if (!currentSakumotsu) {
+		const racContainer = document.getElementById('racContainer');
+		if (racContainer) {
+			racContainer.innerHTML = `
+				<div class="inputbar"><input type="text" id="inputRac" placeholder="絞込RACコード/系統名" disabled><button id="btnFilterRac" disabled>絞込</button></div>
+				<select id="racSelect" size="10"></select>
+			`;
+		}
+		await waiting(false);
+		return;
+	}
+
 	const byochuCondition = byochu ? ` and (byochu in (${currentByochu}) or mokuteki in (${currentByochu}))` : '';
 	const sql = `with racs as (
 		select distinct mid1 as mid, iif(instr(rem1, 'FRAC'), replace(rem1, 'FRAC系統名: ', ''), null) as rem, keito1 as keito from tv_tsushoTekiyo where mid1 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} union
@@ -579,136 +613,85 @@ async function setRacList(byochu = false) {
 	`;
 	const sqlResult = await dbExec(sql);
 	const racContainer = document.getElementById('racContainer');
-	racContainer?.clearContent();
+	if (!racContainer) return;
 
+	const rows = sqlResult[0]?.values || [];
 	let lastSelectedRac = null;
 
-	// RACフィルタリング用の入力ボックスと解除ボタンのコンテナ
-	const inputWrapper = document.createElement('div');
-	inputWrapper.className = 'inputbar';
-
-	// RACフィルタリング用の入力ボックスを作成
-	const inputRac = document.createElement("input");
-	inputRac.type = "text";
-	inputRac.id = "inputRac";
-	inputRac.placeholder = "絞込RACコード/系統名";
-
-	const filterButton = document.createElement('button');
-	filterButton.textContent = '絞込';
-
-	// RAC選択用のセレクトボックスを作成
-	// sqlResult の戻り値が rac, rem の2カラム想定
-	const selectBox = document.createElement("select");
-	selectBox.id = "racSelect";
-	selectBox.size = 10;
-
-	if (sqlResult && sqlResult.length > 0 && sqlResult[0].values && sqlResult[0].values.length > 0) {
-		sqlResult[0].values.forEach(row => {
-			const rac = row[0]
-			let rem = row[1] || '';
-			const keito = row[2];
-			if (rem && rac.includes(',')) {
-				const items = keito.split(',');
-				items.forEach(item => { rem = rem.replace(item.trim(), ''); });
-			}
-			rem = rem.replace('()', '').replace(/^\((.*?)\)$/, '$1') || '';
-			rem = rem ? ` [${rem}]` : '';
-			if (rac) {
-				let option = document.createElement('option');
-				option.value = rac;
-				option.textContent = `${rac}${rem} / ${keito}`;
-				option.dataset.search = `${rac}${rem} ${keito}`;
-				selectBox.appendChild(option);
-			}
-		});
-	}
-
-	// RAC セレクトボックス選択解除
-	const deselectRac = () => {
-		// selectBox のオプションを全て表示
-		for (let i = 0; i < selectBox.options.length; i++) {
-			selectBox.options[i].classList.remove('hidden');
+	const options = rows.map(row => {
+		const rac = row[0];
+		let rem = (row[1] || '').replace('()', '').replace(/^\((.*?)\)$/, '$1') || '';
+		const keito = row[2];
+		if (rem && rac.includes(',')) {
+			keito.split(',').forEach(item => { rem = rem.replace(item.trim(), ''); });
 		}
+		const remText = rem ? ` [${rem}]` : '';
+		return `<option value="${rac}" data-search="${rac}${remText} ${keito}">${rac}${remText} / ${keito}</option>`;
+	}).join('');
+
+	racContainer.innerHTML = `
+		<div class="inputbar">
+			<input type="text" id="inputRac" placeholder="絞込RACコード/系統名">
+			<button id="btnFilterRac">絞込</button>
+		</div>
+		<select id="racSelect" size="10">${options}</select>
+	`;
+
+	const inputRac = racContainer.querySelector('#inputRac');
+	const filterButton = racContainer.querySelector('#btnFilterRac');
+	const selectBox = racContainer.querySelector('#racSelect');
+
+	const deselectRac = () => {
+		Array.from(selectBox.options).forEach(opt => opt.classList.remove('hidden'));
 		lastSelectedRac = null;
 		selectBox.value = '';
-		//selectBox.selectedIndex = -1;
 		filterButton.textContent = '絞込';
-		currentYakuzai = null;
-		// 薬剤リストを初期化
-		const sql = currentByochu ? ` and (byochu in (${currentByochu}) or mokuteki in (${currentByochu}))` : '';
-		if (debug) console.log(sql);
-		setYakuzaiList(sql);
-	}
+		setYakuzaiList(currentByochu ? ` and (byochu in (${currentByochu}) or mokuteki in (${currentByochu}))` : '');
+	};
 
-	// RAC セレクトボックスフィルタリング
 	const filterRacList = () => {
-		if (filterButton.textContent === '解除') inputRac.value = '';
-		if (inputRac.value === '') {
+		let filterText = inputRac.value.trim();
+		if (filterText === '' || filterButton.textContent === '解除') {
+			inputRac.value ='';
 			deselectRac();
 			return;
 		}
-		const filterText = romajiConv(inputRac.value.toLowerCase()).toHiragana();
-		const options = selectBox.options;
-
-		for (let i = 0; i < options.length; i++) {
-			const option = options[i];
+		
+		filterText = romajiConv(filterText.toLowerCase()).toHiragana();
+		Array.from(selectBox.options).forEach(option => {
 			const optionText = romajiConv(option.dataset.search.toLowerCase()).toHiragana();
-
-			if (optionText.includes(filterText) || filterText === '') {
-				option.classList.remove('hidden');
-			} else {
-				option.classList.add('hidden');
-			}
-		}
+			option.classList.toggle('hidden', !optionText.includes(filterText));
+		});
 		filterButton.textContent = '解除';
 		inputRac.blur();
 	};
-	// 絞込ボタンクリックで RACリストをフィルタリングする
+
 	filterButton.onclick = filterRacList;
-	filterButton.addEventListener('mousedown', (e) => {
-		if (document.activeElement === inputRac) e.preventDefault();
-	});
+	filterButton.addEventListener('mousedown', (e) => { if (document.activeElement === inputRac) e.preventDefault(); });
 	inputRac.onchange = filterRacList;
-
-
-	// 空白入力でフィルター解除
 	inputRac.addEventListener('input', () => {
 		if (inputRac.value === '') {
-			if (typeof isMobile === 'undefined' || !isMobile) {
-				deselectRac(); // RAC選択解除
-			} else {
-				filterButton.textContent = '絞込';
-			}
-		} else if (filterButton.textContent === '解除') {
-			filterButton.textContent = '絞込';
-		}
+			if (typeof isMobile === 'undefined' || !isMobile) { deselectRac(); } 
+			else { filterButton.textContent = '絞込'; }
+		} else if (filterButton.textContent === '解除') { filterButton.textContent = '絞込'; }
 	});
 
-	// クリックイベントのリスナーを追加
 	selectBox.addEventListener('click', (event) => {
 		const selectedOption = event.target;
 		const currentValue = selectedOption.value;
-		if (currentValue && currentValue === lastSelectedRac) {
-			//inputRac.value = '';
-			//deselectRac();
-			return;
-		} else {
-			selectBox.value = currentValue; // クリックしたオプションを選択状態にする
-			if (currentValue) {
+		if (currentValue) {
+			if (currentValue === lastSelectedRac) {
+				setYakuzaiList();
+				lastSelectedRac = null;
+			} else {
+				selectBox.value = currentValue;
 				let sql = currentByochu ? ` and (byochu in (${currentByochu}) or mokuteki in (${currentByochu}))` : '';
 				sql += ` and (mid1 = '${currentValue}' or mid2 = '${currentValue}' or mid3 = '${currentValue}' or mid4 = '${currentValue}' or mid5 = '${currentValue}')`;
-				if (debug) console.log('setRacList:' + sql);
-				setYakuzaiList(sql); // RACに基づく通称リストを表示する
+				setYakuzaiList(sql);
+				lastSelectedRac = currentValue;
 			}
-			lastSelectedRac = currentValue;
 		}
 	});
-
-	// 作成した要素をdivに追加
-	inputWrapper.appendChild(inputRac);
-	inputWrapper.appendChild(filterButton);
-	racContainer.appendChild(inputWrapper);
-	racContainer.appendChild(selectBox);
 }
 
 // 薬剤の適用候補テーブルを表示する関数
@@ -745,14 +728,7 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 			gn_concat('<br>',json_array(byochu)) as byochu,
 			gn_concat('<br>',json_array(mokuteki)) as mokuteki,
 			jiki, kaisu, baisu, ekiryo,hoho, 
-			--n_concat('<br>',seibun1,seibun2,seibun3,seibun4,seibun5) as yukoseibun,
-			n_concat('<br>',
-				n_concat(' ', seibun1, '['||(select seibun from tSeibun where ippanmei = seibun1)||']') , 
-				n_concat(' ', seibun2, '['||(select seibun from tSeibun where ippanmei = seibun2)||']') , 
-				n_concat(' ', seibun3, '['||(select seibun from tSeibun where ippanmei = seibun3)||']') , 
-				n_concat(' ', seibun4, '['||(select seibun from tSeibun where ippanmei = seibun4)||']') , 
-				n_concat(' ', seibun5, '['||(select seibun from tSeibun where ippanmei = seibun5)||']')  
-			) as seibun,
+			d_concat('<br>', yuko1, yuko2, yuko3, yuko4, yuko5) as seibun,
 			d_concat('<br>',kaisu1,kaisu2,kaisu3,kaisu4,kaisu5) as seibunkaisu,
 			d_concat('<br>',mid1,mid2,mid3,mid4,mid5) as mid
 			FROM tv_tsushoTekiyo
@@ -772,59 +748,41 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 		return;
 	}
 
-	const table = document.createElement('table');
-	table.id = 'candidateTable';
-	table.className = 'handsontable-like'; // 既存のテーブルスタイルを適用
-
-	const thead = table.createTHead();
-	const headerRow = thead.insertRow();
-	//						 1	   2		 3		   4			5
-	//const headers = ['操作', '作物名','通称名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量','使用方法', '有効成分','総使用回数における有効成分', '成分回数','RAC'];
-	const headers = ['操作', '作物名','通称名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量','使用方法', '成分', '成分回数','RAC'];
-	headers.forEach(text => {
-		const th = document.createElement('th');
-		th.textContent = text;
-		headerRow.appendChild(th);
-	});
-
-	const tbody = table.createTBody();
+	const headers = ['操作', '作物名', '通称名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC'];
 	const columns = results[0].columns;
+	let tableHtml = `<table id="candidateTable" class="handsontable-like">
+		<thead><tr>${headers.map(text => `<th>${text}</th>`).join('')}</tr></thead>
+		<tbody>`;
+
 	results[0].values.forEach(valueRow => {
-		const row = tbody.insertRow();
+		const byochuText = String(valueRow[columns.indexOf('byochu')] || '').replace(/\["null"\]|\[null\]|\["|"\]/g, '');
+		const mokutekiText = String(valueRow[columns.indexOf('mokuteki')] || '').replace(/\["null"\]|\[null\]|\["|"\]/g, '');
+		const byochuMokuteki = [byochuText, mokutekiText].filter(Boolean).join('<br>');
 
-		const actionCell = row.insertCell(0);
-		const addSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-		//addSvg.classList.add('svg_button', 'icon');
-		addSvg.classList.add('svg_button');
-		const addTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-		addTitle.textContent = '計画に追加';
-		addSvg.appendChild(addTitle);
-		const addUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-		//addUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'row-insert-bottom.svg?v=2#row-insert-bottom');
-		addUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg?v=3#plus');
-		addSvg.appendChild(addUse);
-		addSvg.onclick = function() { addCandidateToPlan(this); };
-		actionCell.appendChild(addSvg);
-
-		row.insertCell(1).textContent = valueRow[columns.indexOf('sakumotsu')] || '';
-		row.insertCell(2).textContent = yakuzaiName; // 薬剤名を追加
-		const byochuValue = valueRow[columns.indexOf('byochu')] || '';
-		const mokutekiValue = valueRow[columns.indexOf('mokuteki')] || '';
-		const byochuText = String(byochuValue).replace(/\["null"\]|\[null\]|\["|"\]/g, '');
-		const mokutekiText = String(mokutekiValue).replace(/\["null"\]|\[null\]|\["|"\]/g, '');
-		row.insertCell(3).innerHTML = [byochuText, mokutekiText].filter(Boolean).join('<br>');
-		row.insertCell(4).textContent = valueRow[columns.indexOf('jiki')] || '';
-		row.insertCell(5).textContent = valueRow[columns.indexOf('kaisu')] || '';
-		row.insertCell(6).textContent = valueRow[columns.indexOf('baisu')] || '';
-		row.insertCell(7).textContent = valueRow[columns.indexOf('ekiryo')] || '';
-		row.insertCell(8).textContent = valueRow[columns.indexOf('hoho')] || '';
-		//row.insertCell(9).innerHTML = valueRow[columns.indexOf('yukoseibun')] || ''; //<br> 区切りで表示される
-		row.insertCell(9).innerHTML = valueRow[columns.indexOf('seibun')] || '';
-		row.insertCell(10).innerHTML = valueRow[columns.indexOf('seibunkaisu')] || '';
-		row.insertCell(11).innerHTML = valueRow[columns.indexOf('mid')] || '';
+		tableHtml += `
+			<tr>
+				<td class="actions">
+					<svg class="svg_button" onclick="addCandidateToPlan(this)">
+						<title>計画に追加</title>
+						<use href="icons.svg?v=3#plus"></use>
+					</svg>
+				</td>
+				<td>${valueRow[columns.indexOf('sakumotsu')] || ''}</td>
+				<td>${yakuzaiName}</td>
+				<td>${byochuMokuteki}</td>
+				<td>${valueRow[columns.indexOf('jiki')] || ''}</td>
+				<td>${valueRow[columns.indexOf('kaisu')] || '-'}</td>
+				<td>${valueRow[columns.indexOf('baisu')] || ''}</td>
+				<td>${valueRow[columns.indexOf('ekiryo')] || ''}</td>
+				<td>${valueRow[columns.indexOf('hoho')] || ''}</td>
+				<td>${valueRow[columns.indexOf('seibun')] || ''}</td>
+				<td>${valueRow[columns.indexOf('seibunkaisu')] || ''}</td>
+				<td>${valueRow[columns.indexOf('mid')] || ''}</td>
+			</tr>`;
 	});
 
-	tekiyoContainer.appendChild(table);
+	tableHtml += `</tbody></table>`;
+	tekiyoContainer.innerHTML = tableHtml;
 }
 
 function setAllCheckboxes(container, handler, checked = false) {
@@ -839,60 +797,36 @@ function setAllCheckboxes(container, handler, checked = false) {
 async function setByochuList(sql) {
 	if (debug) console.log("Executing SQL for Byochu list:", sql);
 	const sqlResult = await dbExec(sql);
-	if (debug) console.log("Result for Byochu list:", sqlResult);
-	document.getElementById('byochuSelect')?.remove();
+	const byochuButtons = document.getElementById('byochuButtons');
+	const byochuSelect = document.getElementById('byochuSelect');
+	if (!byochuButtons || !byochuSelect) return;
 
-	// 既存のボタンコンテナがあれば削除
-	document.getElementById('byochuButtons')?.remove();
-
-	const byochuSelect = document.createElement('div');
-	byochuSelect.id = 'byochuSelect';
-
-	// ボタン用のコンテナを作成
-	const buttonContainer = document.createElement('div');
-	buttonContainer.id = 'byochuButtons';
-
-	const selectAllButton = document.createElement('button');
-	selectAllButton.textContent = '全て選択';
-	selectAllButton.onclick = () => {
-		setAllCheckboxes(byochuSelect, handleByochuSelection, true);
-	};
-
-	const deselectAllButton = document.createElement('button');
-	deselectAllButton.textContent = '全て解除';
-	deselectAllButton.onclick = () => {
-		setAllCheckboxes(byochuSelect, handleByochuSelection, false);
-	};
-
-	buttonContainer.appendChild(selectAllButton);
-	buttonContainer.appendChild(deselectAllButton);
-	document.getElementById('cbyochuContainer').appendChild(buttonContainer);
-
-	if (sqlResult && sqlResult.length > 0 && sqlResult[0].values && sqlResult[0].values.length > 0) {
-		sqlResult[0].values.forEach(row => {
-			const byochu = row[0];
-			if (!byochu) return;
-
-			const checkboxItem = document.createElement('div');
-			const checkbox = document.createElement('input');
-			checkbox.type = 'checkbox';
-			checkbox.value = byochu;
-			checkbox.id = 'byochu_' + byochu.replace(/[^a-zA-Z0-9]/g, '_');
-			// checkbox.checked = true; // リストボックス起動時に全チェックしたい場合はこの行を有効にする
-
-			const label = document.createElement('label');
-			label.htmlFor = checkbox.id;
-			label.textContent = byochu;
-
-			checkboxItem.appendChild(checkbox);
-			checkboxItem.appendChild(label);
-			byochuSelect.appendChild(checkboxItem);
-		});
+	// currentSakumotsu が null の場合、病害虫リストを空にする
+	if (!currentSakumotsu) {
+		byochuButtons.innerHTML = `
+			<button onclick="setAllCheckboxes(document.getElementById('byochuSelect'), handleByochuSelection, true)" disabled>全て選択</button>
+			<button onclick="setAllCheckboxes(document.getElementById('byochuSelect'), handleByochuSelection, false)" disabled>全て解除</button>
+		`;
+		byochuSelect.innerHTML = '';
+		await waiting(false);
+		return;
 	}
 
-	document.getElementById('byochuContainer').appendChild(byochuSelect);
-	byochuSelect.addEventListener('change', handleByochuSelection);
-	handleByochuSelection({target: byochuSelect.querySelectorAll('input')[0] }); // #racContainer, #yakuzaiContainer の初期化
+
+
+	const rows = sqlResult[0]?.values || [];
+	
+	byochuButtons.innerHTML = `
+		<button onclick="setAllCheckboxes(document.getElementById('byochuSelect'), handleByochuSelection, true)">全て選択</button>
+		<button onclick="setAllCheckboxes(document.getElementById('byochuSelect'), handleByochuSelection, false)">全て解除</button>
+	`;
+
+	byochuSelect.innerHTML = rows.map(row => {
+		const id = 'byochu_' + row[0].replace(/[^a-zA-Z0-9]/g, '_');
+		return `<div><input type="checkbox" value="${row[0]}" id="${id}"><label for="${id}">${row[0]}</label></div>`;
+	}).join('');
+
+	handleByochuSelection({ target: byochuSelect.querySelector('input') || { type: 'none' } });
 
 }
 
@@ -920,16 +854,15 @@ async function handleByochuSelection(event) {
 	const tekiyoContainer = document.getElementById('yakuzaiTekiyo');
 	tekiyoContainer?.clearContent();
 
-	if (currentByochu) {
-	//	const sql = `select distinct tsusho from tv_tsushoTekiyo where sakumotsu in (${currentSakumotsu}) and yoto in (${currentYoto}) and (byochu in (${currentByochu}) or mokuteki in (${currentByochu}))`;
-/*
-	const sql = `select distinct tsusho, seizaiyoto, ruby from tv_tsushoTekiyo left join tsushoruby using(tsusho)
-			where sakumotsu in (${currentSakumotsu}) and (byochu in (${currentByochu}) or mokuteki in (${currentByochu}))
-			order by ruby;`;
-*/
+	// Only proceed if crops are selected and there are selected byochu
+	if (currentSakumotsu && currentByochu) { // Added currentSakumotsu check
 		const sql = ` and (byochu in (${currentByochu}) or mokuteki in (${currentByochu}))`;
 	 	setYakuzaiList(sql);
 		setRacList(true); // RACリスト更新 病害虫フィルター付き
+	} else {
+		// If no crops or no byochu, clear and reset lists
+		setYakuzaiList(); // Reset to default (empty if no crops)
+		setRacList(); // Reset to default (empty if no crops)
 	}
 }
 
@@ -1045,99 +978,46 @@ async function executeSQLsetGrid(sqls) {
 // 防除計画テーブルを作成する関数
 function createPlanTable() {
 	const planContainer = document.getElementById('planContainer');
-	planContainer?.clearContent(); // Clear previous content
+	if (!planContainer) return;
+	const headers = ['操作', 'No', '防除時期', '作物名', '薬剤名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC'];
 
-	// テーブルをスクロールさせるためのラッパーを作成
-	const tableWrapper = document.createElement('div');
-
-	const table = document.createElement('table');
-	table.id = 'planTable';
-	table.className = 'handsontable-like'; // Handsontableに似たスタイルを適用
-
-	const thead = document.createElement('thead');
-	const headerRow = document.createElement('tr');
-	const headers = ['操作', 'No','作物名', '薬剤名', '対象病害虫','使用時期', '使用回数', '希釈倍数/使用量', '使用液量','使用方法','成分', '成分回数','RAC'];
-
-	headers.forEach(headerText => {
-		const th = document.createElement('th');
-		th.textContent = headerText;
-		headerRow.appendChild(th);
-	});
-
-	thead.appendChild(headerRow);
-	table.appendChild(thead);
-
-	const tbody = document.createElement('tbody');
-	table.appendChild(tbody);
-
-	tableWrapper.appendChild(table);
-	planContainer.appendChild(tableWrapper);
-
-	// ボタン用のコンテナ
-	const buttonContainer = document.createElement('div');
-	buttonContainer.className = 'iconsbar';
-
-	// クリップボードにコピーするボタンを追加
-	const copySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	copySvg.id = 'btnCopyPlan';
-	copySvg.classList.add('icon', 'disabled');
-	const copyTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-	copyTitle.textContent = 'クリップボードにコピー';
-	copySvg.appendChild(copyTitle);
-	const copyUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-	copyUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg#clipboard-copy');
-	copySvg.appendChild(copyUse);
-	copySvg.onclick = copyPlanTableToClipboard;
-	buttonContainer.appendChild(copySvg);
-
-	// Excelファイルとして保存するボタンを追加
-	const excelSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	excelSvg.id = 'btnExcelPlan';
-	excelSvg.classList.add('icon', 'disabled');
-	const excelTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-	excelTitle.textContent = 'Excelファイルとして保存';
-	excelSvg.appendChild(excelTitle);
-	const excelUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-	excelUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg#file-xls');
-	excelSvg.appendChild(excelUse);
-	excelSvg.onclick = savePlanTableAsExcel;
-	buttonContainer.appendChild(excelSvg);
-	
-	// JSON形式で保存するボタンを追加
-	const jsonSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	jsonSvg.id = 'btnJsonSavePlan';
-	jsonSvg.classList.add('icon', 'disabled');
-	const jsonTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-	jsonTitle.textContent = 'JSON形式で保存';
-	jsonSvg.appendChild(jsonTitle);
-	const jsonUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-	jsonUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg?v=3#file-type-json');
-	//																		v=2 キャッシュ対策  
-	jsonSvg.appendChild(jsonUse);
-	jsonSvg.onclick = savePlanAsJson;
-	buttonContainer.appendChild(jsonSvg);
-
-	// JSONファイルを読み込むためのファイル入力を隠して設置
-	const jsonLoadInput = document.createElement('input');
-	jsonLoadInput.type = 'file';
-	jsonLoadInput.accept = '.json';
-	jsonLoadInput.classList.add('hidden');
-	jsonLoadInput.onchange = loadPlanFromJson;
-	buttonContainer.appendChild(jsonLoadInput);
-
-	// JSONファイルを読み込むボタンを追加
-	const jsonLoadSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	jsonLoadSvg.classList.add('icon');
-	const jsonLoadTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-	jsonLoadTitle.textContent = 'JSONファイル読込';
-	jsonLoadSvg.appendChild(jsonLoadTitle);
-	const jsonLoadUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-	jsonLoadUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg?v=3#open-json');
-	jsonLoadSvg.appendChild(jsonLoadUse);
-	jsonLoadSvg.onclick = () => jsonLoadInput.click(); // ファイル入力をトリガー
-	buttonContainer.appendChild(jsonLoadSvg);
-	
-	planContainer.appendChild(buttonContainer);
+	planContainer.innerHTML = `
+		<div class="checkListItem"">
+			<input type="checkbox" id="checkRecordMode" onchange="toggleRecordMode(this.checked)" autocomplete="off">
+			<label for="checkRecordMode"> 記録モード (日付入力)</label>
+		</div>
+		<div>
+			<table id="planTable" class="handsontable-like">
+				<thead>
+					<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+		</div>
+		<div class="iconsbar">
+			<svg id="btnSortPlan" class="icon disabled" onclick="sortPlanByTiming()">
+				<title>防除時期で並べ替え</title>
+				<use href="icons.svg?v=3#sort-ascending"></use>
+			</svg>
+			<svg id="btnCopyPlan" class="icon disabled" onclick="copyPlanTableToClipboard()">
+				<title>クリップボードにコピー</title>
+				<use href="icons.svg#clipboard-copy"></use>
+			</svg>
+			<svg id="btnExcelPlan" class="icon disabled" onclick="savePlanTableAsExcel()">
+				<title>Excelファイルとして保存</title>
+				<use href="icons.svg#file-xls"></use>
+			</svg>
+			<svg id="btnJsonSavePlan" class="icon disabled" onclick="savePlanAsJson()">
+				<title>JSON形式で保存</title>
+				<use href="icons.svg?v=3#file-type-json"></use>
+			</svg>
+			<input type="file" id="planJsonInput" accept=".json" class="hidden" onchange="loadPlanFromJson(event)">
+			<svg class="icon" onclick="document.getElementById('planJsonInput').click()">
+				<title>JSONファイル読込</title>
+				<use href="icons.svg?v=3#open-json"></use>
+			</svg>
+		</div>
+	`;
 }
 
 // 現在時刻を YYYYMMDD-hhmmss にフォーマット
@@ -1166,6 +1046,67 @@ function getFilenamePrefix() {
 	return '';
 }
 
+function parseTiming(timingText) {
+	let timingMonth = '', timingPeriod = '';
+	if (timingText) {
+		if (/^\d{4}-\d{2}-\d{2}$/.test(timingText)) {
+			const [year, month, day] = timingText.split('-');
+			timingMonth = (+month).toString();
+			timingPeriod = day > 20 ? '下旬' : day > 10 ? '中旬' : '上旬';
+		} else {
+			if (timingText === '日付選択' || timingText === '') {
+				[timingText, timingMonth, timingPeriod] = ['', '', ''];
+			} else {
+				[timingMonth, timingPeriod] = timingText.split('月');
+			}
+		}
+	}
+	return [timingText, timingMonth, timingPeriod];
+}
+
+function getMonthPeriod(td, timingOnly = false) {
+	let timing = '', month = '', period = '';
+	const monthSelect = td.querySelector('.timing-month');
+	if (monthSelect) {
+		month = monthSelect.value || '';
+		period = td.querySelector('.timing-period')?.value || '';
+		timing = (month && period) ? `${month}月${period}` : ''; // 防除記録用にこのデータは必須
+	} else {
+		const timingText = td.querySelector('.timing')?.textContent || '';
+		[timing, month, period] = parseTiming(timingText);
+	}
+	if (timingOnly) return timing;
+	return [timing, month, period];
+}
+
+function getTimingText(td) {
+	let timingText;
+	if (isRecordMode) {
+		timingText = td.querySelector('label')?.textContent || '';
+	} else {
+		timingText = getMonthPeriod(td, true);
+		//if (!timingText) {
+		//	timingText = td.querySelector('.timing')?.textContent || '';
+		//}
+	}
+	return timingText;
+}
+
+function getTimingArray(mode, td) {
+	let timing, timingMonth, timingPeriod;
+	if (mode) {
+		const timingText = td.querySelector('label')?.textContent || '';
+		[timing, timingMonth, timingPeriod] = parseTiming(timingText);
+	} else {
+		[timing, timingMonth, timingPeriod] = getMonthPeriod(td);
+		//if (!timing) {
+		//	const timingText = td.querySelector('.timing')?.textContent || '';
+		//	[timing, timingMonth, timingPeriod] = parseTiming(timingText);
+		//}
+	}
+	return [timing, timingMonth, timingPeriod];
+}
+
 // planTableの内容をJSON形式で保存する関数
 async function savePlanAsJson() {
 	const table = document.getElementById('planTable');
@@ -1174,21 +1115,23 @@ async function savePlanAsJson() {
 	const planData = [];
 	const saveData = {
 		sakumotsu: currentSakumotsu, // 作物条件のSQL文字列
+		crops: checkedCrops, // 選択作物オブジェクトの配列(モバイル版互換用)
 		titleText: document.getElementById('title').textContent, // #title のテキスト内容
 		plan: planData
 	};
 
-
-	//const headers = ['no', 'sakumotsu','yakuzai','byochu','jiki', 'kaisu', 'baisu', 'ekiryo','hoho', 'yukoseibun', 'seibun', 'seibunkaisu', 'mid'];
-	const headers = ['no', 'sakumotsu','yakuzai','byochu','jiki', 'kaisu', 'baisu', 'ekiryo','hoho', 'seibun', 'seibunkaisu', 'mid'];
+	const headers = ['no', 'timing', 'sakumotsu','yakuzai','byochu','jiki', 'kaisu', 'baisu', 'ekiryo','hoho', 'seibun', 'seibunkaisu', 'mid'];
 
 	table.querySelectorAll('tbody tr').forEach(tr => {
 		const rowData = {};
 		tr.querySelectorAll('td').forEach((td, index) => {
 			if (index > 0) { // 「操作」列をスキップ
 				const key = headers[index - 1];
-				// innerHTMLを使用して<br>タグを保持
-				rowData[key] = td.innerHTML;
+				if (index === 2) { // 防除時期セル
+					[rowData.timing, rowData.timingMonth, rowData.timingPeriod] = getTimingArray(isRecordMode, td);
+				} else {
+					rowData[key] = td.innerHTML; // innerHTMLを使用して<br>タグを保持
+				}
 			}
 		});
 		planData.push(rowData);
@@ -1197,11 +1140,12 @@ async function savePlanAsJson() {
 	const jsonString = JSON.stringify(saveData, null, 2);
 	const blob = new Blob([jsonString], { type: 'application/json' });
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
-	saveAs(blob, `${prefix}防除計画_${formatDateTime()}.json`);
+	const baseName = isRecordMode ? '防除記録' : '防除計画';
+	saveAs(blob, `${prefix}${baseName}_${formatDateTime()}.json`);
 }
 
 // JSONファイルを読み込んでplanTableを復元する関数
-function loadPlanFromJson(event) {
+async function loadPlanFromJson(event) {
 	const file = event.target.files[0];
 	if (!file) return;
 
@@ -1215,39 +1159,40 @@ function loadPlanFromJson(event) {
 	}
 
 	const reader = new FileReader();
-	reader.onload = function(e) {
+	reader.onload = async function(e) {
 		try {
 			const loadedData = JSON.parse(e.target.result);
 			const planData = loadedData.plan;
 
-			if (!Array.isArray(planData) || !loadedData.sakumotsu || loadedData.titleText === undefined) {
-				throw new Error('JSONデータが配列ではありません。');
+			// 先頭行が日付形式なら記録モードを自動有効化
+			const firstRow = planData[0];
+			isRecordMode = !!(firstRow && firstRow.timing && /^\d{4}-\d{2}-\d{2}$/.test(firstRow.timing));
+			const modeCheck = document.getElementById('checkRecordMode');
+			if (modeCheck) modeCheck.checked = isRecordMode;
+
+			// 'plan', 'titleText', 'crops' の存在をチェック
+			if (!Array.isArray(planData) || loadedData.titleText === undefined) { // loadedData.crops はオプションなのでチェックしない
+				throw new Error('Invalid JSON format: missing plan, titleText, or crops.');
 			}
 
-			// 作物条件を復元
-			currentSakumotsu = loadedData.sakumotsu;
-			
-			// 関連コンテナをクリア
-			document.getElementById('byochuSelect')?.clearContent();
-			document.getElementById('racContainer')?.clearContent();
+			// 作物情報の復元
+			window.checkedCrops = loadedData.crops || []; // crops がない場合は空配列で初期化
 
-			// CbyochuList 復元
-			setCbyochuList();
-			//racList 復元
-			setRacList();
-			// 薬剤リストを再生成
-			// currentSakumotsu が更新されたので、それに合わせて薬剤リストを再構築
-			// setYakuzaiList の引数として渡すSQLは、searchCrop 関数内で定義されているものと同じ
-			// ただし、searchCrop を直接呼び出すと、#result の内容も更新されてしまうため、
-			// ここでは setYakuzaiList のみを呼び出す
-			// setYakuzaiList は currentSakumotsu を使用して薬剤リストをフィルタリングする
-			// したがって、currentSakumotsu が更新されていれば、正しい薬剤リストが生成される
-			// 薬剤リストの再生成は、planTable の復元前に行う必要がある
-/*
-			const sqlYakuzai = `select distinct tsusho, ruby from tv_tsushoTekiyo left join tsushoruby using(tsusho)
-				where sakumotsu in (${currentSakumotsu}) order by ruby;`;
-*/
-			setYakuzaiList();
+			// currentSakumotsu を checkedCrops から再構築、または古い形式のsakumotsuから復元
+			currentSakumotsu = null; // まず初期化
+			if (window.checkedCrops.length > 0) {
+				currentSakumotsu = makeCropCondition(window.checkedCrops.map(item => item.sakumotsu));
+			} else if (loadedData.sakumotsu) { // 古い形式のJSONでcropsがない場合
+				currentSakumotsu = loadedData.sakumotsu;
+			}
+
+			// 作物ツリーのチェック状態を視覚的に復元
+			if (_defaultCropTreeManager && typeof _defaultCropTreeManager.syncCheckState === 'function') {
+				_defaultCropTreeManager.syncCheckState();
+			}
+
+			// searchCrop を呼び出して、UIと関連リストを更新
+			await searchCrop(); // searchCrop が null currentSakumotsu を処理するように変更
 
 			// テーブルを復元
 			const planTableBody = document.querySelector('#planTable tbody');
@@ -1269,10 +1214,15 @@ function loadPlanFromJson(event) {
 				const newRow = planTableBody.insertRow();
 				const yakuzaiName = rowData.yakuzai || '';
 				const data = {
+					timing: rowData.timing || '', // Add timing property
+					// 日付形式(YYYY-MM-DD)から月と旬を計算するフォールバック
+					timingMonth: rowData.timingMonth || (rowData.timing && /^\d{4}-\d{2}-\d{2}$/.test(rowData.timing) ? String(new Date(rowData.timing).getMonth() + 1) : ''),
+					timingPeriod: rowData.timingPeriod || (rowData.timing && /^\d{4}-\d{2}-\d{2}$/.test(rowData.timing) ? (new Date(rowData.timing).getDate() <= 10 ? '上旬' : new Date(rowData.timing).getDate() <= 20 ? '中旬' : '下旬') : ''),
 					sakumotsu: rowData.sakumotsu || '',
+					yakuzai: rowData.yakuzai || '',
 					byochu: rowData.byochu || '',
 					jiki: rowData.jiki || '',
-					kaisu: rowData.kaisu || '',
+					kaisu: rowData.kaisu || '-',
 					baisu: rowData.baisu || '',
 					ekiryo: rowData.ekiryo || '',
 					hoho: rowData.hoho || '',
@@ -1284,7 +1234,7 @@ function loadPlanFromJson(event) {
 				addYakuzaiToPlanRow(newRow, yakuzaiName, data);
 			});
 
-			updateRowNumbers(); // 行番号の再採番と成分カウントの更新
+			updateRowNumbers(); // 行番号の再採番と成分別使用回数の更新
 			alert('防除計画を読み込みました。');
 		} catch (err) {
 			console.error('JSONファイルの読み込みまたは解析に失敗しました:', err);
@@ -1317,8 +1267,13 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 		const rowData = [];
 		tr.querySelectorAll('td').forEach((td, index) => {
 			if (index > 0) {
-				// <br> を改行文字 \n に変換
-				const cellText = td.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+				let cellText;
+				if (index === 2) { // 防除時期セル
+					cellText = getTimingText(td);
+				} else {
+					// <br> を改行文字 \n に変換
+					cellText = td.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+				}
 				rowData.push(cellText);
 			}
 		});
@@ -1332,10 +1287,10 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 		});
 	});
 
-	// --- 成分カウントテーブルを別シートに追加 ---
+	// --- 成分別使用回数テーブルを別シートに追加 ---
 	const seibunTable = document.getElementById('seibunCountTable');
 	if (seibunTable) {
-		const seibunWorksheet = workbook.addWorksheet('成分カウント');
+		const seibunWorksheet = workbook.addWorksheet('成分別使用回数');
 		const seibunHeaders = [];
 		seibunTable.querySelectorAll('thead th').forEach(th => {
 			seibunHeaders.push(th.textContent);
@@ -1368,7 +1323,8 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 	const buffer = await workbook.xlsx.writeBuffer();
 	const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 	const prefix = getFilenamePrefix();
-	saveAs(blob, `${prefix}防除計画_${formatDateTime()}.xlsx`); // ファイル名を修正
+	const baseName = isRecordMode ? '防除記録' : '防除計画';
+	saveAs(blob, `${prefix}${baseName}_${formatDateTime()}.xlsx`);
 }
 
 // planTableの内容をクリップボードにコピーする関数
@@ -1391,7 +1347,13 @@ async function copyPlanTableToClipboard() {
 		const rowData = [];
 		row.querySelectorAll('td').forEach((td, index) => {
 			if (index > 0) { // 0番目の「操作」列をスキップ
-				rowData.push(td.textContent.replace(/\n/g, ' ')); // セル内の改行はスペースに置換
+				let cellText;
+				if (index === 2) { // 防除時期セル
+					cellText = getTimingText(td);
+				} else {
+					cellText = td.textContent.replace(/\n/g, ' '); // セル内の改行はスペースに置換
+				}
+				rowData.push(cellText);
 			}
 		});
 		data += rowData.join('\t') + '\n';
@@ -1406,43 +1368,34 @@ async function copyPlanTableToClipboard() {
 	}
 }
 
-// seibunCountTableの内容をクリップボードにコピーする関数
-async function copySeibunCountTableToClipboard() {
-	const table = document.getElementById('seibunCountTable');
+// 指定したテーブルの内容をクリップボードにコピーする関数
+async function copyTableToClipboard(tableId) {
+	const table = document.getElementById(tableId);
 	if (!table) return;
 
 	let data = '';
 	const headers = [];
-	// ヘッダーを取得
-	table.querySelectorAll('thead th').forEach(th => {
-		headers.push(th.textContent);
-	});
+	table.querySelectorAll('thead th').forEach(th => headers.push(th.textContent));
 	data += headers.join('\t') + '\n';
 
-	// ボディの各行を取得
 	table.querySelectorAll('tbody tr').forEach(row => {
 		const rowData = [];
-		row.querySelectorAll('td').forEach(td => {
-			rowData.push(td.textContent);
-		});
+		row.querySelectorAll('td').forEach(td => rowData.push(td.textContent));
 		data += rowData.join('\t') + '\n';
 	});
 
-	// フッターの各行を取得
 	const tfoot = table.querySelector('tfoot');
 	if (tfoot) {
 		tfoot.querySelectorAll('tr').forEach(row => {
 			const rowData = [];
-			row.querySelectorAll('td').forEach(td => {
-				rowData.push(td.textContent);
-			});
+			row.querySelectorAll('td').forEach(td => rowData.push(td.textContent));
 			data += rowData.join('\t') + '\n';
 		});
 	}
 
 	try {
 		await navigator.clipboard.writeText(data);
-		alert('成分カウントをクリップボードにコピーしました。');
+		alert('クリップボードにコピーしました。');
 	} catch (err) {
 		console.error('クリップボードへのコピーに失敗しました: ', err);
 		alert('コピーに失敗しました。');
@@ -1484,59 +1437,124 @@ function addYakuzaiToPlanRow(row, yakuzaiName, data) {
 	const actionCell = row.insertCell(0);
 	actionCell.classList.add('actions');
 
-	const deleteSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	//deleteSvg.classList.add('svg_button', 'icon');
-	deleteSvg.classList.add('svg_button');
-	const deleteTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-	deleteTitle.textContent = '削除';
-	deleteSvg.appendChild(deleteTitle);
-	const deleteUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-	//deleteUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'trash-x.svg?v=2#trash-x');
-	deleteUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg?v=3#trash-x');
-	deleteSvg.appendChild(deleteUse);
-	deleteSvg.onclick = function() { deleteRow(this); };
-	actionCell.appendChild(deleteSvg);
-
-	const upSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	//upSvg.classList.add('svg_button', 'icon');
-	upSvg.classList.add('svg_button');
-	const upTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-	upTitle.textContent = '上へ移動';
-	upSvg.appendChild(upTitle);
-	const upUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-	//upUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'arrow-narrow-up.svg?v=2#arrow-narrow-up');
-	upUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg?v=3#arrow-up');
-	upSvg.appendChild(upUse);
-	upSvg.onclick = function() { moveRow(this, 'up'); };
-	actionCell.appendChild(upSvg);
-
-	const downSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	//downSvg.classList.add('svg_button', 'icon');
-	downSvg.classList.add('svg_button');
-	const downTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-	downTitle.textContent = '下へ移動';
-	downSvg.appendChild(downTitle);
-	const downUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-	//downUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'arrow-narrow-down.svg?v=2#arrow-narrow-down');
-	downUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg?v=3#arrow-down');
-	downSvg.appendChild(downUse);
-	downSvg.onclick = function() { moveRow(this, 'down'); };
-	actionCell.appendChild(downSvg);
+	actionCell.innerHTML = `
+		<svg class="svg_button" onclick="deleteRow(this)"><title>削除</title><use href="icons.svg?v=3#trash-x"></use></svg>
+		<svg class="svg_button" onclick="moveRow(this, 'up')"><title>上へ移動</title><use href="icons.svg?v=3#arrow-up"></use></svg>
+		<svg class="svg_button" onclick="moveRow(this, 'down')"><title>下へ移動</title><use href="icons.svg?v=3#arrow-down"></use></svg>
+	`;
 
 	// No, 薬剤名, ... 他の空セル
 	row.insertCell(1); // No
-	row.insertCell(2).textContent = data.sakumotsu || ''; // 作物名
-	row.insertCell(3).textContent = yakuzaiName; // 薬剤名
-	row.insertCell(4).innerHTML = data.byochu || ''; // 対象病害虫
-	row.insertCell(5).textContent = data.jiki || ''; // 使用時期
-	row.insertCell(6).textContent = data.kaisu || ''; // 回数
-	row.insertCell(7).textContent = data.baisu || ''; // 希釈倍率
-	row.insertCell(8).textContent = data.ekiryo || ''; // 使用量
-	row.insertCell(9).textContent = data.hoho || ''; // 使用方法
-	//row.insertCell(10).innerHTML = data.yukoseibun || ''; // 有効成分 (innerHTMLを使用して<br>を解釈させる)
-	row.insertCell(10).innerHTML = data.seibun || ''; // 成分 (innerHTMLを使用して<br>を解釈させる)
-	row.insertCell(11).innerHTML = data.seibunkaisu || ''; // 成分回数 (innerHTMLを使用して<br>を解釈させる)
-	row.insertCell(12).innerHTML = data.mid || ''; // RAC
+	
+	const timingCell = row.insertCell(2);
+	renderTimingCell(timingCell, data);
+
+	row.insertCell(3).textContent = data.sakumotsu || ''; // 作物名
+	row.insertCell(4).textContent = yakuzaiName; // 薬剤名
+	row.insertCell(5).innerHTML = data.byochu || ''; // 対象病害虫
+	row.insertCell(6).textContent = data.jiki || ''; // 使用時期
+	row.insertCell(7).textContent = data.kaisu || ''; // 回数
+	row.insertCell(8).textContent = data.baisu || ''; // 希釈倍率
+	row.insertCell(9).textContent = data.ekiryo || ''; // 使用量
+	row.insertCell(10).textContent = data.hoho || ''; // 使用方法
+	row.insertCell(11).innerHTML = data.seibun || ''; // 成分
+	row.insertCell(12).innerHTML = data.seibunkaisu || ''; // 成分回数
+	row.insertCell(13).innerHTML = data.mid || ''; // RAC
+}
+
+// タイミングセルの内容を描画・更新するヘルパー
+function renderTimingCell(cell, data) {
+	cell.innerHTML = '';
+	cell.classList.add('timing-cell');
+
+	if (isRecordMode) {
+		// 日付入力フィールド
+		const dateDisplayWrapper = document.createElement('div'); // This is the wrapper for the display span and hidden input
+		dateDisplayWrapper.classList.add('date-display-wrapper');
+
+		const displayLabel = document.createElement('label'); // labelに変更
+		// inputと紐付けるための一意なIDを生成
+		const uniqueId = 'plan_date_' + Math.random().toString(36).substring(2, 7) + '_' + Date.now();
+		displayLabel.htmlFor = uniqueId;
+
+		let displayText = '';
+		if (data.timing) {
+			displayText = data.timing;
+		} else if (data.timingMonth && data.timingPeriod) {
+			displayText = `${data.timingMonth}月${data.timingPeriod}`;
+		} else {
+			displayText = '日付選択';
+		}
+		displayLabel.textContent = displayText;
+
+		const dateInput = document.createElement('input');
+		dateInput.type = 'date';
+		dateInput.id = uniqueId;
+		dateInput.value = data.timing && /^\d{4}-\d{2}-\d{2}$/.test(data.timing) ? data.timing : '';
+
+		dateInput.onchange = function() {
+			displayLabel.textContent = this.value;
+			// 先頭行が日付になったら、他の行も（もし未設定なら）自動で合わせるためのフックポイント
+			updateRowNumbers();
+		};
+		dateInput.onclick = function(e) { e.stopPropagation(); };
+
+		dateDisplayWrapper.onclick = function() {
+			// labelクリックによりinputが反応するが、ブラウザ互換性のためにshowPickerも維持
+			if (typeof dateInput.showPicker === 'function') {
+				try { dateInput.showPicker(); } catch (e) {}
+			}
+		};
+
+		dateDisplayWrapper.appendChild(displayLabel);
+		dateDisplayWrapper.appendChild(dateInput);
+		cell.appendChild(dateDisplayWrapper);
+	} else {
+		// 月旬セレクタ
+		const timingDiv = document.createElement('div');
+		timingDiv.classList.add('timing');
+		// data.timing が YYYY-MM-DD 形式ならそのまま表示
+		if (data.timing && /^\d{4}-\d{2}-\d{2}$/.test(data.timing)) {
+			//timingDiv.textContent = formatToYYMMDD(data.timing);
+			timingDiv.textContent = data.timing;
+		} else {
+			const monthSelect = document.createElement('select');
+			monthSelect.className = 'timing-month';
+			monthSelect.innerHTML = '<option value="">月</option>' + Array.from({length: 12}, (_, i) => `<option value="${i+1}">${i+1}月</option>`).join('');
+			monthSelect.value = data.timingMonth || '';
+			const periodSelect = document.createElement('select');
+			periodSelect.className = 'timing-period';
+			const periods = ['上旬', '中旬', '下旬'];
+			periodSelect.innerHTML = '<option value="">旬</option>' + periods.map(p => `<option value="${p}">${p}</option>`).join(''); // Option for period
+			periodSelect.value = data.timingPeriod || '';
+
+			monthSelect.onchange = updateRowNumbers;
+			periodSelect.onchange = updateRowNumbers;
+
+			timingDiv.appendChild(monthSelect);
+			timingDiv.appendChild(periodSelect);
+		}
+		cell.appendChild(timingDiv);
+	}
+}
+
+// モード切り替え
+function toggleRecordMode(checked) {
+	isRecordMode = checked;
+	const planTableBody = document.querySelector('#planTable tbody');
+	if (!planTableBody) return;
+
+	Array.from(planTableBody.rows).forEach(row => {
+		const timingCell = row.cells[2];
+		const	[currentTiming, currentMonth, currentPeriod] = getTimingArray(!isRecordMode, timingCell);
+
+		renderTimingCell(timingCell, {
+			timing: currentTiming,
+			timingMonth: currentMonth,
+			timingPeriod: currentPeriod
+		});
+	});
+	updateRowNumbers();
 }
 
 // 行を削除する
@@ -1558,6 +1576,55 @@ function moveRow(button, direction) {
 	updateRowNumbers();
 }
 
+// 防除時期で計画をソートする関数
+function sortPlanByTiming() {
+	const planTableBody = document.querySelector('#planTable tbody');
+	if (!planTableBody) return;
+	const rows = Array.from(planTableBody.rows);
+	const periodMap = { '上旬': 1, '中旬': 2, '下旬': 3, '': 0 }; // 0 for unspecified period
+
+	rows.sort((a, b) => {
+		// Row A の値を取得
+		const dateInputA = a.querySelector('.timing-cell input[type="date"]');
+		const monthSelectA = a.querySelector('.timing-cell .timing-month');
+		const periodSelectA = a.querySelector('.timing-cell .timing-period');
+
+		let valA = null;
+		if (dateInputA && dateInputA.value) {
+			valA = new Date(dateInputA.value).getTime(); // Convert to timestamp for sorting
+		} else if (monthSelectA && monthSelectA.value && periodSelectA && periodSelectA.value) {
+			const m = parseInt(monthSelectA.value, 10);
+			const p = periodMap[periodSelectA.value] || 0;
+			valA = m * 10 + p; // Numeric representation for month/period
+		}
+
+		// Row B の値を取得
+		// Row B values
+		const dateInputB = b.querySelector('.timing-cell input[type="date"]');
+		const monthSelectB = b.querySelector('.timing-cell .timing-month');
+		const periodSelectB = b.querySelector('.timing-cell .timing-period');
+
+		let valB = null;
+		if (dateInputB && dateInputB.value) {
+			valB = new Date(dateInputB.value).getTime();
+		} else if (monthSelectB && monthSelectB.value && periodSelectB && periodSelectB.value) {
+			const m = parseInt(monthSelectB.value, 10);
+			const p = periodMap[periodSelectB.value] || 0;
+			valB = m * 10 + p;
+		}
+
+		// Handle null/undefined values (unspecified timing) by pushing them to the end
+		if (valA === null && valB === null) return 0;
+		if (valA === null) return 1; // A is unspecified, push to end
+		if (valB === null) return -1; // B is unspecified, push to end
+
+		return valA - valB;
+	});
+
+	rows.forEach(row => planTableBody.appendChild(row));
+	updateRowNumbers();
+}
+
 // No. の再採番とボタンの状態更新
 function updateRowNumbers() {
 	const planTableBody = document.querySelector('#planTable tbody');
@@ -1565,8 +1632,23 @@ function updateRowNumbers() {
 
 	const rows = planTableBody.rows;
 	const hasRows = rows.length > 0;
+
+	// 行がない場合は記録モード解除
+	if (!hasRows) {
+		isRecordMode = false;
+		const checkRecordMode = document.getElementById('checkRecordMode');
+		if (checkRecordMode) checkRecordMode.checked = false;
+	}
+
+	// 作物ツリーのロック制御
+	const cropTree = document.getElementById('cropTree');
+	if (cropTree) {
+		cropTree.classList.toggle('locked', hasRows);
+		cropTree.title = hasRows ? '計画にデータがあるため作物の変更はできません。' : '';
+	}
+
 	tabExecuted = hasRows; // 防除計画に行があれば実行済み
-	['btnCopyPlan', 'btnExcelPlan', 'btnJsonSavePlan'].forEach(id => {
+	['btnSortPlan', 'btnCopyPlan', 'btnExcelPlan', 'btnJsonSavePlan'].forEach(id => {
 		const btn = document.getElementById(id);
 		if (btn) {
 			btn.classList.toggle('disabled', !hasRows);
@@ -1577,6 +1659,7 @@ function updateRowNumbers() {
 		const row = rows[i];
 		// No. を更新
 		row.cells[1].textContent = i + 1;
+		row.cells[1].className = 'No';
 
 		// ボタンの状態を更新
 		const icons = row.cells[0].querySelectorAll('svg');
@@ -1591,7 +1674,8 @@ function updateRowNumbers() {
 		}
 	}
 
-	// 成分カウントテーブルを更新
+	// 各カウントテーブルを更新
+	updateYakuzaiCountTable();
 	updateSeibunCountTable();
 }
 
@@ -1599,139 +1683,133 @@ function updateRowNumbers() {
 function updateSeibunCountTable() {
 	const planTableBody = document.querySelector('#planTable tbody');
 	const seibunContainer = document.getElementById('seibunContainer');
-	if (!planTableBody || !seibunContainer) return;
+	if (!planTableBody || !seibunContainer) {
+		if (seibunContainer) seibunContainer.clearContent();
+		return;
+	}
 
-	seibunContainer?.clearContent(); // 既存のテーブルをクリア
-
-	const seibunCounts = new Map();
-	let totalCount = 0; // カウントの合計値を保持する変数
-	const seibunData = new Map(); // 成分ごとの詳細データ (kaisu, mid) を保持
-
-	// planTableの全行から成分を収集してカウント
-	const rows = planTableBody.rows;
-	for (let i = 0; i < rows.length; i++) {
-		const seibunCell = rows[i].cells[10];	  // 成分
-		const seibunkaisuCell = rows[i].cells[11]; // 成分回数
-		const midCell = rows[i].cells[12];		 // RAC
+	const seibunData = new Map();
+	Array.from(planTableBody.rows).forEach(row => {
+		const seibunCell = row.cells[11];
+		const seibunkaisuCell = row.cells[12];
+		const midCell = row.cells[13];
 
 		if (seibunCell && seibunkaisuCell && midCell) {
-			const seibuns = seibunCell.innerHTML.split('<br>').map(s => {
-				s = s.trim();
-				const match = s.match(/\[(.*?)\]/);
-				return match ? match[1] : s;
-			}).filter(s => s);
+			const seibuns = seibunCell.innerHTML.split('<br>').map(s => s.trim().match(/\[(.*?)\]/)?.[1] || s.trim()).filter(Boolean);
 			const seibunkaisus = seibunkaisuCell.innerHTML.split('<br>').map(s => s.trim());
 			const mids = midCell.innerHTML.split('<br>').map(s => s.trim());
 
 			seibuns.forEach((seibun, index) => {
 				const currentData = seibunData.get(seibun) || { count: 0, seibunkaisu: '', mid: '', limit: 0 };
 				currentData.count += 1;
-				// 最初のデータを代表としてseibunkaisuとmidを保存
 				if (currentData.count === 1) {
 					currentData.seibunkaisu = seibunkaisus[index] || '';
 					currentData.mid = mids[index] || '';
-					const match = currentData.seibunkaisu.match(/^\d+/);
-					currentData.limit = match ? parseInt(match[0], 10) : 0;
+					currentData.limit = parseInt(currentData.seibunkaisu.match(/^\d+/)?.[0] || '0', 10);
 				}
 				seibunData.set(seibun, currentData);
 			});
 		}
+	});
+
+	if (seibunData.size === 0) {
+		seibunContainer.clearContent();
+		return;
 	}
-	if (seibunData.size === 0) return; // カウントする成分がなければ何もしない
 
-	const table = document.createElement('table');
-	table.id = 'seibunCountTable';
-	table.className = 'handsontable-like';
-
-	const thead = table.createTHead();
-	const headerRow = thead.insertRow();
-	const headers = ['総使用回数における有効成分', 'カウント', '回数', 'RAC'];
-	headers.forEach(text => {
-		const th = document.createElement('th');
-		th.textContent = text;
-		headerRow.appendChild(th);
-	});
-
-	const tbody = table.createTBody();
-
-	// データを配列に変換してソート
+	const getPriority = (mid) => mid === '' ? 5 : mid.startsWith('F:') ? 1 : mid.startsWith('I:') ? 2 : mid.startsWith('H:') ? 3 : 4;
 	const sortedData = Array.from(seibunData.entries()).sort((a, b) => {
-		const midA = a[1].mid || '';
-		const midB = b[1].mid || '';
-
-		const getPriority = (mid) => {
-			if (mid === '') return 5;
-			if (mid.startsWith('F:')) return 1;
-			if (mid.startsWith('I:')) return 2;
-			if (mid.startsWith('H:')) return 3;
-			return 4;
-		};
-
-		const priorityA = getPriority(midA);
-		const priorityB = getPriority(midB);
-
-		if (priorityA !== priorityB) return priorityA - priorityB;
-		return midA.localeCompare(midB) || a[0].localeCompare(b[0]);
+		const pA = getPriority(a[1].mid), pB = getPriority(b[1].mid);
+		return pA !== pB ? pA - pB : (a[1].mid).localeCompare(b[1].mid) || a[0].localeCompare(b[0]);
 	});
 
-	sortedData.forEach(([seibun, data]) => {
-		const row = tbody.insertRow();
-		// 成分回数が '-' または空文字でない場合のみ合計に加算
-		if (data.seibunkaisu !== '-' && data.seibunkaisu !== '') {
-			totalCount += data.count;
+	let totalCount = 0;
+	const rowsHtml = sortedData.map(([seibun, data]) => {
+		if (data.seibunkaisu !== '-' && data.seibunkaisu !== '') totalCount += data.count;
+		const countDisplay = (data.seibunkaisu === '-' || data.seibunkaisu === '') ? '' : (data.limit > 0 && data.count > data.limit ? `<em>${data.count}</em>` : data.count);
+		return `<tr><td>${seibun}</td><td>${data.seibunkaisu}</td><td>${countDisplay}</td><td>${data.mid}</td></tr>`;
+	}).join('');
+
+	seibunContainer.innerHTML = `
+		<table id="seibunCountTable" class="handsontable-like">
+			<thead>
+				<tr><th>有効成分</th><th>使用上限</th><th>使用回数</th><th>RAC</th></tr>
+			</thead>
+			<tbody>${rowsHtml}</tbody>
+			<tfoot>
+				<tr><td>合計</td><td></td><td>${totalCount}</td><td></td></tr>
+			</tfoot>
+		</table>
+		<div class="iconsbar">
+			<svg class="icon" onclick="copyTableToClipboard('seibunCountTable')">
+				<title>クリップボードにコピー</title>
+				<use href="icons.svg?v=3#clipboard-copy"></use>
+			</svg>
+		</div>
+	`;
+}
+
+// 薬剤の使用回数をカウントしてテーブルを更新する関数
+function updateYakuzaiCountTable() {
+	const planTableBody = document.querySelector('#planTable tbody');
+	const container = document.getElementById('yakuzaiCountContainer');
+	if (!planTableBody || !container) {
+		if (container) container.clearContent();
+		return;
+	}
+
+	const yakuzaiData = new Map();
+	Array.from(planTableBody.rows).forEach(row => {
+		const tsusho = row.cells[4].textContent;
+		const kaisu = row.cells[7].textContent;
+
+		if (tsusho) {
+			const currentData = yakuzaiData.get(tsusho) || { count: 0, kaisu: kaisu };
+			currentData.count += 1;
+			yakuzaiData.set(tsusho, currentData);
 		}
-		row.insertCell().textContent = seibun;
-		// 成分回数が '-' または空文字の場合はカウントを空にする
-		const countCell = row.insertCell();
-		if (data.seibunkaisu === '-' || data.seibunkaisu === '') {
-			countCell.textContent = '';
-		} else if (data.limit > 0 && data.count > data.limit) {
-			countCell.innerHTML = `<em>${data.count}</em>`;
-		} else {
-			countCell.textContent = data.count;
-		}
-		row.insertCell().textContent = data.seibunkaisu;
-		row.insertCell().textContent = data.mid;
 	});
 
-	// 合計行をフッターに追加
-	const tfoot = table.createTFoot();
-	const footerRow = tfoot.insertRow();
-	const totalCellLabel = footerRow.insertCell();
-	totalCellLabel.textContent = '合計';
-	const totalCellValue = footerRow.insertCell();
-	totalCellValue.textContent = totalCount;
-	// 残りのセルを空で埋める
-	footerRow.insertCell();
-	footerRow.insertCell();
+	if (yakuzaiData.size === 0) {
+		container.clearContent();
+		return;
+	}
 
-	seibunContainer.appendChild(table);
+	const sortedData = Array.from(yakuzaiData.entries()).sort((a, b) => a[0].localeCompare(b[0], 'ja'));
 
-	// ボタン用のコンテナ
-	const buttonContainer = document.createElement('div');
-	buttonContainer.classList.add('iconsbar');
+	const rowsHtml = sortedData.map(([tsusho, data]) => {
+		const limit = parseInt(data.kaisu.match(/^\d+/)?.[0] || '0', 10);
+		const countDisplay = (limit > 0 && data.count > limit) ? `<em>${data.count}</em>` : data.count;
+		return `<tr><td>${tsusho}</td><td>${data.kaisu}</td><td>${countDisplay}</td></tr>`;
+	}).join('');
 
-	// クリップボードにコピーするボタンを追加
-	const copySvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-	copySvg.classList.add('icon');
-	const copyTitle = document.createElementNS('http://www.w3.org/2000/svg', 'title');
-	copyTitle.textContent = 'クリップボードにコピー';
-	copySvg.appendChild(copyTitle);
-	const copyUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-	copyUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg?v=3#clipboard-copy');
-	copySvg.appendChild(copyUse);
-	copySvg.onclick = copySeibunCountTableToClipboard;
-	buttonContainer.appendChild(copySvg);
-
-	seibunContainer.appendChild(buttonContainer);
+	container.innerHTML = `
+		<table id="yakuzaiCountTable" class="handsontable-like">
+			<thead>
+				<tr><th>薬剤名</th><th>使用上限</th><th>使用回数</th></tr>
+			</thead>
+			<tbody>${rowsHtml}</tbody>
+		</table>
+		<div class="iconsbar">
+			<svg class="icon" onclick="copyTableToClipboard('yakuzaiCountTable')">
+				<title>クリップボードにコピー</title>
+				<use href="icons.svg?v=3#clipboard-copy"></use>
+			</svg>
+		</div>
+	`;
 }
 
 function handleDrop(event) {
 	event.preventDefault();
-	const yakuzaiName = event.dataTransfer.getData('text/plain');
-	// addYakuzaiToPlan(yakuzaiName); // ドラッグ＆ドロップは現在使用しない
+	const files = event.dataTransfer.files;
+	if (files && files.length > 0) {
+		if (files[0].name.toLowerCase().endsWith('.json')) {
+			loadPlanFromJson({ target: { files: files } });
+		} else {
+			alert('対応していないファイル形式です。');
+		}
+	}
 }
-
 
 // DOM読込完了時の初期設定
 window.addEventListener('DOMContentLoaded', async function() {
@@ -1751,6 +1829,10 @@ window.addEventListener('DOMContentLoaded', async function() {
 
 	// 防除計画テーブルの初期化
 	createPlanTable();
+
+	// イベントリスナーの一括登録
+	document.getElementById('cbyochuSelect').addEventListener('change', onCbyochuChange);
+	document.getElementById('byochuSelect').addEventListener('change', handleByochuSelection);
 
 	// ドラッグ＆ドロップのイベントリスナーを設定
 	const planContainer = document.getElementById('planContainer');
@@ -1778,14 +1860,29 @@ window.addEventListener('DOMContentLoaded', async function() {
 			<div id="planContent">
 				<div class="captionLabel">薬剤候補</div>
 				<div id="yakuzai_flex">
-					<div id="byochuContainer"></div>
+				<div id="byochuContainer" class="hidden">
+					<div id="cbyochuHeader" class="inputbar">
+						<select id="cbyochuSelect">
+							<option value="" selected>病害虫区分：なし</option>
+							<option value="病害">病害</option>
+							<option value="害虫">害虫</option>
+							<option value="雑草">雑草</option>
+							<option value="鳥獣">鳥獣</option>
+							<option value="その他">使用目的</option>
+						</select>
+						<div id="byochuButtons"></div>
+					</div>
+					<div id="byochuSelect"></div>
+				</div>
 					<div id="racContainer"></div>
 					<div id="yakuzaiContainer"></div>
 				</div>
 				<div id="yakuzaiTekiyo"></div>
 				<div class="captionLabel">防除計画</div>
 				<div id="planContainer"></div>
-				<div class="captionLabel">成分カウント</div>
+				<div class="captionLabel">薬剤別使用回数</div>
+				<div id="yakuzaiCountContainer"></div>
+				<div class="captionLabel">成分別使用回数</div>
 				<div id="seibunContainer"></div>
 			</div>
 			<!-- #result は #planContainer の後に移動 -->

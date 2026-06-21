@@ -79,6 +79,15 @@
 		<path d="M17 9v-4a2 2 0 0 0 -2 -2h-6a2 2 0 0 0 -2 2v4" />
 		<path d="M7 13m0 2a2 2 0 0 1 2 -2h6a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2z" />
 	</symbol>
+	<symbol id="sort-ascending" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-sort-ascending-number">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+		<path stroke="none" d="M0 0h24v24H0z" fill="none" />
+		<path d="M4 15l3 3l3 -3" />
+		<path d="M7 6v12" />
+		<path d="M17 3a2 2 0 0 1 2 2v3a2 2 0 1 1 -4 0v-3a2 2 0 0 1 2 -2" />
+		<path d="M15 16a2 2 0 1 0 4 0a2 2 0 1 0 -4 0" />
+		<path d="M19 16v3a2 2 0 0 1 -2 2h-1.5" />
+	</symbol>
 	<symbol id="clipboard-copy" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-clipboard-copy">
 		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
 		<path d="M9 5h-2a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h3m9 -9v-5a2 2 0 0 0 -2 -2h-2"/>
@@ -338,7 +347,8 @@
 	</symbol>
 	<symbol id="square-arrow-up" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-square-arrow-up">
 		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
-		<path d="M16 12l-4 -4l-4 4" /><path d="M12 16v-8" />
+		<path d="M16 12l-4 -4l-4 4" />
+		<path d="M12 16v-8" />
 		<path d="M3 3m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 	</symbol>
 	<symbol id="square-arrow-down" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-square-arrow-down">
@@ -347,14 +357,14 @@
 		<path d="M12 8v8" />
 		<path d="M3 3m0 2a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2z" />
 	</symbol>
-	<symbol id="arrow-up" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-arrow-narrow-up">
-		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+	<symbol id="arrow-up" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-arrow-narrow-up">
+		<path stroke="none" d="M0 0h24v24H0z" fill="none" />
 		<path d="M12 5l0 14" />
 		<path d="M16 9l-4 -4" />
 		<path d="M8 9l4 -4" />
 	</symbol>
 	<symbol id="arrow-down" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-arrow-narrow-down">
-		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
+		<path stroke="none" d="M0 0h24v24H0z" fill="none" />
 		<path d="M12 5l0 14" />
 		<path d="M16 15l-4 4" />
 		<path d="M8 15l4 4" />

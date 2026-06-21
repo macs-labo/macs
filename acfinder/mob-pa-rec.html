@@ -34,6 +34,35 @@
 	outline: none;
 }
 
+/* Date Picker */
+.date-picker {
+	position:relative;
+	width:100%;
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	cursor:pointer;
+}
+.date-picker label {
+	display: block;
+	width: 100%;
+	padding: 4px 2px;
+	z-index: 2; /* input(z-index:1)より上に配置してクリックを確実に受け取る */
+	position: relative;
+	cursor: pointer;
+	text-align: center;
+}
+.date-picker input {
+	position:absolute;
+	top: 0;
+	left:0;
+	width:100%;
+	height:100%;
+	opacity:0;
+	z-index:1;
+	font-size: 16px; /* iOSの自動ズーム防止 */
+}
+
 /* 標準テーブル形式（水平ヘッダー用） */
 .std-data-table {
 	width: 100%;
@@ -41,24 +70,23 @@
 	border-spacing: 0;
 	background-color: var(--bg-color);
 	border: 1px solid var(--border-color-strong);
-	line-height: 1.2;
+	line-height: 1.1;
+	margin-bottom: 10px;
 }
-.std-data-table th, .std-data-table td {
+.std-data-table th:not(:last-child), .std-data-table td:not(:last-child) {
 	font-size: 13px;
-	padding: 3px 5px;
-	border: 1px solid var(--border-color-ht-common);
-	border-bottom: none;
+	/* line-height: 1.2; */
+	padding: 3px;
+	border-right: 1px solid var(--border-color-ht-common);
 }
-.std-data-table th:first-child, .std-data-table td:first-child {
-	border-left: none;
-}
-.std-data-table th:last-child, .std-data-table td:last-child {
-	border-right: none;
+.std-data-table td {
+	border-top:  1px solid var(--border-color-ht-common);
 }
 .std-data-table th {
 	font-weight: bold;
 	color: var(--text-color-dark);
 	background-color: var(--bg-color-ht-header);
+	height: 19px;
 	text-align: center;
 	white-space: nowrap;
 }
@@ -67,19 +95,24 @@
 	text-align: left;
 }
 .row-data-table .actions, .std-data-table .actions {
-	width: 1px;
+	display: flex;
+	gap: 3px;
 	white-space: nowrap;
-	padding: 2px 4px;
-	text-align: center;
-	vertical-align: middle;
+	align-items: center;
+}
+.row-data-table .center, .std-data-table .center {
+ text-align: center;
 }
 td .svg_button {
 	width: 22px;
 	height: 22px;
 	cursor: pointer;
 	vertical-align: middle;
-	margin: 0 4px;
+	margin: 0;
 	color: var(--text-color);
+  position: relative; /* z-indexを効かせるため */
+  z-index: 11000;      /* タップエリアより大きくする */
+  pointer-events: auto; /* 自身のクリックイベントを優先し、背面への透過を防ぐ */
 }
 .row-title {
 	font-size: 13px;
@@ -99,6 +132,13 @@ td .svg_button {
 .row-data-table .even-row, .std-data-table .even-row {
 	background-color: var(--bg-color-even-row);
 }
+.clickable { cursor: pointer; }
+
+/* 作物ツリーロック */
+#planCropTree.locked {
+	pointer-events: none;
+	opacity: 0.6;
+}
 </style>
 </head>
 <body>
@@ -110,6 +150,7 @@ td .svg_button {
 		<div class="step-item active" onclick="stepJump(0)">1</div>
 		<div class="step-item" onclick="stepJump(1)">2</div>
 		<div class="step-item" onclick="stepJump(2)">3</div>
+		<div class="step-item" onclick="stepJump(3)">4</div>
 		<div class="next-step" onclick="stepMove('next')">▶</div>
 	</div>
 
@@ -151,9 +192,18 @@ td .svg_button {
 							<use href="icons.svg?v=3#floppy-disk"></use>
 						</svg>
 					</div>
+					<div id="planRecordWrapper" class="flex-wrapper"></div>
+				</div>
+			</div>
+
+			<!-- ④ 詳細表示 -->
+			<div class="swiper-slide">
+				<h2 id="planHead4" class="no-swipe"></h2>
+				<div class="step-scrollable">
 					<div id="planDetailWrapper" class="flex-wrapper"></div>
 				</div>
 			</div>
+
 		</div>
 	</div>
 </div>
@@ -164,17 +214,31 @@ var currentLoadedFileName = '';
 
 function initPaRec() {
 	// 薬剤マネージャ初期化
-	planChemManager = new ChemListManager('#planChemWrapper', (chem) => {
+	planChemManager = new ChemListManager('#planChemWrapper', (selectedChemValue) => {
 		const planSwiper = document.querySelector('.plan-swiper').swiper;
-		if (chem) {
+		if (selectedChemValue) {
 			// Step 2 で選択された薬剤をリストに追加
-			planList.push(chem);
+			// selectedChemValue は "bango meisho" 形式の文字列
+			const [bango, meisho] = selectedChemValue.split(' ');
+			const chemObject = {
+				yakuzai: selectedChemValue, // Store the full string for display
+				bango: bango,
+				meisho: meisho,
+				// 手動追加時にも防除時期の列が表示されるように初期値を設定
+				timingMonth: '',
+				timingPeriod: '',
+				timing: '',
+			};
+			planList.push(chemObject);
 			// Step 3 を解放して表示
 			updateStepBar(planSwiper, Math.max(planSwiper.maxReachedStep, 2));
-			setupPlanDetail();
+			setPlanRecord();
 		}
 	});
 	planChemManager.init({ title: '薬剤選択', showCategory: true });
+
+	planDetailManager = new ChemDetailManager('#planDetailWrapper');
+	planDetailManager.init();
 
 	// 防除記録タブ step.1 作成
 	setupPlanCrop();
@@ -184,6 +248,12 @@ function initPaRec() {
 		updateStepBar(this);
 	});
 	return planSwiperInstance; // Swiperインスタンスを返す
+}
+
+// Helper function to format YYYY-MM-DD to YY-MM-DD
+function formatToYYMMDD(dateString) {
+	if (!dateString || dateString.length !== 10) return '';
+	return dateString.substring(2); // "YYYY-MM-DD" -> "YY-MM-DD"
 }
 
 // 防除記録タブ step.1: 作物選択
@@ -227,12 +297,13 @@ async function setupPlanChem() {
 	const executeUpdate = async () => {
 		try {
 			await new Promise(resolve => setTimeout(resolve, 0));
-			// 薬剤タブの step.2 と同様に、登録番号と名称を取得し通称でグループ化
 			const sql =`
+				drop table if exists t_planTekiyo;
+				create temp table t_planTekiyo as select * from tv_tsushoTekiyo where sakumotsu in (${makeCropCondition(crops)});
 				with t_tekiyo1 as (select tsusho, ruby, sakumotsu,
 					gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
 					n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
-					from tv_tsushoTekiyo left join tsushoruby using(tsusho) where sakumotsu in (${makeCropCondition(crops)}) group by tsusho, sakumotsu
+					from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu
 				),
 				t_tekiyo2 as (select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo1 group by tsusho order by ruby)
 				select * from t_tekiyo2;
@@ -297,9 +368,11 @@ function getFilenamePrefix(id = 'planHead2') {
 // 防除記録をJSON形式で保存
 async function savePlanAsJson() {
 	if (planList.length === 0) return;
+	const crops = planCropManager.checkedCrops.map(item => item.sakumotsu);
 	const saveData = {
+		sakumotsu: makeCropCondition(crops),
 		crops: planCropManager.checkedCrops,
-		planList: planList,
+		plan: planList,
 		titleText: document.getElementById('planHead2').textContent
 	};
 
@@ -328,7 +401,14 @@ async function savePlanAsJson() {
 // 防除記録 行操作関数
 function deletePlanRow(index) {
 	planList.splice(index, 1);
-	setupPlanDetail();
+	setPlanRecord();
+}
+
+function updatePlanDate(index, date) {
+	// If date is an empty string, it means the user cleared the date input.
+	// Otherwise, update with the selected date.
+	planList[index].timing = date || ''; // Set to empty string if date is falsy
+	setPlanRecord();
 }
 
 function movePlanRow(index, direction) {
@@ -337,7 +417,7 @@ function movePlanRow(index, direction) {
 	} else if (direction === 'down' && index < planList.length - 1) {
 		[planList[index], planList[index + 1]] = [planList[index + 1], planList[index]];
 	}
-	setupPlanDetail();
+	setPlanRecord();
 }
 
 // JSONファイルを読み込んで計画を復元
@@ -349,7 +429,8 @@ async function loadPlanFromJson(event) {
 	reader.onload = async function(e) {
 		try {
 			const data = JSON.parse(e.target.result);
-			if (!data.crops || !data.planList) throw new Error('Invalid format');
+			const loadedPlan = data.plan || data.planList;
+			if (!loadedPlan) throw new Error('Invalid format');
 
 			if (planList.length > 0 && !confirm('現在の計画をクリアして読み込みますか？')) {
 				event.target.value = '';
@@ -359,24 +440,27 @@ async function loadPlanFromJson(event) {
 			currentLoadedFileName = file.name;
 
 			// 選択作物の初期化と再設定
-			planCropManager.checkedCrops = [];
-			planCropManager.checkedCrops = data.crops;
+			//planCropManager.checkedCrops = [];
+			planCropManager.checkedCrops = data.crops || [];
 
 			// 作物ツリーのチェック状態を視覚的に復元
 			if (typeof planCropManager.syncCheckState === 'function') {
 				planCropManager.syncCheckState();
 			}
+			// onCheckCallback をコールしてテーブル作成
+			onCheckPlanCrop(planCropManager.checkedCrops);
 
-			// Step 2 のリスト（依頼文の「病害虫リスト」相当）を現在の作物に合わせて更新
+			// step.2 のリストを現在の作物に合わせて更新
 			await setupPlanChem();
 
-			planList = data.planList;
+			// step.3 作成
+			planList = loadedPlan;
+			await setPlanRecord();
 
 			const planSwiper = document.querySelector('.plan-swiper').swiper;
-			planSwiper.maxReachedStep = 2; // Step 3 まで解放
-			setupPlanDetail();
-			updateStepBar(planSwiper);
-			planSwiper.slideTo(2); // 選択済み薬剤一覧(Step 3)へジャンプ
+			//planSwiper.maxReachedStep = 2; // step.3 まで解放
+			updateStepBar(planSwiper, 2);
+			planSwiper.slideTo(2); // 使用予定薬剤(step.3)へジャンプ
 			alert('防除計画を読み込みました。');
 		} catch (err) {
 			console.error(err);
@@ -387,18 +471,20 @@ async function loadPlanFromJson(event) {
 	event.target.value = '';
 }
 
-// 防除記録タブ step.3: リスト追加表示
-async function setupPlanDetail() {
+// 防除記録タブ step.3: 使用予定薬剤及び使用回数集計表示
+async function setPlanRecord() {
 	const title = document.querySelector('#planHead3');
-	title.innerHTML = "選択済み薬剤一覧";
+	title.innerHTML = "使用予定薬剤及び使用回数集計";
 
-	const wrapper = document.querySelector('#planDetailWrapper');
+	const wrapper = document.querySelector('#planRecordWrapper');
 	wrapper.innerHTML = '';
-	
+
+	document.querySelector('#planCropTree')?.classList.toggle('locked', planList.length > 0);
+
 	if (planList.length === 0) {
-		//wrapper.innerHTML = '<p style="padding:10px;">薬剤が選択されていません。</p>';
 		const planSwiper = document.querySelector('.plan-swiper').swiper;
-		planSwiper.maxReachedStep = 1; // Step 2 まで解放
+		//planSwiper.maxReachedStep = 1; // Step 2 まで解放
+		updateStepBar(planSwiper, 1);
 		planSwiper.slideTo(1);
 		return;
 	}
@@ -406,31 +492,40 @@ async function setupPlanDetail() {
 	await waiting(true, '使用回数集計表を作成中...');
 	try {
 		// 選択された薬剤の成分を集計
+		const showTiming = planList.length > 0; // planListに項目があれば常に防除時期列を表示
+		
 		const tsushoCounts = {};
 		planList.forEach(item => {
-			tsushoCounts[item] = (tsushoCounts[item] || 0) + 1;
+			const getTsusho = (val) => (val && val.includes(' ')) ? val.split(' ').slice(1).join(' ') : val;
+			const tsusho = typeof item === 'string' ? getTsusho(item) : (item.yakuzai ? getTsusho(item.yakuzai) : item.meisho);
+			tsushoCounts[tsusho] = (tsushoCounts[tsusho] || 0) + 1; // Use tsusho for counting
 		});
 		const uniqueKeys = Object.keys(tsushoCounts).map(item => `'${item}'`).join(',');
 		const crops = planCropManager.checkedCrops.map(item => item.sakumotsu);
-		const cropCond = makeCropCondition(crops);
-		const sql = `
-			select yuko1 as seibun, kaisu1 as kaisu, d_concat('/', mid1, keito1, replace(rem1, 'FRAC系統名: ', '')) as rac, tsusho FROM tv_tsushoTekiyo WHERE tsusho IN (${uniqueKeys}) AND sakumotsu IN (${cropCond}) AND yuko1 IS NOT NULL
-			UNION select yuko2 as seibun, kaisu2 as kaisu, d_concat('/', mid2, keito2, replace(rem2, 'FRAC系統名: ', '')) as rac, tsusho FROM tv_tsushoTekiyo WHERE tsusho IN (${uniqueKeys}) AND sakumotsu IN (${cropCond}) AND yuko2 IS NOT NULL
-			UNION select yuko3 as seibun, kaisu3 as kaisu, d_concat('/', mid3, keito3, replace(rem3, 'FRAC系統名: ', '')) as rac, tsusho FROM tv_tsushoTekiyo WHERE tsusho IN (${uniqueKeys}) AND sakumotsu IN (${cropCond}) AND yuko3 IS NOT NULL
-			UNION select yuko4 as seibun, kaisu4 as kaisu, d_concat('/', mid4, keito4, replace(rem4, 'FRAC系統名: ', '')) as rac, tsusho FROM tv_tsushoTekiyo WHERE tsusho IN (${uniqueKeys}) AND sakumotsu IN (${cropCond}) AND yuko4 IS NOT NULL
-			UNION select yuko5 as seibun, kaisu5 as kaisu, d_concat('/', mid5, keito5, replace(rem5, 'FRAC系統名: ', '')) as rac, tsusho FROM tv_tsushoTekiyo WHERE tsusho IN (${uniqueKeys}) AND sakumotsu IN (${cropCond}) AND yuko5 IS NOT NULL
-		`;
-		console.log(sql);
-		const res = db.exec(sql);
-		
+
+		let res = null;
+		if (crops.length > 0 && uniqueKeys) {
+			const sql = `
+				select yuko1 as seibun, kaisu1 as seibunkaisu, d_concat('/', mid1, keito1, replace(rem1, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko1 IS NOT NULL
+				UNION select yuko2 as seibun, kaisu2 as seibunkaisu, d_concat('/', mid2, keito2, replace(rem2, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko2 IS NOT NULL
+				UNION select yuko3 as seibun, kaisu3 as seibunkaisu, d_concat('/', mid3, keito3, replace(rem3, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko3 IS NOT NULL
+				UNION select yuko4 as seibun, kaisu4 as seibunkaisu, d_concat('/', mid4, keito4, replace(rem4, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko4 IS NOT NULL
+				UNION select yuko5 as seibun, kaisu5 as seibunkaisu, d_concat('/', mid5, keito5, replace(rem5, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko5 IS NOT NULL
+			`;
+			console.log(sql);
+			res = db.exec(sql);
+		}
+
 		const ingredientInfo = {};
+		const tsushoLimit = {};
 		if (res?.[0]) {
 			res[0].values.forEach(row => {
-				const [seibun, kaisu, rac, tsusho] = row;
+				const [seibun, seibunkaisu, rac, kaisu, tsusho] = row;
+				if (!tsushoLimit[tsusho]) tsushoLimit[tsusho] = kaisu;
 				if (!ingredientInfo[seibun]) {
 					ingredientInfo[seibun] = {
 						count: 0,
-						limit: kaisu || '-',
+						limit: seibunkaisu || '-',
 						rac: rac || '-',
 					};
 				}
@@ -446,30 +541,72 @@ async function setupPlanDetail() {
 
 		const div = document.createElement('div');
 		div.className = 'step-zoom-target';
-		let html = `
-			<div class="row-title">選択薬剤一覧</div>
-			<table class="std-data-table"><thead><tr><th class="actions">操作</th><th style="text-align:center">No</th><th>薬剤名</th></tr></thead><tbody>`;
+		let tableHeaders = `<th>操作</th><th>No</th>`;
+		if (showTiming) {
+			tableHeaders += `<th>防除時期</th>`;
+		}
+		tableHeaders += `<th>薬剤名</th>`;
+
+		//let html = `<div class="row-title">使用予定薬剤</div><table class="std-data-table"><thead><tr>${tableHeaders}</tr></thead><tbody>`;
+		let html = `<h3>使用予定薬剤</h3><table class="std-data-table"><thead><tr>${tableHeaders}</tr></thead><tbody>`;
 		planList.forEach((chem, i) => {
 			const isFirst = i === 0;
 			const isLast = i === planList.length - 1;
-			const chemName = typeof chem === 'string' ? chem : (chem.yakuzai || chem.meisho || '不明な薬剤');
+			const chemName = chem.yakuzai;
+			let timingCell = '';
+			if (showTiming) { // This condition is already `planList.length > 0`
+				const periodStr = (chem.timingMonth && chem.timingPeriod) ? `${chem.timingMonth}月${chem.timingPeriod}` : '';
+				const isDate = chem.timing && /^\d{4}-\d{2}-\d{2}$/.test(chem.timing);
+				// Display YY-MM-DD format, but keep full date in input value and data-fulldate
+				const displayVal = isDate ? formatToYYMMDD(chem.timing) : periodStr || '';
+				const uniqueId = 'mob_plan_date_' + Math.random().toString(36).substring(2, 7) + '_' + Date.now() + '_' + i;
+
+				timingCell = `<td>` +
+					`<div class="date-picker" onclick="const inp=this.querySelector('input'); if(inp && typeof inp.showPicker==='function'){try{inp.showPicker();}catch(e){}}">` +
+						`<label for="${uniqueId}" data-fulldate="${isDate ? chem.timing : ''}">${displayVal}</label>` +
+						`<input type="date" id="${uniqueId}" value="${isDate ? chem.timing : ''}" ` +
+						`onchange="updatePlanDate(${i}, this.value)" ` +
+						`onclick="event.stopPropagation()">` +
+					`</div>` +
+					`</td>`;
+			}
+
 			html += `<tr class="${i % 2 === 0 ? '' : 'even-row'}">` +
-				`<td class="actions">` +
+				`<td><div class="actions">` +
 				`<svg class="svg_button" onclick="deletePlanRow(${i})"><use href="icons.svg?v=3#trash-x"></use></svg>` +
 				`<svg class="svg_button ${isFirst ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'up')"><use href="icons.svg?v=3#arrow-up"></use></svg>` +
-				`<svg class="svg_button ${isLast ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'down')"><use href="icons.svg?v=3#arrow-down"></use></svg></td>` +
-				`<th style="text-align:center">${i+1}</th><td>${chemName}</td></tr>`;
+				`<svg class="svg_button ${isLast ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'down')"><use href="icons.svg?v=3#arrow-down"></use></svg></div></td>` +
+				`<td class="center">${i+1}</td>` +
+				timingCell +
+				`<td class="clickable" onclick="setPlanDetail('${chemName}')">${chemName}</td></tr>`;
 		});
 		html += '</tbody></table>';
 
+		const yakuzaiCounts = {};
+		planList.forEach((chem) => {
+			const chemName = chem.yakuzai;
+			if (!chemName) return;
+			yakuzaiCounts[chemName] = (yakuzaiCounts[chemName] || 0) + 1;
+		});
+
+		const yakuzaiRows = Object.entries(yakuzaiCounts)
+			.sort(([a], [b]) => a.localeCompare(b, 'ja'))
+			.map(([name, count]) => `<tr><td>${name}</td><td>${count}</td><td>${tsushoLimit[name] || '-'}</td></tr>`)
+			.join('');
+
+		if (yakuzaiRows) {
+			html += '<h3>薬剤別使用回数</h3>';
+			html += `<table class="std-data-table"><thead><tr><th>薬剤名</th><th>回数</th><th>上限</th></tr></thead><tbody>${yakuzaiRows}</tbody></table>`;
+		}
+
 		if (summary.length > 0) {
-			html += '<h3 style="margin-top:20px;">成分別使用回数</h3>';
+			html += '<h3>成分別使用回数</h3>';
 			summary.forEach((data) => {
 				html += `<div class="row-title">${data.name}</div>` +
 					`<table class="row-data-table"><tbody>` +
 					`<tr><th>RAC</th><td>${data.rac}</td></tr>` +
-					`<tr class="even-row"><th>使用回数</th><td>${data.count}回</td></tr>` +
-					`<tr><th>使用上限</th><td>${data.limit}</td></tr>` +
+					`<tr class="even-row"><th>回数</th><td>${data.count}</td></tr>` +
+					`<tr><th>上限</th><td>${data.limit}</td></tr>` +
 					`</tbody></table>`;
 			});
 		}
@@ -488,6 +625,37 @@ async function setupPlanDetail() {
 		planSwiper.slideTo(2);
 	}
 
+}
+
+// 防除記録タブ step.4: 薬剤適用詳細表示
+async function setPlanDetail(chem) {
+	const title = document.querySelector('#planHead4');
+	title.textContent = chem;
+
+	await waiting(true, '詳細情報を取得中...');
+	const planSwiper = document.querySelector('.plan-swiper').swiper;
+	// Step 4 を解放
+	updateStepBar(planSwiper, 3);
+
+	const executeUpdate = async () => {
+		try {
+			await new Promise(resolve => setTimeout(resolve, 0));
+			await planDetailManager.update(chem, 't_planTekiyo');
+		} catch (e) {
+			console.error("詳細表示エラー:", e);
+		} finally {
+			waiting(false);
+		}
+	};
+
+	if (planSwiper.activeIndex === 3) {
+		setTimeout(executeUpdate, 50);
+	} else {
+		planSwiper.once('transitionEnd', () => {
+			setTimeout(executeUpdate, 0);
+		});
+		planSwiper.slideTo(3);
+	}
 }
 </script>
 </body>

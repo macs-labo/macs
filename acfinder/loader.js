@@ -1556,7 +1556,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		titleBar.appendChild(tabHeader);
 		const titleWrapper= document.createElement('div');
 		const title = document.createElement('h1');
-		title.textContent = 'ACFinderBE DT';
+		title.textContent = 'ACFinderBE DT' + (debug ? ' 開発版' : '');
 		titleWrapper.appendChild(title);
 		const version = document.createElement('span');
 		const baseUrl = debug ? '.' : 'https://raw.githubusercontent.com/macs-labo/macs/main/acfinder';
