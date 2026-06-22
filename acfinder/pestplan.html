@@ -730,10 +730,16 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 			jiki, kaisu, baisu, ekiryo,hoho, 
 			d_concat('<br>', yuko1, yuko2, yuko3, yuko4, yuko5) as seibun,
 			d_concat('<br>',kaisu1,kaisu2,kaisu3,kaisu4,kaisu5) as seibunkaisu,
-			d_concat('<br>',mid1,mid2,mid3,mid4,mid5) as mid
+			d_concat('<br>',
+				d_concat('/',mid1,keito1,replace(rem1, 'FRAC系統名: ', '')),
+				d_concat('/',mid2,keito2,replace(rem2, 'FRAC系統名: ', '')),
+				d_concat('/',mid3,keito3,replace(rem3, 'FRAC系統名: ', '')),
+				d_concat('/',mid4,keito4,replace(rem4, 'FRAC系統名: ', '')),
+				d_concat('/',mid5,keito5,replace(rem5, 'FRAC系統名: ', ''))
+			) as mid
 			FROM tv_tsushoTekiyo
 			WHERE tsusho = '${yakuzaiName}' AND sakumotsu IN (${currentSakumotsu})
-			GROUP BY sakumotsu, jiki, kaisu, baisu, ekiryo,hoho;
+			GROUP BY sakumotsu, jiki, kaisu, baisu, ekiryo, hoho;
 		`;
 		if (debug) console.log(sql);
 		results = await dbExec(sql);
@@ -1727,13 +1733,13 @@ function updateSeibunCountTable() {
 	const rowsHtml = sortedData.map(([seibun, data]) => {
 		if (data.seibunkaisu !== '-' && data.seibunkaisu !== '') totalCount += data.count;
 		const countDisplay = (data.seibunkaisu === '-' || data.seibunkaisu === '') ? '' : (data.limit > 0 && data.count > data.limit ? `<em>${data.count}</em>` : data.count);
-		return `<tr><td>${seibun}</td><td>${data.seibunkaisu}</td><td>${countDisplay}</td><td>${data.mid}</td></tr>`;
+		return `<tr><td>${seibun}</td><td>${data.mid}</td><td>${countDisplay}</td><td>${data.seibunkaisu}</td></tr>`;
 	}).join('');
 
 	seibunContainer.innerHTML = `
 		<table id="seibunCountTable" class="handsontable-like">
 			<thead>
-				<tr><th>有効成分</th><th>使用上限</th><th>使用回数</th><th>RAC</th></tr>
+				<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th></tr>
 			</thead>
 			<tbody>${rowsHtml}</tbody>
 			<tfoot>
@@ -1780,13 +1786,13 @@ function updateYakuzaiCountTable() {
 	const rowsHtml = sortedData.map(([tsusho, data]) => {
 		const limit = parseInt(data.kaisu.match(/^\d+/)?.[0] || '0', 10);
 		const countDisplay = (limit > 0 && data.count > limit) ? `<em>${data.count}</em>` : data.count;
-		return `<tr><td>${tsusho}</td><td>${data.kaisu}</td><td>${countDisplay}</td></tr>`;
+		return `<tr><td>${tsusho}</td><td>${countDisplay}</td><td>${data.kaisu}</td></tr>`;
 	}).join('');
 
 	container.innerHTML = `
 		<table id="yakuzaiCountTable" class="handsontable-like">
 			<thead>
-				<tr><th>薬剤名</th><th>使用上限</th><th>使用回数</th></tr>
+				<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th></tr>
 			</thead>
 			<tbody>${rowsHtml}</tbody>
 		</table>
