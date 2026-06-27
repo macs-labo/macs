@@ -228,104 +228,111 @@ class ChemDetailManager {
 	async update(chem, tableName = 't_cropTekiyo', customSqls = null) {
 		if (!this.container || !chem) return;
 
-		const defaultSqls = [
-			{
-				name: 'summary',
-				caption: '剤の概要', prefix: '',
-				query: `
-					with
-						t_meisho as (select bango, meisho, tsusho from m_kihon where tsusho = '${chem}' order by bango),
-						t_tsushoDaihyo as (select * from t_meisho where meisho = tsusho),
-						t_bangoDaihyo as (select * from t_meisho where (select count(*) from t_tsushoDaihyo) = 0 and bango = (select min(bango) as bango from t_meisho group by tsusho)),
-						t_daihyo as (select * from t_tsushoDaihyo UNION select * from t_bangoDaihyo),
-						t_tazai as (select tsusho, gn_concat('<br>', format('%d %s', bango, meisho)) as tazai from t_meisho where bango <> (select bango from t_daihyo) group by tsusho),
-						t_ojas as (select bango, ojas from t_tokusai)
-					select format('%d %s', bango, meisho) as meisho,
-						iif(shurui like '%'||zaikei||'%', shurui, format('%s [剤型: %s]',shurui,zaikei)) as 種類, dokusei,
-						iif(yoto like '%'||koka||'%', yoto, format('%s [効果: %s]', yoto, koka)) as yoto, ojas, torokubi, ryakusho,
-						tazai as 同名他剤, replace(chuijiko, '#', '<br>') as 注意事項
-					from m_kihon left join suisan using(bango) left join t_tazai using(tsusho) left join t_ojas using(bango) left join seizai using(bango)
-					where bango = (select bango from t_daihyo)
-				`
-			},
-			{
-				name: 'ingredients',
-				caption: '成分カード', prefix: '成分',
-				query: `
-					select distinct row_number() over(order by (ippanmei)) as idx, ippanmei, nodo, seibun, iso,dokusei, jogai, keito, mid, rackeito, sayoten, sayokiko, fgroup, risk, ojas
-					from kihon left join ${tableName}	using(tsusho)
-					where tsusho = '${chem}' group by ippanmei
-				`
-			},
-			{
-				name: 'usage',
-				caption: '適用カード', prefix: '適用',
-				query: `
-					SELECT
-						row_number() over(order by (select null)) as idx, sakumotsu, gn_concat(',', ifnull(byochu, mokuteki)) as 病害虫等,
-						jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
-					FROM ${tableName}	WHERE tsusho = '${chem}'
-					group by sakumotsu, jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
-				`
-			}
-		];
-
-		// customSqls が指定されている場合、デフォルト設定をベースに置換・追加を行う
-		let sqls = defaultSqls;
-		if (customSqls && Array.isArray(customSqls)) {
-			const usedCustomIndices = new Set();
-
-			// 1. デフォルト配列を走査して、target(index/name) または caption が一致するものを置換
-			sqls = defaultSqls.map((def, idx) => {
-				const cIdx = customSqls.findIndex(c =>
-					(c.target !== undefined && (c.target === idx || c.target === def.name)) ||
-					(c.target === undefined && c.caption && c.caption === def.caption)
-				);
-				if (cIdx !== -1) {
-					usedCustomIndices.add(cIdx);
-					return { ...def, ...customSqls[cIdx] };
+		await waiting(true, '詳細情報を取得中...');
+		try {
+			const defaultSqls = [
+				{
+					name: 'summary',
+					caption: '剤の概要', prefix: '',
+					query: `
+						with
+							t_meisho as (select bango, meisho, tsusho from m_kihon where tsusho = '${chem}' order by bango),
+							t_tsushoDaihyo as (select * from t_meisho where meisho = tsusho),
+							t_bangoDaihyo as (select * from t_meisho where (select count(*) from t_tsushoDaihyo) = 0 and bango = (select min(bango) as bango from t_meisho group by tsusho)),
+							t_daihyo as (select * from t_tsushoDaihyo UNION select * from t_bangoDaihyo),
+							t_tazai as (select tsusho, gn_concat('<br>', format('%d %s', bango, meisho)) as tazai from t_meisho where bango <> (select bango from t_daihyo) group by tsusho),
+							t_ojas as (select bango, ojas from t_tokusai)
+						select format('%d %s', bango, meisho) as meisho,
+							iif(shurui like '%'||zaikei||'%', shurui, format('%s [剤型: %s]',shurui,zaikei)) as 種類, dokusei,
+							iif(yoto like '%'||koka||'%', yoto, format('%s [効果: %s]', yoto, koka)) as yoto, ojas, torokubi, ryakusho,
+							tazai as 同名他剤, replace(chuijiko, '#', '<br>') as 注意事項
+						from m_kihon left join suisan using(bango) left join t_tazai using(tsusho) left join t_ojas using(bango) left join seizai using(bango)
+						where bango = (select bango from t_daihyo)
+					`
+				},
+				{
+					name: 'ingredients',
+					caption: '成分カード', prefix: '成分',
+					query: `
+						select distinct row_number() over(order by (ippanmei)) as idx, ippanmei, nodo, seibun, iso,dokusei, jogai, keito, mid, rackeito, sayoten, sayokiko, fgroup, risk, ojas
+						from kihon left join ${tableName}	using(tsusho)
+						where tsusho = '${chem}' group by ippanmei
+					`
+				},
+				{
+					name: 'usage',
+					caption: '適用カード', prefix: '適用',
+					query: `
+						SELECT
+							row_number() over(order by (select null)) as idx, sakumotsu, gn_concat(',', ifnull(byochu, mokuteki)) as 病害虫等,
+							jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
+						FROM ${tableName}	WHERE tsusho = '${chem}'
+						group by sakumotsu, jiki, kaisu, baisu, ekiryo, hoho, basho, jikan, ondo, dojo, chitai, tekiyaku
+					`
 				}
-				return def;
-			});
+			];
 
-			// 2. 置換に使用されなかったカスタムSQL（新規追加分）を抽出して結合
-			const additions = customSqls.filter((c, idx) => !usedCustomIndices.has(idx) && c.caption);
-			sqls = [...sqls, ...additions];
-		}
+			// customSqls が指定されている場合、デフォルト設定をベースに置換・追加を行う
+			let sqls = defaultSqls;
+			if (customSqls && Array.isArray(customSqls)) {
+				const usedCustomIndices = new Set();
 
-		let html = '';
-		for (const sqlObj of sqls) {
-			console.log(sqlObj.query.replace(/^\t+/gm, ''));
-			let result = db.exec(sqlObj.query);
-			const cleanedResult = result?.[0] ? cleanSqlResult(result[0]) : null;
-
-			html += `<h3>${sqlObj.caption}</h3>`;
-
-			if (cleanedResult?.values?.length > 0) {
-				const cols = cleanedResult.columns;
-				const vals = cleanedResult.values;
-				vals.forEach(row => {
-					if (row[0]) {
-						html += `<h4 class="row-title no-swipe">${sqlObj.prefix}${row[0]}</h4>`;
+				// 1. デフォルト配列を走査して、target(index/name) または caption が一致するものを置換
+				sqls = defaultSqls.map((def, idx) => {
+					const cIdx = customSqls.findIndex(c =>
+						(c.target !== undefined && (c.target === idx || c.target === def.name)) ||
+						(c.target === undefined && c.caption && c.caption === def.caption)
+					);
+					if (cIdx !== -1) {
+						usedCustomIndices.add(cIdx);
+						return { ...def, ...customSqls[cIdx] };
 					}
-					html += '<table class="row-data-table">';
-					let rowCount = 0;
-					for (let i = 1; i < cols.length; i++) {
-						if (row[i] !== null && row[i] !== undefined && row[i] !== '') {
-							rowCount++;
-							const cls = rowCount % 2 === 0 ? ' class="even-row"' : '';
-							let colName = translateColumnName(cols[i]);
-							if (colName === '希釈倍数/使用量') colName = String(row[i]).match(/倍|原液/) ? '希釈倍数' : '使用量';
-							html += `<tr><th${cls}>${colName}</th><td${cls}>${row[i]}</td></tr>`;
-						}
-					}
-					html += '</table>';
+					return def;
 				});
-				html += '<div class="bottom-spacer"></div>';
-			} else {
-				html += '<p>該当する情報が見つかりませんでした。</p>';
+
+				// 2. 置換に使用されなかったカスタムSQL（新規追加分）を抽出して結合
+				const additions = customSqls.filter((c, idx) => !usedCustomIndices.has(idx) && c.caption);
+				sqls = [...sqls, ...additions];
 			}
+
+			let html = '';
+			for (const sqlObj of sqls) {
+				console.log(sqlObj.query.replace(/^\t+/gm, ''));
+				let result = db.exec(sqlObj.query);
+				const cleanedResult = result?.[0] ? cleanSqlResult(result[0]) : null;
+
+				html += `<h3>${sqlObj.caption}</h3>`;
+
+				if (cleanedResult?.values?.length > 0) {
+					const cols = cleanedResult.columns;
+					const vals = cleanedResult.values;
+					vals.forEach(row => {
+						if (row[0]) {
+							html += `<h4 class="row-title no-swipe">${sqlObj.prefix}${row[0]}</h4>`;
+						}
+						html += '<table class="row-data-table">';
+						let rowCount = 0;
+						for (let i = 1; i < cols.length; i++) {
+							if (row[i] !== null && row[i] !== undefined && row[i] !== '') {
+								rowCount++;
+								const cls = rowCount % 2 === 0 ? ' class="even-row"' : '';
+								let colName = translateColumnName(cols[i]);
+								if (colName === '希釈倍数/使用量') colName = String(row[i]).match(/倍|原液/) ? '希釈倍数' : '使用量';
+								html += `<tr><th${cls}>${colName}</th><td${cls}>${row[i]}</td></tr>`;
+							}
+						}
+						html += '</table>';
+					});
+					html += '<div class="bottom-spacer"></div>';
+				} else {
+					html += '<p>該当する情報が見つかりませんでした。</p>';
+				}
+			}
+			this.container.innerHTML = html;
+		} catch (e) {
+			console.error("詳細表示エラー:", e);
+		} finally {
+		waiting(false);
 		}
-		this.container.innerHTML = html;
 	}
 }

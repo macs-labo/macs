@@ -291,51 +291,42 @@ async function setupPlanChem(moveThis = true) {
 	const crops = planCropManager.checkedCrops.map(item => item.sakumotsu);
 	title.innerHTML = crops.join(' & ');
 
-	await waiting(true, '薬剤リストを作成中...');
-	const planSwiper = document.querySelector('.plan-swiper').swiper;
-
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-			const sql =`
-				drop table if exists t_planTekiyo;
-				create temp table t_planTekiyo as select * from tv_tsushoTekiyo where sakumotsu in (${makeCropCondition(crops)});
-				with t_tekiyo1 as (select tsusho, ruby, sakumotsu,
-					gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
-					n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
-					from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu
-				),
-				t_tekiyo2 as (select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo1 group by tsusho order by ruby)
-				select * from t_tekiyo2;
-			`;
-			const sqlResult = db.exec(sql);
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			if (sqlResult?.[0]?.values) {
-				const chems = sqlResult[0].values.map(row => ({
-					tsusho: row[0],
-					tekiyo: row[1],
-					keywords: row[2]
-				}));
-				planChemManager.update(chems);
-				updateStepBar(planSwiper, 1);
-			} else {
-				planChemManager.update([]);
-			}
-		} catch (e) {
-			console.error(e);
-		} finally {
-			waiting(false);
-		}
-	};
-
 	// step.2 作成
-	await executeUpdate();
-	if (moveThis) {
-		// step.2 を開放して移動
-		updateStepBar(planSwiper, 1);
-		planSwiper.slideTo(1);
+	await waiting(true, '薬剤リストを作成中...');
+	try {
+		const sql =`
+			drop table if exists t_planTekiyo;
+			create temp table t_planTekiyo as select * from tv_tsushoTekiyo where sakumotsu in (${makeCropCondition(crops)});
+			with t_tekiyo1 as (select tsusho, ruby, sakumotsu,
+				gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
+				n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
+				from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu
+			),
+			t_tekiyo2 as (select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo1 group by tsusho order by ruby)
+			select * from t_tekiyo2;
+		`;
+		const sqlResult = db.exec(sql);
+
+		if (sqlResult?.[0]?.values) {
+			const chems = sqlResult[0].values.map(row => ({
+				tsusho: row[0],
+				tekiyo: row[1],
+				keywords: row[2]
+			}));
+			planChemManager.update(chems);
+		} else {
+			planChemManager.update([]);
+		}
+	} catch (e) {
+		console.error(e);
+	} finally {
+		waiting(false);
 	}
+
+	// step.2 を開放して必要があれば移動
+	const planSwiper = document.querySelector('.plan-swiper').swiper;
+	if (planSwiper.maxReachedStep < 1) updateStepBar(planSwiper, 1);
+	if (moveThis) planSwiper.slideTo(1);
 
 }
 
@@ -615,9 +606,7 @@ async function setPlanRecord() {
 	}
 
 	const planSwiper = document.querySelector('.plan-swiper').swiper;
-	if (planSwiper.activeIndex !== 2) {
-		planSwiper.slideTo(2);
-	}
+	if (planSwiper.activeIndex !== 2) planSwiper.slideTo(2);
 
 }
 
@@ -626,30 +615,11 @@ async function setPlanDetail(chem) {
 	const title = document.querySelector('#planHead4');
 	title.textContent = chem;
 
-	await waiting(true, '詳細情報を取得中...');
 	const planSwiper = document.querySelector('.plan-swiper').swiper;
-	// Step 4 を解放
+	// Step 4 を解放・作成
 	updateStepBar(planSwiper, 3);
-
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-			await planDetailManager.update(chem, 't_planTekiyo');
-		} catch (e) {
-			console.error("詳細表示エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (planSwiper.activeIndex === 3) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		planSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		planSwiper.slideTo(3);
-	}
+	await planDetailManager.update(chem, 't_planTekiyo');
+	if (planSwiper.activeIndex !== 3) planSwiper.slideTo(3);
 }
 </script>
 </body>

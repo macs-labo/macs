@@ -58,7 +58,7 @@
 </div>
 
 <script>
-var pestPestManager, pestCropManager, pestChemManager, pestDetailManager, pestSwiper; // 病害虫タブ用
+var pestPestManager, pestCropManager, pestChemManager, pestDetailManager; // 病害虫タブ用
 
 // 病害虫タブ初期化： ナビゲーションでこのタブが選ばれた時に index.html から一度だけ呼ばれる
 function initPestTab() {
@@ -120,46 +120,35 @@ async function setupPestCrop() {
 	title.innerHTML = pests.join(' | ');
 
 	await waiting(true, '作物ツリーを構築中...');
-	const pestSwiper = document.querySelector('.pest-swiper').swiper;
-
-	// 作物ツリーの生成
-	const executeUpdate = async () => {
-		await new Promise(resolve => setTimeout(resolve, 0));
-		try {
-			const selectedByochuCsv = pests.map(item => `'${item}'`).join(',');
-			const cropTreeSql = `
-				DROP TABLE IF EXISTS ttTekiyoByochu;
-				CREATE TEMP TABLE ttTekiyoByochu AS
-				select * from tv_tsushoTekiyo where tsusho in
-				(select distinct tsusho from t_tekiyo where
-					like_in(':'||concat_ws(':', replace(byochu, '、', ':'), mokuteki)||':',
-						(select json_group_array('%:'||byochu||'%') from m_byochu where byochu in (${selectedByochuCsv}))
-					)
-				);
-				with t_idsaku as (select distinct idsaku, 1 as registered from ttTekiyoByochu left join m_sakumotsu using(sakumotsu) where sakumotsu not like '%除く%' order by idsaku)
-				,t_idlist as (select n_concat(',','"'||substr(idsaku,1,2)||'00000000000000"','"'||substr(idsaku,1,4)||'000000000000"','"'||substr(idsaku,1,6)||'0000000000"','"'||substr(idsaku,1,8)||'00000000"','"'||substr(idsaku,1,12)||'0000"','"'||idsaku||'"') as idlist from t_idsaku)
-				select idsaku, class, ifnull(registered, 0) as toroku, sakumotsu, shukakubui, betsumei, ':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords from m_sakumotsu left join t_idsaku using(idsaku) where like_in(idsaku, (select '['||gn_concat(',',idlist)||']' from t_idlist));
-			`;
-			if (debug) console.log(cropTreeSql.replace(/^\t+/gm, ''));
-			pestCropManager = new CropTreeManager('#pestCropTree', onCheckPestCrop, false);
-			pestCropManager.init(cropTreeSql, { showSearchMethod: false });
-		} catch (e) {
-			console.error("作物ツリーの生成に失敗しました:", e);
-			// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
-			document.querySelector('#pestCropTree').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (pestSwiper.activeIndex === 1) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		pestSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		pestSwiper.slideTo(1);
+	try {
+		// 作物ツリーの生成
+		const selectedByochuCsv = pests.map(item => `'${item}'`).join(',');
+		const cropTreeSql = `
+			DROP TABLE IF EXISTS ttTekiyoByochu;
+			CREATE TEMP TABLE ttTekiyoByochu AS
+			select * from tv_tsushoTekiyo where tsusho in
+			(select distinct tsusho from t_tekiyo where
+				like_in(':'||concat_ws(':', replace(byochu, '、', ':'), mokuteki)||':',
+					(select json_group_array('%:'||byochu||'%') from m_byochu where byochu in (${selectedByochuCsv}))
+				)
+			);
+			with t_idsaku as (select distinct idsaku, 1 as registered from ttTekiyoByochu left join m_sakumotsu using(sakumotsu) where sakumotsu not like '%除く%' order by idsaku)
+			,t_idlist as (select n_concat(',','"'||substr(idsaku,1,2)||'00000000000000"','"'||substr(idsaku,1,4)||'000000000000"','"'||substr(idsaku,1,6)||'0000000000"','"'||substr(idsaku,1,8)||'00000000"','"'||substr(idsaku,1,12)||'0000"','"'||idsaku||'"') as idlist from t_idsaku)
+			select idsaku, class, ifnull(registered, 0) as toroku, sakumotsu, shukakubui, betsumei, ':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords from m_sakumotsu left join t_idsaku using(idsaku) where like_in(idsaku, (select '['||gn_concat(',',idlist)||']' from t_idlist));
+		`;
+		if (debug) console.log(cropTreeSql.replace(/^\t+/gm, ''));
+		pestCropManager = new CropTreeManager('#pestCropTree', onCheckPestCrop, false);
+		pestCropManager.init(cropTreeSql, { showSearchMethod: false });
+	} catch (e) {
+		console.error("作物ツリーの生成に失敗しました:", e);
+		// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
+		document.querySelector('#pestCropTree').innerHTML = '<p style="padding:10px; color:red;">データベース読込待機中またはエラー</p>';
+	} finally {
+		waiting(false);
 	}
+
+	const pestSwiper = document.querySelector('.pest-swiper').swiper;
+	if (pestSwiper.activeIndex !== 1) pestSwiper.slideTo(1);
 }
 
 // 病害虫タブ step.3: 薬剤選択
@@ -170,68 +159,54 @@ async function setupPestChem() {
 	const crops = checkedCrops.map(crop => crop.sakumotsu);
 	title.innerHTML = crops.join(' & ');
 
-	await waiting(true, '薬剤リストを作成中...');
-
 	const pestSwiper = document.querySelector('.pest-swiper').swiper;
-	const chemListbox = document.getElementById("pestChemList");
-	const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
-	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
+	await waiting(true, '薬剤リストを作成中...');
+	try {
+		const chemListbox = document.getElementById("pestChemList");
+		const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
+		const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
+		// Step 2 で作成された ttTekiyoByochu を使用して薬剤を抽出
+		const sql = `
+			with t_sakumotsu as (
+				select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)
+			),
+			t_tekiyo1 as (
+				select * from ttTekiyobyochu left join t_sakumotsu using(sakumotsu)
+				where sakumotsu in (${makeCropCondition(crops)}) group by tsusho, sakumotsu
+			),
+			t_tsusho as (select tsusho, ${cropFlags} from t_tekiyo1 group by tsusho),
+			t_tekiyo2 as (select * from t_tekiyo1 where tsusho in (select tsusho from t_tsusho where (${normalizeColName(crops.join(' and '))}))),
+			t_tekiyo3 as (select tsusho, sakumotsu,
+				gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
+				n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), ruby) as keywords
+				from t_tekiyo2 left join tsushoruby using(tsusho) group by tsusho, sakumotsu order by ruby
+			)
+			select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo3 group by tsusho;
+		`;
+		if (debug) console.log(sql.replace(/^\t+/gm, ''));
 
-			// Step 2 で作成された ttTekiyoByochu を使用して薬剤を抽出
-			const sql = `
-				with t_sakumotsu as (
-					select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)
-				),
-				t_tekiyo1 as (
-					select * from ttTekiyobyochu left join t_sakumotsu using(sakumotsu)
-					where sakumotsu in (${makeCropCondition(crops)}) group by tsusho, sakumotsu
-				),
-				t_tsusho as (select tsusho, ${cropFlags} from t_tekiyo1 group by tsusho),
-				t_tekiyo2 as (select * from t_tekiyo1 where tsusho in (select tsusho from t_tsusho where (${normalizeColName(crops.join(' and '))}))),
-				t_tekiyo3 as (select tsusho, sakumotsu,
-					gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
-					n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), ruby) as keywords
-					from t_tekiyo2 left join tsushoruby using(tsusho) group by tsusho, sakumotsu order by ruby
-				)
-				select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo3 group by tsusho;
-			`;
-			if (debug) console.log(sql.replace(/^\t+/gm, ''));
+		const sqlResult = db.exec(sql);
 
-			const sqlResult = db.exec(sql);
-
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			if (sqlResult?.[0]?.values) {
-				const chems = sqlResult[0].values.map(row => ({
-					tsusho: row[0],
-					tekiyo: row[1],
-					keywords: row[2]
-				}));
-				pestChemManager.update(chems);
-				// スライドを薬剤選択まで開放（次以降は未開放にする）
-				updateStepBar(pestSwiper, 2);
-			} else {
-				pestChemManager.update([]);
-				updateStepBar(pestSwiper, 1);
-			}
-		} catch (e) {
-			console.error("薬剤リスト作成エラー:", e);
-		} finally {
-			waiting(false);
+		if (sqlResult?.[0]?.values) {
+			const chems = sqlResult[0].values.map(row => ({
+				tsusho: row[0],
+				tekiyo: row[1],
+				keywords: row[2]
+			}));
+			pestChemManager.update(chems);
+			// スライドを薬剤選択まで開放（次以降は未開放にする）
+			updateStepBar(pestSwiper, 2);
+		} else {
+			pestChemManager.update([]);
+			updateStepBar(pestSwiper, 1);
 		}
-	};
-
-	if (pestSwiper.activeIndex === 2) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		pestSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		pestSwiper.slideTo(2);
+	} catch (e) {
+		console.error("薬剤リスト作成エラー:", e);
+	} finally {
+		waiting(false);
 	}
+
+	if (pestSwiper.activeIndex !== 2) pestSwiper.slideTo(2);
 }
 
 // 病害虫タブ step.2 の作物ツリーチェック時のコールバック関数
@@ -256,12 +231,8 @@ async function setupPestDetail() {
 	const chem = pestChemManager.selectedChem;
 	title.innerHTML = chem;
 
-	await waiting(true, '詳細情報を取得中...');
-	const pestSwiper = document.querySelector('.pest-swiper').swiper;
-
 	const crops = pestCropManager.checkedCrops.map(crop => crop.sakumotsu);
 	const pests = pestPestManager.checkedPests.map(pest => `'${pest.byochu}'`).join(',');
-
 	const sqls = [
 		{ target: 'usage', caption: '作物の適用カード', query: `
 			SELECT
@@ -279,26 +250,12 @@ async function setupPestDetail() {
 		`}
 	];
 
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-			// 病害虫タブでは setupPestCrop で作成された ttTekiyoByochu を使用
-			await pestDetailManager.update(chem, 'ttTekiyoByochu', sqls);
-		} catch (e) {
-			console.error("詳細表示エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
+	// 病害虫タブでは setupPestCrop で作成された ttTekiyoByochu を使用
+	await pestDetailManager.update(chem, 'ttTekiyoByochu', sqls);
 
-	if (pestSwiper.activeIndex === 3) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		pestSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		pestSwiper.slideTo(3);
-	}
+	const pestSwiper = document.querySelector('.pest-swiper').swiper;
+	if (pestSwiper.activeIndex !== 3) pestSwiper.slideTo(3);
+
 }
 
 </script>

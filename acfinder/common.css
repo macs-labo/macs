@@ -421,6 +421,7 @@ dialog {
 
 .svg_button {
 	color: var(--text-color);
+	fill: transparent;
 	border: 1px solid var(--border-color-strong);
 	border-radius: 4px;
 	background-color: var(--bg-color-button);

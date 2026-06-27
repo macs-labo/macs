@@ -128,93 +128,77 @@ async function setupChemChem() {
 	title.innerHTML = crops.join(chemCropManager.searchMethod.includes('or') ? ' | ' : ' & ');
 
 	await waiting(true, '薬剤リストを作成中...');
+	try {
+		const chemSwiper = document.querySelector('.chem-swiper').swiper;
+		const chemListbox = document.getElementById("chemChemList");
+		const expandCropCondition = crops.map(crop => `(${expandCrops(crop)})`).join(' or ');
+		const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
+		const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(', ');
+		const sql =`
+			drop table if exists t_chemTekiyo;
+			create temp table t_chemTekiyo as
+			with t_sakumotsu as (select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)),
+			t_tekiyo as (select * from tv_meishoTekiyo where sakumotsu in (${makeCropCondition(crops)}))
+			select * from t_tekiyo left join t_sakumotsu using(sakumotsu) where (${normalizeColName(crops.join(' or '))});
+			delete from t_chemTekiyo where bango not in (
+				with t_bango as (select bango, ${cropFlags} from t_chemTekiyo group by bango)
+				select bango from t_bango where (${normalizeColName(crops.join(cropCropManager.searchMethod))})
+			);
+			with t_tekiyo1 as (select bango, meisho, tsusho, ruby, sakumotsu,
+				gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
+				n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
+				from t_chemTekiyo left join tsushoruby using(tsusho) group by bango, sakumotsu
+			),
+			t_tekiyo2 as (select bango, meisho, tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo1 group by bango order by ruby, bango)
+			select * from t_tekiyo2;
+		`;
+		if (debug) console.log(sql.replace(/^\t+/gm, ''));
 
-	const chemSwiper = document.querySelector('.chem-swiper').swiper;
-	const chemListbox = document.getElementById("chemChemList");
-	const expandCropCondition = crops.map(crop => `(${expandCrops(crop)})`).join(' or ');
-	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
-	const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(', ');
-	const sql =`
-		drop table if exists t_chemTekiyo;
-		create temp table t_chemTekiyo as
-		with t_sakumotsu as (select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)),
-		t_tekiyo as (select * from tv_meishoTekiyo where sakumotsu in (${makeCropCondition(crops)}))
-		select * from t_tekiyo left join t_sakumotsu using(sakumotsu) where (${normalizeColName(crops.join(' or '))});
-		delete from t_chemTekiyo where bango not in (
-			with t_bango as (select bango, ${cropFlags} from t_chemTekiyo group by bango)
-			select bango from t_bango where (${normalizeColName(crops.join(cropCropManager.searchMethod))})
-		);
-		with t_tekiyo1 as (select bango, meisho, tsusho, ruby, sakumotsu,
-			gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
-			n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
-			from t_chemTekiyo left join tsushoruby using(tsusho) group by bango, sakumotsu
-		),
-		t_tekiyo2 as (select bango, meisho, tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo1 group by bango order by ruby, bango)
-		select * from t_tekiyo2;
-	`;
-	if (debug) console.log(sql.replace(/^\t+/gm, ''));
-
-	let group = '';
-	const renderer = (row) => {
-		const tsusho = row.tsusho;
-		const info = `${row.tekiyo}|${row.keywords}`;
-		let groupItem = '';
-		if (group !== tsusho) {
-			group = tsusho;
-			groupItem = `
-				<div class="checkListItem" data-group data-info="${tsusho}|${info}" title="${tsusho}">
-					<span><em>${tsusho}</em></span><!--&nbsp;--><span><small>${info}</small></span>
+		let group = '';
+		const renderer = (row) => {
+			const tsusho = row.tsusho;
+			const info = `${row.tekiyo}|${row.keywords}`;
+			let groupItem = '';
+			if (group !== tsusho) {
+				group = tsusho;
+				groupItem = `
+					<div class="checkListItem" data-group data-info="${tsusho}|${info}" title="${tsusho}">
+						<span><em>${tsusho}</em></span><!--&nbsp;--><span><small>${info}</small></span>
+					</div>
+				`;
+			}
+			const bango = row.bango;
+			const name = `${bango} ${row.meisho}`;
+			const inputId = `chem_${chemChemManager.idSuffix}_${bango}`;
+			return `${groupItem}
+				<div class="checkListItem" data-info="${bango}|${tsusho}|${info}" title="${name}">
+					<input type="radio" name="chemSelect" value="${name}" id="${inputId}"><label for="${inputId}">${name}</label>
 				</div>
 			`;
+		};
+		const sqlResult = db.exec(sql);
+		if (sqlResult?.[0]?.values) {
+			const chems = sqlResult[0].values.map(row => ({
+				bango: row[0],
+				meisho: row[1],
+				tsusho: row[2],
+				tekiyo: row[3],
+				keywords: row[4]
+			}));
+			chemChemManager.update(chems, renderer);
+			// スライドを薬剤選択まで開放（次以降は未開放にする）
+			updateStepBar(chemSwiper, 1);
+		} else {
+			chemChemManager.update([]);
+			updateStepBar(chemSwiper, 0);
 		}
-		const bango = row.bango;
-		const name = `${bango} ${row.meisho}`;
-		const inputId = `chem_${chemChemManager.idSuffix}_${bango}`;
-		return `${groupItem}
-			<div class="checkListItem" data-info="${bango}|${tsusho}|${info}" title="${name}">
-				<input type="radio" name="chemSelect" value="${name}" id="${inputId}"><label for="${inputId}">${name}</label>
-			</div>
-		`;
-	};
-
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			const sqlResult = db.exec(sql);
-
-			await new Promise(resolve => setTimeout(resolve, 0));
-
-			if (sqlResult?.[0]?.values) {
-				const chems = sqlResult[0].values.map(row => ({
-					bango: row[0],
-					meisho: row[1],
-					tsusho: row[2],
-					tekiyo: row[3],
-					keywords: row[4]
-				}));
-				chemChemManager.update(chems, renderer);
-				// スライドを薬剤選択まで開放（次以降は未開放にする）
-				updateStepBar(chemSwiper, 1);
-			} else {
-				chemChemManager.update([]);
-				updateStepBar(chemSwiper, 0);
-			}
-		} catch (e) {
-			console.error("薬剤リスト作成エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (chemSwiper.activeIndex === 1) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		chemSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		chemSwiper.slideTo(1);
+	} catch (e) {
+		console.error("薬剤リスト作成エラー:", e);
+	} finally {
+		waiting(false);
 	}
+
+	if (chemSwiper.activeIndex !== 1) chemSwiper.slideTo(1);
 }
 
 // 薬剤タブ step.3: 詳細表示
@@ -225,10 +209,6 @@ async function setupChemDetail() {
 
 	const tableName = 't_chemTekiyo';
 	const bango = chem.split(' ')[0];
-
-	await waiting(true, '詳細情報を取得中...');
-	const chemSwiper = document.querySelector('.chem-swiper').swiper;
-
 	const sqls = [
 		{
 			target: 'summary',
@@ -265,26 +245,10 @@ async function setupChemDetail() {
 			`
 		}
 	];
+	await chemDetailManager.update(chem, 't_chemTekiyo', sqls);
 
-	const executeUpdate = async () => {
-		try {
-			await new Promise(resolve => setTimeout(resolve, 0));
-			await chemDetailManager.update(chem, 't_chemTekiyo', sqls);
-		} catch (e) {
-			console.error("詳細表示エラー:", e);
-		} finally {
-			waiting(false);
-		}
-	};
-
-	if (chemSwiper.activeIndex === 2) {
-		setTimeout(executeUpdate, 50);
-	} else {
-		chemSwiper.once('transitionEnd', () => {
-			setTimeout(executeUpdate, 0);
-		});
-		chemSwiper.slideTo(2);
-	}
+	const chemSwiper = document.querySelector('.chem-swiper').swiper;
+	if (chemSwiper.activeIndex !== 2) chemSwiper.slideTo(2);
 }
 </script>
 </body>

@@ -166,14 +166,9 @@ async function searchCrop() {
 			caption: `「${selected.join('」「')}」に登録がある薬剤の「${crops.join('」「')}」及びその上位作物群に対する適用`,
 			query: `
 				with t_sakumotsu as (
-					select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)
-				),
-				t_tekiyo1 as (
-					select * from ttTekiyobyochu left join t_sakumotsu using(sakumotsu)
-					where sakumotsu in (${makeCropCondition(crops)}) group by tsusho, sakumotsu
-				),
-				t_tsusho as (select tsusho, ${cropFlags} from t_tekiyo1 group by tsusho)
-				select * from t_tekiyo1 where tsusho in (select tsusho from t_tsusho where (${normalizeColName(crops.join(' and '))}));
+					select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku) where sakumotsu in (${makeCropCondition(crops)})
+				)
+				select * from ttTekiyoByochu left join t_sakumotsu using(sakumotsu) where (${normalizeColName(crops.join(' and '))});
 			`
 		};
 		console.log(option.query);
