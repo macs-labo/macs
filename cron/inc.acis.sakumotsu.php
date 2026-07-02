@@ -76,7 +76,7 @@ update $fidtbl set class = 4, level = 4, class3 = '02', cropid = '0002', branch 
 update $fidtbl set class3 = '02', cropid = '0002', branch = NULL where sakumotsu regexp 'ぶどう\((2倍体米国|キャンベルアーリー|マスカット・ベリーA|キャンベルアーリー|ヒムロッドシードレス)' and class = 5;
 insert or ignore into $fidtbl select 3,0,0,NULL,NULL,'ぶどう(2倍体欧州系品種)','ぶどう(2ばいたいおうしゅうけいひんしゅ)',class0,class1,class2,class3,NULL,NULL from $fidtbl where sakumotsu = 'ぶどう';
 update $fidtbl set class = 4, level = 4, class3 = '02', cropid = '0003', branch = '0000' where sakumotsu = 'ぶどう(2倍体欧州系品種)';
-update $fidtbl set class3 = '02', cropid = '0003', branch = NULL where sakumotsu regexp 'ぶどう\((2倍体欧州|ヒロハンブルグ|マスカット・オブ|シャインマスカット)' and class = 5;
+update $fidtbl set class3 = '02', cropid = '0003', branch = NULL where sakumotsu regexp 'ぶどう\((2倍体欧州|ヒロハンブルグ|マスカット・オブ|シャインマスカット|神紅)' and class = 5; --2027.7.2「神紅」追加
 insert or ignore into $fidtbl select 3,0,0,NULL,NULL,'ぶどう(3倍体品種)','ぶどう(3ばいたいひんしゅ)',class0,class1,class2,class3,NULL,NULL from $fidtbl where sakumotsu = 'ぶどう';
 update $fidtbl set class = 4, level = 4, class3 = '02', cropid = '0004', branch = '0000' where sakumotsu = 'ぶどう(3倍体品種)';
 update $fidtbl set class3 = '02', cropid = '0004', branch = NULL where sakumotsu regexp 'ぶどう\((3倍体|ハニーシードレス|キングデラ|ナガノパープル|BKシードレス|大粒系デラウェア|ポンタ)' and class = 5;
@@ -307,9 +307,9 @@ commit;
 --パーマネント作物マスター
 begin transaction;
 drop view if exists $viewgroup;
-drop view if exists {$viewgroup}2;
+drop view if exists ${viewgroup}2;
 drop view if exists $viewsearch;
-drop view if exists {$viewsearch}2;
+drop view if exists ${viewsearch}2;
 drop table if exists $mastbl;
 create table $mastbl (class integer, level integer, idsaku varchar primary key, xidsaku varchar, toroku integer, shukakubui varchar, sakumotsu varchar unique, betsumei varchar, ruby varchar, kamei varchar, gunmei varchar);
 insert or ignore into $mastbl select class, level, printf('%s%04d%s', grid, cid, branch), null, toroku, shukakubui, sakumotsu, betsumei, ruby, kamei, null from $tmptbl order by grid, cid, branch;
@@ -328,13 +328,13 @@ create index idxMSakumotsu on $mastbl (betsumei, ruby);
 --下位互換作物分類用ビュー
 create view $viewgroup as select level, xidsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, idsaku from $mastbl where sakumotsu not like '%除く%' and not((class = 3 and toroku = 0) or (level = 4 and toroku != 1)) order by idsaku;
 --新作物分類用ビュー
-create view {$viewgroup}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei from $mastbl where sakumotsu not like '%除く%' order by idsaku;
+create view ${viewgroup}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei from $mastbl where sakumotsu not like '%除く%' order by idsaku;
 --下位互換作物検索用ビュー
 --create view $viewsearch as select level, xidsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, kamei, gunmei), 'kw') as keywords, gunmei = '落葉果樹' as rakuyokaju from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く%' order by idsaku;
 create view $viewsearch as select level, xidsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, gunmei), 'kw') as keywords, gunmei = '落葉果樹' as rakuyokaju from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く%' order by idsaku;
 --新作物検索用ビュー
---create view {$viewsearch}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, kamei, gunmei), 'kw') as keywords from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く%' order by idsaku;
-create view {$viewsearch}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, gunmei), 'kw') as keywords from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く)' order by idsaku;
+--create view ${viewsearch}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, kamei, gunmei), 'kw') as keywords from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く%' order by idsaku;
+create view ${viewsearch}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, gunmei), 'kw') as keywords from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く)' order by idsaku;
 --下位互換用作物テーブル削除
 drop table if exists $dlgtbl;
 commit;
@@ -428,9 +428,9 @@ $sql = <<<SAKU4
 --/d
 /* $date 現在の農水省農薬登録情報提供システムに基づく作物マスター (2021.5.25) */
 drop view if exists $viewgroup;
-drop view if exists {$viewgroup}2;
+drop view if exists ${viewgroup}2;
 drop view if exists $viewsearch;
-drop view if exists {$viewsearch}2;
+drop view if exists ${viewsearch}2;
 drop table if exists $mastbl;
 create table $mastbl (class integer, level integer, idsaku varchar primary key, xidsaku varchar, toroku integer, shukakubui varchar, sakumotsu varchar unique, betsumei varchar, ruby varchar, kamei varchar, gunmei varchar);
 begin transaction;
@@ -451,13 +451,13 @@ create index idxMSakumotsu on $mastbl (betsumei, ruby);
 --下位互換作物分類用ビュー
 create view $viewgroup as select level, xidsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, idsaku from $mastbl where sakumotsu not like '%除く%' and not((class = 3 and toroku = 0) or (level = 4 and toroku != 1)) order by idsaku;
 --新作物分類用ビュー
-create view {$viewgroup}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei from $mastbl where sakumotsu not like '%除く%' order by idsaku;
+create view ${viewgroup}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei from $mastbl where sakumotsu not like '%除く%' order by idsaku;
 --下位互換作物検索用ビュー
 --create view $viewsearch as select level, xidsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, kamei, gunmei), 'kw') as keywords, gunmei = '落葉果樹' as rakuyokaju from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く%' order by idsaku;
 create view $viewsearch as select level, xidsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, gunmei), 'kw') as keywords, gunmei = '落葉果樹' as rakuyokaju from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く%' order by idsaku;
 --新作物検索用ビュー
---create view {$viewsearch}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, kamei, gunmei), 'kw') as keywords from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く%' order by idsaku;
-create view {$viewsearch}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, gunmei), 'kw') as keywords from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く%' order by idsaku;
+--create view ${viewsearch}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, kamei, gunmei), 'kw') as keywords from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く%' order by idsaku;
+create view ${viewsearch}2 as select class, idsaku, toroku, shukakubui, sakumotsu, betsumei, gunmei, strconv(concat('、', sakumotsu, ruby, betsumei, gunmei), 'kw') as keywords from m_sakumotsu where toroku in (1, 2) and sakumotsu not like '%除く%' order by idsaku;
 --下位互換用作物テーブル削除
 drop table if exists $dlgtbl;
 
