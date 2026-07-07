@@ -44,7 +44,7 @@
 	flex: none;
 	height: calc(50% + 21px);
 	min-height: 280px;
-	margin-bottom: 7px;
+	margin-bottom: 14px;
 }
 
 #selectPest {
@@ -53,7 +53,7 @@
 	flex-direction: column;
 	flex: 1;
 	min-height: 220px;
-	margin-top: 7px;
+	margin-top: 0px;
 }
 
 #selectPest.hidden {
@@ -126,17 +126,15 @@ async function searchCrop(skipPestUpdate = false) {
 	if (checkedPests.length > 0) {
 		const results = checkedPests.map(pest => {
 			const cond = pest.id.includes('%') ? `idbyochu like '${pest.id}'` : `byochu2 = '${pest.byochu}'`;
-			return { cond, col: `(${cond}) as ${normalizeColName(pest.byochu)}` };
+			return { cond, col: `max(${cond}) as ${normalizeColName(pest.byochu)}` };
 		});
 		const pestCondition = results.map(r => r.cond).join(' or ');
 		const pestColumns = results.map(r => r.col).join(', ');
-		const pestFlags = pests.map(pest => `max(${normalizeColName(pest)}) as ${normalizeColName(pest)}`).join(', ');
-		const cropColumns = crops.map(crop => `${normalizeColName(crop)}`).join(', ');
+		const pestFlags = pests.map(pest => `${normalizeColName(pest)}`).join(' and ');
 		pestCte = `
-			with t_byochu as (select distinct byochu2, ${pestColumns} from t_cropTekiyo where (${pestCondition})),
-			t_tsusho1 as (select tsusho, ${pestFlags}, ${cropColumns} from t_byochu left join t_cropTekiyo using(byochu2) group by tsusho, ${cropColumns}),
-			t_tsusho2 as (select tsusho, ${cropFlags} from t_tsusho1 where (${normalizeColName(pests.join(' and '))}) group by tsusho),
-			t_filtered_tekiyo as (select * from t_cropTekiyo where tsusho in (select tsusho from t_tsusho2 where (${cropMethodFlags})))
+			with t_tekiyo as (select * from t_cropTekiyo where (${pestCondition})),
+			t_tsusho as (select tsusho, ${pestColumns} from t_tekiyo group by tsusho),
+			t_filtered_tekiyo as (select * from t_tekiyo left join t_tsusho using(tsusho) where (${pestFlags}))
 		`;
 	} else {
 		pestCte = `with t_filtered_tekiyo as (select * from t_cropTekiyo)`;

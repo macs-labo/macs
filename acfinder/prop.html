@@ -351,6 +351,15 @@ function deleteSidebarWidths() {
 	});
 }
 
+// 薬剤タブ作物ツリー状態の削除
+function deleteCropTreeState() {
+	Object.keys(localStorage).forEach(key => {
+		if (key.startsWith('cropTreeState_')) {
+			localStorage.removeItem(key);
+		}
+	});
+}
+
 // DOM読込完了時の初期設定
 async function init() {
 	if (db === null) await fetchDB();
@@ -483,6 +492,15 @@ async function init() {
 		if (selectedValue === '0') localStorage.removeItem('conditionPaneWidth');
 	});
 
+	const chemCropTreeInitStateSelect = document.getElementById('chemCropTreeInitState');
+	const storedchemCropTreeInitState = localStorage.getItem('chemCropTreeInitState') || '0';
+	chemCropTreeInitStateSelect.value = storedchemCropTreeInitState;
+
+	chemCropTreeInitStateSelect.addEventListener('change', (event) => {
+		const selectedValue = event.target.value;
+		localStorage.setItem('chemCropTreeInitState', selectedValue);
+	});
+
 	const dataSettingsSelect = document.getElementById('dataSettings');
 	dataSettingsSelect.addEventListener('change', (event) => {
 		const selectedValue = event.target.value;
@@ -579,12 +597,21 @@ window.addEventListener('DOMContentLoaded', init);
 		<p>新規タブ起動時にリサイズしたサイドバーの幅を復元します。「しない」は常に規定幅になります。</p>
 	</div>
 	<div>
+		<span>薬剤タブ作物ツリー設定:</span>
+		<select id="chemCropTreeInitState">
+			<option value="0">オープン起動</option>
+			<option value="1">クローズ起動</option>
+		</select>
+		<p>薬剤タブ起動時の作物ツリー開閉状態の初期値を選択します。起動後の開閉も可能です。</p>
+	</div>
+	<div>
 		<span>設定データ削除:</span>
 		<select id="dataSettings">
 			<option value="" disabled selected>-- 削除する設定を選択 --</option>
 			<option value="deleteCustomCss">ユーザカスタムテーマ</option>
 			<option value="rowDataDialogPosition">行データダイアログサイズ(自動伸縮ダイアログに戻す)</option>
 			<option value="deleteSidebarWidths">各タブサイドバー幅(規定幅に戻す)</option>
+			<option value="deleteCropTreeState">薬剤タブ作物ツリー状態(開いた状態に戻す)</option>
 		</select>
 		<p>ブラウザ内に保存されている設定データを選択して削除します。</p>
 	</div>

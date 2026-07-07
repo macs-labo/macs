@@ -9,6 +9,7 @@ class ChemListManager {
 		this.itemRenderer = null;
 		this.chems = [];
 		this.isFiltering = false;
+		this.autoSelect = false;
 		this.container = null;
 		this.filterInput = null;
 		this.filterButton = null;
@@ -18,11 +19,12 @@ class ChemListManager {
 
 	/**
 	 * UIの初期化
-	 * @param {Object} options { title: string, showCategory: boolean, onSearch: function }
+	 * @param {Object} options { title: string, showCategory: boolean, autoSelect: boolean }
 	 */
 	init(options = {}) {
 		if (!this.wrapper) return;
 		const showCategory = options.showCategory === true;
+		this.autoSelect = options.autoSelect === true;
 		this.idSuffix = this.wrapper.id || Math.random().toString(36).substr(2, 9);
 		this.title = options.title || '薬剤選択';
 		const btnText = '絞込';
@@ -99,7 +101,7 @@ class ChemListManager {
 		}
 
 		if (typeof waiting === 'function') await waiting(true, '絞り込み中...');
-		this.filter(this.filterInput ? this.filterInput.value : '', this.filterCategory?.value || '');
+		const visibleCount = this.filter(this.filterInput ? this.filterInput.value : '', this.filterCategory?.value || '');
 		if (typeof waiting === 'function') await waiting(false);
 
 		if (this.filterButton && this.filterInput) {
@@ -107,6 +109,13 @@ class ChemListManager {
 		}
 		if (this.filterButton.textContent === '解除') this.filterInput.blur(); // フォーカスを外す
 		this.isFiltering = false;
+		// フィルタリング結果が 1 で、autoSelect オプションが true の場合、そのアイテムを自動選択
+		if (visibleCount === 1 && this.autoSelect) {
+			const selected = this.container.querySelector('.checkListItem:not(.hidden)>input');
+			selected.checked = true;
+			const changeEvent = new Event('change', { bubbles: true });
+			selected.dispatchEvent(changeEvent);
+		}
 	}
 
 	/**
@@ -193,6 +202,7 @@ class ChemListManager {
 		if (countEl) {
 			countEl.textContent = `(${visibleCount}/${this.chems.length})`;
 		}
+		return visibleCount;
 	}
 }
 
@@ -332,7 +342,7 @@ class ChemDetailManager {
 		} catch (e) {
 			console.error("詳細表示エラー:", e);
 		} finally {
-		waiting(false);
+			waiting(false);
 		}
 	}
 }

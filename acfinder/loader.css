@@ -476,12 +476,12 @@ p.error {
 /* conditionPane 水平スプリッターのスタイル */
 #h-splitter.splitter {
 	left: -12px;
-	top: -3px;
+	top: -4px;
 	width: calc(100% + 30px);
 	height: 6px;
 	/* margin: -3px; */
 	cursor: row-resize;
-	border-bottom: 1px dashed var(--border-color);
+	border-top: 1px dashed var(--border-color);
 	flex-shrink: 0;
 }
 

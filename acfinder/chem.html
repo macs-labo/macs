@@ -49,11 +49,11 @@
 	flex: none;
 	height: calc(50% - 79px);
 	min-height: 202px;
-	margin-bottom: 7px;
+	margin-bottom: 14px;
 }
 
 .flex-wrapper {
-	margin-top: 7px;
+	margin-top: 0;
 }
 
 #selectYakuzai {
@@ -112,7 +112,6 @@
 div.noresult {
 	display: none;
 }
-
 
 </style>
 <!--	タブ専用の view や table の設定 -->
@@ -378,7 +377,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	chemListManager = new ChemListManager('#selectYakuzai', (selected) => {
 		handleYakuzaiSelection(selected);
 	});
-	chemListManager.init({ title: '薬剤選択', showCategory: true });
+	chemListManager.init({ title: '薬剤選択', showCategory: true, autoSelect: true });
 
 	// 作物ツリーの生成とイベントハンドラ設定
 	const sql = `
@@ -398,12 +397,18 @@ window.addEventListener('DOMContentLoaded', async function() {
 		condToggler.classList.toggle('closed');
 		cropTree.classList.toggle('closed');
 		hSplitter.classList.toggle('closed');
-
 	});
 
 	// 薬剤リストを作成
 	console.log('起動時の薬剤リスト');
 	setYakuzaiList();
+
+	// chemCropTreeInitState === 1' なら condTggler.click イベント発火
+	const cropTreeState = localStorage.getItem('chemCropTreeInitState') || '0';
+	if (cropTreeState === '1') {
+		condToggler.click();
+		chemListManager.filterInput.focus();
+	}
 
 	// firefox のリロード時 checkbox 状態復元対策
 	clearAllReset();
