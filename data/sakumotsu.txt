@@ -1,5 +1,5 @@
 --/d
-/* 2026.07.07 現在の農水省農薬登録情報提供システムに基づく作物マスター (2021.5.25) */
+/* 2026.07.10 現在の農水省農薬登録情報提供システムに基づく作物マスター (2021.5.25) */
 drop view if exists vg_sakumotsu;
 drop view if exists vg_sakumotsu2;
 drop view if exists vs_sakumotsu;
@@ -1475,6 +1475,7 @@ insert into m_sakumotsu values(5, 4, '2200000000000125', '22000000000125', 1, NU
 insert into m_sakumotsu values(5, 4, '2200000000000128', '22000000000128', 1, NULL, '林木苗(床替床)', NULL, 'りんぼくなえ(とこかえどこ)', NULL, NULL);
 insert into m_sakumotsu values(5, 4, '2200000000000129', '22000000000129', 1, NULL, '樹木類(しきみ、ひさかきを除く)', NULL, 'じゅもくるい(しきみ、ひさかきをのぞく)', NULL, NULL);
 insert into m_sakumotsu values(5, 4, '2200000000000130', '22000000000130', 1, NULL, '樹木等', NULL, 'じゅもくとう', NULL, NULL);
+insert into m_sakumotsu values(5, 4, '2200000000000131', '22000000000131', 1, NULL, '樹木類(いぬまきを除く)', NULL, 'じゅもくるい(いぬまきをのぞく)', NULL, NULL);
 insert into m_sakumotsu values(4, 3, '2200000001240000', '22000001240000', 1, NULL, 'コウヨウザン', NULL, 'こうようざん', NULL, NULL);
 insert into m_sakumotsu values(5, 4, '2200000001240001', '22000001240001', 1, NULL, 'コウヨウザン(下刈り)', NULL, 'こうようざん(したがり)', NULL, NULL);
 insert into m_sakumotsu values(4, 3, '2200000001250000', '22000001250000', 1, NULL, '核果類(伐倒木)', NULL, 'かくかるい(ばっとうぼく)', NULL, NULL);
@@ -2483,6 +2484,7 @@ insert into sakuhojo values('2200000000000125', '樹木類', '、あじさい、えぞまつ(
 insert into sakuhojo values('2200000000000128', '樹木類', '、落葉性庭木類、針葉樹、庭園樹(まさき、じんちょうげ、あおき等)、林木、林木(すぎ、ひのき、メタセコイヤ等)、林木(苗木)、林木苗(すぎ・ひのき・あかまつ・からまつ(床替床))、林木苗(すぎ・ひのき・あかまつ・からまつ(播種床))、花木、樹木類(倒木、伐倒木)、樹木類(伐倒木)、樹木類(苗木)、樹木類(枯損木)、広葉樹、樹木等、', NULL);
 insert into sakuhojo values('2200000000000129', '樹木類', '、しきみ、ひさかき、', NULL);
 insert into sakuhojo values('2200000000000130', '樹木類', '、落葉性庭木類、針葉樹、庭園樹(まさき、じんちょうげ、あおき等)、林木、林木(すぎ、ひのき、メタセコイヤ等)、林木(苗木)、林木苗(すぎ・ひのき・あかまつ・からまつ(床替床))、林木苗(すぎ・ひのき・あかまつ・からまつ(播種床))、花木、樹木類(倒木、伐倒木)、樹木類(伐倒木)、樹木類(苗木)、樹木類(枯損木)、広葉樹、林木苗(床替床)、', NULL);
+insert into sakuhojo values('2200000000000131', '樹木類', '、いぬまき、', NULL);
 insert into sakuhojo values('2200000001240001', 'コウヨウザン', NULL, NULL);
 insert into sakuhojo values('2201000000000001', 'かし類', NULL, NULL);
 insert into sakuhojo values('2203000000000006', 'つつじ類', '、つつじ類(鉢植え)、', NULL);

@@ -3768,5 +3768,6 @@ insert into kwlists values(25052, 'ƒvƒ‰ƒ“ƒ_ƒ€“ûÜ25;ƒWƒtƒFƒmƒRƒiƒ][ƒ‹“ûÜ;ƒVƒ“ƒ
 insert into kwlists values(25053, 'ƒ`ƒŠƒKƒuƒŠA;ƒ`ƒŠƒJƒuƒŠƒ_ƒjÜ;ÎŒ´Y‹ÆŠ”®‰ïĞ;E’;ƒ`ƒŠƒJƒuƒŠƒ_ƒj;“V“G”_–ò;–¢•ª—Ş:“V“G;I:–¢;–¢•ª—Ş;‚¿‚è‚©‚Ô‚è‚¾‚É‚´‚¢;‚¿‚è‚ª‚Ô‚èA');
 insert into kwlists values(25054, 'ƒƒ“ƒTƒCƒhP15“ûÜ;ƒtƒ‹ƒAƒWƒzƒbƒvP“ûÜ;ÎŒ´Y‹ÆŠ”®‰ïĞ;œ‘;ƒtƒ‹ƒAƒWƒzƒbƒvP;ƒtƒ‹ƒAƒWƒzƒbƒv;ƒtƒFƒmƒLƒV_;ƒAƒŠ[ƒ‹ƒIƒLƒVƒvƒƒsƒIƒ“_ƒGƒXƒeƒ‹(FOPs);H:1;ƒAƒZƒ`ƒ‹CoAƒJƒ‹ƒ{ƒLƒVƒ‰[ƒ[(ACCase)‘jŠQ;×–E‘ãÓ;HRAC‹Œ•ª—Ş: A;‚Ó‚é‚ ‚¶‚Ù‚Á‚ÕP‚É‚ã‚¤‚´‚¢;‚í‚ñ‚³‚¢‚ÇP15‚É‚ã‚¤‚´‚¢');
 insert into kwlists values(25055, 'ƒ^ƒoƒJƒƒG[ƒX;ƒ^ƒoƒRƒJƒXƒ~ƒJƒÜ;ƒAƒŠƒXƒ^ ƒ‰ƒCƒtƒTƒCƒGƒ“ƒXŠ”®‰ïĞ;E’;ƒ^ƒoƒRƒJƒXƒ~ƒJƒ;“V“G”_–ò;–¢•ª—Ş:“V“G;I:–¢;–¢•ª—Ş;‚½‚Î‚±‚©‚·‚İ‚©‚ß‚´‚¢;‚½‚Î‚©‚ß‚¦[‚·');
+insert into kwlists values(25056, 'ƒGƒRƒeƒNƒg…˜aÜ;ƒ|ƒŠƒIƒLƒVƒ“…˜aÜ;–k‹»‰»ŠwH‹ÆŠ”®‰ïĞ;E‹Û(¡—Ã);ƒ|ƒŠƒIƒLƒVƒ“DˆŸ‰”‰–;ƒ|ƒŠƒIƒLƒVƒ“D;ƒ|ƒŠƒIƒLƒVƒ“;R¶•¨¿;ƒyƒvƒ`ƒWƒ‹ƒsƒŠƒ~ƒWƒ“ƒkƒNƒŒƒIƒVƒh;F:19;H4:ƒLƒ`ƒ“‡¬y‘f;H×–E•Ç¶‡¬;FRACŒn“–¼: ƒ|ƒŠƒIƒLƒVƒ“;‚Û‚è‚¨‚«‚µ‚ñ‚·‚¢‚í‚´‚¢;‚¦‚±‚Ä‚­‚Æ‚·‚¢‚í‚´‚¢');
 commit;
 create index idxkwlists on kwlists (kws);

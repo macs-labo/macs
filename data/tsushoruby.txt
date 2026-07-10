@@ -2732,6 +2732,7 @@ insert into tsushoruby values('バイオリサ・カミキリ', 'ばいおりさ・かみきり');
 insert into tsushoruby values('フランカットスプレー', 'ふらんかっとすぷれー');
 insert into tsushoruby values('リスクガード水和剤', 'りすくがーどすいわざい');
 insert into tsushoruby values('ポリオキシンAL乳剤', 'ぽりおきしんALにゅうざい');
+insert into tsushoruby values('エコテクト水和剤', 'えこてくとすいわざい');
 insert into tsushoruby values('ジオゼット水和剤', 'じおぜっとすいわざい');
 insert into tsushoruby values('ベジターボDF', 'べじたーぼDF');
 insert into tsushoruby values('ポリオキシンAL水和剤', 'ぽりおきしんALすいわざい');
