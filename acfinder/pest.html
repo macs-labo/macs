@@ -142,7 +142,10 @@ async function handleByochuSelection(selected) {
 				await executeSQLsetGrid(option);
 
 				// 全適用テーブル表示
-				option = { caption: `「${selectedNames.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' };
+				option = {
+					caption: `「${selectedNames.join('」「')}」に登録がある薬剤の全適用`,
+					query: 'SELECT * FROM ttTekiyoByochu;'
+				};
 				await executeSQLsetGrid(option);
 			} finally {
 				await waiting(false);
@@ -223,7 +226,7 @@ async function executeSQLsetGrid(option) {
 		const result = db.exec(option.query);
 		searchTime += performance.now();
 		// 結果を表示
-		const table = outputTable('#result', result, { caption: option.caption });
+		const table = outputTable('#result', result, { caption: option.caption, hideFooterU20: false });
 		if (table) tables.push(table);
 	} catch (error) {
 		throw error;
