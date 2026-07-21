@@ -50,17 +50,6 @@
 	margin-bottom: 14px;
 }
 
-/*
-#selectPest .list-box {
-	flex: 1;
-	overflow-y: auto;
-	border: 1px solid var(--border-color-strong);
-	border-radius: 6px;
-	background-color: var(--bg-color-listbox);
-	padding: 4px;
-}
-*/
-
 #cropTree {
 	min-height: 224px;
 	margin-top: 0px;
@@ -73,6 +62,10 @@
 #conditionPane span {
 	/*font-size: 13px;*/
 	margin-left: 0.5rem;
+}
+
+#basicResult {
+	padding: 0 15px 15px;
 }
 
 div.noresult {
@@ -100,6 +93,14 @@ function resetByochuSelection() {
 // handleByochuSelection のデバウンス用タイマー
 let byochuSelectionTimer = null;
 
+function pestCond(selectedNames) {
+	if (selectedNames === '') return '';
+	const selectedPestCsv = selectedNames.map(item => `'${item}'`).join(',');
+	return `
+		like_in(':'||concat_ws(':', byochu, mokuteki)||':', (select json_group_array('%:'||byochu||'%') from m_byochu where byochu in (${selectedPestCsv})))
+	`;
+}
+
 async function handleByochuSelection(selected) {
 	const display = document.getElementById("resultTitle");
 	if (selected.length > 0) {
@@ -111,22 +112,15 @@ async function handleByochuSelection(selected) {
 			await new Promise(resolve => setTimeout(resolve, 0));
 
 			const selectedNames = selected.map(item => item.byochu);
-			const selectedByochuCsv = selectedNames.map(item => `'${item}'`).join(',');
-			//console.log("Selected Byochu:", selectedByochuCsv);
 			display.textContent = `${selectedNames.join(' | ')}`;
 			display.classList.remove("hidden");
 
 			// sql 実行
-			// tByochu, ttTekiyoByochu 作成 
+			// tByochu, ttTekiyoByochu 作成
 			let sql = `
 				DROP TABLE IF EXISTS ttTekiyoByochu;
 				CREATE TEMP TABLE ttTekiyoByochu AS
-				select * from tv_tsushoTekiyo where tsusho in
-				(select distinct tsusho from t_tekiyo where
-					like_in(':'||concat_ws(':', replace(byochu, '、', ':'), mokuteki)||':',
-						(select json_group_array('%:'||byochu||'%') from m_byochu where byochu in (${selectedByochuCsv}))
-					)
-				);
+				select * from tv_tsushoTekiyo where tsusho in (select distinct tsusho from t_tekiyo where ${pestCond(selectedNames)});
 			`;
 			console.log(sql);
 			try {
@@ -137,8 +131,18 @@ async function handleByochuSelection(selected) {
 				// 作物ツリーを更新
 				await setSakumotsuTree();
 				
-				// テーブルを初期表示
-				const option = { caption: `「${selectedNames.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' };
+				// テーブルリセット
+				tables = resetTables(tables);
+
+				// 病害虫適用テーブル表示
+				let option = {
+					caption: `「${selectedNames.join('」「')}」に登録がある薬剤の当該病害虫に対する適用`,
+					query: `SELECT * FROM ttTekiyoByochu where ${pestCond(selectedNames)};`
+				};
+				await executeSQLsetGrid(option);
+
+				// 全適用テーブル表示
+				option = { caption: `「${selectedNames.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' };
 				await executeSQLsetGrid(option);
 			} finally {
 				await waiting(false);
@@ -154,40 +158,53 @@ async function handleByochuSelection(selected) {
 // 作物ツリーのチェック状態が変更されたときに呼び出される関数
 async function searchCrop() {
 	const display = document.getElementById("resultTitle");
-	const selected = byochuManager.checkedPests.map(p => p.byochu);
+	const selectedNames = byochuManager.checkedPests.map(p => p.byochu);
 
 	if (checkedCrops.length > 0) {
 		const crops = checkedCrops.map(item => item.sakumotsu);
-		display.textContent = `${selected.join(' | ')} ／ ${crops.join(' & ')}`;
+		display.textContent = `${selectedNames.join(' | ')} ／ ${crops.join(' & ')}`;
 		const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
 		const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(', ');
-		
-		const option = {
-			caption: `「${selected.join('」「')}」に登録がある薬剤の「${crops.join('」「')}」及びその上位作物群に対する適用`,
+		const cropCte = `
+			with t_sakumotsu as (
+				select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku) where sakumotsu in (${makeCropCondition(crops)})
+			)
+		`;
+
+		// テーブルリセット
+		tables = resetTables(tables);
+		// 病害虫適用テーブル表示
+		let option = {
+			caption: `「${selectedNames.join('」「')}」に登録があり、「${crops.join('」「')}」及びその上位作物群で使用可能な薬剤の当該病害虫に対する適用`,
 			query: `
-				with t_sakumotsu as (
-					select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku) where sakumotsu in (${makeCropCondition(crops)})
-				)
+				${cropCte},
+				t_tsusho as (select distinct tsusho from ttTekiyoByochu left join t_sakumotsu using(sakumotsu) where (${normalizeColName(crops.join(' and '))}))
+				select * from ttTekiyoByochu where tsusho in (select tsusho from t_tsusho) and ${pestCond(selectedNames)};
+			`
+		};
+		await executeSQLsetGrid(option);
+
+		// 全適用テーブル表示
+		option = {
+			caption: `「${selectedNames.join('」「')}」に登録がある薬剤の「${crops.join('」「')}」及びその上位作物群に対する適用`,
+			query: `
+				${cropCte}
 				select * from ttTekiyoByochu left join t_sakumotsu using(sakumotsu) where (${normalizeColName(crops.join(' and '))});
 			`
 		};
-		console.log(option.query);
 		await executeSQLsetGrid(option);
 
 	} else {
 		// 作物選択がクリアされた場合
-		display.textContent = selected.join(' | ');
-
-		// 病害虫が選択されていれば、病害虫のみで絞り込んだ結果を再表示
-		if (selected.length > 0) {
-			const option = { caption: `「${selected.join('」「')}」に登録がある薬剤の全適用`, query: 'SELECT * FROM ttTekiyoByochu;' };
-			await executeSQLsetGrid(option);
-		}
+		handleByochuSelection(byochuManager.checkedPests);
 	}
 }
 
 // 作物ツリー作成
 async function setSakumotsuTree() {
+	// 既存作物ツリー全解除
+	clearAllReset();
+	// 作物ツリー作成
 	sql = `
 		with t_idsaku as (select distinct idsaku, 1 as registered from ttTekiyoByochu left join m_sakumotsu using(sakumotsu) where sakumotsu not like '%除く%' order by idsaku),
 		t_idlist as (select n_concat(',','"'||substr(idsaku,1,2)||'00000000000000"','"'||substr(idsaku,1,4)||'000000000000"','"'||substr(idsaku,1,6)||'0000000000"','"'||substr(idsaku,1,8)||'00000000"','"'||substr(idsaku,1,12)||'0000"','"'||idsaku||'"') as idlist from t_idsaku)
@@ -198,19 +215,16 @@ async function setSakumotsuTree() {
 
 // sql 実行 結果グリッド作成
 async function executeSQLsetGrid(option) {
-	// テーブルインスタンスをクリア
-	tables = resetTables(tables);
-
 	await waiting(true, 'データベース検索中');
 	try {
 		// クエリを実行
-		// if (debug) console.log("Executing SQL:", option.query); // SQLを確認
+		console.log(option.query);
 		let searchTime = -performance.now();
 		const result = db.exec(option.query);
-		// if (debug) console.log("SQL Result:", result); // 結果を確認
 		searchTime += performance.now();
 		// 結果を表示
-		tables = outputTable('#result', result, { caption: option.caption });
+		const table = outputTable('#result', result, { caption: option.caption });
+		if (table) tables.push(table);
 	} catch (error) {
 		throw error;
 	} finally {

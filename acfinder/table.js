@@ -236,7 +236,6 @@ function outputTable(selector, result, option = {}) {
 	const defTableHeight = rowHeight * currentRowsWindow + headerHeight + defPaginHeight; // rowsTableWindow 行分の高さとページネーションの合計
 	const scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ取得
 
-
 	// Table 用のコンテナを作成
 	let tableContainer = document.createElement("div");
 	//tableContainer.id = `table-container-${index}`;
@@ -567,8 +566,8 @@ function outputTable(selector, result, option = {}) {
 			return this.countCols() === 1 ? wrapperWidth : maxColChars === 0 ? width : width > maxColWidth ? maxColWidth : width;
 		},
 		afterInit: function() {
+			resetContainerWidth(this);
 			updatePagination(this);
-			//console.log(`showPagination: ${showPagination}`);
 			updateContainerRect(this);
 			updateRowsSelect(this);
 			updatePageSize(this);
@@ -592,6 +591,10 @@ function outputTable(selector, result, option = {}) {
 				updateContainerRect(this);
 				//this.render();
 			}
+		},
+		afterRefreshDimensions: function() {
+			resetContainerWidth(this);
+			updateContainerRect(this);
 		},
 		afterDropdownMenuShow: function(dropdownMenu) {
 			const tableContainer = this.rootElement.closest('.table_container');
@@ -757,23 +760,32 @@ function outputTable(selector, result, option = {}) {
 	function updateContainerRect(hot) {
 		const pagination = hot.getSettings().pagination !== false;
 		const paginationHeight = pagination ? defPaginHeight : 0;
+/*
 		const wtHolder = tableContainer.querySelector('.wtHolder').style;
 		const wtHider = tableContainer.querySelector('.wtHider').style;
 		const wtHolderWidth = parseFloat(wtHolder.width);
 		const wtHolderHeight = parseFloat(wtHolder.height);
 		const wtHiderWidth = parseFloat(wtHider.width);
 		const wtHiderHeight = parseFloat(wtHider.height);
+*/
+		const wtHolder = tableContainer.querySelector('.wtHolder').getBoundingClientRect();
+		const wtHider = tableContainer.querySelector('.wtHider').getBoundingClientRect();
+		const wtHolderWidth = wtHolder.width;
+		const wtHolderHeight = wtHolder.height;
+		const wtHiderWidth = wtHider.width;
+		const wtHiderHeight = wtHider.height;
+		const containerWidth = tableContainer.getBoundingClientRect().width;
 		let rows = hot.countRows();
 		rows = rows < currentRowsWindow ? rows : currentRowsWindow;
 		const logicalHeight = rows * rowHeight + headerHeight;;
 		const tableWidth = (wtHiderWidth < wtHolderWidth) ? wtHiderWidth : wtHolderWidth;
 		const tableHeight = (wtHiderHeight < wtHolderHeight) ? wtHiderHeight : (wtHolderHeight > logicalHeight) ? wtHolderHeight : logicalHeight;
 
-		const sbarWidth = pagination ? scrollbarWidth : 0; // スクロールバーの太さを設定(オーバーレイスクロールバーの場合は 0)
-		if (tableWidth < wtHolderWidth) { // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
-			hot.updateSettings({ width: tableWidth + sbarWidth }); // 非オーバーレイスクロールバーの場合は、スクロールバーの幅をテーブル幅に加算
+		const sbarWidth = tableHeight > wtHolderHeight ? scrollbarWidth : 0; // 垂直スクロールバーがある場合はスクロールバーの幅を設定
+		if ((sbarWidth > 0) && (tableWidth - sbarWidth < containerWidth)) {
+			hot.updateSettings({ width: tableWidth + sbarWidth }); // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
 		}
-		const sbarHeight = wtHiderWidth > wtHolderWidth ? scrollbarWidth : 0; //水平スクロールバーが出る場合は、スクロールバーの太さを設定(オーバーレイスクロールバーの場合は 0)
+		const sbarHeight = wtHiderWidth > wtHolderWidth ? scrollbarWidth : 0; //水平スクロールバーがある場合はスクロールバーの高さを設定
 		hot.updateSettings({ height: tableHeight + paginationHeight + sbarHeight}); // ページネーション、水平スクロールバーの高さをテーブル高に加算
 	}
 

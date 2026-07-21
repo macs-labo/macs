@@ -176,6 +176,7 @@ span.separator {
 .ht-theme-classic,
 .ht-theme-classic-dark {
 	--ht-line-height: 19px; /* handsontable 17.0 から追加された */
+	/* --ht-background-color: var(--bg-color); */
 	--ht-border-color: var(--border-color-ht-common);
 	--ht-wrapper-border-color: var(--border-color-ht-common);
 	--ht-cell-horizontal-border-color: var(--border-color-ht-common);
@@ -267,6 +268,15 @@ span.separator {
 	background-color: var(--ht-row-cell-odd-background-color) !important;
 }
 
+/* ビューポート幅より小さいテーブルの余白背景色 */
+/*
+.handsontable:not(.htHorizontallyScrollableByWindow).htPagination .ht_master .wtHolder,
+.handsontable:not(.htVerticallyScrollableByWindow).htPagination .ht_master .wtHolder {
+*/
+.ht_master .wtHolder {
+	background-color: var(--bg-color) !important;
+}
+
 /* handsontable 16.2.0 のヘッダ文字列短すぎ問題回避 */
 .handsontable th .colHeader,
 .handsontable th .relative {
@@ -277,6 +287,8 @@ span.separator {
 }
 
 /* この行以降、ACFinderBE の独自カスタム設定 */
+
+
 
 /* 固定列ヘッダーの背景色変更 */
 .handsontable .ht_clone_top_left_corner .htCore th {
