@@ -191,7 +191,7 @@ function cleanSqlResult(result) {
 
 /* Handsontable による結果テーブル表示 */
 function outputTable(selector, result, option = {}) {
-	const { caption = '', query = '', searchTime = false,  hidePaginationU20 = true, hideFooterU20 = true } = option || {};
+	const { caption = '', query = '', searchTime = false, hidePaginationU20 = true, hideFooterU20 = true } = option || {};
 
 	var nores = false;
 	if (!result.length) {
@@ -592,9 +592,10 @@ function outputTable(selector, result, option = {}) {
 				//this.render();
 			}
 		},
-		afterRefreshDimensions: function() {
+		afterRefreshDimensions: function(previousDimensions, currentDimensions, stateChanged) {
+			if (stateChanged) return;
 			resetContainerWidth(this);
-			updateContainerRect(this);
+			updateContainerRect(this, true);
 		},
 		afterDropdownMenuShow: function(dropdownMenu) {
 			const tableContainer = this.rootElement.closest('.table_container');
@@ -711,7 +712,7 @@ function outputTable(selector, result, option = {}) {
 
 	function updatePagination(hot) {
 		const rows = hot.countSourceRows();
-		const showPagination = rows > 20 || !hidePaginationU20;
+		const showPagination = rows > currentRowsWindow || !hidePaginationU20;
 		//console.log(`showPagination: ${showPagination}`);
 		if (!showPagination) {
 			hot.updateSettings({ pagination: false });
@@ -756,33 +757,33 @@ function outputTable(selector, result, option = {}) {
 	}
 
 	// テーブルの横幅がビューポートより小さい場合、垂直スクロールバーをテーブルの右端に寄せる
-	// 結果が 20 行未満の場合、pagination をテーブル直下に寄せる
-	function updateContainerRect(hot) {
+	// 結果が currentRowsWindow 行未満の場合、pagination をテーブル直下に寄せる
+	function updateContainerRect(hot, resize = false) {
 		const pagination = hot.getSettings().pagination !== false;
 		const paginationHeight = pagination ? defPaginHeight : 0;
-/*
 		const wtHolder = tableContainer.querySelector('.wtHolder').style;
 		const wtHider = tableContainer.querySelector('.wtHider').style;
 		const wtHolderWidth = parseFloat(wtHolder.width);
 		const wtHolderHeight = parseFloat(wtHolder.height);
 		const wtHiderWidth = parseFloat(wtHider.width);
 		const wtHiderHeight = parseFloat(wtHider.height);
-*/
+/*
 		const wtHolder = tableContainer.querySelector('.wtHolder').getBoundingClientRect();
 		const wtHider = tableContainer.querySelector('.wtHider').getBoundingClientRect();
 		const wtHolderWidth = wtHolder.width;
 		const wtHolderHeight = wtHolder.height;
 		const wtHiderWidth = wtHider.width;
 		const wtHiderHeight = wtHider.height;
+*/
 		const containerWidth = tableContainer.getBoundingClientRect().width;
 		let rows = hot.countRows();
 		rows = rows < currentRowsWindow ? rows : currentRowsWindow;
 		const logicalHeight = rows * rowHeight + headerHeight;;
 		const tableWidth = (wtHiderWidth < wtHolderWidth) ? wtHiderWidth : wtHolderWidth;
-		const tableHeight = (wtHiderHeight < wtHolderHeight) ? wtHiderHeight : (wtHolderHeight > logicalHeight) ? wtHolderHeight : logicalHeight;
+		const tableHeight = resize ? logicalHeight : (wtHiderHeight < wtHolderHeight) ? wtHiderHeight : (wtHolderHeight > logicalHeight) ? wtHolderHeight : logicalHeight;
 
 		const sbarWidth = tableHeight > wtHolderHeight ? scrollbarWidth : 0; // 垂直スクロールバーがある場合はスクロールバーの幅を設定
-		if ((sbarWidth > 0) && (tableWidth - sbarWidth < containerWidth)) {
+		if (pagination && (tableWidth - sbarWidth < containerWidth)) {
 			hot.updateSettings({ width: tableWidth + sbarWidth }); // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
 		}
 		const sbarHeight = wtHiderWidth > wtHolderWidth ? scrollbarWidth : 0; //水平スクロールバーがある場合はスクロールバーの高さを設定
@@ -790,7 +791,7 @@ function outputTable(selector, result, option = {}) {
 	}
 
 	function updateFooter(hot) {
-		if (hideFooterU20 && hot.countRows() <= 20) footer.style.display = 'none'; // 一応、フッタなしでも書き換えるべきところは書き換える
+		if (hideFooterU20 && hot.countRows() <= currentRowsWindow) footer.style.display = 'none'; // 一応、フッタなしでも書き換えるべきところは書き換える
 		madeTime += performance.now();
 		if (nores) {
 			if (searchTime !== false) footerText.innerHTML = `<span class="no-border">検索:${(searchTime / 1000).toFixed(6)}秒</span>`;
@@ -810,8 +811,8 @@ function outputTable(selector, result, option = {}) {
 
 		const countRows = hot.countRows(); // フィルター後行数
 
-		// 20　行以下は select そのものを無効化
-		rowsSelect.disabled = countRows <= 20;
+		// currentRowsWindow 行以下は select そのものを無効化
+		rowsSelect.disabled = countRows <= currentRowsWindow;
 
 		/* currentRows にあわせて option を個別に disabled */
 		const options = rowsSelect.options;
