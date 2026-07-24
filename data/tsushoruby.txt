@@ -1426,6 +1426,7 @@ insert into tsushoruby values('農将軍フロアブル', 'のうしょうぐんふろあぶる');
 insert into tsushoruby values('クラールEW', 'くらーるEW');
 insert into tsushoruby values('クラール1キロ粒剤', 'くらーる1きろりゅうざい');
 insert into tsushoruby values('バレージ粒剤', 'ばれーじりゅうざい');
+insert into tsushoruby values('イネブレイブ1キロ粒剤', 'いねぶれいぶ1きろりゅうざい');
 insert into tsushoruby values('クリアシーブ乳剤', 'くりあしーぶにゅうざい');
 insert into tsushoruby values('かれるくん', 'かれるくん');
 insert into tsushoruby values('クサナーシ粒剤', 'くさなーしりゅうざい');
