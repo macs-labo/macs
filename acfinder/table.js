@@ -101,6 +101,11 @@ let columnMappings = {
 	// 必要に応じて追加のマッピングをここに定義
 };
 
+const defPaginHeight = 44 + 1; // ページネーションの高さ
+const rowHeight = 24; // 1行の高さ
+const headerHeight = 25; // ヘッダーの高さ
+let scrollbarWidth = 0;
+
 // カラム名を日本語に変換する関数
 function translateColumnName(originalName) {
 	// マッピングが存在する場合はそれを返す、なければ元のカラム名をそのまま返す
@@ -230,11 +235,7 @@ function outputTable(selector, result, option = {}) {
 
 	const rowsTableWindow = localStorage.getItem('rowsTableWindow') || '20';
 	let currentRowsWindow = parseInt(rowsTableWindow, 10);
-	const defPaginHeight = 44 + 1; // ページネーションの高さ
-	const rowHeight = 24; // 1行の高さ
-	const headerHeight = 25; // ヘッダーの高さ
 	const defTableHeight = rowHeight * currentRowsWindow + headerHeight + defPaginHeight; // rowsTableWindow 行分の高さとページネーションの合計
-	const scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ取得
 
 	// Table 用のコンテナを作成
 	let tableContainer = document.createElement("div");
@@ -592,11 +593,6 @@ function outputTable(selector, result, option = {}) {
 				//this.render();
 			}
 		},
-		afterRefreshDimensions: function(previousDimensions, currentDimensions, stateChanged) {
-			if (stateChanged) return;
-			resetContainerWidth(this);
-			updateContainerRect(this, true);
-		},
 		afterDropdownMenuShow: function(dropdownMenu) {
 			const tableContainer = this.rootElement.closest('.table_container');
 			if (tableContainer) {
@@ -758,34 +754,23 @@ function outputTable(selector, result, option = {}) {
 
 	// テーブルの横幅がビューポートより小さい場合、垂直スクロールバーをテーブルの右端に寄せる
 	// 結果が currentRowsWindow 行未満の場合、pagination をテーブル直下に寄せる
-	function updateContainerRect(hot, resize = false) {
+	function updateContainerRect(hot) {
 		const pagination = hot.getSettings().pagination !== false;
-		const paginationHeight = pagination ? defPaginHeight : 0;
 		const wtHolder = tableContainer.querySelector('.wtHolder').style;
 		const wtHider = tableContainer.querySelector('.wtHider').style;
 		const wtHolderWidth = parseFloat(wtHolder.width);
-		const wtHolderHeight = parseFloat(wtHolder.height);
 		const wtHiderWidth = parseFloat(wtHider.width);
+		const tableWidth = (wtHiderWidth < wtHolderWidth) ? wtHiderWidth : wtHolderWidth;
+		if (pagination && (tableWidth < wtHolderWidth)) {
+			hot.updateSettings({ width: tableWidth + scrollbarWidth }); // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
+		}
+		const paginationHeight = pagination ? defPaginHeight : 0;
+		const wtHolderHeight = parseFloat(wtHolder.height);
 		const wtHiderHeight = parseFloat(wtHider.height);
-/*
-		const wtHolder = tableContainer.querySelector('.wtHolder').getBoundingClientRect();
-		const wtHider = tableContainer.querySelector('.wtHider').getBoundingClientRect();
-		const wtHolderWidth = wtHolder.width;
-		const wtHolderHeight = wtHolder.height;
-		const wtHiderWidth = wtHider.width;
-		const wtHiderHeight = wtHider.height;
-*/
-		const containerWidth = tableContainer.getBoundingClientRect().width;
 		let rows = hot.countRows();
 		rows = rows < currentRowsWindow ? rows : currentRowsWindow;
-		const logicalHeight = rows * rowHeight + headerHeight;;
-		const tableWidth = (wtHiderWidth < wtHolderWidth) ? wtHiderWidth : wtHolderWidth;
-		const tableHeight = resize ? logicalHeight : (wtHiderHeight < wtHolderHeight) ? wtHiderHeight : (wtHolderHeight > logicalHeight) ? wtHolderHeight : logicalHeight;
-
-		const sbarWidth = tableHeight > wtHolderHeight ? scrollbarWidth : 0; // 垂直スクロールバーがある場合はスクロールバーの幅を設定
-		if (pagination && (tableWidth - sbarWidth < containerWidth)) {
-			hot.updateSettings({ width: tableWidth + sbarWidth }); // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
-		}
+		const logicalHeight = rows * rowHeight + headerHeight;
+		const tableHeight = (wtHiderHeight < wtHolderHeight) ? wtHiderHeight : (wtHolderHeight > logicalHeight) ? wtHolderHeight : logicalHeight;
 		const sbarHeight = wtHiderWidth > wtHolderWidth ? scrollbarWidth : 0; //水平スクロールバーがある場合はスクロールバーの高さを設定
 		hot.updateSettings({ height: tableHeight + paginationHeight + sbarHeight}); // ページネーション、水平スクロールバーの高さをテーブル高に加算
 	}
@@ -1297,3 +1282,55 @@ function showRowDataDialog(rowData, columns, headers) {
 
 	dialog.showModal();
 }
+
+async function updateTableWidth(hot) {
+//function updateTableWidth(hot) {
+	const containerWidth = document.querySelector('#resultPane').getBoundingClientRect().width - 30;
+	const tableWidth = hot.getTableWidth();
+	const tableContainer = hot.rootElement;
+	const wtHolder = tableContainer.querySelector('.wtHolder').style;
+	const wtHider = tableContainer.querySelector('.wtHider').style;
+	const wtHiderWidth = parseFloat(wtHider.width);
+	const singleCol = hot.countCols() === 1;
+	if (singleCol) {
+		hot.updateSettings({ width: containerWidth, height: 'auto' });
+	}	else if (tableWidth > containerWidth || wtHiderWidth > containerWidth || wtHiderWidth > tableWidth) {
+		const pagination = hot.getSettings().pagination !== false;
+		const totalWidth = wtHiderWidth + scrollbarWidth;// コンテナより幅が狭いテーブルのテーブル幅
+		const newWidth = pagination && (totalWidth < containerWidth) ? totalWidth : containerWidth;
+		let options = {};
+		options['width'] = newWidth;
+		const tableHeight = hot.getTableHeight();
+		const oldScrollbarHeight = (scrollbarWidth > 0) && (wtHiderWidth > tableWidth) ? scrollbarWidth : 0;
+		const newScrollbarHeight = (scrollbarWidth > 0) && (wtHiderWidth > newWidth) ? scrollbarWidth : 0;
+		const offsetHeight = newScrollbarHeight - oldScrollbarHeight;
+		if (offsetHeight !== 0) options['height'] = tableHeight + offsetHeight;
+		hot.updateSettings(options);
+	}
+	await new Promise(resolve => setTimeout(resolve, 0)); // イベントループを入れておかないと edge は反応が極端に鈍くなることがある
+}
+
+// ブラウザウインドウの横幅リサイズへの追従
+let resizeTimer;
+let currentWidth;
+window.addEventListener('resize', () => {
+	if (currentWidth === window.innerWidth) return;
+	currentWidth = window.innerWidth;
+	clearTimeout(resizeTimer);
+	resizeTimer = setTimeout(() => {
+		const isArray = Array.isArray(tables);
+		if (!isArray) {
+			updateTableWidth(tables);
+		} else {
+			tables.forEach(table => {
+				updateTableWidth(table);
+			});
+		}
+	}, 50); // デバウンス待機時間： 100ms だと edge は反応が極端に鈍くなることがある
+});
+
+// スクロールバーの太さ設定
+window.addEventListener('DOMContentLoaded', () => {
+	scrollbarWidth = getScrollbarWidth();
+	currentWidth = window.innerWidth;
+});
