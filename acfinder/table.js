@@ -761,18 +761,21 @@ function outputTable(selector, result, option = {}) {
 		const wtHolderWidth = parseFloat(wtHolder.width);
 		const wtHiderWidth = parseFloat(wtHider.width);
 		const tableWidth = (wtHiderWidth < wtHolderWidth) ? wtHiderWidth : wtHolderWidth;
-		if (pagination && (tableWidth < wtHolderWidth)) {
-			hot.updateSettings({ width: tableWidth + scrollbarWidth }); // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
-		}
-		const paginationHeight = pagination ? defPaginHeight : 0;
 		const wtHolderHeight = parseFloat(wtHolder.height);
 		const wtHiderHeight = parseFloat(wtHider.height);
+		const sbarWidth = wtHiderHeight > wtHolderHeight ? scrollbarWidth : 0; // 垂直スクロールバーがある場合はスクロールバーの幅を設定
+		let options = {};
+		if (pagination && (tableWidth + sbarWidth < wtHolderWidth)) {
+			options['width'] = tableWidth + sbarWidth; // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
+		}
+		const paginationHeight = pagination ? defPaginHeight : 0;
 		let rows = hot.countRows();
 		rows = rows < currentRowsWindow ? rows : currentRowsWindow;
 		const logicalHeight = rows * rowHeight + headerHeight;
 		const tableHeight = (wtHiderHeight < wtHolderHeight) ? wtHiderHeight : (wtHolderHeight > logicalHeight) ? wtHolderHeight : logicalHeight;
-		const sbarHeight = wtHiderWidth > wtHolderWidth ? scrollbarWidth : 0; //水平スクロールバーがある場合はスクロールバーの高さを設定
-		hot.updateSettings({ height: tableHeight + paginationHeight + sbarHeight}); // ページネーション、水平スクロールバーの高さをテーブル高に加算
+		const sbarHeight = wtHiderWidth > wtHolderWidth ? scrollbarWidth : 0; // 水平スクロールバーがある場合はスクロールバーの高さを設定
+		options['height'] = tableHeight + paginationHeight + sbarHeight // ページネーション、水平スクロールバーの高さをテーブル高に加算
+		hot.updateSettings(options);
 	}
 
 	function updateFooter(hot) {
@@ -1283,9 +1286,9 @@ function showRowDataDialog(rowData, columns, headers) {
 	dialog.showModal();
 }
 
-async function updateTableWidth(hot) {
-//function updateTableWidth(hot) {
-	const containerWidth = document.querySelector('#resultPane').getBoundingClientRect().width - 30;
+async function updateTableWidth(hot, containerWidth) {
+	if (!hot) return;
+	//const containerWidth = document.querySelector('#resultPane').getBoundingClientRect().width - 30;
 	const tableWidth = hot.getTableWidth();
 	const tableContainer = hot.rootElement;
 	const wtHolder = tableContainer.querySelector('.wtHolder').style;
@@ -1310,27 +1313,63 @@ async function updateTableWidth(hot) {
 	await new Promise(resolve => setTimeout(resolve, 0)); // イベントループを入れておかないと edge は反応が極端に鈍くなることがある
 }
 
-// ブラウザウインドウの横幅リサイズへの追従
-let resizeTimer;
-let currentWidth;
-window.addEventListener('resize', () => {
-	if (currentWidth === window.innerWidth) return;
-	currentWidth = window.innerWidth;
-	clearTimeout(resizeTimer);
-	resizeTimer = setTimeout(() => {
-		const isArray = Array.isArray(tables);
-		if (!isArray) {
-			updateTableWidth(tables);
-		} else {
-			tables.forEach(table => {
-				updateTableWidth(table);
-			});
-		}
-	}, 50); // デバウンス待機時間： 100ms だと edge は反応が極端に鈍くなることがある
-});
-
-// スクロールバーの太さ設定
+// resultPane リサイズへの追従設定
+///* デバウンスタイマー版
+// リサイズ時のシングルカラムテーブルの表示の乱れ(スクロールバーの点滅)がない
+// edge で反応が鈍くなることが少ない
 window.addEventListener('DOMContentLoaded', () => {
-	scrollbarWidth = getScrollbarWidth();
-	currentWidth = window.innerWidth;
+	scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ設定
+
+	const resultPane = document.querySelector('#resultPane');
+	let resizeTimer;
+	let currentWidth = resultPane.getBoundingClientRect().width;
+	const observer = new ResizeObserver((entries) => {
+		const containerWidth =  resultPane.getBoundingClientRect().width;
+		if (currentWidth === containerWidth) return;
+		currentWidth = containerWidth;
+		clearTimeout(resizeTimer);
+		resizeTimer = setTimeout(() => {
+			const isArray = Array.isArray(tables);
+			if (!isArray) {
+				updateTableWidth(tables, containerWidth - 30);
+			} else {
+				tables.forEach(table => {
+					updateTableWidth(table, containerWidth - 30);
+				});
+			}
+		}, 50); // デバウンス待機時間： 100ms だと edge は反応が極端に鈍くなることがある
+	});
+	observer.observe(resultPane);
+
 });
+//*/
+/* AnimationFrame 版
+// リサイズ時のシングルカラムテーブルの表示の乱れ(スクロールバーの点滅)が激しい
+// edge で最初のリサイズにすごく時間がかかる
+window.addEventListener('DOMContentLoaded', () => {
+	scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ設定
+
+	const resultPane = document.querySelector('#resultPane');
+	let resizeTimer;
+	let currentWidth = resultPane.getBoundingClientRect().width;
+	let rafId = null;
+	const observer = new ResizeObserver((entries) => {
+		const containerWidth =  resultPane.getBoundingClientRect().width;
+		if (currentWidth === containerWidth) return;
+		currentWidth = containerWidth;
+		// すでに実行待ちのフレームがあればキャンセルして最新のフレームに置き換える
+		if (rafId) cancelAnimationFrame(rafId);
+		rafId = requestAnimationFrame(() => {
+			if (!Array.isArray(tables)) {
+				updateTableWidth(tables, containerWidth - 30);
+			} else {
+				tables.forEach(table => {
+					updateTableWidth(table, containerWidth - 30);
+				});
+			}
+		});
+	});
+	observer.observe(resultPane);
+
+});
+*/
