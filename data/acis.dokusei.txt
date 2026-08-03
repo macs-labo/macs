@@ -1,7 +1,7 @@
 --/d
-/* —LŒø¬•ª“Å«ƒ}ƒXƒ^[ 2026.07.01 */
+/* —LŒø¬•ª“Å«ƒ}ƒXƒ^[ 2026.08.03 */
 create table if not exists info (item varchar primary key, value varchar);
-insert or replace into info (item, value) values ('m_dokusei', '2026.07.01');
+insert or replace into info (item, value) values ('m_dokusei', '2026.08.03');
 drop table if exists m_dokusei;
 create table m_dokusei (ippanmei varchar, nai varchar, yoto varchar, biko varchar, ojas varchar, rac varchar, dokusei varchar, adi varchar, arfd varchar, wqs varchar, eqs varchar, hatsutoroku varchar, jogai varchar);
 begin transaction;
@@ -14,7 +14,6 @@ insert into m_dokusei values ('ƒAƒZƒtƒF[ƒg','Acephate','’',NULL,NULL,'I-1B','•
 insert into m_dokusei values ('ƒAƒoƒƒNƒ`ƒ“','Abamectin','’',NULL,NULL,'I-6','“Å','0.0006','0.005','0.0015','0.037','2013.02.06','1.8%Œ€');
 insert into m_dokusei values ('ƒAƒtƒBƒhƒsƒƒyƒ“','Afidopyropen','’',NULL,NULL,'I-9D','•','0.08','0.18','0.21','800','2022.10.26',NULL);
 insert into m_dokusei values ('ƒAƒ‰ƒjƒJƒ‹ƒu','Alanycarb','’',NULL,NULL,'I-1A','Œ€','0.011',NULL,NULL,'1.8','1991.05.10',NULL);
-insert into m_dokusei values ('ƒAƒŠƒKƒ^ƒVƒ}ƒAƒUƒ~ƒEƒ}','Franklinothrips vespiformis (Craw ford)','’','“V','›','-(¶)','-','-','-','-','-','2003.04.22',NULL);
 insert into m_dokusei values ('ƒAƒŒƒXƒŠƒ“','Allethrin','’',NULL,NULL,'I-3A','•','0.0083',NULL,'-','-','1967.04.25',NULL);
 insert into m_dokusei values ('ƒCƒTƒGƒAƒqƒƒRƒoƒ`','Diglyphus isaea (Walker) ','’','“V','›','-(¶)','-','-','-','-','-','1997.12.24',NULL);
 insert into m_dokusei values ('ƒCƒ\ƒLƒTƒ`ƒIƒ“','Isoxathion','’',NULL,NULL,'I-1B','Œ€','0.002','0.003','0.005','0.02','1972.06.30','2%•');
@@ -23,7 +22,7 @@ insert into m_dokusei values ('ƒCƒ~ƒVƒAƒzƒX','Imicyafos','’',NULL,NULL,'I-1B','
 insert into m_dokusei values ('ƒCƒ~ƒ_ƒNƒƒvƒŠƒh','Imidacloprid','’',NULL,NULL,'I-4A','Œ€','0.057','0.077','0.15','1.9','1992.11.04','2%•');
 insert into m_dokusei values ('ƒCƒ“ƒhƒLƒTƒJƒ‹ƒu','Indoxacarb','’',NULL,NULL,'I-22A','•','0.0052',NULL,'0.013','60','2010.08.10',NULL);
 insert into m_dokusei values ('ƒGƒXƒtƒFƒ“ƒoƒŒƒŒ[ƒg','Esfenvalerate','’',NULL,NULL,'I-3A','Œ€','0.017',NULL,'-','-','1995.04.24',NULL);
-insert into m_dokusei values ('ƒGƒ`ƒvƒ[ƒ‹','Ethiprole','’',NULL,NULL,'I-2B','•','0.005',NULL,'0.01','19','2005.01.17',NULL);
+insert into m_dokusei values ('ƒGƒ`ƒvƒ[ƒ‹','Ethiprole','’',NULL,NULL,'I-2B','•','0.005','0.03 (0.022)','0.01','19','2005.01.17',NULL);
 insert into m_dokusei values ('ƒGƒgƒLƒTƒ][ƒ‹','Etoxazole','’',NULL,NULL,'I-10B','•','0.04','-','0.1','1.5','1998.04.24',NULL);
 insert into m_dokusei values ('ƒGƒgƒtƒFƒ“ƒvƒƒbƒNƒX','Etofenprox','’',NULL,NULL,'I-3A','•','0.031','1','0.082','0.67','1987.04.13',NULL);
 insert into m_dokusei values ('ƒGƒ}ƒƒNƒ`ƒ“ˆÀ‘§_‰–','Emamectine-benzoate','’',NULL,NULL,'I-6','Œ€','0.0005','0.015',NULL,'0.096','1997.12.22','2%•');
@@ -38,7 +37,6 @@ insert into m_dokusei values ('ƒJƒ‹ƒ^ƒbƒv','Cartap','’',NULL,NULL,'I-14','Œ€','
 insert into m_dokusei values ('ƒJƒ‹ƒ{ƒXƒ‹ƒtƒ@ƒ“','Carbosulfan','’',NULL,NULL,'I-1A','Œ€','0.005','0.005','0.01','0.04','1983.03.29',NULL);
 insert into m_dokusei values ('ŠÒŒ³“b•²“œ‰»•¨','Hydrogenated starch hydrolysate','’',NULL,'›','-','•','-','-',NULL,'-','2005.12.14',NULL);
 insert into m_dokusei values ('ƒLƒCƒJƒuƒŠƒ_ƒj','Gynaeseius liturivorus (Ehara)','’','“V','›','-(¶)','-','-','-','-','-','2013.09.25',NULL);
-insert into m_dokusei values ('ƒMƒtƒAƒuƒ‰ƒoƒ`','Aphidius gifuensis (Ashmead)','’','“V','›','-(¶)','-','-','-','-','-','2016.01.20',NULL);
 insert into m_dokusei values ('ƒNƒNƒƒŠƒXƒJƒuƒŠƒ_ƒj','Amblyseius cucumeris Oudemans','’','“V','›','-(¶)','-','-','-','-','-','1998.04.06',NULL);
 insert into m_dokusei values ('ƒOƒŠƒZƒŠƒ“ƒNƒGƒ“_‰–b_ƒGƒXƒeƒ‹','Citric acid esters of mono- and diglycerides of fatty acid','’',NULL,NULL,'-','•','-','-','-','-','2019.01.22',NULL);
 insert into m_dokusei values ('ƒOƒŠƒZƒŠƒ“|_‰–b_ƒGƒXƒeƒ‹','Acetic and fatty acid esters of glycerol','’',NULL,NULL,'-','•','-','-','-','-','2015.11.11',NULL);
@@ -105,7 +103,6 @@ insert into m_dokusei values ('ƒlƒ}ƒfƒNƒ`ƒ“','Nemadectin','’',NULL,NULL,'-','Œ€
 insert into m_dokusei values ('ƒmƒoƒ‹ƒƒ“','Novaluron','’',NULL,NULL,'I-15','•','0.011',NULL,'0.029','0.017','2004.07.05',NULL);
 insert into m_dokusei values ('ƒo[ƒeƒBƒVƒŠƒEƒ€ ƒŒƒJƒj','Verticillium lecanii (Zimmerman) Viegas','’','”÷','›','-','-','-','-','-','-','2000.08.15',NULL);
 insert into m_dokusei values ('ƒpƒXƒc[ƒŠƒA ƒyƒlƒgƒ‰ƒ“ƒX','Pasteuria penetrans','’','”÷','›','-','-','-','-','-','-','1998.12.04',NULL);
-insert into m_dokusei values ('ƒnƒ‚ƒOƒŠƒRƒ}ƒ†ƒoƒ`','Dacnusa sibirica Telenga','’','“V','›','-(¶)','-','-','-','-','-','1997.12.24',NULL);
 insert into m_dokusei values ('ƒnƒ‚ƒOƒŠƒ~ƒhƒŠƒqƒƒRƒoƒ`','Neochrysocharis formosa (Westwood)','’','“V','›','-(¶)','-','-','-','-','-','2005.06.22',NULL);
 insert into m_dokusei values ('ƒqƒhƒƒLƒVƒvƒƒsƒ‹‰»ƒŠƒ“_‰Ë‹´ƒfƒ“ƒvƒ“','Hydroxypropyl Distarch Phosphate','’',NULL,NULL,'-','•','-','-','-','-','2018.10.18',NULL);
 insert into m_dokusei values ('ƒrƒtƒFƒiƒ[[ƒg','Bifenazate','’',NULL,NULL,'I-20D','•','0.01','0.1','0.026','46','2000.08.17',NULL);
