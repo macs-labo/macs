@@ -97,19 +97,26 @@ function initCropTab() {
 }
 
 // 作物タブ setp.1: 作物選択
-function setupCropCrop() {
+async function setupCropCrop() {
 	const cropTreeSql = `
 		select idsaku, class, toroku, sakumotsu, shukakubui, betsumei,
 		':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
 		from m_sakumotsu where sakumotsu not like '%除く%';
 	`;
 	cropCropManager = new CropTreeManager('#cropCropTree', onCheckCropCrop, false);
-	cropCropManager.init(cropTreeSql, {
+	await cropCropManager.init(cropTreeSql, {
 		showSearchMethod: true,
 		onSearchMethodChange: () => {
 			if (cropCropManager.checkedCrops.length > 1) setupCropPest();
 		}
 	});
+
+	// urlParams に crops があれば、選択作物を設定
+	const crops = urlParams.get('crops');
+	if (crops && typeof cropCropManager.syncCheckState === 'function') {
+		cropCropManager.syncCheckState(crops);
+		onCheckCropCrop(cropCropManager.checkedCrops);
+	}
 }
 
 // 作物タブ step.1 の作物ツリーチェック時のコールバック関数
@@ -168,10 +175,17 @@ async function setupCropPest() {
 				byochu: row[1],
 				betsumei: row[2]
 			}));
-			cropPestManager.update(pests); // スライドを病害虫選択まで開放（次以降は未開放にする）
+			await cropPestManager.update(pests); // スライドを病害虫選択まで開放（次以降は未開放にする）
 			updateStepBar(cropSwiper, 1);
+
+			// urlParams に pests があれば、選択病害虫を設定
+			const pPests = urlParams.get('pests');
+			if (pPests && typeof cropCropManager.syncCheckState === 'function') {
+				cropPestManager.syncCheckState(pPests);
+				setupCropChem();
+			}
 		} else {
-			cropPestManager.update([]);
+			await cropPestManager.update([]);
 			cropSwiper.slideTo(0);
 			updateStepBar(cropSwiper, 0);
 		}

@@ -411,9 +411,19 @@ class CropTreeManager {
 	}
 
 	// checkedCrops の状態をツリーのUIに同期させる
-	syncCheckState() {
+	syncCheckState(crops = '') {
 		if (!this.infiniteTree) return;
-		if (this.isGlobal) this.checkedCrops = window.checkedCrops;
+		if (crops) {
+			this.checkedCrops = [];
+			crops = "'" + crops.replaceAll(',', "','") + "'";
+			const result = db.exec(`select idsaku, sakumotsu from m_sakumotsu where sakumotsu in (${crops}) order by idsaku`);
+			if (result) {
+				result[0].values.forEach(row => { this.checkedCrops.push({id: row[0], sakumotsu: row[1]}); });
+			}
+			if (this.isGlobal) window.checkedCrops = this.checkedCrops;
+		} else if (this.isGlobal) {
+			this.checkedCrops = window.checkedCrops;
+		}
 
 		// まず、現在のツリーのチェック状態をすべてクリア
 		this.infiniteTree.nodes.forEach(node => {
@@ -448,7 +458,8 @@ class CropTreeManager {
 
 	_applyFilter(text) {
 		const tree = this.infiniteTree;
-		const filterText = romajiConv(text).toHiragana().replaceAll('：', ':').trim();
+		//const filterText = romajiConv(text).toHiragana().replaceAll('：', ':').trim();
+		const filterText = new RegExp(strconv(romajiConv(text).toHiragana().replaceAll('：', ':').trim(), 'r'));
 		const matchedNodes = new Set();
 
 		if (!filterText) {
@@ -460,7 +471,8 @@ class CropTreeManager {
 			const check = (node) => {
 				let hasMatch = false;
 				if (node.hasChildren()) node.getChildren().forEach(child => { if (check(child)) hasMatch = true; });
-				const isSelf = node.data.keywords.includes(filterText) && !(filterText == 'かき' && node.data.keywords.includes('花き'));
+				//const isSelf = node.data.keywords.includes(filterText) && !(filterText == 'かき' && node.data.keywords.includes('花き'));
+				const isSelf = strconv(node.data.keywords).match(filterText) && !(filterText == 'かき' && node.data.keywords.includes('花き'));
 				if (isSelf && !hasMatch) matchedNodes.add(node);
 				return isSelf || hasMatch;
 			};

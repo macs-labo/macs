@@ -1318,9 +1318,9 @@ async function updateTableWidth(hot, containerWidth) {
 // リサイズ時のシングルカラムテーブルの表示の乱れ(スクロールバーの点滅)がない
 // edge で反応が鈍くなることが少ない
 window.addEventListener('DOMContentLoaded', () => {
-	scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ設定
-
 	const resultPane = document.querySelector('#resultPane');
+	if (!resultPane) return;
+	scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ設定
 	let resizeTimer;
 	let currentWidth = resultPane.getBoundingClientRect().width;
 	const observer = new ResizeObserver((entries) => {

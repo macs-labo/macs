@@ -176,7 +176,7 @@ class ChemListManager {
 		console.log(normalizedText);
 		const filtersOrg = normalizedText.split(' ').filter(Boolean);
 		const filtersHira = typeof romajiConv !== 'undefined' ? romajiConv(normalizedText).toHiragana().split(' ').filter(Boolean) : [];
-		const filters = filtersOrg.map((val, i) => `${val}|${filtersHira[i] || val}`);
+		const filters = filtersOrg.map((val, i) => `${val}|${strconv(filtersHira[i], 'r') || val}`);
 
 		let isNoData = true;
 		let visibleCount = 0;
@@ -184,8 +184,9 @@ class ChemListManager {
 			// カテゴリーマッチ判定
 			const matchesCat = catText === '' || !!item.dataset.info.match(new RegExp(catText));
 			// テキストマッチ判定 (AND検索)
+			const target = strconv(item.dataset.info);
 			const matchesText = filters.length === 0 || filters.every(f => {
-				return !!item.dataset.info.match(new RegExp(f, 'i'));
+				return !!target.match(new RegExp(f, 'i'));
 			});
 
 			const visible = matchesCat && matchesText;

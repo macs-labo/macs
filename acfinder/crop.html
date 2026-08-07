@@ -67,9 +67,7 @@
 <!--	タブ専用の script -->
 <script>
 
-let currentListing;
-let cropManager;
-let pestManager;
+var currentListing, cropManager, pestManager;
 
 async function searchCrop(skipPestUpdate = false) {
 	tables = resetTables(tables);
@@ -88,7 +86,7 @@ async function searchCrop(skipPestUpdate = false) {
 	}
 
 	const skip = skipPestUpdate === true;
-	if (!skip) pestManager.update([], true); // クリア（再帰呼び出し防止のため silent）
+	if (!skip) await pestManager.update([], true); // クリア（再帰呼び出し防止のため silent）
 
 	const checkedPests = pestManager.checkedPests;
 	const pests = checkedPests.map(item => item.byochu);
@@ -229,7 +227,7 @@ async function searchCrop(skipPestUpdate = false) {
 					byochu: row[1],
 					betsumei: row[2]
 				}));
-				pestManager.update(pests, true); // リスト更新（再帰呼び出し防止のため silent）
+				await pestManager.update(pests, true); // リスト更新（再帰呼び出し防止のため silent）
 				document.querySelector('#selectPest').classList.remove('hidden');
 			}
 		}
@@ -263,13 +261,28 @@ window.addEventListener('DOMContentLoaded', async function() {
 		onSearchMethodChange: () => { if (tables) searchCrop(pestManager && pestManager.checkedPests.length > 0); }
 	});
 
+	// firefox のリロード時 checkbox 状態復元対策
+	clearAllReset();
+
 	// 病害虫リストマネージャ初期化
 	pestManager = new PestListManager('#selectPest', () => { searchCrop(true); });
 	pestManager.init({ title: '病害虫名等選択', showCategory: true });
 	pestManager.reset(true);
 
-	// firefox のリロード時 checkbox 状態復元対策
-	clearAllReset();
+	// urlParams に crops があれば、選択作物を設定
+	const urlParams = new URLSearchParams(window.location.search);
+	const crops = urlParams.get('crops');
+	if (crops && typeof cropManager.syncCheckState === 'function') {
+		cropManager.syncCheckState(crops);
+		await searchCrop();
+	}
+
+	// urlParams に pests があれば、選択病害虫を設定
+	const pests = urlParams.get('pests');
+	if (pests && typeof pestManager.syncCheckState === 'function') {
+		pestManager.syncCheckState(pests);
+		await searchCrop(true);
+	}
 
 });
 </script>

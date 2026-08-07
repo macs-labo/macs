@@ -8,14 +8,26 @@
 <link rel="manifest" href="./manifest.json">
 <title>ACFinderBE Mobile</title>
 <script>
+var initTab = 0;
+const urlParams = new URLSearchParams(window.location.search);
 (function() {
+	// `tab `URL パラメータ取得
+	const pTab = urlParams.get('tab')?.toLocaleLowerCase();
+	urlParams.delete('tab');
+	if (pTab === 'pest' || pTab === 1) initTab = 1;
+	if (pTab === 'chem' || pTab === 2) initTab = 2;
+
 	// ディスプレイの論理幅が 1280px 以上ならデスクトップ版にリダイレクト
 	const isDesktopSize = window.screen.width >= 1280;
 	if (isDesktopSize) {
 		// URLパラメータでデバッグ用に回避できるようにしておく
-		const urlParams = new URLSearchParams(window.location.search);
-		if (urlParams.get('mode') !== 'mobile') {
-			window.location.href = 'crop.html';
+		const mode = urlParams.get('mode')?.toLocaleLowerCase();
+		urlParams.delete('mode');
+		if (mode !== 'mobile') {
+			const tabs = ['crop.html', 'pest.html', 'chem.html'];
+			let url = tabs[initTab];
+			if (urlParams.size > 0) url += '?' + urlParams.toString();
+			window.location.href = url;
 		}
 	}
 
@@ -1320,11 +1332,13 @@ window.addEventListener('DOMContentLoaded', async () => {
 	// 初期状態のインジケータをセット
 	updateMainTabs(0);
 	updateStepBar(tabSwiperInstances[0], 0); // Initial step bar and navigation update
+	mainJump(initTab);
 
 });
 
 let backTapCount = 0;
 let backTimer = null;
+console.log('arg: ', urlParams.toString());
 
 // 1. 起動時（最初のタップが必要）
 window.addEventListener('load', () => {

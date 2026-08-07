@@ -388,7 +388,7 @@ dialog {
 	height: 28px;
 }
 
-.inputbar select { width: 46px; }
+.inputbar select { width: 4rem; }
 
 .selector {
 	flex-shrink: 0;

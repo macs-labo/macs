@@ -179,33 +179,38 @@ class PestListManager {
 	 * @param {Array} pests [{idbyochu, byochu, betsumei, cid}]
 	 * @param {boolean} silent trueの場合、コールバックを実行しない
 	 */
-	update(pests, silent = false) {
-		this.pests = pests;
-		if (this.wrapper) this.wrapper.classList.remove('hidden');
-		this.checkedPests = []; // リスト更新時は選択をリセット
+	async update(pests, silent = false) {
+		await waiting(true, '病害虫リスト更新中...');
+		try {
+			this.pests = pests;
+			if (this.wrapper) this.wrapper.classList.remove('hidden');
+			this.checkedPests = []; // リスト更新時は選択をリセット
 
-		// 初回のみデリゲーションリスナーを設定
-		if (!this.container.dataset.listenerSet) {
-			this._setupDelegatedListeners();
-			this.container.dataset.listenerSet = 'true';
-		}
+			// 初回のみデリゲーションリスナーを設定
+			if (!this.container.dataset.listenerSet) {
+				this._setupDelegatedListeners();
+				this.container.dataset.listenerSet = 'true';
+			}
 
-		this.render();
+			this.render();
 
-		// フィルターとソートの状態を維持
-		if (this.filterInput) {
-			this.filter(this.filterInput.value, this.filterCategory?.value || '');
-		}
-		if (this.sortSelect) {
-			this.sort(this.sortSelect.value);
-		}
+			// フィルターとソートの状態を維持
+			if (this.filterInput) {
+				this.filter(this.filterInput.value, this.filterCategory?.value || '');
+			}
+			if (this.sortSelect) {
+				this.sort(this.sortSelect.value);
+			}
 
-		if (!silent && this.onChangeCallback) this.onChangeCallback(this.checkedPests);
+			if (!silent && this.onChangeCallback) this.onChangeCallback(this.checkedPests);
 
-		// 全解除ボタンの更新
-		if (this.clearAllCheckbox) {
-			this.clearAllCheckbox.checked = false;
-			this.clearAllCheckbox.disabled = true;
+			// 全解除ボタンの更新
+			if (this.clearAllCheckbox) {
+				this.clearAllCheckbox.checked = false;
+				this.clearAllCheckbox.disabled = true;
+			}
+		} finally {
+			await waiting(false);
 		}
 	}
 
@@ -225,9 +230,9 @@ class PestListManager {
 			const isGroup = id.endsWith('%') ? ' pestGroup' : '';
 			const inputId = `pest_${this.idSuffix}_${id}`;
 			return `<div class="checkListItem${isGroup}" title="${hint}">` +
-				   `<input type="checkbox" value="${name}" id="${inputId}" data-id="${id}" data-ruby="${ruby}" data-filter="${filter}">` +
-				   `<label for="${inputId}">${name}</label>` +
-				   `</div>`;
+					`<input type="checkbox" value="${name}" id="${inputId}" data-id="${id}" data-ruby="${ruby}" data-filter="${filter}">` +
+					`<label for="${inputId}">${name}</label>` +
+					`</div>`;
 		}).join('') + '<p class="nodata hidden">該当する病害虫が見つかりませんでした。</p>';
 
 		this.container.innerHTML = html;
@@ -244,6 +249,29 @@ class PestListManager {
 		if (this.onChangeCallback) this.onChangeCallback(this.checkedPests);
 	}
 
+	// pests で渡された病害虫をリストボックス UI と同期
+	syncCheckState(pests = '') {
+		if (!pests) return;
+
+		// checkedPests 及びチェックボックスの設定
+		const arrPests = pests.split(',');
+		this.checkedPests = [];
+		this.container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
+			cb.checked = false;
+			arrPests.forEach(pest => {
+				if (cb.value === pest) {
+					this.checkedPests.push({ id: cb.dataset.id, byochu: cb.value });
+					cb.checked = true;
+				}
+			});
+		});
+		if (this.isGlobal) window.checkedPests = this.checkedPests;
+
+		// clearAll チェックボックスの設定
+		this.clearAllCheckbox.checked = this.checkedPests.length > 0;
+		this.clearAllCheckbox.disabled = !this.clearAllCheckbox.checked;
+	}
+
 	/**
 	 * 絞り込み実行
 	 * @param {String} inputText 絞込文字列（空白区切り可）
@@ -254,7 +282,7 @@ class PestListManager {
 			return str.replace(/[！-～]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/　/g, " ");
 		}
 		const normalized = toHan(inputText).toLowerCase().trim();
-		const filters = (typeof romajiConv !== 'undefined' ? romajiConv(normalized).toHiragana() : normalized)
+		const filters = (typeof romajiConv !== 'undefined' ? strconv(romajiConv(normalized).toHiragana(), 'r') : normalized)
 			.split(' ')
 			.filter(Boolean);
 
@@ -262,8 +290,8 @@ class PestListManager {
 		this.container.querySelectorAll('.checkListItem').forEach(item => {
 			const cb = item.querySelector('input');
 			const matchesCat = catId === '' || cb.dataset.id.startsWith(catId);
-			const target = cb.dataset.filter; // 名称とよみがな(ひらがな)が含まれている
-			const matchesText = filters.length === 0 || filters.some(f => target.includes(f));
+			const target = strconv(cb.dataset.filter); // 名称とよみがな(ひらがな)が含まれている
+			const matchesText = filters.length === 0 || filters.some(f => target.match(new RegExp(f)));
 
 			const visible = matchesCat && matchesText;
 			item.classList.toggle('hidden', !visible);
