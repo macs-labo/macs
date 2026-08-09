@@ -123,18 +123,23 @@ class ChemListManager {
 	 * @param {Array} chems [{tsusho, tekiyo, keywords}]
 	 * @param {Function} itemRenderer カスタムレンダラー関数 (row) => htmlString
 	 */
-	update(chems, itemRenderer = null) {
-		this.chems = chems;
-		this.itemRenderer = itemRenderer;
-		this.selectedChem = null;
-		this.render();
+	async update(chems, itemRenderer = null) {
+		await waiting(true, '薬剤リスト更新中...');
+		try {
+			this.chems = chems;
+			this.itemRenderer = itemRenderer;
+			this.selectedChem = null;
+			this.render();
 
-		// フィルターの状態を維持
-		if (this.filterInput) {
-			this.filter(this.filterInput.value, this.filterCategory?.value || '');
+			// フィルターの状態を維持
+			if (this.filterInput) {
+				this.filter(this.filterInput.value, this.filterCategory?.value || '');
+			}
+
+			if (this.onChangeCallback) this.onChangeCallback(null);
+		} finally {
+			await waiting(false);
 		}
-
-		if (this.onChangeCallback) this.onChangeCallback(null);
 	}
 
 	render() {
@@ -173,9 +178,8 @@ class ChemListManager {
 			return str.replace(/[！-～]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/　/g, " ");
 		}
 		const normalizedText = toHan(inputText).replace(/\s/g, ' ').trim();
-		console.log(normalizedText);
 		const filtersOrg = normalizedText.split(' ').filter(Boolean);
-		const filtersHira = typeof romajiConv !== 'undefined' ? romajiConv(normalizedText).toHiragana().split(' ').filter(Boolean) : [];
+		const filtersHira = typeof romajiConv !== 'undefined' ? toHan(romajiConv(normalizedText).toHiragana()).split(' ').filter(Boolean) : [];
 		const filters = filtersOrg.map((val, i) => `${val}|${strconv(filtersHira[i], 'r') || val}`);
 
 		let isNoData = true;

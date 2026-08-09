@@ -122,77 +122,6 @@ div.noresult {
 // Declare chemListManager globally
 var chemListManager;
 
-// フィルター実行
-async function yakuzaiFilter() {
-	const yakuzaiInput = document.querySelector('#yakuzaiInput');
-	const yakuzaiButton = document.querySelector('#yakuzaiButton');
-	const listBox = document.getElementById("yakuzaiListbox");
-
-	if (yakuzaiButton.textContent === '解除') {
-		yakuzaiInput.value = '';
-	}
-
-	// 入力キーワードをノーマライズ
-	const rawKeyword = yakuzaiInput.value;
-	// 全角記号を半角に、スペース類を半角スペースに統一し、連続するスペースを1つにまとめる
-	const normalizedInput = rawKeyword.replace(/[｜，,]/g, '|').replace(/[　＆&]/g, ' ').replace(/\s+/g, ' ').trim();
-	const originalWords = normalizedInput.split(' ').filter(Boolean);
-	const filterText = originalWords.map(word => {
-		const original = word.toLowerCase();
-		const hiragana = (typeof romajiConv !== 'undefined' ? romajiConv(word).toHiragana() : word).toLowerCase();
-		return original === hiragana ? original : `${original}|${hiragana}`;
-	}).join(' ');
-	const keywords = filterText.split(' ').filter(Boolean).map(k => new RegExp(k));
-
-	await waiting(true, 'フィルタリング中...');
-
-	try {
-
-		const options = listBox.querySelectorAll('.yakuzaiOption');
-		let visibleCount = 0;
-		let lastVisible = null;
-
-		options.forEach(opt => {
-			const info = (opt.dataset.info || '').toLowerCase();
-			// AND 検索
-			const isMatch = keywords.every(re => info.match(re));
-			opt.classList.toggle('hidden', !isMatch);
-			if (isMatch) {
-				visibleCount++;
-				lastVisible = opt;
-			}
-		});
-
-		// グループラベルの表示切り替え
-		const groups = listBox.querySelectorAll('.yakuzaiGroup');
-		groups.forEach(group => {
-			let next = group.nextElementSibling;
-			let hasVisible = false;
-			while (next && next.classList.contains('yakuzaiOption')) {
-				if (!next.classList.contains('hidden')) {
-					hasVisible = true;
-					break;
-				}
-				next = next.nextElementSibling;
-			}
-			group.classList.toggle('hidden', !hasVisible);
-		});
-		listBox.querySelector('.nodata')?.classList.toggle('hidden', visibleCount > 0);
-
-		yakuzaiButton.textContent = normalizedInput === '' ? '絞込' : '解除';
-
-		// 選択肢が1つしかない場合は自動的にクリックイベントを発火
-		if (visibleCount === 1 && lastVisible && !lastVisible.classList.contains('selected')) {
-			lastVisible.click();
-		}
-	} catch(e) {
-		console.error(e);
-	} finally {
-		await waiting(false);
-	}
-
-}
-
 // 薬剤候補リスト作成 optGroup 版
 async function setYakuzaiList(sql = '') {
 	// 薬剤リスト作成
@@ -399,22 +328,29 @@ window.addEventListener('DOMContentLoaded', async function() {
 		hSplitter.classList.toggle('closed');
 	});
 
+	// firefox のリロード時 checkbox 状態復元対策
+	clearAllReset();
+
 	// 薬剤リストを作成
 	console.log('起動時の薬剤リスト');
 	setYakuzaiList();
 
-	// chemCropTreeInitState === 1' なら condTggler.click イベント発火
-	const cropTreeState = localStorage.getItem('chemCropTreeInitState') || '0';
-	if (cropTreeState === '1') {
-		condToggler.click();
-		chemListManager.filterInput.focus();
+	// URLパラメータから crops を取得して選択作物を設定
+	const urlParams = new URLSearchParams(window.location.search);
+	const crops = urlParams.get('crops');
+	if (crops && typeof _defaultCropTreeManager.syncCheckState === 'function') {
+		_defaultCropTreeManager.syncCheckState(crops);
+		await searchCrop();
+	} else {
+		// crops パラメータがない場合、chemCropTreeInitState === 1' なら condTggler.click イベント発火
+		const cropTreeState = localStorage.getItem('chemCropTreeInitState') || '0';
+		if (cropTreeState === '1') {
+			condToggler.click();
+			chemListManager.filterInput.focus();
+		}
 	}
 
-	// firefox のリロード時 checkbox 状態復元対策
-	clearAllReset();
-
 	// URLパラメータからkeywordを取得して自動検索
-	const urlParams = new URLSearchParams(window.location.search);
 	const keyword = urlParams.get('keyword');
 	if (keyword) {
 		if (chemListManager.filterInput) {

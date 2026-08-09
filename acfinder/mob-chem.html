@@ -82,7 +82,7 @@ function initChemTab() {
 }
 
 // 薬剤タブ setp.1: 作物選択
-function setupChemCrop() {
+async function setupChemCrop() {
 	// 作物ツリーの生成
 	try {
 		const cropTreeSql = `
@@ -91,12 +91,19 @@ function setupChemCrop() {
 			from m_sakumotsu where sakumotsu not like '%除く%';
 		`;
 		chemCropManager = new CropTreeManager('#chemCropTree', onCheckChemCrop, false);
-		chemCropManager.init(cropTreeSql, {
+		await chemCropManager.init(cropTreeSql, {
 			showSearchMethod: true,
 			onSearchMethodChange: () => {
 				if (chemCropManager.checkedCrops.length > 1) setupChemChem();
 			}
 		});
+
+		// urlParams に crops があれば、選択作物を設定
+		const crops = urlParams.get('crops');
+		if (crops && typeof chemCropManager.syncCheckState === 'function') {
+			chemCropManager.syncCheckState(crops);
+			onCheckChemCrop(chemCropManager.checkedCrops);
+		}
 	} catch (e) {
 		console.error("作物ツリーの生成に失敗しました:", e);
 		// データベースが未ロードでもフレームだけは見せるためにエラーをキャッチ
@@ -185,20 +192,27 @@ async function setupChemChem() {
 				tekiyo: row[3],
 				keywords: row[4]
 			}));
-			chemChemManager.update(chems, renderer);
+			await chemChemManager.update(chems, renderer);
+
+			// urlParams に keyword があれば、薬剤詳細選択病害虫を設定
+			const keyword = urlParams.get('keyword');
+			if (keyword && typeof chemChemManager.filter === 'function') {
+				chemChemManager.filter(keyword);
+			}
+
 			// スライドを薬剤選択まで開放（次以降は未開放にする）
 			updateStepBar(chemSwiper, 1);
 		} else {
-			chemChemManager.update([]);
+			await chemChemManager.update([]);
 			updateStepBar(chemSwiper, 0);
 		}
+		if (chemSwiper.activeIndex !== 1) chemSwiper.slideTo(1);
 	} catch (e) {
 		console.error("薬剤リスト作成エラー:", e);
 	} finally {
 		waiting(false);
 	}
 
-	if (chemSwiper.activeIndex !== 1) chemSwiper.slideTo(1);
 }
 
 // 薬剤タブ step.3: 詳細表示
