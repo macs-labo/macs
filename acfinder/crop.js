@@ -459,6 +459,7 @@ class CropTreeManager {
 		// doFilter() 実行
 		const filterInput = this.containerElement.querySelector(`#filterInput${this.idSuffix}`);
 		if (filterInput) {
+			if (!crops && this.checkedCrops.length > 0) crops = this.checkedCrops.map(item => item.sakumotsu).join(' ');
 			filterInput.value = crops.replaceAll(',', ' ');
 			this.doFilter();
 		}
