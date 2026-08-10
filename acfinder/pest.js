@@ -250,7 +250,7 @@ class PestListManager {
 	}
 
 	// pests で渡された病害虫をリストボックス UI と同期
-	syncCheckState(pests = '') {
+	async syncCheckState(pests = '') {
 		if (!pests) return;
 
 		// checkedPests 及びチェックボックスの設定
@@ -270,6 +270,10 @@ class PestListManager {
 		// clearAll チェックボックスの設定
 		this.clearAllCheckbox.checked = this.checkedPests.length > 0;
 		this.clearAllCheckbox.disabled = !this.clearAllCheckbox.checked;
+
+		// filter() 実行
+		this.filterInput.value = pests.replaceAll(',', ' ');
+		await this._handleFilter();
 	}
 
 	/**
@@ -278,20 +282,15 @@ class PestListManager {
 	 * @param {String} catId 区分ID
 	 */
 	filter(inputText = '', catId = '') {
-		function toHan(str) {
-			return str.replace(/[！-～]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/　/g, " ");
-		}
-		const normalized = toHan(inputText).toLowerCase().trim();
-		const filters = (typeof romajiConv !== 'undefined' ? strconv(romajiConv(normalized).toHiragana(), 'r') : normalized)
-			.split(' ')
-			.filter(Boolean);
+		const filterText = strNormalize(inputText, '|');
+		const reFilter = new RegExp(strconv(filterText, 'r'), 'i');
 
 		let isNoData = true;
 		this.container.querySelectorAll('.checkListItem').forEach(item => {
 			const cb = item.querySelector('input');
 			const matchesCat = catId === '' || cb.dataset.id.startsWith(catId);
 			const target = strconv(cb.dataset.filter); // 名称とよみがな(ひらがな)が含まれている
-			const matchesText = filters.length === 0 || filters.some(f => target.match(new RegExp(f)));
+			const matchesText = !filterText || target.match(reFilter);
 
 			const visible = matchesCat && matchesText;
 			item.classList.toggle('hidden', !visible);

@@ -197,7 +197,9 @@ async function setupChemChem() {
 			// urlParams に keyword があれば、薬剤詳細選択病害虫を設定
 			const keyword = urlParams.get('keyword');
 			if (keyword && typeof chemChemManager.filter === 'function') {
-				chemChemManager.filter(keyword);
+				chemChemManager.filterInput.value = keyword.replaceAll(',', ' ');
+				await chemChemManager._handleFilter(); // Manually trigger filter
+				//chemChemManager.filter(keyword.replaceAll(',', ' '));
 			}
 
 			// スライドを薬剤選択まで開放（次以降は未開放にする）

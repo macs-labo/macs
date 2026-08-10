@@ -273,14 +273,14 @@ window.addEventListener('DOMContentLoaded', async function() {
 	const urlParams = new URLSearchParams(window.location.search);
 	const crops = urlParams.get('crops');
 	if (crops && typeof cropManager.syncCheckState === 'function') {
-		cropManager.syncCheckState(crops);
+		await cropManager.syncCheckState(crops);
 		await searchCrop();
 	}
 
 	// urlParams に pests があれば、選択病害虫を設定
 	const pests = urlParams.get('pests');
 	if (pests && typeof pestManager.syncCheckState === 'function') {
-		pestManager.syncCheckState(pests);
+		await pestManager.syncCheckState(pests);
 		await searchCrop(true);
 	}
 

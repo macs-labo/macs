@@ -397,7 +397,7 @@ async function fetchOrLoadFile(db, fileName, serverUrl, autoClose = true) {
 
 //PHP preg_quote 相当
 function preg_quote (str, delimiter) {
-    return (str + '').replace(new RegExp('[.\\\\+*?\\[\\^\\]$(){}=!<>|:\\' + (delimiter || '') + '-]', 'g'), '\\$&');
+	return (str + '').replace(new RegExp('[.\\\\+*?\\[\\^\\]$(){}=!<>|:\\' + (delimiter || '') + '-]', 'g'), '\\$&');
 }
 
 //PHP str_replace 相当(毎回全文字置換)
@@ -424,6 +424,17 @@ function replaceArray(find, replace, str) {
 	}, '');
 }
 */
+
+// 全角英数→半角変換
+String.prototype.toHan = function() {
+	return this.replace(/[！-～]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/　/g, " ");
+}
+
+// フィルターテキストノーマライズ
+function strNormalize(str, sp = ' ') {
+	const toHira = romajiConv.toHiragana;
+	return toHira(str.toHan().trim()).toHan().toLowerCase().replace(/[()[\]]/g, '\\$&').replace(/\s+/g, sp);
+}
 
 // 全角カタカナ→全角ひらがな変換
 function toHiragana(str) {

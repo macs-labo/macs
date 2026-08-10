@@ -114,7 +114,7 @@ async function setupCropCrop() {
 	// urlParams に crops があれば、選択作物を設定
 	const crops = urlParams.get('crops');
 	if (crops && typeof cropCropManager.syncCheckState === 'function') {
-		cropCropManager.syncCheckState(crops);
+		await cropCropManager.syncCheckState(crops);
 		onCheckCropCrop(cropCropManager.checkedCrops);
 	}
 }
@@ -181,7 +181,7 @@ async function setupCropPest() {
 			// urlParams に pests があれば、選択病害虫を設定
 			const pPests = urlParams.get('pests');
 			if (pPests && typeof cropCropManager.syncCheckState === 'function') {
-				cropPestManager.syncCheckState(pPests);
+				await cropPestManager.syncCheckState(pPests);
 				setupCropChem();
 			}
 		} else {

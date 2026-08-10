@@ -114,7 +114,7 @@ class ChemListManager {
 			const selected = this.container.querySelector('.checkListItem:not(.hidden)>input');
 			selected.checked = true;
 			const changeEvent = new Event('change', { bubbles: true });
-			selected.dispatchEvent(changeEvent);
+			await selected.dispatchEvent(changeEvent);
 		}
 	}
 
@@ -174,12 +174,8 @@ class ChemListManager {
 	}
 
 	filter(inputText = '', catText = '') {
-		function toHan(str) {
-			return str.replace(/[！-～]/g, (s) => String.fromCharCode(s.charCodeAt(0) - 0xFEE0)).replace(/　/g, " ");
-		}
-		const normalizedText = toHan(inputText).replace(/\s/g, ' ').trim();
-		const filtersOrg = normalizedText.split(' ').filter(Boolean);
-		const filtersHira = typeof romajiConv !== 'undefined' ? toHan(romajiConv(normalizedText).toHiragana()).split(' ').filter(Boolean) : [];
+		const filtersOrg = inputText.toHan().trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
+		const filtersHira = strNormalize(inputText).split(' ').filter(Boolean);
 		const filters = filtersOrg.map((val, i) => `${val}|${strconv(filtersHira[i], 'r') || val}`);
 
 		let isNoData = true;

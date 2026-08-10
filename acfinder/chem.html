@@ -172,7 +172,7 @@ async function setYakuzaiList(sql = '') {
 				</div>
 			`;
 		};
-		chemListManager.update(chemsData, renderer);
+		await chemListManager.update(chemsData, renderer);
 
 		// #selectYakuzai を表示
 		const selectYakuzai = document.getElementById("selectYakuzai");
@@ -231,7 +231,7 @@ function handleYakuzaiSelection(selected) {
 
 let searchMethod = ' and ';
 
-function searchCrop() {
+async function searchCrop() {
 	tables = resetTables(tables);
 	searchMethod = _defaultCropTreeManager.searchMethod;
 	const title = document.querySelector('#selectedValue');
@@ -239,7 +239,7 @@ function searchCrop() {
 		title.innerHTML = '';
 		title.classList.add('hidden');
 		console.log('作物選択解除時の薬剤リスト');
-		setYakuzaiList(); // Reset to full list if no crops selected
+		await setYakuzaiList(); // Reset to full list if no crops selected
 		return;
 	}
 
@@ -262,7 +262,7 @@ function searchCrop() {
 		${dropCols};
 	`;
 	console.log('作物選択時の薬剤リスト', sql);
-	setYakuzaiList(sql);
+	await setYakuzaiList(sql);
 }
 
 // sql 実行 結果グリッド作成
@@ -333,7 +333,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 
 	// 薬剤リストを作成
 	console.log('起動時の薬剤リスト');
-	setYakuzaiList();
+	await setYakuzaiList();
 
 	// URLパラメータから crops を取得して選択作物を設定
 	const urlParams = new URLSearchParams(window.location.search);
@@ -354,8 +354,8 @@ window.addEventListener('DOMContentLoaded', async function() {
 	const keyword = urlParams.get('keyword');
 	if (keyword) {
 		if (chemListManager.filterInput) {
-			chemListManager.filterInput.value = keyword;
-			chemListManager._handleFilter(); // Manually trigger filter
+			chemListManager.filterInput.value = keyword.replaceAll(',', ' ');
+			await chemListManager._handleFilter(); // Manually trigger filter
 		}
 	}
 });

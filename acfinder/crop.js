@@ -204,6 +204,7 @@ class CropTreeManager {
 		this.domHandlers = {};
 		this.idSuffix = '';
 		this.checkedCrops = [];
+		this.doFilter = null;
 	}
 
 	async init(sql, options = {}) {
@@ -368,7 +369,7 @@ class CropTreeManager {
 
 		// フィルタ
 		let isFiltering = false;
-		const doFilter = async () => {
+		this.doFilter = async () => {
 			if (isFiltering) return;
 			isFiltering = true;
 			if (filterButton.textContent === '解除') filterInput.value = '';
@@ -391,12 +392,12 @@ class CropTreeManager {
 		filterButton.addEventListener('mousedown', (e) => {
 			if (document.activeElement === filterInput) e.preventDefault();
 		});
-		filterButton.addEventListener('click', doFilter);
-		filterInput.addEventListener('change', doFilter);
+		filterButton.addEventListener('click', this.doFilter);
+		filterInput.addEventListener('change', this.doFilter);
 		filterInput.addEventListener('input', (e) => {
 			if (e.target.value === '') {
 				if (typeof isMobile === 'undefined' || !isMobile) {
-					doFilter();
+					this.doFilter();
 				} else {
 					filterButton.textContent = '絞込';
 				}
@@ -411,12 +412,12 @@ class CropTreeManager {
 	}
 
 	// checkedCrops の状態をツリーのUIに同期させる
-	syncCheckState(crops = '') {
+	async syncCheckState(crops = '') {
 		if (!this.infiniteTree) return;
 		if (crops) {
 			this.checkedCrops = [];
-			crops = "'" + crops.replaceAll(',', "','") + "'";
-			const result = db.exec(`select idsaku, sakumotsu from m_sakumotsu where sakumotsu in (${crops}) order by idsaku`);
+			const cropList = "'" + crops.replaceAll(',', "','") + "'";
+			const result = db.exec(`select idsaku, sakumotsu from m_sakumotsu where sakumotsu in (${cropList}) order by idsaku`);
 			if (result) {
 				result[0].values.forEach(row => { this.checkedCrops.push({id: row[0], sakumotsu: row[1]}); });
 			}
@@ -454,12 +455,20 @@ class CropTreeManager {
 			clearAll.checked = this.checkedCrops.length > 0;
 			clearAll.disabled = !clearAll.checked;
 		}
+
+		// doFilter() 実行
+		const filterInput = this.containerElement.querySelector(`#filterInput${this.idSuffix}`);
+		if (filterInput) {
+			filterInput.value = crops.replaceAll(',', ' ');
+			this.doFilter();
+		}
 	}
 
-	_applyFilter(text) {
+	_applyFilter(inputText) {
 		const tree = this.infiniteTree;
-		//const filterText = romajiConv(text).toHiragana().replaceAll('：', ':').trim();
-		const filterText = new RegExp(strconv(romajiConv(text).toHiragana().replaceAll('：', ':').trim(), 'r'));
+		//const filterText = new RegExp(strconv(romajiConv(text).toHiragana().replaceAll('：', ':').trim(), 'r'));
+		const filterText = strNormalize(inputText, '|');
+		const reFilter = new RegExp(strconv(filterText, 'r'), 'i');
 		const matchedNodes = new Set();
 
 		if (!filterText) {
@@ -471,8 +480,7 @@ class CropTreeManager {
 			const check = (node) => {
 				let hasMatch = false;
 				if (node.hasChildren()) node.getChildren().forEach(child => { if (check(child)) hasMatch = true; });
-				//const isSelf = node.data.keywords.includes(filterText) && !(filterText == 'かき' && node.data.keywords.includes('花き'));
-				const isSelf = strconv(node.data.keywords).match(filterText) && !(filterText == 'かき' && node.data.keywords.includes('花き'));
+				const isSelf = strconv(node.data.keywords).match(reFilter) && !(filterText == 'かき' && node.data.keywords.includes('花き'));
 				if (isSelf && !hasMatch) matchedNodes.add(node);
 				return isSelf || hasMatch;
 			};
