@@ -174,7 +174,7 @@ class ChemListManager {
 	}
 
 	filter(inputText = '', catText = '') {
-		const filtersOrg = inputText.toHan().trim().replace(/\s+/g, ' ').split(' ').filter(Boolean);
+		const filtersOrg = strconv(inputText.toHan().trim().replace(/\s+/g, ' '), 'c').split(' ').filter(Boolean);
 		const filtersHira = strNormalize(inputText).split(' ').filter(Boolean);
 		const filters = filtersOrg.map((val, i) => `${val}|${strconv(filtersHira[i], 'r') || val}`);
 
@@ -186,7 +186,7 @@ class ChemListManager {
 			// テキストマッチ判定 (AND検索)
 			const target = strconv(item.dataset.info);
 			const matchesText = filters.length === 0 || filters.every(f => {
-				return !!target.match(new RegExp(f, 'i'));
+				return !!target.match(new RegExp(f));
 			});
 
 			const visible = matchesCat && matchesText;

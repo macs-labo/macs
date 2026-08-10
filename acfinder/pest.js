@@ -254,12 +254,12 @@ class PestListManager {
 		if (!pests) return;
 
 		// checkedPests 及びチェックボックスの設定
-		const arrPests = pests.split(',');
+		const arrPests = pests.toHan().toUpperCase().split(',');
 		this.checkedPests = [];
 		this.container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
 			cb.checked = false;
 			arrPests.forEach(pest => {
-				if (cb.value === pest) {
+				if (cb.value.toHan().toUpperCase() === pest) {
 					this.checkedPests.push({ id: cb.dataset.id, byochu: cb.value });
 					cb.checked = true;
 				}
@@ -283,7 +283,7 @@ class PestListManager {
 	 */
 	filter(inputText = '', catId = '') {
 		const filterText = strNormalize(inputText, '|');
-		const reFilter = new RegExp(strconv(filterText, 'r'), 'i');
+		const reFilter = new RegExp(strconv(filterText, 'r'));
 
 		let isNoData = true;
 		this.container.querySelectorAll('.checkListItem').forEach(item => {

@@ -484,6 +484,7 @@ function strconv(str, opt = 'v') {
 		'(ば|ぶあ)','(び|ぶい)','(べ|ぶえ)','(ぼ|ぶお)','(は|ふあ)','(ひ|ふい)','(へ|ふえ)','(ほ|ふお)'
 	];
 	opt = opt.toLowerCase();
+	if (opt.match(/[vr]/g)) str = str.toHan();
 	if (opt.match(/[cvr]/g)) str = str.toUpperCase();
 	if (opt.match(/[kvr]/g)) str = toHiragana(str);
 	if ((opt.indexOf('v') >= 0) && (opt.indexOf('r') < 0)) str = replaceArray(fromVague, toVague, str);

@@ -416,7 +416,7 @@ class CropTreeManager {
 		if (!this.infiniteTree) return;
 		if (crops) {
 			this.checkedCrops = [];
-			const cropList = "'" + crops.replaceAll(',', "','") + "'";
+			const cropList = "'" + crops.toHan().replaceAll(',', "','") + "'";
 			const result = db.exec(`select idsaku, sakumotsu from m_sakumotsu where sakumotsu in (${cropList}) order by idsaku`);
 			if (result) {
 				result[0].values.forEach(row => { this.checkedCrops.push({id: row[0], sakumotsu: row[1]}); });
@@ -466,9 +466,8 @@ class CropTreeManager {
 
 	_applyFilter(inputText) {
 		const tree = this.infiniteTree;
-		//const filterText = new RegExp(strconv(romajiConv(text).toHiragana().replaceAll('：', ':').trim(), 'r'));
 		const filterText = strNormalize(inputText, '|');
-		const reFilter = new RegExp(strconv(filterText, 'r'), 'i');
+		const reFilter = new RegExp(strconv(filterText, 'r'));
 		const matchedNodes = new Set();
 
 		if (!filterText) {
