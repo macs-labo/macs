@@ -433,7 +433,8 @@ String.prototype.toHan = function() {
 // フィルターテキストノーマライズ
 function strNormalize(str, sp = ' ') {
 	const toHira = romajiConv.toHiragana;
-	return toHira(str.toHan().trim()).toHan().toLowerCase().replace(/[()[\]]/g, '\\$&').replace(/\s+/g, sp);
+	//return toHira(str.toHan().trim()).toHan().toLowerCase().replace(/[()[\]]/g, '\\$&').replace(/\s+/g, sp);
+	return toHira(str.toHan().trim()).toHan().toLowerCase().replace(/\s+/g, sp);
 }
 
 // 全角カタカナ→全角ひらがな変換

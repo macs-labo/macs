@@ -162,8 +162,8 @@ async function setupCropPest() {
 			with t_byochu as (select distinct byochu2 as byochu from t_cropTekiyo),
 			t_gByochu as (select cid, gid, format('%d%03d%', cid, gid) as idbyochu, gname as byochu, strconv(gname) as byochuruby
 			from t_byochu left join m_byochu using(byochu) left join gbyochu using(cid, gid) where gname is not null)
-			select distinct idbyochu, byochu2, byochuruby from t_cropTekiyo where byochu not regexp '菌(\\)|による)'
-			union select idbyochu, byochu, byochuruby from t_gByochu order by idbyochu;
+				select distinct idbyochu, byochu2, byochuruby from t_cropTekiyo where byochu not regexp '菌(\\)|による)'
+				union select idbyochu, byochu, byochuruby from t_gByochu order by idbyochu;
 		`;
 		if (debug) console.log(sql.replace(/^\t+/gm, ''));
 
@@ -202,9 +202,30 @@ async function setupCropPest() {
 async function setupCropChem() {
 	// ヘッダ設定
 	const title = document.querySelector('#cropHead3');
-	const checkedPests = cropPestManager.checkedPests;
-	const pests = checkedPests.map(pest => pest.byochu);
-	title.innerHTML = pests.join(' & ');
+	const checkedPests = cropPestManager.checkedPests.sort((a, b) => a.id.localeCompare(b.id)); // id 順にソートした配列
+	let normalizedPests = [];
+	let currentId = '';
+	let byochu = [];
+	checkedPests.forEach(pest => {
+		if (pest.id.slice(0, 4) !== currentId) {
+			if (byochu.length > 0) {
+				normalizedPests.push(`(${byochu.join(' or ')})`);
+				byochu = [];
+			}
+		}
+		const colName = normalizeColName(pest.byochu);
+		if ('15'.includes(pest.id[0]) || pest.id.endsWith('%')) {
+			currentId = pest.id;
+			normalizedPests.push(colName);
+		} else {
+			currentId = pest.id.slice(0, 4);
+			byochu.push(colName);
+		}
+	});
+	if (byochu.length > 0) normalizedPests.push(`(${byochu.join(' or ')})`);
+	const pestFlags = normalizedPests.join(' and ');
+	const pests = pestFlags.replaceAll('(', '{').replaceAll(')', '}').replaceAll('or', '|').replaceAll('and', '&').toHan();
+	title.innerHTML = pests;
 
 	const cropSwiper = document.querySelector('.crop-swiper').swiper;
 	await waiting(true, '薬剤リストを作成中...');
@@ -216,16 +237,16 @@ async function setupCropChem() {
 		});
 		const pestCondition = results.map(r => r.cond).join(' or ');
 		const pestColumns = results.map(r => r.col).join(', ');
-		const pestFlags = pests.map(pest => `max(${normalizeColName(pest)}) as ${normalizeColName(pest)}`).join(', ');
+		const pestAggColumns = checkedPests.map(pest => `max(${normalizeColName(pest.byochu)}) as ${normalizeColName(pest.byochu)}`).join(' , ');
 		const crops = cropCropManager.checkedCrops.map(item => item.sakumotsu);
 		const cropColumns = crops.map(crop => `${normalizeColName(crop)}`).join(', ');
-		const cropFlags = crops.map(crops => `max(${normalizeColName(crops)}) as ${normalizeColName(crops)}`).join(', ');
+		const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(', ');
 
 		// Step 2 で作成された t_cropTekiyo を使用して薬剤を抽出
 		const sql = `
 			with t_byochu as (select distinct byochu2, ${pestColumns} from t_cropTekiyo where (${pestCondition})),
-			t_tsusho1 as (select tsusho, ${pestFlags}, ${cropColumns} from t_byochu left join t_cropTekiyo using(byochu2) group by tsusho, ${cropColumns}),
-			t_tsusho2 as (select tsusho, ${cropFlags} from t_tsusho1 where (${normalizeColName(pests.join(' and '))}) group by tsusho),
+			t_tsusho1 as (select tsusho, ${pestAggColumns}, ${cropColumns} from t_byochu left join t_cropTekiyo using(byochu2) group by tsusho, ${cropColumns}),
+			t_tsusho2 as (select tsusho, ${cropFlags} from t_tsusho1 where (${pestFlags}) group by tsusho),
 			t_tsusho3 as (select tsusho from t_tsusho2 where (${normalizeColName(crops.join(cropCropManager.searchMethod))}) and (${pestCondition})),
 			t_tekiyo as (select tsusho, sakumotsu,
 				gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,

@@ -88,14 +88,35 @@ async function searchCrop(skipPestUpdate = false) {
 	const skip = skipPestUpdate === true;
 	if (!skip) await pestManager.update([], true); // クリア（再帰呼び出し防止のため silent）
 
-	const checkedPests = pestManager.checkedPests;
-	const pests = checkedPests.map(item => item.byochu);
+	const checkedPests = pestManager.checkedPests.sort((a, b) => a.id.localeCompare(b.id)); // id 順にソートした配列
+	let normalizedPests = [];
+	let currentId = '';
+	let byochu = [];
+	checkedPests.forEach(pest => {
+		if (pest.id.slice(0, 4) !== currentId) {
+			if (byochu.length > 0) {
+				normalizedPests.push(`(${byochu.join(' or ')})`);
+				byochu = [];
+			}
+		}
+		const colName = normalizeColName(pest.byochu);
+		if ('15'.includes(pest.id[0]) || pest.id.endsWith('%')) {
+			currentId = pest.id;
+			normalizedPests.push(colName);
+		} else {
+			currentId = pest.id.slice(0, 4);
+			byochu.push(colName);
+		}
+	});
+	if (byochu.length > 0) normalizedPests.push(`(${byochu.join(' or ')})`);
+	const pestFlags = normalizedPests.join(' and ');
+	const pests = pestFlags.replaceAll('(', '{').replaceAll(')', '}').replaceAll('or', '|').replaceAll('and', '&').toHan();
 
 	const searchMethod = cropManager.searchMethod;
 	const crops = checkedCrops.map(item => item.sakumotsu);
 	let titleHtml = crops.join(searchMethod === ' or ' ? ' | ' : ' & ');
 	if (checkedPests.length > 0) {
-		titleHtml += ' ／ ' + pests.join(' & ');
+		titleHtml += ' ／ ' + pests;
 	}
 	title.innerHTML = titleHtml;
 	title.classList.remove('hidden');
@@ -128,7 +149,6 @@ async function searchCrop(skipPestUpdate = false) {
 		});
 		const pestCondition = results.map(r => r.cond).join(' or ');
 		const pestColumns = results.map(r => r.col).join(', ');
-		const pestFlags = pests.map(pest => `${normalizeColName(pest)}`).join(' and ');
 		pestCte = `
 			with t_tekiyo as (select * from t_cropTekiyo where (${pestCondition})),
 			t_tsusho as (select tsusho, ${pestColumns} from t_tekiyo group by tsusho),
@@ -207,7 +227,7 @@ async function searchCrop(skipPestUpdate = false) {
 		let searchTime = -performance.now();
 		let result = db.exec(sql);
 		searchTime += performance.now();
-		const pest = pests.length === 0 ? '' : `の「${pests.join('」「')}」`;
+		const pest = pests === '' ? '' : `の「${pests.replace(/[{}]/g, '').replaceAll(' & ', '」「').replaceAll(' | ', '、')}」`;
 		const common = cropManager.searchMethod === ' and ' && checkedCrops.length > 1 ? '共通して' : '';
 		tables = outputTable('#result', result, { caption: `「${crops.join('」「')}」${pest}に${common}使用可能な薬剤の適用`, hideFooterU20: false });
 

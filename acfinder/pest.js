@@ -225,12 +225,12 @@ class PestListManager {
 			if (id === '59999999') id = id + '_' + subid++;
 			const name = pest.byochu;
 			const ruby = pest.betsumei !== null ? pest.betsumei : name === '添加' ? 'てんか' : name;
-			const hint = name + ` / ${ruby}`;
-			const filter = (name + ' ' + ruby).toLowerCase();
+			const hint = `${name} / ${ruby}`;
+			const filter = (name + ':' + ruby).toLowerCase();
 			const isGroup = id.endsWith('%') ? ' pestGroup' : '';
 			const inputId = `pest_${this.idSuffix}_${id}`;
 			return `<div class="checkListItem${isGroup}" title="${hint}">` +
-					`<input type="checkbox" value="${name}" id="${inputId}" data-id="${id}" data-ruby="${ruby}" data-filter="${filter}">` +
+					`<input type="checkbox" value="${name}" id="${inputId}" data-id="${id}" data-ruby="${ruby}" data-filter=":${filter}:">` +
 					`<label for="${inputId}">${name}</label>` +
 					`</div>`;
 		}).join('') + '<p class="nodata hidden">該当する病害虫が見つかりませんでした。</p>';
@@ -252,14 +252,16 @@ class PestListManager {
 	// pests で渡された病害虫をリストボックス UI と同期
 	async syncCheckState(pests = '') {
 		if (!pests) return;
+		pests = pests.replaceAll(',', ' ').replace(/\s+/g, ' ');
 
 		// checkedPests 及びチェックボックスの設定
-		const arrPests = pests.toHan().toUpperCase().split(',');
+		const reArray = pests.toHan().split(' ').map(pest => new RegExp(pest, 'i'));
 		this.checkedPests = [];
 		this.container.querySelectorAll('input[type="checkbox"]').forEach(cb => {
 			cb.checked = false;
-			arrPests.forEach(pest => {
-				if (cb.value.toHan().toUpperCase() === pest) {
+			reArray.forEach(re => {
+				const target = ':' + cb.value.toHan() + ':';
+				if (target.match(re)) {
 					this.checkedPests.push({ id: cb.dataset.id, byochu: cb.value });
 					cb.checked = true;
 				}
@@ -272,7 +274,7 @@ class PestListManager {
 		this.clearAllCheckbox.disabled = !this.clearAllCheckbox.checked;
 
 		// filter() 実行
-		this.filterInput.value = pests.replaceAll(',', ' ');
+		this.filterInput.value = pests;
 		await this._handleFilter();
 	}
 
