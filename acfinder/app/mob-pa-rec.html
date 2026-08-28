@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="initFn" content="initPaRec">
+<title>防除記録</title>
+<style>
+/* ファイルバー設定 */
+.filebar {	
+	display: flex;
+	align-items: center;
+	margin-bottom: 10px;
+}
+.filebar h3 {
+	display: flex;
+	flex: 1;
+	font-size: 14px;
+	font-weight: normal;
+	line-height: 1rem;
+	color: var(--text-color-dark);
+	padding: 4px 0.5rem;
+	background-color: var(--bg-color-header);
+	border: none;
+	margin-bottom: 0;
+}
+.filebar .icon {
+	width: 24px;
+	height: 24px;
+}
+.filebar .icon:hover {
+	color: var(--icon-color);
+	background-color: var(--bg-color);
+	outline: none;
+}
+
+/* Date Picker */
+.date-picker {
+	position:relative;
+	width:100%;
+	display:flex;
+	align-items:center;
+	justify-content:center;
+	cursor:pointer;
+}
+.date-picker label {
+	display: block;
+	width: 100%;
+	padding: 4px 2px;
+	z-index: 2; /* input(z-index:1)より上に配置してクリックを確実に受け取る */
+	position: relative;
+	cursor: pointer;
+	text-align: center;
+}
+.date-picker input {
+	position:absolute;
+	top: 0;
+	left:0;
+	width:100%;
+	height:100%;
+	opacity:0;
+	z-index:1;
+	font-size: 16px; /* iOSの自動ズーム防止 */
+}
+
+/* 標準テーブル形式（水平ヘッダー用） */
+.std-data-table {
+	width: 100%;
+	border-collapse: collapse;
+	border-spacing: 0;
+	background-color: var(--bg-color);
+	border: 1px solid var(--border-color-strong);
+	line-height: 1.1;
+	margin-bottom: 10px;
+}
+.std-data-table th:not(:last-child), .std-data-table td:not(:last-child) {
+	font-size: 13px;
+	/* line-height: 1.2; */
+	padding: 3px;
+	border-right: 1px solid var(--border-color-ht-common);
+}
+.std-data-table td {
+	border-top:  1px solid var(--border-color-ht-common);
+}
+.std-data-table th {
+	font-weight: bold;
+	color: var(--text-color-dark);
+	background-color: var(--bg-color-ht-header);
+	height: 19px;
+	text-align: center;
+	white-space: nowrap;
+}
+.std-data-table td {
+	color: var(--text-color);
+	text-align: left;
+}
+.row-data-table .actions, .std-data-table .actions {
+	display: flex;
+	gap: 3px;
+	white-space: nowrap;
+	align-items: center;
+}
+.row-data-table .center, .std-data-table .center {
+ text-align: center;
+}
+td .svg_button {
+	width: 22px;
+	height: 22px;
+	cursor: pointer;
+	vertical-align: middle;
+	margin: 0;
+	color: var(--text-color);
+  position: relative; /* z-indexを効かせるため */
+  z-index: 11000;      /* タップエリアより大きくする */
+  pointer-events: auto; /* 自身のクリックイベントを優先し、背面への透過を防ぐ */
+}
+.row-title {
+	font-size: 13px;
+	font-weight: bold;
+	line-height: 1.2;
+	/* text-shadow: var(--bolder); */
+	color: var(--text-color-dark);
+	text-align: left;
+	padding: 3px 5px;
+	background-color: var(--bg-color-ht-header);
+	border: 1px solid var(--border-color-strong);
+	border-bottom: none;
+	margin-top: 2px; /* 各カードを隙間なくくっ付けるなら -1px */
+	white-space: nowrap;
+	overflow-x: auto;
+}
+.row-data-table .even-row, .std-data-table .even-row {
+	background-color: var(--bg-color-even-row);
+}
+.clickable { cursor: pointer; }
+
+/* 作物ツリーロック */
+#planCropTree.locked {
+	pointer-events: none;
+	opacity: 0.6;
+}
+</style>
+</head>
+<body>
+<!-- 【防除記録タブ】 -->
+<div class="tab-container">
+	<!-- ステップバー -->
+	<div class="step-bar no-swipe">
+		<div class="prev-step" onclick="stepMove('prev')">◀</div>
+		<div class="step-item active" onclick="stepJump(0)">1</div>
+		<div class="step-item" onclick="stepJump(1)">2</div>
+		<div class="step-item" onclick="stepJump(2)">3</div>
+		<div class="step-item" onclick="stepJump(3)">4</div>
+		<div class="next-step" onclick="stepMove('next')">▶</div>
+	</div>
+
+	<!-- 内部Swiper -->
+	<div class="swiper plan-swiper">
+		<div class="swiper-wrapper">
+
+			<!-- ① 作物選択 -->
+			<div class="swiper-slide no-swipe">
+				<div class="step-fixed">
+					<div class="filebar">
+						<h3>防除計画／防除記録読込</h3>
+						<svg class="icon" onclick="document.getElementById('planJsonInput').click()">
+							<title>JSONファイル読込</title>
+							<use href="../icons.svg#folder-open"></use>
+						</svg>
+						<input type="file" id="planJsonInput" accept=".json" class="hidden" onchange="loadPlanFromJson(event)">
+					</div>
+					<div id="planCropTree" class="flex-wrapper"></div>
+				</div>
+			</div>
+
+			<!-- ② 農薬選択 -->
+			<div class="swiper-slide no-swipe">
+				<h2 id="planHead2"></h2>
+				<div class="step-fixed">
+					<div id="planChemWrapper" class="flex-wrapper"></div>
+				</div>
+			</div>
+
+			<!-- ③ 記録画面 -->
+			<div class="swiper-slide">
+				<h2 id="planHead3" class="no-swipe"></h2>
+				<div class="step-scrollable">
+					<div class="filebar">
+						<h3>防除記録保存</h3>
+						<svg class="icon" onclick="savePlanAsJson()">
+							<title>JSON形式で保存</title>
+							<use href="../icons.svg#floppy-disk"></use>
+						</svg>
+					</div>
+					<div id="planRecordWrapper" class="flex-wrapper"></div>
+				</div>
+			</div>
+
+			<!-- ④ 詳細表示 -->
+			<div class="swiper-slide">
+				<h2 id="planHead4" class="no-swipe"></h2>
+				<div class="step-scrollable">
+					<div id="planDetailWrapper" class="flex-wrapper"></div>
+				</div>
+			</div>
+
+		</div>
+	</div>
+</div>
+<script>
+var planCropManager, planChemManager;
+var planList = [];
+var currentLoadedFileName = '';
+
+function initPaRec() {
+	// 薬剤マネージャ初期化
+	planChemManager = new ChemListManager('#planChemWrapper', (selectedChemValue) => {
+		const planSwiper = document.querySelector('.plan-swiper').swiper;
+		if (selectedChemValue) {
+			// Step 2 で選択された薬剤をリストに追加
+			// selectedChemValue は "bango meisho" 形式の文字列
+			const [bango, meisho] = selectedChemValue.split(' ');
+			const chemObject = {
+				yakuzai: selectedChemValue, // Store the full string for display
+				bango: bango,
+				meisho: meisho,
+				// 手動追加時にも防除時期の列が表示されるように初期値を設定
+				timingMonth: '',
+				timingPeriod: '',
+				timing: '',
+			};
+			planList.push(chemObject);
+			// Step 3 を解放して表示
+			updateStepBar(planSwiper, Math.max(planSwiper.maxReachedStep, 2));
+			setPlanRecord();
+		}
+	});
+	planChemManager.init({ title: '薬剤選択', showCategory: true });
+
+	planDetailManager = new ChemDetailManager('#planDetailWrapper');
+	planDetailManager.init();
+
+	// 防除記録タブ step.1 作成
+	setupPlanCrop();
+
+	// 内部Swiperの初期化と返却
+	const planSwiperInstance = createZoomableSwiper('.plan-swiper', mainSwiper, function() {
+		updateStepBar(this);
+	});
+	return planSwiperInstance; // Swiperインスタンスを返す
+}
+
+// Helper function to format YYYY-MM-DD to YY-MM-DD
+function formatToYYMMDD(dateString) {
+	if (!dateString || dateString.length !== 10) return '';
+	return dateString.substring(2); // "YYYY-MM-DD" -> "YY-MM-DD"
+}
+
+// 防除記録タブ step.1: 作物選択
+function setupPlanCrop() {
+	try {
+		const cropTreeSql = `
+			select idsaku, class, toroku, sakumotsu, shukakubui, betsumei,
+			':'||replace(n_concat('、', strconv(sakumotsu, 'k'), strconv(betsumei, 'k'), ruby), '、', ':')||':' as keywords
+			from m_sakumotsu where sakumotsu not like '%除く%';
+		`;
+		planCropManager = new CropTreeManager('#planCropTree', onCheckPlanCrop, false);
+		planCropManager.init(cropTreeSql, { showSearchMethod: false });
+	} catch (e) {
+		console.error("作物ツリーの生成に失敗しました:", e);
+	}
+}
+
+function onCheckPlanCrop(selectedCrops) {
+	const planSwiper = document.querySelector('.plan-swiper').swiper;
+	if (selectedCrops.length > 0) {
+		// 作物が選択されたら step.2 を解放し、薬剤リスト作成へ進む
+		const nextMax = planList.length > 0 ? 2 : 1;
+		updateStepBar(planSwiper, Math.max(planSwiper.maxReachedStep, nextMax));
+		setupPlanChem();
+	} else {
+		// 選択がなければリセット
+		planSwiper.slideTo(0);
+		updateStepBar(planSwiper, 0);
+	}
+}
+
+// 防除記録タブ step.2: 薬剤選択
+async function setupPlanChem(moveThis = true) {
+	const title = document.querySelector('#planHead2');
+	const crops = planCropManager.checkedCrops.map(item => item.sakumotsu);
+	title.innerHTML = crops.join(' & ');
+
+	// step.2 作成
+	await waiting(true, '薬剤リストを作成中...');
+	try {
+		const sql =`
+			drop table if exists t_planTekiyo;
+			create temp table t_planTekiyo as select * from tv_tsushoTekiyo where sakumotsu in (${makeCropCondition(crops)});
+			with t_tekiyo1 as (select tsusho, ruby, sakumotsu,
+				gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
+				n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
+				from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu
+			),
+			t_tekiyo2 as (select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo1 group by tsusho order by ruby)
+			select * from t_tekiyo2;
+		`;
+		const sqlResult = db.exec(sql);
+
+		if (sqlResult?.[0]?.values) {
+			const chems = sqlResult[0].values.map(row => ({
+				tsusho: row[0],
+				tekiyo: row[1],
+				keywords: row[2]
+			}));
+			planChemManager.update(chems);
+		} else {
+			planChemManager.update([]);
+		}
+	} catch (e) {
+		console.error(e);
+	} finally {
+		waiting(false);
+	}
+
+	// step.2 を開放して必要があれば移動
+	const planSwiper = document.querySelector('.plan-swiper').swiper;
+	if (planSwiper.maxReachedStep < 1) updateStepBar(planSwiper, 1);
+	if (moveThis) planSwiper.slideTo(1);
+
+}
+
+// 現在時刻を YYYYMMDD-hhmmss にフォーマット
+function formatDateTime() {
+	const now = new Date();
+	const formattedDate = now.toLocaleString('ja-JP', {
+		year: 'numeric',
+		month: '2-digit',
+		day: '2-digit',
+		hour: '2-digit',
+		minute: '2-digit',
+		second: '2-digit',
+		hour12: false
+	});
+	return formattedDate.replace(/[\/:]/g, '').replace(' ', '-');
+}
+
+// ファイル名のプレフィックス（作物名）を取得
+function getFilenamePrefix(id = 'planHead2') {
+	const el = document.getElementById(id);
+	if (el && el.textContent) {
+		return el.textContent.replace(/[,/\?%*:|"<>]/g, '_') + '_';
+	}
+	return '';
+}
+
+// 防除記録をJSON形式で保存
+async function savePlanAsJson() {
+	if (planList.length === 0) return;
+	const crops = planCropManager.checkedCrops.map(item => item.sakumotsu);
+	const saveData = {
+		sakumotsu: makeCropCondition(crops),
+		crops: planCropManager.checkedCrops,
+		plan: planList,
+		titleText: document.getElementById('planHead2').textContent
+	};
+
+	const jsonString = JSON.stringify(saveData, null, 2);
+	const blob = new Blob([jsonString], { type: 'application/json' });
+
+	let filename;
+	if (currentLoadedFileName && currentLoadedFileName.includes('防除記録')) {
+		filename = currentLoadedFileName;
+	} else if (currentLoadedFileName && currentLoadedFileName.includes('防除計画')) {
+		filename = currentLoadedFileName.replace('防除計画', '防除記録');
+	} else {
+		const prefix = getFilenamePrefix();
+		filename = `${prefix}防除記録_${formatDateTime()}.json`;
+	}
+
+	const a = document.createElement('a');
+	a.href = URL.createObjectURL(blob);
+	a.download = filename;
+	a.click();
+	setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+	showToast(`'${filename}' を保存しました。`);
+	// document.activeElement.blur();
+}
+
+// 防除記録 行操作関数
+function deletePlanRow(index) {
+	planList.splice(index, 1);
+	setPlanRecord();
+}
+
+function updatePlanDate(index, date) {
+	// If date is an empty string, it means the user cleared the date input.
+	// Otherwise, update with the selected date.
+	planList[index].timing = date || ''; // Set to empty string if date is falsy
+	setPlanRecord();
+}
+
+function movePlanRow(index, direction) {
+	if (direction === 'up' && index > 0) {
+		[planList[index - 1], planList[index]] = [planList[index], planList[index - 1]];
+	} else if (direction === 'down' && index < planList.length - 1) {
+		[planList[index], planList[index + 1]] = [planList[index + 1], planList[index]];
+	}
+	setPlanRecord();
+}
+
+// JSONファイルを読み込んで計画を復元
+function loadPlanFromJson(event) {
+	const file = event.target.files[0];
+	if (!file) return;
+
+	const reader = new FileReader();
+	reader.onload = async function(e) {
+		try {
+			const data = JSON.parse(e.target.result);
+			const loadedPlan = data.plan || data.planList;
+			if (!loadedPlan) throw new Error('Invalid format');
+
+			if (planList.length > 0 && !confirm('現在の計画をクリアして読み込みますか？')) {
+				event.target.value = '';
+				return;
+			}
+
+			currentLoadedFileName = file.name;
+
+			// 選択作物の初期化と再設定
+			//planCropManager.checkedCrops = [];
+			planCropManager.checkedCrops = data.crops || [];
+			planList = loadedPlan;
+
+			// 作物ツリーのチェック状態を視覚的に復元
+			if (typeof planCropManager.syncCheckState === 'function') {
+				planCropManager.syncCheckState();
+			}
+			// step.2 のリストを現在の作物に合わせて更新
+			await setupPlanChem(false);
+			// step.3 を作成
+			await setPlanRecord();
+			alert('防除計画を読み込みました。');
+
+			const planSwiper = document.querySelector('.plan-swiper').swiper;
+			// step.3 を開放して移動
+			updateStepBar(planSwiper, 2);
+			planSwiper.slideTo(2); 
+		} catch (err) {
+			console.error(err);
+			alert('ファイルの読み込みに失敗しました。有効なJSONファイルを選択してください。');
+		}
+	};
+	reader.readAsText(file);
+	event.target.value = '';
+}
+
+// 防除記録タブ step.3: 使用予定薬剤及び使用回数集計表示
+async function setPlanRecord() {
+	const title = document.querySelector('#planHead3');
+	title.innerHTML = "使用予定薬剤及び使用回数集計";
+
+	const wrapper = document.querySelector('#planRecordWrapper');
+	wrapper.innerHTML = '';
+
+	document.querySelector('#planCropTree')?.classList.toggle('locked', planList.length > 0);
+
+	if (planList.length === 0) {
+		const planSwiper = document.querySelector('.plan-swiper').swiper;
+		//planSwiper.maxReachedStep = 1; // Step 2 まで解放
+		updateStepBar(planSwiper, 1);
+		planSwiper.slideTo(1);
+		return;
+	}
+
+	await waiting(true, '使用回数集計表を作成中...');
+	try {
+		// 選択された薬剤の成分を集計
+		const showTiming = planList.length > 0; // planListに項目があれば常に防除時期列を表示
+		
+		const tsushoCounts = {};
+		planList.forEach(item => {
+			const getTsusho = (val) => (val && val.includes(' ')) ? val.split(' ').slice(1).join(' ') : val;
+			const tsusho = typeof item === 'string' ? getTsusho(item) : (item.yakuzai ? getTsusho(item.yakuzai) : item.meisho);
+			tsushoCounts[tsusho] = (tsushoCounts[tsusho] || 0) + 1; // Use tsusho for counting
+		});
+		const uniqueKeys = Object.keys(tsushoCounts).map(item => `'${item}'`).join(',');
+		const crops = planCropManager.checkedCrops.map(item => item.sakumotsu);
+
+		let res = null;
+		if (crops.length > 0 && uniqueKeys) {
+			const sql = `
+				select yuko1 as seibun, kaisu1 as seibunkaisu, d_concat('/', mid1, keito1, replace(rem1, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko1 IS NOT NULL
+				UNION select yuko2 as seibun, kaisu2 as seibunkaisu, d_concat('/', mid2, keito2, replace(rem2, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko2 IS NOT NULL
+				UNION select yuko3 as seibun, kaisu3 as seibunkaisu, d_concat('/', mid3, keito3, replace(rem3, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko3 IS NOT NULL
+				UNION select yuko4 as seibun, kaisu4 as seibunkaisu, d_concat('/', mid4, keito4, replace(rem4, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko4 IS NOT NULL
+				UNION select yuko5 as seibun, kaisu5 as seibunkaisu, d_concat('/', mid5, keito5, replace(rem5, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko5 IS NOT NULL
+			`;
+			console.log(sql);
+			res = db.exec(sql);
+		}
+
+		const ingredientInfo = {};
+		const tsushoLimit = {};
+		if (res?.[0]) {
+			res[0].values.forEach(row => {
+				const [seibun, seibunkaisu, rac, kaisu, tsusho] = row;
+				if (!tsushoLimit[tsusho]) tsushoLimit[tsusho] = kaisu;
+				if (!ingredientInfo[seibun]) {
+					ingredientInfo[seibun] = {
+						count: 0,
+						limit: seibunkaisu || '-',
+						rac: rac || '-',
+					};
+				}
+				ingredientInfo[seibun].count += tsushoCounts[tsusho];
+			});
+		}
+		const summary = Object.entries(ingredientInfo).map(([name, data]) => ({
+			name,
+			count: data.count,
+			limit: data.limit,
+			rac: data.rac
+		})).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja'));
+
+		const div = document.createElement('div');
+		div.className = 'step-zoom-target';
+		let tableHeaders = `<th>操作</th><th>No</th>`;
+		if (showTiming) {
+			tableHeaders += `<th>防除時期</th>`;
+		}
+		tableHeaders += `<th>薬剤名</th>`;
+
+		//let html = `<div class="row-title">使用予定薬剤</div><table class="std-data-table"><thead><tr>${tableHeaders}</tr></thead><tbody>`;
+		let html = `<h3>使用予定薬剤</h3><table class="std-data-table"><thead><tr>${tableHeaders}</tr></thead><tbody>`;
+		planList.forEach((chem, i) => {
+			const isFirst = i === 0;
+			const isLast = i === planList.length - 1;
+			const chemName = chem.yakuzai;
+			let timingCell = '';
+			if (showTiming) { // This condition is already `planList.length > 0`
+				const periodStr = (chem.timingMonth && chem.timingPeriod) ? `${chem.timingMonth}月${chem.timingPeriod}` : '';
+				const isDate = chem.timing && /^\d{4}-\d{2}-\d{2}$/.test(chem.timing);
+				// Display YY-MM-DD format, but keep full date in input value and data-fulldate
+				const displayVal = isDate ? formatToYYMMDD(chem.timing) : periodStr || '';
+				const uniqueId = 'mob_plan_date_' + Math.random().toString(36).substring(2, 7) + '_' + Date.now() + '_' + i;
+
+				timingCell = `<td>` +
+					`<div class="date-picker" onclick="const inp=this.querySelector('input'); if(inp && typeof inp.showPicker==='function'){try{inp.showPicker();}catch(e){}}">` +
+						`<label for="${uniqueId}" data-fulldate="${isDate ? chem.timing : ''}">${displayVal}</label>` +
+						`<input type="date" id="${uniqueId}" value="${isDate ? chem.timing : ''}" ` +
+						`onchange="updatePlanDate(${i}, this.value)" ` +
+						`onclick="event.stopPropagation()">` +
+					`</div>` +
+					`</td>`;
+			}
+
+			const icons = '../icons.svg';
+			html += `<tr class="${i % 2 === 0 ? '' : 'even-row'}">` +
+				`<td><div class="actions">` +
+				`<svg class="svg_button" onclick="deletePlanRow(${i})"><use href="${icons}#trash-x"></use></svg>` +
+				`<svg class="svg_button ${isFirst ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'up')"><use href="${icons}#arrow-up"></use></svg>` +
+				`<svg class="svg_button ${isLast ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'down')"><use href="${icons}#arrow-down"></use></svg></div></td>` +
+				`<td class="center">${i+1}</td>` +
+				timingCell +
+				`<td class="clickable" onclick="setPlanDetail('${chemName}')">${chemName}</td></tr>`;
+		});
+		html += '</tbody></table>';
+
+		const yakuzaiCounts = {};
+		planList.forEach((chem) => {
+			const chemName = chem.yakuzai;
+			if (!chemName) return;
+			yakuzaiCounts[chemName] = (yakuzaiCounts[chemName] || 0) + 1;
+		});
+
+		const yakuzaiRows = Object.entries(yakuzaiCounts)
+			.sort(([a], [b]) => a.localeCompare(b, 'ja'))
+			.map(([name, count]) => `<tr><td>${name}</td><td>${count}</td><td>${tsushoLimit[name] || '-'}</td></tr>`)
+			.join('');
+
+		if (yakuzaiRows) {
+			html += '<h3>薬剤別使用回数</h3>';
+			html += `<table class="std-data-table"><thead><tr><th>薬剤名</th><th>回数</th><th>上限</th></tr></thead><tbody>${yakuzaiRows}</tbody></table>`;
+		}
+
+		if (summary.length > 0) {
+			html += '<h3>成分別使用回数</h3>';
+			summary.forEach((data) => {
+				html += `<div class="row-title">${data.name}</div>` +
+					`<table class="row-data-table"><tbody>` +
+					`<tr><th>RAC</th><td>${data.rac}</td></tr>` +
+					`<tr class="even-row"><th>回数</th><td>${data.count}</td></tr>` +
+					`<tr><th>上限</th><td>${data.limit}</td></tr>` +
+					`</tbody></table>`;
+			});
+		}
+
+		html += '<div class="bottom-spacer"></div>';
+		div.innerHTML = html;
+		wrapper.appendChild(div);
+	} catch (e) {
+		console.error(e);
+	} finally {
+		waiting(false);
+	}
+
+	const planSwiper = document.querySelector('.plan-swiper').swiper;
+	if (planSwiper.activeIndex !== 2) planSwiper.slideTo(2);
+
+}
+
+// 防除記録タブ step.4: 薬剤適用詳細表示
+async function setPlanDetail(chem) {
+	const title = document.querySelector('#planHead4');
+	title.textContent = chem;
+
+	const planSwiper = document.querySelector('.plan-swiper').swiper;
+	// Step 4 を解放・作成
+	updateStepBar(planSwiper, 3);
+	await planDetailManager.update(chem, 't_planTekiyo');
+	if (planSwiper.activeIndex !== 3) planSwiper.slideTo(3);
+}
+</script>
+</body>
+</html>
