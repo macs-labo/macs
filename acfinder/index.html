@@ -1,35 +1,1437 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" data-mode="mobile">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="apple-touch-icon" href="../apple-touch-icon-180x180.png" sizes="180x180">
+<link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
+<link rel="manifest" href="./manifest.json">
+<title>ACFinderBE Mobile</title>
 <script>
+var initTab = 0;
 const urlParams = new URLSearchParams(window.location.search);
+(function() {
+	// `tab `URL パラメータ取得
+	const pTab = urlParams.get('tab')?.toLocaleLowerCase();
+	urlParams.delete('tab');
+	if (pTab === 'pest' || pTab === 1) initTab = 1;
+	if (pTab === 'chem' || pTab === 2) initTab = 2;
 
-// ディスプレイの論理幅が 1280px 以上で mode=mobile でなければデスクトップ版にリダイレクト
-const isDesktopSize = window.screen.width >= 1280;
-if (isDesktopSize) {
-	// URLパラメータでデバッグ用に回避できるようにしておく
-	const mode = urlParams.get('mode')?.toLocaleLowerCase();
-	if (mode !== 'mobile') {
+	// ディスプレイの論理幅が 1280px 以上ならデスクトップ版にリダイレクト
+	const isDesktopSize = window.screen.width >= 1280;
+	if (isDesktopSize) {
+		// URLパラメータでデバッグ用に回避できるようにしておく
+		const mode = urlParams.get('mode')?.toLocaleLowerCase();
 		urlParams.delete('mode');
-		// `tab` URL パラメータ取得
-		let initTab = 0;
-		const pTab = urlParams.get('tab')?.toLocaleLowerCase();
-		urlParams.delete('tab');
-		if (pTab === 'pest' || pTab === 1) initTab = 1;
-		if (pTab === 'chem' || pTab === 2) initTab = 2;
-		const tabs = ['crop.html', 'pest.html', 'chem.html'];
-		let url = './' + tabs[initTab];
-		window.location.href = url;
-		setTimeout(() => {
-			window.close();
-		}, 300);
+		if (mode !== 'mobile') {
+			const tabs = ['crop.html', 'pest.html', 'chem.html'];
+			let url = tabs[initTab];
+			if (urlParams.size > 0) url += '?' + urlParams.toString();
+			window.location.href = url;
+		}
 	}
+
+	// タッチデバイスでない場合はここで終了
+	if (!('ontouchstart' in window)) return;
+	// --- グローバル・一時的ピンチズームの実装 ---
+	(function initGlobalPinchZoom() {
+		let startDist = 0;
+		let startZoom = 1;
+		let isPinching = false;
+		let targetEl = null;
+
+		// 現在表示中のアクティブなコンテンツ要素を取得する
+		const getActiveContent = () => {
+			const activeMain = document.querySelector('.main-swiper > .swiper-wrapper > .swiper-slide-active');
+			if (!activeMain) return null;
+			const nested = activeMain.querySelector('.swiper-wrapper > .swiper-slide-active');
+			const targetSlide = nested || activeMain;
+			// Swiperのレイアウト崩れを防ぐため、スライド内部のコンテナを対象にする
+			return targetSlide.querySelector('.step-fixed, .step-scrollable') || targetSlide;
+		};
+
+		window.addEventListener('touchstart', (e) => {
+			if (e.touches.length === 2) {
+				isPinching = true;
+				targetEl = getActiveContent();
+				if (!targetEl) return;
+
+				startDist = Math.hypot(
+					e.touches[0].pageX - e.touches[1].pageX,
+					e.touches[0].pageY - e.touches[1].pageY
+				);
+				// コンテンツの現在の相対ズーム値を取得
+				startZoom = parseFloat(targetEl.style.zoom) || 1.0;
+				// コンテンツの現在の相対ズーム値を取得 (computed style から取得)
+				//startZoom = parseFloat(getComputedStyle(targetEl).zoom) || 1.0;
+			}
+		}, { passive: false });
+
+		window.addEventListener('touchmove', (e) => {
+			if (isPinching && e.touches.length === 2 && targetEl) {
+				e.preventDefault(); // ネイティブのズームやスクロールを防止
+				const dist = Math.hypot(
+					e.touches[0].pageX - e.touches[1].pageX,
+					e.touches[0].pageY - e.touches[1].pageY
+				);
+				const ratio = (dist * 0.6) / startDist; 
+
+				let newZoom = startZoom * ratio;
+				// 1.0未満（appZoom相当）にならないよう制限
+				if (newZoom < 1.0) newZoom = 1.0;
+				if (newZoom > 2) newZoom = 2; // 最大ズーム制限（任意）
+
+				targetEl.style.zoom = newZoom;
+				// ズーム中はスクロール可能にする
+				if (newZoom > 1.0) {
+					targetEl.style.overflow = 'auto';
+				} else {
+					targetEl.style.overflow = '';
+				}
+			}
+		}, { passive: false });
+
+		window.addEventListener('touchend', () => { 
+			isPinching = false; 
+			targetEl = null;
+		});
+	})();
+
+	// 公開ディレクトリの場合ここで終了
+	if (window.location.href.includes('/acfinder/')) return;
+	// 開発版はデバッガーを画面の真ん中に巨大なログ画面を出す（タッチスクロール可能）
+	// 既存のデバッガーがあれば消す
+	document.getElementById('pwa-logger-v2')?.remove();
+
+	const div = document.createElement('div');
+	div.id = 'pwa-logger-v2';
+	// 画面中央に配置、背景を濃くして文字を大きく（16px）、タッチ操作を100%許可
+	div.style.cssText = 'position:fixed;top:10%;left:5%;width:90%;height:70%;overflow-y:scroll;background:rgba(10,10,10,0.95);color:#00ff00;font-family:monospace;font-size:16px;z-index:999999;padding:15px;box-sizing:border-box;border:3px solid #ff5555;pointer-events:auto;user-select:text;-webkit-overflow-scrolling:touch;';
+	div.style.display = 'none';
+
+	// 閉じるボタンを上部に配置
+	const closeBtn = document.createElement('button');
+	closeBtn.textContent = '【ログを閉じる】';
+	closeBtn.style.cssText = 'width:100%;padding:10px;background:#333;color:#fff;font-size:16px;font-weight:bold;margin-bottom:15px;border:none;';
+	closeBtn.onclick = () => div.style.display = 'none';
+	div.appendChild(closeBtn);
+
+	document.documentElement.appendChild(div);
+
+	const originalLog = console.log;
+	console.log = function(...args) {
+		originalLog.apply(console, args);
+		const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ');
+		const logLine = document.createElement('div');
+		logLine.style.cssText = 'border-bottom:1px solid #333;padding:5px 0;white-space:pre-wrap;word-break:break-all;';
+		logLine.textContent = `[LOG] ${msg}`;
+		div.appendChild(logLine);
+		div.scrollTop = div.scrollHeight;
+	};
+
+	// エラーを検知したら、一番目立つように赤文字で大きく追加
+	window.addEventListener('error', function(e) {
+		const logLine = document.createElement('div');
+		logLine.style.cssText = 'color:#ff3333;font-weight:bold;border:2px solid #ff3333;padding:10px;margin:10px 0;background:rgba(255,0,0,0.1);white-space:pre-wrap;word-break:break-all;';
+		logLine.textContent = `🚨 [ERR] ${e.message}\n📍 at ${e.filename}\n🔢 line: ${e.lineno}:${e.colno}`;
+		div.insertBefore(logLine, div.firstChild); // 最新のエラーを一番上に表示
+		div.style.display = 'block'; // 隠れていても強制表示
+	});
+
+	// 👈 【追加】画面を「3本指でタップ」するたびに、ログ画面を表示・非表示にする
+	window.addEventListener('touchstart', function(e) {
+		if (e.touches.length === 3) { // 3本指タッチを検知
+			if (div.style.display === 'none') {
+				div.style.display = 'block';
+				// 開いた瞬間に、通常ログの最下部（最新）へスクロールさせる
+				div.scrollTop = div.scrollHeight;
+			} else {
+				div.style.display = 'none';
+			}
+		}
+	});
+
+	// ブラウザのタッチエミュレータの場合はマウス右ボタンででログ表示
+	window.addEventListener('contextmenu', function(e) {
+		e.preventDefault();
+		if (div.style.display === 'none') {
+			div.style.display = 'block';
+		} else {
+			div.style.display = 'none';
+		}
+	});
+})();
+</script>
+<script type="text/javascript" src="./header.js"></script>
+<script type="text/javascript" src="./loader.js"></script>
+<script type="text/javascript" src="./theme.js"></script>
+<script type="text/javascript" src="./crop.js"></script>
+<script type="text/javascript" src="./pest.js"></script>
+<script type="text/javascript" src="./chem.js"></script>
+<script type="text/javascript" src="./table.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css">
+<link rel="stylesheet" type="text/css" href="./common.css" />
+<link rel="stylesheet" type="text/css" href="./loader.css" />
+<link rel="stylesheet" type="text/css" href="./crop.css" />
+<style>
+:root,
+[data-theme="dark"] {
+	--header-height: 46px;
+	--tab-height: 40px;
+	--step-bar-height: 40px;
+	--touch-bar-width: 25px;
+	--content-area-margin: 12px;
+	--app-zoom: 1;
+	--bolder:	0 -0.1px 0 currentColor,0.1px -0.1px 0 currentColor,0.1px 0 0 currentColor,0.1px 0.1px 0 currentColor,0 0.1px 0 currentColor,-0.1px 0.1px 0 currentColor,0.1px 0 0 currentColor,-0.1px -0.1px 0 currentColor;
 }
-// ディスプレイの論理幅が 1280px 未満または mode=mobile の場合は、モバイル版にリダイレクト
-let url = './app/index.html';
-if (urlParams.size > 0) url += '?' + urlParams.toString();
-window.location.href = url;
+body {
+	position: relative;
+	zoom: var(--app-zoom);
+}
+
+/* スライド送り／戻しバー */
+.prev-touch-bar,
+.next-touch-bar {
+	position: fixed;
+	display: flex;
+	top: 0;
+	color: var(--border-color-strong);
+	font: 20px;
+	/* vertical-align: middle; */
+	align-items: center;
+	width: var(--touch-bar-width);
+	height: calc(100vh / var(--app-zoom, 1));
+	z-index: 10000;
+	pointer-events: auto; /* クリックに反応させる */
+	/* ズームやタップ時の意図しない挙動を防ぐ */
+	-webkit-tap-highlight-color: transparent;
+	touch-action: none; /* ブラウザ標準のジェスチャーを無効化し、クリックを優先させる */
+}
+.prev-touch-bar { left: 0; justify-content: left; }
+.next-touch-bar { right: 0; justify-content: right; }
+
+.infinite-tree-node a,
+input, button, select, .icon {
+  position: relative; /* z-indexを効かせるため */
+  z-index: 11000;      /* タップエリアより大きくする */
+  pointer-events: auto; /* 自身のクリックイベントを優先し、背面への透過を防ぐ */
+}
+
+header {
+	height: var(--header-height);
+	background: var(--text-color-dark);
+	color: var(--bg-color);
+	display: flex;
+	justify-content: space-between;
+	gap: 10px;
+	align-items: center;
+	padding: 0 15px;
+	touch-action: none;
+}
+
+header .title {
+	display: flex;
+	flex-direction: column;
+	justify-content: space-between;
+	height: var(--header-height);
+	padding: 5px 0;
+	white-space: nowrap;
+	overflow-x: auto;
+	touch-action: pan-x;
+}
+
+header h1 {
+	font-size: 19px;
+	font-weight: bold;
+	line-height: 1;
+}
+
+#db-update {
+	font-size: 12px;
+	font-weight: normal;
+	line-height: 1;
+}
+
+#db-update.cached-mode { color: var(--ul-unaccepted-link-color); }
+
+header .menu {
+	flex-shrink: 0;;
+	height: 32px;
+	width: 32px;
+}
+
+header .icon {
+	color: var(--bg-color);
+}
+
+.button:focus { background: var(--bg-color-button); }
+.inputbar input[type="text"] { height: 28px; }
+.inputbar button { height: 30px; 	border-radius: 5px; }
+select { height: 28px; }
+
+/* メインタブ */
+.main-nav {
+	display: flex;
+	height: var(--tab-height);
+	background: var(--bg-color-button);
+	border-bottom: 1px solid var(--border-color);
+	touch-action: none;
+}
+.main-btn { flex: 1; border: none; border-radius: 0; font-size: 14px; color: var(--border-color); }
+.main-btn:hover { color: var(--border-color); background: var(--bg-color-button); }
+.main-btn.active { color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
+
+/* 外側のSwiper */
+.main-swiper {
+	flex: 1; /* 残りの画面の高さをすべて占有 */
+	width: 100%;
+}
+
+/* インタラクション無効化の統一定義 */
+.disabled, .locked {
+	pointer-events: none !important;
+}
+
+/* --- タブ内の内部構造 --- */
+.tab-container {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	width: 100%;
+	min-width: 0;
+}
+
+/* ステップインジケータ */
+.step-bar {
+	display: flex;
+	height: var(--step-bar-height);
+	background: var(--bg-color-header);
+	align-items: center;
+	justify-content: center;
+	gap: calc(20px / var(--app-zoom, 1));
+	position: relative;
+	border-bottom: 1px solid var(--border-color);
+	touch-action: none;
+}
+.step-item {
+	width: 24px;
+	height: 24px;
+	border-radius: 50%;
+	background: var(--border-color);
+	color: var(--text-color-step);
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	font-size: 12px;
+	font-weight: bold;
+	transition: all 0.3s ease;
+	cursor: pointer;
+}
+.step-item.active {
+	background: var(--bg-color-accent);
+	color: var(--text-color-accent);
+	transform: scale(1.15);
+}
+.step-item.completed {
+	background: var(--bg-color-accent);
+	color: var(--text-color-accent);
+	opacity: 0.6;
+}
+.step-item.locked {
+	opacity: 0.2;
+}
+.prev-step,
+.next-step {
+	width: calc(18vw / var(--app-zoom, 1));
+	color: var(--border-color-focus);
+	font-size: 15px;
+	cursor: pointer;
+	height: var(--step-bar-height);
+	line-height: var(--step-bar-height);
+	vertical-align: middle;
+	position: absolute;
+	top: 0;
+	-webkit-tap-highlight-color: transparent;
+}
+.prev-step {
+	left: 0;
+	padding-left: var(--touch-bar-width);
+	text-align: left;
+}
+.next-step {
+	right: 0;
+	padding-right: var(--touch-bar-width);
+	text-align: right;;
+}
+.disabled {
+	color: var(--border-color);
+	opacity: 0.4; /* 矢印やタッチバーを薄く表示 */
+}
+
+/* 内部Swiper (各タブ共通) */
+.swiper {
+	flex: 1;
+	width: 100%;
+	min-width: 0;
+}
+
+/* 内部Swiperのスライドをフレックスコンテナにする */
+.swiper-wrapper .swiper-slide {
+	display: flex;
+	flex-direction: column;
+}
+
+/* スクロールなしのコンテナ */
+.step-fixed {
+	flex: 1;
+	min-height: 0;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
+	padding: var(--content-area-margin);
+	box-sizing: border-box;
+}
+
+/* スクロールありのコンテナ */
+.step-scrollable {
+	flex: 1;
+	overflow: auto;
+	-webkit-overflow-scrolling: touch;
+	padding: 10px;
+	box-sizing: border-box;
+}
+
+.swiper-slide h2 {
+	display: flex;
+	/* justify-content: center; */
+	align-items: center;
+	font-size: 14px;
+	font-weight: bold;
+	color: var(--text-color-accent);
+	background: var(--bg-color-accent);
+	line-height: 1.2;
+	height: 30px;
+	padding: 0 7px;
+	overflow-x: auto;
+	white-space: nowrap;
+	text-overflow: ellipsis
+}
+
+/* 各リストボックス共通設定 */
+.list-box {
+	flex: 1;
+	min-width: 0;
+	width: 100%;
+	overflow: auto;
+	display: flex;
+	flex-direction: column;
+}
+
+/* 各リストコンテナ共通設定 */
+.pest-list-container,
+.chem-list-container {
+	min-width: 100%;
+	width: max-content;
+}
+
+.checkListItem:hover { background-color: none; }
+
+/* ステップ用ズームターゲットの基本クラス */
+.step-zoom-target {
+	width: 100%;
+	height: 100%;
+	display: flex !important;
+	flex-direction: column;
+	text-align: left;
+	width: 100%;
+	min-width: 0;
+}
+
+.treebox > .checkListItem { padding-left: 10px; }
+
+.menu-item {
+	height: 32px;
+	display: flex;
+	align-items: center;
+}
+
+/* テーマ選択ダイアログの選択中スタイル */
+.menu-item.active {
+	background-color: var(--bg-color-icon-hover);
+	position: relative;
+}
+
+.menu-item.active::after {
+	content: '';
+	position: absolute;
+	right: 15px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 16px;
+	height: 16px;
+	background-color: var(--text-color-dark);
+	-webkit-mask: var(--svg-checkmark) no-repeat center;
+	mask: var(--svg-checkmark) no-repeat center;
+}
+
+.zoom-controls {
+	padding: 10px;
+	border-bottom: 1px solid var(--border-color);
+	display: flex;
+	flex-direction: column;
+	background: var(--bg-color-even-row);
+	gap: 10px;
+}
+
+.zoom-item {
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+}
+
+.menu-container button,
+form button {
+	padding: 0 4px;
+	height: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+	cursor: pointer;
+	border: 1px solid var(--border-color);
+	background: var(--bg-color-button);
+	color: var(--text-color);
+	border-radius: 4px;
+	/* outline: none; */
+}
+
+.menu-container button:hover,
+form button:hover {
+	color: var(--text-color-dark);
+	background: var(--bg-color-icon-hover);
+}
+
+#zoom-reset {
+	font-size: 12px;
+}
+
+#zoom-out, #zoom-in {
+	padding: 0;
+	width: 32px;
+	font-size: 16px;
+	font-weight: bold;
+}
+
+#zoom-level {
+	min-width: 50px;
+	text-align: center;
+	font-weight: bold;
+	color: var(--text-color);
+}
+
+.step-scrollable h3 {
+	font-size: 14px;
+	font-weight: bold;
+	padding: 3px;
+	line-height: 1.2;
+	border-top: 1px solid var(--border-color-strong);
+	border-bottom: 1px solid var(--border-color-strong);
+	margin-bottom: 5px;
+}
+
+/* 薬剤詳細テーブルスタイル */
+table.row-data-table {
+  width: 100%;
+  border-collapse: collapse;
+  border-spacing: 0;
+	background-color: var(--bg-color);
+	border: 1px solid var(--border-color-strong);
+	line-height: 1.2;
+}
+
+.row-data-table th, .row-data-table td {
+	font-size: 13px;
+	padding: 3px 5px;
+	text-align: left;
+	/* line-height: 1.2; */
+  border: 1px solid var(--border-color-ht-common);
+	border-bottom: none;
+}
+
+.row-data-table th {
+	font-weight: normal;
+	color: var(--text-color-dark);
+	width: 1px; /* ラベル幅を最小化して内容に密着させ、値(td)の影響を受けないようにする */
+	border-left: none;
+	white-space: nowrap;
+	vertical-align: top;
+}
+
+.row-data-table td {
+	color: var(--text-color);
+	border-right: none;
+}
+
+.row-title {
+	font-size: 13px;
+	font-weight: bold;
+	line-height: 1.2;
+	/* text-shadow: var(--bolder); */
+	color: var(--text-color-dark);
+	text-align: left;
+	padding: 3px 5px;
+	background-color: var(--bg-color-ht-header);
+	border: 1px solid var(--border-color-strong);
+	border-bottom: none;
+	margin-top: 2px; /* 各カードを隙間なくくっ付けるなら -1px */
+	white-space: nowrap;
+	overflow-x: auto;
+}
+
+.row-data-table .even-row {
+	background-color: var(--bg-color-even-row);
+}
+
+.bottom-spacer {
+	height: var(--content-area-margin); /* スクロール可能な領域の末尾に余白を確保 */
+}
+
+.toast {
+	visibility: hidden;           /* 通常は隠す */
+	min-width: 250px;
+	background-color: #333;       /* ダークグレー */
+	color: #fff;                  /* 文字は白 */
+	text-align: center;
+	border-radius: 25px;          /* 丸みのあるデザイン */
+	padding: 12px;
+	position: fixed;
+	z-index: 9999;                /* 最前面に */
+	left: 50%;
+	bottom: 50px;                 /* 画面下から少し浮かせる */
+	transform: translateX(-50%);  /* 中央寄せ */
+	opacity: 0;
+	transition: opacity 0.3s, visibility 0.3s;
+}
+
+/* 表示中用のクラス */
+.toast.show {
+	visibility: visible;
+	opacity: 1;
+}
+
+/* 動的タブの閉じるボタン */
+.main-btn.dynamic-tab-btn {
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 5px;
+	padding-right: 5px; /* 閉じるボタンの分だけパディングを調整 */
+}
+.main-btn.dynamic-tab-btn .close-tab-btn {
+	font-size: 12px;
+	font-weight: bold;
+	color: var(--text-color-light);
+	cursor: pointer;
+}
+</style>
+<script>
+window.isMobile = true;
+
+// --- 共通の簡易スワイプ検知関数 ---
+
+function addSwipeHandler(element, swiper, loop = true) {
+	let touchStartX = 0;
+	let touchEndX = 0;
+
+	element.addEventListener('touchstart', (e) => {
+		touchStartX = e.changedTouches[0].screenX;
+	}, { passive: true });
+
+	element.addEventListener('touchend', (e) => {
+		// 自身、または現在表示中のスライド内にある Swiper がズーム中ならスワイプを無視
+		const isZooming = (s) => s && s.zoom && s.zoom.scale > 1 && !s.isReturningToSingleScale;
+
+		if (isZooming(swiper)) return;
+
+		// mainSwiper の場合、中にある cropSwiper 等のズーム状態もチェック
+		const activeSlide = swiper.slides[swiper.activeIndex];
+		if (activeSlide) {
+			const nestedSwiperEl = activeSlide.querySelector('.swiper-initialized');
+			if (nestedSwiperEl && nestedSwiperEl.swiper && isZooming(nestedSwiperEl.swiper)) return;
+		}
+
+		touchEndX = e.changedTouches[0].screenX;
+		const threshold = 40; // Minimum distance for a swipe to be recognized
+		
+		// 左フリック（指を左へ動かす） -> 次のスライドへ（右端なら左端へ）
+		if (touchEndX < touchStartX - threshold) {
+			if (loop && swiper.activeIndex === swiper.slides.length - 1) {
+				swiper.slideTo(0);
+			} else if (swiper.activeIndex < swiper.slides.length - 1) {
+				// 解放済みのステップ（インスタンス保持）を超えてのスワイプを禁止
+				if (!loop && swiper.maxReachedStep !== undefined && swiper.activeIndex >= swiper.maxReachedStep) return;
+				swiper.slideTo(swiper.activeIndex + 1);
+			}
+		}
+		// 右フリック（指を右へ動かす） -> 前のスライドへ（左端なら右端へ）
+		if (touchEndX > touchStartX + threshold) {
+			if (loop && swiper.activeIndex === 0) {
+				swiper.slideTo(swiper.slides.length - 1);
+			} else if (swiper.activeIndex > 0) {
+				swiper.slideTo(swiper.activeIndex - 1);
+			}
+		}
+	}, { passive: true });
+}
+
+// --- UI更新ロジック ---
+
+// メインタブの更新（インジケータ連動）
+function updateMainTabs(index) {
+	const btns = document.querySelectorAll('.main-btn');
+	btns.forEach((btn, i) => {
+		if (i === index) {
+			btn.classList.add('active');
+		} else {
+			btn.classList.remove('active');
+		}
+	});
+}
+
+// ステップバーの更新
+function updateStepBar(swiperInstance, maxStep) {
+	if (!swiperInstance) return;
+
+	// 一時ズーム中ならリセット
+	if (swiperInstance.zoom && swiperInstance.zoom.scale > 1) swiperInstance.zoom.out();
+
+	// maxStep が指定された場合は更新する
+	if (maxStep !== undefined) swiperInstance.maxReachedStep = maxStep;
+
+	const index = swiperInstance.activeIndex;
+	const currentMax = swiperInstance.maxReachedStep;
+
+	// 現在アクティブなメインタブ（スライド）内にあるステップ項目のみを対象にする
+	const activeMainSlide = document.querySelector('.main-swiper > .swiper-wrapper > .swiper-slide-active');
+	if (!activeMainSlide) return;
+
+	// ステップアイテム (1, 2, 3...) の表示更新
+	activeMainSlide.querySelectorAll('.step-item').forEach((item, i) => {
+		item.classList.remove('active', 'completed', 'locked'); // 既存のクラスを全て削除
+		if (i === index) {
+			item.classList.add('active');
+		} else if (i < index) {
+			item.classList.add('completed');
+		}
+		if (i > currentMax) {
+			item.classList.add('locked');
+		}
+	});
+
+	// ナビゲーションボタンとタッチバーの更新
+	const isFirstStep = index === 0;
+	const isLastStep = index === currentMax;
+
+	// アイコン（◀ ▶）と画面端のタッチバー（« »）の両方を更新
+	activeMainSlide.querySelectorAll('.prev-step').forEach(el => el.classList.toggle('disabled', isFirstStep));
+	activeMainSlide.querySelectorAll('.next-step').forEach(el => el.classList.toggle('disabled', isLastStep));
+	document.querySelectorAll('.prev-touch-bar').forEach(el => el.classList.toggle('disabled', isFirstStep));
+	document.querySelectorAll('.next-touch-bar').forEach(el => el.classList.toggle('disabled', isLastStep));
+}
+
+// リロード中であることを示すフラグ
+let isAppReloading = false;
+
+function hardReload() {
+	// リロード直前にフラグを立てて beforeunload を回避
+	isAppReloading = true;
+	//const url = new URL(window.location.href);
+	//url.searchParams.set('t', Date.now());
+	//window.location.href = url.toString();
+	window.location.reload();
+}
+
+// メインメニューの表示
+function showMainMenu() {
+	const dialogId = 'main-menu-dialog';
+	let dialog = document.getElementById(dialogId);
+	
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		document.body.appendChild(dialog);
+	}
+	
+	// 位置をアイコンの直下に固定
+	const icon = document.querySelector('header .menu');
+	const rect = icon.getBoundingClientRect();
+	dialog.style.position = 'fixed';
+	dialog.style.margin = '0';
+	dialog.style.top = (rect.bottom + 5) + 'px';
+	dialog.style.right = '10px';
+	dialog.style.left = 'auto';
+
+	// ズームコントロールのHTMLを生成
+	const currentZoom = parseFloat(localStorage.getItem('appZoom')) || 1.0;
+	const zoomControlsHtml = `
+		<div class="zoom-controls">
+			<div class="zoom-item">
+				<span class="menu-item-name">🔎 ズーム</span>
+				<button type="button" id="zoom-reset">リセット</button>
+			</div>
+			<div class="zoom-item">
+				<button type="button" id="zoom-out" title="ズームアウト">－</button>
+				<span id="zoom-level">${Math.round(currentZoom * 100)}%</span>
+				<button type="button" id="zoom-in" title="ズームイン">＋</button>
+			</div>
+		</div>
+	`;
+
+	dialog.innerHTML = `
+		<div class="menu-container">
+			${zoomControlsHtml}
+			<ul class="menu-list">
+				<li class="menu-item" onclick="showAddTabMenu();">
+					<div class="menu-item-name">➕ 新規タブ</div>
+				</li>
+				<li class="menu-item" onclick="showThemeSelection()">
+					<div class="menu-item-name">🎨 テーマ選択</div>
+				</li>
+				<li class="menu-item" onclick="showNotificationDialog()">
+					<div class="menu-item-name">🔔 DB/アプリ更新通知</div>
+				</li>
+				<li class="menu-item" onclick="document.getElementById('main-menu-dialog').close();">
+					<div class="menu-item-name">
+						<a href="https://github.com/macs-labo/macs/tree/main/acfinder#readme" target="_blank" style="text-decoration: none; color: inherit;">
+							⚠️ 使用上の注意事項
+						</a>
+					</div>
+				</li>
+				<li class="menu-item" onclick="document.getElementById('main-menu-dialog').close();">
+					<div class="menu-item-name">
+						<a href="https://github.com/macs-labo/macs#readme" target="_blank" style="text-decoration: none; color: inherit;">
+							📖 利用規約
+						</a>
+					</div>
+				</li>
+				<li class="menu-item" onclick="showVersionInfo()">
+					<div class="menu-item-name">ℹ️ バージョン情報</div>
+				</li>
+				<li class="menu-item" onclick="hardReload();">
+					<div class="menu-item-name">🔄 リロード</div>
+				</li>
+				<li class="menu-item" onclick="window.open('crop.html?mode=desktop', '_blank'); document.getElementById('main-menu-dialog').close();">
+					<div class="menu-item-name">🖥️ デスクトップ版を起動</div>
+				</li>
+			</ul>
+		</div>
+		<form method="dialog">
+			<span>メニュー</span><button>閉じる</button>
+		</form>
+	`;
+
+	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+	dialog.showModal();
+
+	// ズーム操作のイベントリスナーを設定
+	dialog.querySelector('#zoom-in').addEventListener('click', (e) => {
+		e.stopPropagation();
+		const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-zoom')) || 1.0;
+		applyZoom(current + 0.05);
+	});
+	dialog.querySelector('#zoom-out').addEventListener('click', (e) => {
+		e.stopPropagation();
+		const current = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-zoom')) || 1.0;
+		applyZoom(current - 0.05);
+	});
+	dialog.querySelector('#zoom-reset').addEventListener('click', (e) => {
+		e.stopPropagation();
+		applyZoom(1.0);
+	});
+}
+
+// テーマ選択ダイアログの表示
+function showThemeSelection() {
+	const dialogId = 'theme-menu-dialog';
+	let dialog = document.getElementById(dialogId);
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		document.body.appendChild(dialog);
+	}
+
+	const current = localStorage.getItem('selected_theme_name');
+	let listHtml = colorThemes.map((t, idx) => `
+		<li class="menu-item ${current === t.name ? 'active' : ''}" onclick="applyTheme(${idx}); document.getElementById('${dialogId}').close(); document.getElementById('main-menu-dialog').close();">
+			<div class="menu-item-name">${t.title}</div>
+		</li>
+	`).join('');
+	
+	if (localStorage.getItem('user_custom_css_save')) {
+		listHtml += `<li class="menu-item ${current === 'custom' ? 'active' : ''}" onclick="applyTheme('custom'); document.getElementById('${dialogId}').close(); document.getElementById('main-menu-dialog').close();"><div class="menu-item-name">ユーザカスタムテーマ</div></li>`;
+	}
+
+	dialog.innerHTML = `<div class="menu-container"><ul class="menu-list">${listHtml}</ul></div><form method="dialog"><span>テーマ選択</span><button>閉じる</button></form>`;
+	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+	dialog.showModal();
+}
+
+// バージョン情報ダイアログ
+function showVersionInfo() {
+	let year = appVer.split('.')[0];
+	if (year !== '2026') year = '2026-' + year;
+	const dialogId = 'version-dialog';
+	let dialog = document.getElementById(dialogId);
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		document.body.appendChild(dialog);
+	}
+	dialog.innerHTML = `
+		<div class="menu-container">
+			<div class="info-container">
+				<h1>ACFinderBE Mobile${debug ? ' 開発版' : ''}</h1>
+				<h2>Release: ${appVer}</h2>
+				<p>Agricultural Chemicals Finder<br>Browser Edition for Mobile</p>
+				<p>&copy; ${year} TEAM ACFinder<br>Licensed under the MIT License</p>
+			</div>
+		</div>
+		<form method="dialog"><span>バージョン情報</span><button>閉じる</button></form>
+	`;
+	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+	dialog.showModal();
+}
+
+// ズーム操作の適用
+function applyZoom(scale) {
+	const newZoom = Math.max(0.5, Math.min(2.0, Math.round(scale * 20) / 20));
+	document.documentElement.style.setProperty('--app-zoom', newZoom);
+	// 永続設定変更時は一時的なズーム（インラインスタイル）をクリアする
+	document.body.style.zoom = '';
+	localStorage.setItem('appZoom', newZoom);
+	const zoomLevelEl = document.querySelector('#main-menu-dialog #zoom-level');
+	if (zoomLevelEl) zoomLevelEl.textContent = `${Math.round(newZoom * 100)}%`;
+}
+
+// オプションタブ追加メニューの表示
+function showAddTabMenu() {
+	document.getElementById('main-menu-dialog')?.close(); // メインメニューを閉じる
+
+	const dialogId = 'add-tab-menu-dialog';
+	let dialog = document.getElementById(dialogId);
+	
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		document.body.appendChild(dialog);
+	}
+
+	// 位置をアイコンの直下に固定 (メインメニューと同じ位置)
+	const icon = document.querySelector('header .menu');
+	const rect = icon.getBoundingClientRect();
+	dialog.style.position = 'fixed';
+	dialog.style.margin = '0';
+	dialog.style.top = (rect.bottom + 5) + 'px';
+	dialog.style.right = '10px';
+	dialog.style.left = 'auto';
+
+	dialog.innerHTML = `
+		<div class="menu-container">
+			<ul class="menu-list">
+				<li class="menu-item" onclick="addDynamicTab('防除記録', 'mob-pa-rec.html'); document.getElementById('${dialogId}').close();">
+					<div class="menu-item-name">✍ 防除記録</div>
+				</li>
+				<li class="menu-item" onclick="document.getElementById('localTabFileInput').click(); document.getElementById('${dialogId}').close();">
+					<div class="menu-item-name">📂 ローカルファイル</div>
+				</li>
+			</ul>
+		</div>
+		<form method="dialog">
+			<span>新規タブ</span><button>閉じる</button>
+		</form>
+	`;
+
+	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+	dialog.showModal();
+
+	// ローカルファイル入力のイベントリスナー
+	const localFileInput = document.getElementById('localTabFileInput');
+	localFileInput.onchange = loadLocalTabFile;
+}
+
+// すべてのスライドの一時ズームをリセットする
+function clearAllSlideZoom() {
+	document.querySelectorAll('.step-fixed, .step-scrollable').forEach(el => {
+		el.style.zoom = '';
+		el.style.overflow = '';
+	});
+}
+
+// 他のタブでのズーム変更を検知して反映
+window.addEventListener('storage', (event) => {
+	if (event.key === 'appZoom') {
+		applyZoom(parseFloat(event.newValue) || 1.0);
+		clearAllSlideZoom();
+	}
+});
+
+// ズーム可能なSwiperインスタンスを作成するヘルパー関数
+function createZoomableSwiper(selector, mainSwiperInstance, slideChangeCallback = null) {
+	const swiperInstance = new Swiper(selector, {
+		observer: true,
+		observeParents: true,
+		nested: true,
+		allowTouchMove: true,
+		allowSlideNext: true,
+		allowSlidePrev: true,
+		noSwiping: true,
+		noSwipingClass: 'no-swipe',
+		speed: 300,
+		on: {
+			slideChange: function() {
+				clearAllSlideZoom();
+				// 未開放ステップへのスワイプを制限
+				if (this.maxReachedStep !== undefined && this.activeIndex > this.maxReachedStep) {
+					this.slideTo(this.maxReachedStep);
+					return;
+				}
+				if (slideChangeCallback) {
+					slideChangeCallback.call(this); // Swiperインスタンスのコンテキストでコールバックを呼び出す
+				}
+			}
+		}
+	});
+
+	swiperInstance.maxReachedStep = 0; // 最大到達ステップを 0 で初期化
+	return swiperInstance;
+}
+
+let mainJump, stepJump, stepMove, addDynamicTab;
+let mainSwiper; // mainSwiper をグローバル変数として宣言
+let initializedTabs = []; // 全てのタブは初期ロード時に未初期化状態
+let tabSwiperInstances = []; // 各タブの Swiper インスタンスを格納する配列
+const tabTitles = tabs.slice(0, 3).map(tab => tab.name); // タブの表示名管理 (header.js の tabs から初期化)
+const tabSources = tabs.slice(0, 3).map(tab => `mob-${tab.file}`); // タブのソース管理 (header.js の tabs から初期化)
+let tabInits = []; // タブごとの初期化関数名
+
+/**
+ * 外部HTMLファイルを読み込んで要素に注入し、スタイルとスクリプトを適用する
+ */
+async function loadTabContent(selector, source, isContent = false) { // isContent パラメータを追加
+	let html;
+	if (isContent) {
+		html = source;
+	} else {
+		const response = await fetch(source); // url ではなく source を使用
+		if (!response.ok) throw new Error(`Failed to load ${source}`); // url ではなく source を使用
+		html = await response.text();
+	}
+	const parser = new DOMParser();
+	const doc = parser.parseFromString(html, 'text/html');
+	const target = document.querySelector(selector);
+	
+	// メタタグから初期化関数名を取得
+	const initFnMeta = doc.querySelector('meta[name="initFn"]');
+	const initFnName = initFnMeta ? initFnMeta.getAttribute('content') : null;
+
+	// スタイルの注入
+	doc.querySelectorAll('style, link[rel="stylesheet"]').forEach(el => {
+		if (el.tagName === 'STYLE') {
+			const newStyle = document.createElement('style');
+			newStyle.textContent = el.textContent;
+			document.head.appendChild(newStyle);
+		} else { // link[rel="stylesheet"]
+			document.head.appendChild(el.cloneNode(true));
+		}
+	});
+	
+	// コンテンツの注入
+	target.innerHTML = doc.body.innerHTML;
+
+	// スクリプトの順次実行
+	const scripts = Array.from(doc.querySelectorAll('script'));
+	for (const oldScript of scripts) {
+		await new Promise((resolve) => {
+			const newScript = document.createElement('script');
+			Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
+			newScript.textContent = oldScript.textContent;
+			if (newScript.src) {
+				newScript.onload = resolve;
+				newScript.onerror = resolve;
+				document.head.appendChild(newScript);
+			} else {
+				target.appendChild(newScript);
+				resolve();
+			}
+		});
+	}
+	return initFnName;
+}
+
+/**
+ * メニューから動的にタブを追加し、表示・初期化する
+ * @param {string} title タブの表示名
+ * @param {string} source タブコンテンツのURLまたはHTML文字列
+ * @param {boolean} isContent sourceがHTML文字列であるか
+ */
+addDynamicTab = async function(title, source, isContent = false) {
+	document.getElementById('main-menu-dialog')?.close();
+	document.getElementById('add-tab-menu-dialog')?.close(); // オプションタブメニューも閉じる
+	await waiting(true, `${title}を読み込み中...`);
+	try {
+		// 2重起動防止: 同じ名前（タイトル）または同じソースのタブが既に開かれているかチェック
+		const existingIndex = (tabTitles.indexOf(title) !== -1) ? tabTitles.indexOf(title) : tabSources.indexOf(source);
+		if (existingIndex !== -1) {
+			mainJump(existingIndex);
+			showToast(`「${title}」は既に開いています`);
+			waiting(false);
+			return;
+		}
+
+		const nav = document.querySelector('.main-nav');
+		const wrapper = document.querySelector('.main-swiper > .swiper-wrapper');
+		const index = nav.querySelectorAll('.main-btn').length; // 現在のタブ数 = 新しいタブのインデックス
+		const placeholderId = `dynamic-tab-${index}`;
+
+		// 1. ナビボタン追加
+		const newBtn = document.createElement('button');
+		newBtn.className = 'main-btn dynamic-tab-btn';
+		newBtn.innerHTML = `<span>${title}</span><span class="close-tab-btn">✖</span>`;
+		newBtn.onclick = (e) => {
+			if (e.target.classList.contains('close-tab-btn')) {
+				e.stopPropagation();
+				closeTab(index);
+			} else {
+				mainJump(index);
+			}
+		};
+		nav.appendChild(newBtn);
+
+		// 2. スライド追加
+		mainSwiper.appendSlide(`<div class="swiper-slide" id="${placeholderId}"></div>`);
+		// 3. Swiper更新
+		mainSwiper.update();
+		// 4. コンテンツ読み込み
+		const initFnName = await loadTabContent(`#${placeholderId}`, source, isContent);
+
+		// 5. 初期化関数の登録
+		tabInits.push(initFnName);
+		tabSources.push(source);
+		tabTitles.push(title);
+		initializedTabs[index] = false; // 動的に追加されたタブは未初期化状態
+
+		// 6. 移動
+		mainJump(index);
+	} catch (e) {
+		console.error("タブの追加に失敗しました:", e);
+		alert("タブの追加に失敗しました。");
+	} finally {
+		waiting(false);
+	}
+};
+
+/**
+ * ローカルHTMLファイルを読み込んで動的タブとして追加する
+ */
+async function loadLocalTabFile(event) {
+	const file = event.target.files[0];
+	if (!file) return;
+
+	const reader = new FileReader();
+	reader.onload = async (e) => {
+		const htmlContent = e.target.result;
+		let tabName = file.name.replace(/\.html$/, '');
+		const parser = new DOMParser();
+		const doc = parser.parseFromString(htmlContent, 'text/html');
+		const titleElement = doc.querySelector('title');
+		if (titleElement && titleElement.textContent.trim() !== '') {
+			tabName = titleElement.textContent.trim();
+		}
+		await addDynamicTab(tabName, htmlContent, true); // isContent = true を追加
+	};
+	reader.readAsText(file);
+	event.target.value = ''; // 同じファイルを再度選択できるように、inputの値をクリアする
+}
+
+
+/**
+ * 動的に追加されたタブを閉じる
+ * @param {number} indexToClose 閉じるタブのインデックス
+ */
+function closeTab(indexToClose) {
+	const nav = document.querySelector('.main-nav');
+	const mainSwiper = document.querySelector('.main-swiper').swiper;
+
+	// 1. ナビボタンを削除
+	const btnToRemove = nav.children[indexToClose];
+	if (btnToRemove) btnToRemove.remove();
+
+	// 2. Swiperスライドを削除
+	mainSwiper.removeSlide(indexToClose);
+
+	// 3. tabInits と initializedTabs を更新
+	const swiperToDestroy = tabSwiperInstances[indexToClose];
+	tabInits.splice(indexToClose, 1);
+	tabSources.splice(indexToClose, 1);
+	tabTitles.splice(indexToClose, 1);
+	initializedTabs.splice(indexToClose, 1);
+	tabSwiperInstances.splice(indexToClose, 1); // Swiperインスタンスも削除
+
+	// 4. Swiperを更新し、必要に応じてアクティブなタブを調整 & 閉じるSwiperを破棄
+	mainSwiper.update();
+
+	// 閉じたタブがアクティブだった場合、または最後のタブだった場合、有効なタブに移動
+	if (mainSwiper.activeIndex >= mainSwiper.slides.length) {
+		mainJump(Math.max(0, mainSwiper.slides.length - 1));
+	} else {
+		// 閉じたタブより前のタブがアクティブだった場合、Swiperは自動でインデックスを調整するが、
+		// UIの状態を確実に同期するため、現在のactiveIndexに再度slideToを呼び出す
+		mainSwiper.slideTo(mainSwiper.activeIndex);
+	}
+	// Swiperインスタンスを破棄
+	if (swiperToDestroy && typeof swiperToDestroy.destroy === 'function') {
+		swiperToDestroy.destroy(true, true); // true, true でDOM要素とイベントリスナーを完全にクリーンアップ
+	}
+
+	// ナビボタンのインデックスを再調整 (onclickハンドラ内のindexがずれるため)
+	nav.querySelectorAll('.main-btn').forEach((btn, i) => {
+		btn.onclick = (e) => {
+			if (e.target.classList.contains('close-tab-btn')) {
+				e.stopPropagation();
+				closeTab(i);
+			} else {
+				mainJump(i);
+			}
+		};
+	});
+}
+
+window.addEventListener('DOMContentLoaded', async () => {
+	// 1. データベース読込 (最優先で実行)
+	if (db === null) await fetchDB();
+
+	if (debug) {
+		const title = document.querySelector('h1');
+		if (title) title.textContent += ' 開発版';
+	}
+
+	// 2. 各タブのコンテンツを非同期で読み込む (init*Tab 関数が window スコープに定義される)
+	try {
+		tabInits = await Promise.all([
+			loadTabContent('#crop-tab-placeholder', tabSources[0], false), // isContent: false を明示
+			loadTabContent('#pest-tab-placeholder', tabSources[1], false), // isContent: false を明示
+			loadTabContent('#chem-tab-placeholder', tabSources[2], false)  // isContent: false を明示
+		]); // Initial tabs are loaded. Dynamic tabs will be appended.
+		initializedTabs = tabInits.map(() => false);
+	} catch (e) { // catch ブロックを追加
+		console.error("初期タブの読み込みに失敗しました:", e);
+	}
+
+	// 初期ズーム適用
+	applyZoom(parseFloat(localStorage.getItem('appZoom')) || 1.0);
+
+	// 既存のメインタブボタンのテキストを更新
+	const mainNavButtons = document.querySelectorAll('.main-nav .main-btn');
+	mainNavButtons.forEach((button, index) => {
+		if (tabTitles[index]) {
+			button.textContent = tabTitles[index];
+		}
+	});
+
+	// 3. メインタブ Swiper の初期化
+	mainSwiper = new Swiper('.main-swiper', {
+		observer: true,
+		observeParents: true,
+		allowTouchMove: true,
+		allowSlideNext: true, 
+		allowSlidePrev: true,
+		noSwiping: true,
+		noSwipingClass: 'tab-container', // スライド自体ではなく、中身のコンテナを指定
+		speed: 300,
+		on: {
+			slideChange: function() {
+				clearAllSlideZoom();
+				updateMainTabs(this.activeIndex);
+				// 該当タブの初期化関数が未実行なら呼び出す
+				const initFn = tabInits[this.activeIndex];
+				if (initFn && !initializedTabs[this.activeIndex]) {
+					if (typeof window[initFn] === 'function') {
+						tabSwiperInstances[this.activeIndex] = window[initFn](); // Swiperインスタンスを格納
+						initializedTabs[this.activeIndex] = true;
+					}
+				}
+			},
+			// After main tab changes, update the step navigation buttons for the new active nested Swiper
+			transitionEnd: function() { // transitionEnd を使用して、スライドが完全に切り替わってから実行
+				const nestedSwiperEl = this.slides[this.activeIndex].querySelector('.swiper-initialized');
+				if (nestedSwiperEl && nestedSwiperEl.swiper) updateStepBar(nestedSwiperEl.swiper);
+			}
+		}
+	});
+
+	// 4. 作物タブの初期化 (db と mainSwiper が利用可能になった後)
+	const initFn = tabInits[0];
+	if (initFn && typeof window[initFn] === 'function') {
+		tabSwiperInstances[0] = window[initFn](); // Swiperインスタンスを格納
+		initializedTabs[0] = true;
+	}
+
+	// 5. グローバル関数の定義
+	// クリック時のジャンプ
+	mainJump = function(index) {
+		mainSwiper.slideTo(index);
+	};
+
+	// ステップのジャンプ
+	stepJump = function(index) {
+		// 現在のメインタブにある「中身（内側）のSwiper」を動的に取得する
+		const activeMainSlide = mainSwiper.slides[mainSwiper.activeIndex];
+		const nestedSwiperEl = activeMainSlide.querySelector('.swiper-initialized');
+
+		if (nestedSwiperEl && nestedSwiperEl.swiper) {
+			const targetSwiper = nestedSwiperEl.swiper;
+			// 未解放ステップは pointer-events: none になっているため、
+			// ここに到達した時点でジャンプ可能なステップであることが保証される
+			targetSwiper.slideTo(index);
+
+		}
+	};
+
+	// ステップの前後移動
+	stepMove = function(direction) {
+		const activeMainSlide = mainSwiper.slides[mainSwiper.activeIndex];
+		const nestedSwiperEl = activeMainSlide.querySelector('.swiper-initialized');
+		if (nestedSwiperEl && nestedSwiperEl.swiper) {
+			const targetSwiper = nestedSwiperEl.swiper; // Get the nested Swiper instance
+
+			// 移動できないステップへの前後移動タッチエリアは pointer-events: none になっているため、
+			// ここに到達した時点で前後移動可能であることが保証される
+			if (direction === 'prev') {
+				targetSwiper.slidePrev();
+			} else {
+				targetSwiper.slideNext();
+			}
+		}
+	}
+
+	// タブバーのスワイプ
+	addSwipeHandler(document.querySelector('.main-nav'), mainSwiper, true);
+
+	// 各タブのステップバーのスワイプハンドラは、それぞれのタブの init 関数内で設定される
+	// (Swiper インスタンスがそのスコープ内で利用可能になるため)
+
+	// 初期状態のインジケータをセット
+	updateMainTabs(0);
+	updateStepBar(tabSwiperInstances[0], 0); // Initial step bar and navigation update
+	mainJump(initTab);
+
+});
+
+let backTapCount = 0;
+let backTimer = null;
+console.log('arg: ', urlParams.toString());
+
+// 1. 起動時（最初のタップが必要）
+window.addEventListener('load', () => {
+	const initHistory = () => {
+		// Entry 0 (境界線)
+		history.replaceState({ isBottom: false }, ''); 
+		// Entry 1 (アプリ本体)
+		history.pushState({ isBottom: true }, ''); 
+		
+		window.removeEventListener('click', initHistory);
+	};
+	window.addEventListener('click', initHistory);
+});
+
+// 2. 戻るボタンの監視
+window.addEventListener('popstate', (event) => {
+	if (!event.state || !event.state.isBottom) {
+		// 💡 境界線に触れた
+		backTapCount++;
+
+		if (backTapCount >= 2) {
+			// 2回連続で戻ったなら、そのままアプリ終了（前のサイトへ戻る）
+			// ここで何もしなければ、ブラウザの自然な挙動で終了します
+		} else {
+			// 1回目の「戻る」：即座に履歴を Entry 1 に復帰させて、メッセージを出す
+			history.pushState({ isBottom: true }, '');
+			
+			showToast("もう一度戻るをタップすると終了します"); // 自作の通知
+
+			// 一定時間（例: 2秒）経ったらカウントをリセット
+			clearTimeout(backTimer);
+			backTimer = setTimeout(() => {
+				backTapCount = 0;
+			}, 2000);
+		}
+	}
+});
+
+function showToast(message) {
+	const toast = document.getElementById("toast");
+	
+	// メッセージをセット
+	toast.innerText = message;
+	
+	// クラスを付与して表示
+	toast.classList.add("show");
+
+	// 2秒後にクラスを外して隠す
+	setTimeout(() => {
+		toast.classList.remove("show");
+	}, 2000);
+}
+
 </script>
 </head>
-<html>
+<body>
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div class="prev-touch-bar" onclick="stepMove('prev')">«</div><!-- 前に戻るタッチ領域 -->
+<div class="next-touch-bar" onclick="stepMove('next')">»</div><!-- 次に進むタッチ領域 -->
+<header>
+	<div class="title">
+		<h1>ACFinderBE Mobile</h1>
+		<p id="db-update"></p>
+	</div>
+	<div class="menu">
+		<svg class="icon" onclick="showMainMenu()">
+			<title>メニュー</title>
+			<use href="icons.svg#menu"></use>
+		</svg>
+	</div>
+</header>
+
+<nav class="main-nav">
+	<button class="main-btn active" onclick="mainJump(0)"></button>
+	<button class="main-btn" onclick="mainJump(1)"></button>
+	<button class="main-btn" onclick="mainJump(2)"></button>
+</nav>
+
+<div class="swiper main-swiper">
+	<div class="swiper-wrapper">
+		
+		<!-- 【作物タブ】 -->
+		<div class="swiper-slide" id="crop-tab-placeholder"></div>
+
+		<!-- 【病害虫タブ】 -->
+		<div class="swiper-slide" id="pest-tab-placeholder"></div>
+
+		<!-- 【薬剤タブ】 -->
+		<div class="swiper-slide" id="chem-tab-placeholder"></div>
+	</div>
+</div>
+<input type="file" id="localTabFileInput" accept=".html" class="hidden">
+</div>
+<div id="toast" class="toast"></div>
+</body>
 </html>

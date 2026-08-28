@@ -28,7 +28,7 @@ class PestListManager {
 
 		this.reset();
 
-		this.idSuffix = this.wrapper.id || Math.random().toString(36).substring(2, 11);
+		this.idSuffix = this.wrapper.id || Math.random().toString(36).substr(2, 9);
 		const showCategory = options.showCategory !== false;
 		const title = options.title || '病害虫名等選択';
 		this.onSearch = options.onSearch;
