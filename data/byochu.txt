@@ -1,5 +1,5 @@
 --/d
-/* 2026.08.07 現在の農水省農薬登録情報提供システムに基づく病害虫・雑草マスター (2021.05.10) */
+/* 2026.08.28 現在の農水省農薬登録情報提供システムに基づく病害虫・雑草マスター (2021.05.10) */
 /* 検索用病害虫マスター 2014.01.15 */
 begin transaction;
 drop table if exists m_byochu;
@@ -586,7 +586,6 @@ insert into m_byochu values(2, 21, '20210200', 'アオドウガネ', 'あおどうがね');
 insert into m_byochu values(2, 21, '20210201', 'アオドウガネ幼虫', 'あおどうがねようちゅう');
 insert into m_byochu values(2, 21, '20210500', 'コアオハナムグリ', 'こあおはなむぐり');
 insert into m_byochu values(2, 21, '20210700', 'ドウガネブイブイ', 'どうがねぶいぶい');
-insert into m_byochu values(2, 21, '20210701', 'ドウガネブイブイ成虫', 'どうがねぶいぶいせいちゅう');
 insert into m_byochu values(2, 21, '20210800', 'ナガチャコガネ', 'ながちゃこがね');
 insert into m_byochu values(2, 21, '20210801', 'ナガチャコガネ幼虫', 'ながちゃこがねようちゅう');
 insert into m_byochu values(2, 21, '20210802', 'ナガチャコガネ成虫', 'ながちゃこがねせいちゅう');
@@ -946,6 +945,7 @@ insert into m_byochu values(2, 66, '20661800', 'アカギヒメヨコバイ', 'あかぎひめ
 insert into m_byochu values(2, 66, '20661801', 'アカギヒメヨコバイ幼虫', 'あかぎひめよこばいようちゅう');
 insert into m_byochu values(2, 66, '20661900', 'モモヒメヨコバイ', 'ももひめよこばい');
 insert into m_byochu values(2, 68, '20680200', 'ツノロウムシ', 'つのろうむし');
+insert into m_byochu values(2, 68, '20680400', 'ルビーロウムシ', 'るびーろうむし');
 insert into m_byochu values(2, 68, '20680500', 'ロウムシ類', 'ろうむしるい');
 insert into m_byochu values(2, 70, '20700100', 'コナカイガラムシ類', 'こなかいがらむしるい');
 insert into m_byochu values(2, 70, '20700101', 'コナカイガラムシ類若齢幼虫', 'こなかいがらむしるいじゃくれいようちゅう');
@@ -960,6 +960,7 @@ insert into m_byochu values(2, 70, '20702000', 'ミカンネコナカイガラムシ', 'みか
 insert into m_byochu values(2, 70, '20702100', 'ミカンコナカイガラムシ', 'みかんこなかいがらむし');
 insert into m_byochu values(2, 70, '20702200', 'ナスコナカイガラムシ', 'なすこなかいがらむし');
 insert into m_byochu values(2, 70, '20702300', 'マデイラコナカイガラムシ', 'までいらこなかいがらむし');
+insert into m_byochu values(2, 70, '20702500', 'クロテンコナカイガラムシ', 'くろてんこなかいがらむし');
 insert into m_byochu values(2, 80, '20800100', 'ナシチビガ', 'なしちびが');
 insert into m_byochu values(2, 90, '20900200', 'カキホソガ', 'かきほそが');
 insert into m_byochu values(2, 90, '20900300', 'キンモンホソガ', 'きんもんほそが');
