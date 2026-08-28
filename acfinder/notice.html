@@ -14,7 +14,7 @@
 	.value { font-size: 1.1rem; }
 	.btn-sync { display: block; width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 4px; font-size: 1rem; cursor: pointer; margin-top: 20px; }
 	.btn-sync:disabled { background: #ccc; }
-	.sync-msg, .status { margin-top: 10px; font-size: 0.85rem; text-align: center; }
+	.status { margin-top: 10px; font-size: 0.85rem; text-align: center; }
 </style>
 </head>
 <body>
@@ -35,13 +35,8 @@
 			</div>
 		</div>
 
-		<div id="sync-msg">
-			「バックグラウンド同期予約」をクリックすると、通信状況の良い時にバックグラウンドで更新ファイルをダウンロードします。<br>
-			同期予約しないでこの画面を閉じた場合も、次に ACFinderBE を起動したときに更新ファイルをダウンロードしますが、起動に若干時間がかかります。
-		</div>
-		<button id="sync-btn" class="btn-sync">バックグラウンド同期予約</button>
-		<div id="status" class="status">
-		</div>
+		<button id="sync-btn" class="btn-sync">バックグラウンドでダウンロードを開始</button>
+		<div id="status" class="status"></div>
 	</div>
 
 	<script>
@@ -49,20 +44,9 @@
 		const theme = localStorage.getItem('theme') || 'light';
 		document.documentElement.setAttribute('data-theme', theme);
 
-		// SyncManager 有無判定
-		const canSync = 'serviceWorker' in navigator && 'SyncManager' in window;
-		if (!canSync) {
-			document.getElementById('sync-msg').innerHTML = `
-				通信状況に問題がなければ、「今すぐダウンロード」をクリックして、更新ファイルをダウンロードしてください。<br>
-				ダウンロードしないでこの画面を閉じても、次に ACFinderBE を起動したときに更新ファイルをダウンロードします。
-			`;
-			document.getElementById('sync-btn').innerHTML = '今すぐダウンロード';
-		}
-
 		// URLパラメータからデータを取得
 		const params = new URLSearchParams(window.location.search);
 		const p = params.get('p');
-		let dataType = '';
 		if (p) {
 			try {
 				const data = JSON.parse(decodeURIComponent(escape(atob(p))));
@@ -76,7 +60,6 @@
 					document.getElementById('update-info').style.display = 'block';
 					document.getElementById('lastUpdate').textContent = data.lastUpdate;
 				}
-				dataType = data.type;
 			} catch (e) {
 				console.error('Failed to parse payload', e);
 			}
@@ -87,29 +70,20 @@
 			const btn = document.getElementById('sync-btn');
 			const status = document.getElementById('status');
 			
+			if (!('serviceWorker' in navigator) || !('SyncManager' in window)) {
+				status.textContent = 'お使いのブラウザはバックグラウンド同期に対応していません。';
+				return;
+			}
+
 			try {
+				btn.disabled = true;
+				status.textContent = '同期リクエストを送信中...';
 				const registration = await navigator.serviceWorker.ready;
-				if (dataType = 'app') {
-					registration.update();
-					status.textContent = 'ダウンロードを開始しました。この画面を閉じても大丈夫です。';
-				} else {
-					if (canSync) {
-						btn.disabled = true;
-						status.textContent = '同期リクエストを送信中...';
-						await registration.sync.register('download-db-update');
-						status.textContent = 'ダウンロードを予約しました。通信状況が良い時に自動で実行されます。この画面を閉じても大丈夫です。';
-					} else {
-						// Background Sync 非対応ブラウザの場合は service worker にメッセージを送信してダウンロードをトリガー
-						if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
-							navigator.serviceWorker.controller.postMessage({ type: 'download-db-update' });
-							status.textContent = 'ダウンロードを開始しました。この画面を閉じても大丈夫です。';
-						} else {
-							status.textContent = 'サービスワーカーが利用できないため、ダウンロードを開始できませんでした。';
-						}
-					}
-				}
-			} catch(err) {
-				status.textContent = '失敗しました。次回 ACFinderBE 起動時に更新ファイルをダウンロードします。';
+				await registration.sync.register('download-db-update');
+				status.textContent = 'ダウンロードを予約しました。通信状況が良い時に自動で実行されます。この画面を閉じても大丈夫です。';
+			} catch (err) {
+				console.error(err);
+				status.textContent = '登録に失敗しました。';
 				btn.disabled = false;
 			}
 		});

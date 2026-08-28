@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v5.61'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v5.60'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -100,13 +100,6 @@ self.addEventListener('install', (event) => {
 // Background Sync イベントリスナー
 self.addEventListener('sync', (event) => {
 	if (event.tag === 'download-db-update') {
-		event.waitUntil(downloadAndCacheUpdate());
-	}
-});
-
-// メッセージイベントリスナーを追加
-self.addEventListener('message', (event) => {
-	if (event.data && event.data.type === 'download-db-update') {
 		event.waitUntil(downloadAndCacheUpdate());
 	}
 });
