@@ -11,7 +11,7 @@ var lastUpdate = '';
 var dbStatusCached = false;
 
 const isCloud = window.location.hostname.match(/\.(vercel\.app|pages\.dev|github\.io)$/); // クラウドホスティング判定: ドメイン名が vercel.app, pages.dev, github.io
-const datdir = isCloud ? 'https://raw.githubusercontent.com/macs-labo/macs/main/data/' : '../data/'; // 実サーバ以外では github から取得
+const datdir = isCloud ? 'https://raw.githubusercontent.com/macs-labo/macs/main/data/' : typeof isMobile === 'undefined' || !isMobile ? '../data/' : '../../data/'; // 実サーバ以外では github から取得
 const maindb = 'acis';
 const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
@@ -1121,7 +1121,8 @@ async function fetchDB(optiondb = '') {
 		
 		// init_create_view 実行
 		await waiting(true, 'データ構築中...');
-		await execSQLLoadFromURL('init_create_view.sql');
+		const path = typeof isMobile === 'undefined' || !isMobile ? '' : '../';
+		await execSQLLoadFromURL(path + 'init_create_view.sql');
 		await setTabViews();
 
 		// キャッシュ利用が発生したファイルがあれば通知
@@ -1406,6 +1407,7 @@ function showNotificationDialog() {
 		dialog.style.cssText = '';
 	}
 
+	const icons = typeof isMobile === 'undefined' || !isMobile ? 'icons.svg' : '../icons.svg';
 	const render = async () => {
 		const isRegistered = localStorage.getItem('notice') === 'true';
 		const statusText = isRegistered ? '通知：有効' : '通知：無効';
@@ -1416,7 +1418,7 @@ function showNotificationDialog() {
 			<div class="menu-container">
 				<div class="info-container">
 					<svg class="icon" style="width: 32px; height: 32px; color: var(--text-color-dark);;">
-						<use href="icons.svg#${iconId}"></use>
+						<use href="${icons}#${iconId}"></use>
 					</svg>
 					<h2>${statusText}</h2>
 					<p>農薬DB及びアプリが更新された際、<br>お使いのデバイスに通知を送信し、<br>自動更新可能にします。</p>
@@ -1447,7 +1449,7 @@ function showNotificationDialog() {
 						await subscription.unsubscribe();
 					}
 					localStorage.removeItem('notice');
-					if (iconUse) iconUse.href.baseVal = 'icons.svg#bell';
+					if (iconUse) iconUse.href.baseVal = `${icons}#bell`;
 				} else {
 					// 新規購読処理
 					const subscription = await registration.pushManager.subscribe({
@@ -1460,7 +1462,7 @@ function showNotificationDialog() {
 						headers: { 'Content-Type': 'application/json' }
 					});
 					localStorage.setItem('notice', 'true');
-					if (iconUse) iconUse.href.baseVal = 'icons.svg#bell-off';
+					if (iconUse) iconUse.href.baseVal = `${icons}#bell-off`;
 				}
 				await render(); // 表示を最新の状態に更新
 			} catch (err) {
@@ -1563,6 +1565,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		}
 
 		// タイトルバー設定
+		const icons = typeof isMobile === 'undefined' || !isMobile ? 'icons.svg' : '../icons.svg';
 		//const titleBar = document.getElementById('title-bar');
 		const tabHeader = document.createElement('div');
 		tabHeader.className = 'tab_header';
@@ -1579,7 +1582,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		const subtitle = document.createElement('h2');
 		let year = appVer.split('.')[0];
 		if (year !== '2025') year = '2025-' + year;
-		subtitle.innerHTML = `Agricultural Chemicals Finder Browser Edition for Desktop<br/>&copy; ${year} TEAM ACFinder / Licensed under the MIT License`;
+		subtitle.innerHTML = `Agricultural Chemicals Finder Browser Edition for Desktop<br/>&copy; ${year} TEAM ACFinder / Licensed under the MIT Lic.`;
 		titleBar.appendChild(subtitle);
 		const dataWrapper= document.createElement('div');
 		const dbUpdate =  document.createElement('p');
@@ -1601,7 +1604,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		noticeIcon.appendChild(iconHint);
 		const iconUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
 		const iconId = noticeRegistered ? 'bell-off' : 'bell';
-		iconUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `icons.svg#${iconId}`);
+		iconUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `${icons}#${iconId}`);
 		noticeIcon.appendChild(iconUse);
 		notice.appendChild(noticeIcon);
 		titleBar.appendChild(notice);
@@ -1637,7 +1640,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		hint.textContent = '新しいタブを開く';
 		addButton.appendChild(hint);
 		const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-		use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg#plus');
+		use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `${icons}#plus`);
 		addButton.appendChild(use);
 		tabHeader.appendChild(addButton);
 

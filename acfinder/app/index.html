@@ -33,6 +33,7 @@ const urlParams = new URLSearchParams(window.location.search);
 			}, 300);
 		}
 	}
+	window.isMobile = true;
 
 	// タッチデバイスでない場合はここで終了
 	if (!('ontouchstart' in window)) return;
@@ -643,7 +644,6 @@ table.row-data-table {
 }
 </style>
 <script>
-isMobile = true;
 
 // --- 共通の簡易スワイプ検知関数 ---
 

@@ -1,7 +1,7 @@
 /* 共通ヘッダ用グローバル変数 */
 
 // バージョン
-const appVer = '2026.0826.1113';
+const appVer = '2026.0828.1559';
 //const debug = !window.location.href.includes('/acfinder/');
 
 // 基本タブメニュー設定
@@ -30,8 +30,12 @@ let tabs = [
 // Service Worker の登録
 if ('serviceWorker' in navigator) {
 	window.addEventListener('load', () => {
-		navigator.serviceWorker.register('./sw.js')
-			.then(reg => console.log('[PWA] ServiceWorker registered'))
+		// もし現在のURLパスに「/app/」が含まれていたら、1階層上に sw.js があると判定
+		const swPath = window.location.pathname.includes('/app/') ? '../sw.js' : './sw.js';
+
+		// 登録処理の実行
+		navigator.serviceWorker.register(swPath)
+			.then(reg => console.log('[PWA] ServiceWorker registered with wide scope:', reg.scope))
 			.catch(err => console.error('[PWA] ServiceWorker registration failed', err));
 	});
 }
