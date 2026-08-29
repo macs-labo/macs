@@ -582,20 +582,19 @@ const rowRenderer = (node, treeOptions) => {
 	const childrenLength = Object.keys(children).length;
 	//const childrenLength = node.data.children.length;
 	const more = node.hasChildren();
-	const icons = typeof isMobile === 'undefined' || !isMobile ? 'icons.svg' : '../icons.svg';
 
 	if (filtered === false) return;
-	let togglerContent = `<svg role="img" aria-label="⤷"><use href="${icons}#down-right"></use></svg>`;
+	let togglerContent = '<svg role="img" aria-label="⤷"><use href="icons.svg#down-right"></use></svg>';
 	let togglerClass = '';
 
 	if (!more && loadOnDemand) {
-		togglerContent = `<svg role="img" aria-label="📁"><use href="${icons}#folder-close"></use></svg>`;
+		togglerContent = '<svg role="img" aria-label="📁"><use href="icons.svg#folder-close"></use></svg>';
 		togglerClass = treeOptions.togglerClass + ' infinite-tree-closed';
 	} else if (more && open) {
-		togglerContent = `<svg role="img" aria-label="📂"><use href="${icons}#folder-open"></use></svg>`;
+		togglerContent = '<svg role="img" aria-label="📂"><use href="icons.svg#folder-open"></use></svg>';
 		togglerClass = treeOptions.togglerClass;
 	} else if (more && !open) {
-		togglerContent = `<svg role="img" aria-label="📁"><use href="${icons}#folder-close"></use></svg>`;
+		togglerContent = '<svg role="img" aria-label="📁"><use href="icons.svg#folder-close"></use></svg>';
 		togglerClass = treeOptions.togglerClass + ' infinite-tree-closed';
 	}
 

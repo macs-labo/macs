@@ -11,7 +11,7 @@ var lastUpdate = '';
 var dbStatusCached = false;
 
 const isCloud = window.location.hostname.match(/\.(vercel\.app|pages\.dev|github\.io)$/); // クラウドホスティング判定: ドメイン名が vercel.app, pages.dev, github.io
-const datdir = isCloud ? 'https://raw.githubusercontent.com/macs-labo/macs/main/data/' : typeof isMobile === 'undefined' || !isMobile ? '../data/' : '../../data/'; // 実サーバ以外では github から取得
+const datdir = isCloud ? 'https://raw.githubusercontent.com/macs-labo/macs/main/data/' : '../data/'; // 実サーバ以外では github から取得
 const maindb = 'acis';
 const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
@@ -1121,8 +1121,7 @@ async function fetchDB(optiondb = '') {
 		
 		// init_create_view 実行
 		await waiting(true, 'データ構築中...');
-		const path = typeof isMobile === 'undefined' || !isMobile ? '' : '../';
-		await execSQLLoadFromURL(path + 'init_create_view.sql');
+		await execSQLLoadFromURL('init_create_view.sql');
 		await setTabViews();
 
 		// キャッシュ利用が発生したファイルがあれば通知
@@ -1407,7 +1406,6 @@ function showNotificationDialog() {
 		dialog.style.cssText = '';
 	}
 
-	const icons = typeof isMobile === 'undefined' || !isMobile ? 'icons.svg' : '../icons.svg';
 	const render = async () => {
 		const isRegistered = localStorage.getItem('notice') === 'true';
 		const statusText = isRegistered ? '通知：有効' : '通知：無効';
@@ -1418,7 +1416,7 @@ function showNotificationDialog() {
 			<div class="menu-container">
 				<div class="info-container">
 					<svg class="icon" style="width: 32px; height: 32px; color: var(--text-color-dark);;">
-						<use href="${icons}#${iconId}"></use>
+						<use href="icons.svg#${iconId}"></use>
 					</svg>
 					<h2>${statusText}</h2>
 					<p>農薬DB及びアプリが更新された際、<br>お使いのデバイスに通知を送信し、<br>自動更新可能にします。</p>
@@ -1449,7 +1447,7 @@ function showNotificationDialog() {
 						await subscription.unsubscribe();
 					}
 					localStorage.removeItem('notice');
-					if (iconUse) iconUse.href.baseVal = `${icons}#bell`;
+					if (iconUse) iconUse.href.baseVal = 'icons.svg#bell';
 				} else {
 					// 新規購読処理
 					const subscription = await registration.pushManager.subscribe({
@@ -1462,7 +1460,7 @@ function showNotificationDialog() {
 						headers: { 'Content-Type': 'application/json' }
 					});
 					localStorage.setItem('notice', 'true');
-					if (iconUse) iconUse.href.baseVal = `${icons}#bell-off`;
+					if (iconUse) iconUse.href.baseVal = 'icons.svg#bell-off';
 				}
 				await render(); // 表示を最新の状態に更新
 			} catch (err) {
@@ -1565,7 +1563,6 @@ window.addEventListener('DOMContentLoaded', function() {
 		}
 
 		// タイトルバー設定
-		const icons = typeof isMobile === 'undefined' || !isMobile ? 'icons.svg' : '../icons.svg';
 		//const titleBar = document.getElementById('title-bar');
 		const tabHeader = document.createElement('div');
 		tabHeader.className = 'tab_header';
@@ -1604,10 +1601,63 @@ window.addEventListener('DOMContentLoaded', function() {
 		noticeIcon.appendChild(iconHint);
 		const iconUse = document.createElementNS('http://www.w3.org/2000/svg', 'use');
 		const iconId = noticeRegistered ? 'bell-off' : 'bell';
-		iconUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `${icons}#${iconId}`);
+		iconUse.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `icons.svg#${iconId}`);
 		noticeIcon.appendChild(iconUse);
 		notice.appendChild(noticeIcon);
 		titleBar.appendChild(notice);
+
+		// 💡 【追記】PWA（スタンドアロン）ウィンドウで起動している場合のデスクトップ向け案内バー
+		if (window.matchMedia('(display-mode: standalone)').matches) {
+			const ua = navigator.userAgent.toLowerCase();
+			let browserInstruction = '';
+
+			// ブラウザの識別とメッセージの切り分け
+			if (ua.includes('edg/')) {
+				// ── Edge 専用の案内 ──
+				browserInstruction = `
+					右上の <strong style="font-size: 15px;">ⵈ</strong> メニューから
+					<strong>「その他のツール ＞ Microsoft Edge で開く」</strong> を選択して、ブラウザ表示に切り替えてください。
+				`;
+			} else if (ua.includes('chrome/') || ua.includes('chromium/')) {
+				// ── Chrome 専用の案内 ──
+				browserInstruction = `
+					右上の <strong style="font-size: 15px;">ⵗ</strong> メニューから
+					<strong>「アプリ情報 ＞ 設定」</strong>を選択し、<strong>「ウインドウとして開く」をオフ</strong>に切り替えて再起動してください。
+				`;
+			} else {
+				// ── その他のブラウザ（念のためのフォールバック） ──
+				browserInstruction = `
+					右上のメニュー(<strong style="font-size: 15px;">ⵈ</strong> 等)から<strong>「ブラウザで開く」</strong>等の項目を選択し、通常のブラウザ表示に切り替えてください。
+				`;
+			}
+			const banner = document.createElement('div');
+			banner.id = 'pwa-desktop-guide-banner'; // 💡 削除できるようにIDを付与
+			banner.style = "position:fixed; top:0; left:0; width:100%; background:#1f3e92; color:#fff; text-align:center; padding:12px; z-index:9999; font-family:sans-serif; box-shadow:0 4px 10px rgba(0,0,0,0.2); font-size:14px; line-height:1.5;";
+			banner.innerHTML = `
+				<span style="font-weight:bold;">💻 デスクトップ環境では、通常のブラウザウィンドウ（タブ表示）での利用が最適です。</span><br>
+				<span style="font-size:12px; opacity:0.9;">${browserInstruction}</span>
+			`;
+			document.body.prepend(banner);
+			// バナーの高さ分、コンテンツとタイトルバー全体の余白を下げる
+			const bannerHeight = banner.getBoundingClientRect().height;
+			document.body.style.paddingTop = bannerHeight + 'px';
+
+			// 💡 表示モード（display-mode）の変更を監視するリスナーを登録
+			const displayModeMql = window.matchMedia('(display-mode: standalone)');
+			const handleDisplayModeChange = (e) => {
+				// standalone（PWAウインドウ）でなくなった場合（＝ブラウザに切り替わった場合）
+				if (!e.matches) {
+					const targetBanner = document.getElementById('pwa-desktop-guide-banner');
+					if (targetBanner) {
+						targetBanner.remove(); // バナーを削除
+						document.body.style.paddingTop = ""; // 余白を元通りにリセット
+					}
+					// リスナー自体も用済みなので解除
+					displayModeMql.removeEventListener('change', handleDisplayModeChange);
+				}
+			};
+			displayModeMql.addEventListener('change', handleDisplayModeChange);
+		}
 
 		function setCautionClass() {
 			const a = caution.querySelector('a');
@@ -1640,7 +1690,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		hint.textContent = '新しいタブを開く';
 		addButton.appendChild(hint);
 		const use = document.createElementNS('http://www.w3.org/2000/svg', 'use');
-		use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', `${icons}#plus`);
+		use.setAttributeNS('http://www.w3.org/1999/xlink', 'href', 'icons.svg#plus');
 		addButton.appendChild(use);
 		tabHeader.appendChild(addButton);
 

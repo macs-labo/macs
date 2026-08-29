@@ -1,10 +1,8 @@
 {
   "name": "ACFinder Browser Edition",
   "short_name": "ACFinderBE",
-  "description": "農薬検索システム ACFinderBE",
-  "id": "/acfinder/index.html",
-  "start_url": "./app/index.html",
-  "scope": "./app/",
+  "description": "農薬情報検索システム ACFinderBE",
+  "start_url": "./index.html",
   "display": "standalone",
   "background_color": "#fdfdfd",
   "theme_color": "#1f3e92",
