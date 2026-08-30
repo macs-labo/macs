@@ -1657,6 +1657,14 @@ window.addEventListener('DOMContentLoaded', function() {
 				}
 			};
 			displayModeMql.addEventListener('change', handleDisplayModeChange);
+
+			// バナークリックでバナー解除
+			banner.addEventListener('click', (e) => {
+				// 表示モード変更監視リスナー解除
+				displayModeMql.removeEventListener('change', handleDisplayModeChange);
+				banner.remove();
+				document.body.style.paddingTop = "";
+			});
 		}
 
 		function setCautionClass() {
