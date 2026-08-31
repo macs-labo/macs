@@ -55,7 +55,7 @@ jobs:
             echo "Waiting 120 seconds for GitHub to reflect changes..."
             sleep 120
           fi
-          OPT=$([[ "${{ github.event.inputs.force_update }}" == "true" ] ] && echo "?update=1" || echo "")
+          OPT=$([[ "${{ github.event.inputs.force_update }}" == "true" ]] && echo "?update=1" || echo "")
           CURL_OPTS=(-s -u "${{ secrets.SYNC_USER }}:${{ secrets.SYNC_PASS }}" -H "X-GitHub-Token: ${{ secrets.GITHUB_TOKEN }}")
           
           # 各拠点の .sync.macs.php を叩く
