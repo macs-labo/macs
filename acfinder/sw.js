@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v5.64r2'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v5.65'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -50,10 +50,10 @@ const ASSETS_TO_CACHE = [
 	'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
 	'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
 	'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js',
-	'https://cdn.jsdelivr.net/npm/handsontable@17.0.1/dist/handsontable.full.min.js',
-	'https://cdn.jsdelivr.net/npm/handsontable@17.0.1/dist/languages/ja-JP.js',
-	'https://cdn.jsdelivr.net/npm/handsontable@17.0.1/styles/handsontable.min.css',
-	'https://cdn.jsdelivr.net/npm/handsontable@17.0.1/styles/ht-theme-classic.min.css',
+	'https://cdn.jsdelivr.net/npm/handsontable@18.0.0/dist/handsontable.full.min.js',
+	'https://cdn.jsdelivr.net/npm/handsontable@18.0.0/dist/languages/ja-JP.js',
+	'https://cdn.jsdelivr.net/npm/handsontable@18.0.0/styles/handsontable.min.css',
+	'https://cdn.jsdelivr.net/npm/handsontable@18.0.0/styles/ht-theme-classic.min.css',
 	'https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js',
 	'https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css',
 	'https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js',
