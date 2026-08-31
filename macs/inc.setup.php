@@ -31,8 +31,7 @@ $home = array('url' => $url, 'title' => $sitename.$branch);
 $isVercel = (getenv('VERCEL') === '1');
 if ($isVercel) {
   $user_root = '';
-  //$dbPath = __DIR__ . '/data';
-  $dbPath = '/tmp';
+  $dbPath = __DIR__;
   $smartyPath = dirname(__DIR__) . '/vendor/smarty/smarty/libs/';
   $Debug = false; // Vercel は基本 false
 } else {
