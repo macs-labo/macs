@@ -54,7 +54,7 @@ ${style}
   <p class="note">「農薬検索システム ACFinderBE」メニューを選択すると、PC や横置大画面タブレットでは Desktop モード、スマホや小画面タブレット等では Mobile モードで自動起動します。</p>
 </div>
 <footer>
-  <p>MACS Lab: Mobile Agricultural Chemicals Search Laboratory</p>
+  <p>Mobile Agro-Chemicals Search Laboratory</p>
   <p>&copy; 2004-${year} MACS Lab.</p>
 </footer>
 </body>
