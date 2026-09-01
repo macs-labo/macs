@@ -69,14 +69,14 @@ update $fidtbl set class3 = '01', cropid = '0001', branch = NULL where regexp('^
 update $fidtbl set class = 3, level = 3, class3 = '02', branch = '0000' where sakumotsu = '大粒種ぶどう';
 update $fidtbl set class = 3, level = 3, class3 = '02', branch = null where sakumotsu like '大粒種ぶどう(%';
 insert or ignore into $fidtbl select 3,0,0,NULL,NULL,'ぶどう(巨峰系4倍体品種)','ぶどう(きょほうけい4ばいたいひんしゅ)',class0,class1,class2,class3,NULL,NULL from $fidtbl where sakumotsu = 'ぶどう';
-update $fidtbl set class = 4, level = 4, class3 = '02', cropid = '0001', branch = '0000' where sakumotsu = 'ぶどう(巨峰系4倍体品種)' or sakumotsu like 'ぶどう(巨峰系4倍体品種)%';
+update $fidtbl set class = 4, level = 4, class3 = '02', cropid = '0001', branch = '0000' where sakumotsu = 'ぶどう(巨峰系4倍体品種)'; --2026.8.31 以下削除 or sakumotsu like 'ぶどう(巨峰系4倍体品種)%';
 update $fidtbl set class3 = '02', cropid = '0001', branch = NULL where sakumotsu regexp 'ぶどう\((巨峰|高尾|ピオーネ|あづましずく|ふくしずく|サニールージュ|ルビーロマン|ハニービーナス)' and class = 5;
 insert or ignore into $fidtbl select 3,0,0,NULL,NULL,'ぶどう(2倍体米国系品種)','ぶどう(2ばいたいべいこくけいひんしゅ)',class0,class1,class2,class3,NULL,NULL from $fidtbl where sakumotsu = 'ぶどう';
 update $fidtbl set class = 4, level = 4, class3 = '02', cropid = '0002', branch = '0000' where sakumotsu = 'ぶどう(2倍体米国系品種)';
 update $fidtbl set class3 = '02', cropid = '0002', branch = NULL where sakumotsu regexp 'ぶどう\((2倍体米国|キャンベルアーリー|マスカット・ベリーA|キャンベルアーリー|ヒムロッドシードレス)' and class = 5;
 insert or ignore into $fidtbl select 3,0,0,NULL,NULL,'ぶどう(2倍体欧州系品種)','ぶどう(2ばいたいおうしゅうけいひんしゅ)',class0,class1,class2,class3,NULL,NULL from $fidtbl where sakumotsu = 'ぶどう';
 update $fidtbl set class = 4, level = 4, class3 = '02', cropid = '0003', branch = '0000' where sakumotsu = 'ぶどう(2倍体欧州系品種)';
-update $fidtbl set class3 = '02', cropid = '0003', branch = NULL where sakumotsu regexp 'ぶどう\((2倍体欧州|ヒロハンブルグ|マスカット・オブ|シャインマスカット|神紅)' and class = 5; --2027.7.2「神紅」追加
+update $fidtbl set class3 = '02', cropid = '0003', branch = NULL where sakumotsu regexp 'ぶどう\((2倍体欧州|ヒロハンブルグ|マスカット・オブ|シャインマスカット|神紅)' and class = 5; --2026.7.2「神紅」追加
 insert or ignore into $fidtbl select 3,0,0,NULL,NULL,'ぶどう(3倍体品種)','ぶどう(3ばいたいひんしゅ)',class0,class1,class2,class3,NULL,NULL from $fidtbl where sakumotsu = 'ぶどう';
 update $fidtbl set class = 4, level = 4, class3 = '02', cropid = '0004', branch = '0000' where sakumotsu = 'ぶどう(3倍体品種)';
 update $fidtbl set class3 = '02', cropid = '0004', branch = NULL where sakumotsu regexp 'ぶどう\((3倍体|ハニーシードレス|キングデラ|ナガノパープル|BKシードレス|大粒系デラウェア|ポンタ)' and class = 5;
@@ -339,7 +339,7 @@ create view ${viewsearch}2 as select class, idsaku, toroku, shukakubui, sakumots
 drop table if exists $dlgtbl;
 commit;
 
-/* 作物補助テーブル (2024.10.22) */
+/* 作物補助テーブル (2026.9.1) */
 begin transaction;
 drop table if exists tsakuhojo;
 create temp table tsakuhojo as select idsaku, sakumotsu, (select sakumotsu from m_sakumotsu where idsaku = substr(a.idsaku,1,12)||'0000') as shozoku, null as nozoku, null as fukumu from m_sakumotsu as a where class = 5;
@@ -358,8 +358,8 @@ update tsakuhojo set nozoku = replace(nozoku, re_replace('ぶどう\((.+?)[\)\(]
 update tsakuhojo set nozoku = (select '、'||concat('、', re_replace('ぶどう\((.+?)[\)\(].*', sakumotsu, '$1'))||'、' from tsakuhojo where shozoku = 'ぶどう(2倍体欧州系品種)' and sakumotsu not like '%品種%' and sakumotsu not like '%除く%') where shozoku = 'ぶどう(2倍体欧州系品種)' and sakumotsu not like '%品種%' and sakumotsu not like '%除く%';
 update tsakuhojo set nozoku = replace(nozoku, re_replace('ぶどう\((.+?)[\)\(].*', sakumotsu, '$1')||'、', '') where  shozoku = 'ぶどう(2倍体欧州系品種)' and nozoku is not null;
 update tsakuhojo set nozoku = (select '、'||concat('、', re_replace('ぶどう\((.+?)[\)\(].*', sakumotsu, '$1'))||'、' from tsakuhojo where shozoku = 'ぶどう(3倍体品種)' and sakumotsu not like '%品種%' and sakumotsu not like '%除く%' and sakumotsu not like '%キングデラ%') where shozoku = 'ぶどう(3倍体品種)' and sakumotsu not like '%品種%' and sakumotsu not like '%除く%';
-update tsakuhojo set nozoku = replace(nozoku, re_replace('ぶどう\((.+?)[\)\(].*', sakumotsu, '$1')||'、', '') where  shozoku = 'ぶどう(3倍体品種)' and nozoku is not null;
-update tsakuhojo set nozoku = replace(nozoku, '大粒系デラウェア、', '') where  sakumotsu = 'ぶどう(キングデラ)';
+update tsakuhojo set nozoku = replace(nozoku, re_replace('ぶどう\((.+?)[\)\(].*', sakumotsu, '$1')||'、', '') where shozoku = 'ぶどう(3倍体品種)' and nozoku is not null;
+update tsakuhojo set nozoku = replace(nozoku, '大粒系デラウェア、', '') where sakumotsu = 'ぶどう(キングデラ)';
 --update tsakuhojo set shozoku = 'ぶどう(巨峰)' where sakumotsu regexp 'ぶどう\(巨峰\)?[\(\[]';
 --update tsakuhojo set shozoku = re_replace('\[.*\]', sakumotsu, '') where sakumotsu like 'ぶどう%' and sakumotsu not like '%品種%' and sakumotsu like '%栽培]';
 update tsakuhojo set shozoku = concat('、', shozoku, 'ぶどう(巨峰)') where sakumotsu regexp 'ぶどう\(巨峰\)?[\(\[]';
@@ -374,6 +374,10 @@ update tsakuhojo set nozoku = re_replace('(?<=、)(.+?)(?=、)', nozoku, 'りん
 update tsakuhojo set nozoku = re_replace('(?<=、)(.+?)(?=、)', nozoku, 'なし($1)') where sakumotsu like 'なし%' and nozoku is not null;
 update tsakuhojo set nozoku = re_replace('(?<=、)(.+?)(?=、)', nozoku, 'ぶどう($1)') where sakumotsu like 'ぶどう%' and nozoku is not null;
 update tsakuhojo set nozoku = re_replace('(?<=、)(.+?)(?=、)', nozoku, 'メロン($1)') where sakumotsu like 'メロン%' and nozoku is not null;
+update tsakuhojo set nozoku = ifnullstr(nozoku, '、')||re_replace('\)、', shozoku||'、', ')[有核栽培]、') where sakumotsu like '%無核栽培%';
+update tsakuhojo set nozoku = ifnullstr(nozoku, '、')||re_replace('\)、', shozoku||'、', ')[無核栽培]、') where sakumotsu like '%有核栽培%';
+--update tsakuhojo set fukumu = ifnullstr(shozoku, '、')||explode('、', shozoku, 0)||'[有核栽培]、'|| explode('、', shozoku, 0)||'[無核栽培]、' where shozoku like '%品種)%' and sakumotsu not like '%核栽培%';
+--update tsakuhojo set shozoku = concat('、',shozoku, explode('、', shozoku, 0)||'[有核栽培]', explode('、', shozoku, 0)||'[無核栽培]') where shozoku like '%品種)%' and sakumotsu not like '%核栽培%';
 update tsakuhojo set nozoku = '、落葉果樹、', fukumu = '、'||re_replace('.+\((.+)\)', sakumotsu, '$1')||'、' where sakumotsu like '落葉果樹(%' and sakumotsu not like '%除く%';
 update tsakuhojo set nozoku = replace(nozoku, '、ただし、らっかせいを除く', ''), fukumu = '、らっかせい、' where nozoku like '%豆類(種実、ただし、らっかせいを除く)%'; 
 update tsakuhojo set nozoku = re_replace('.*、ただし(?=、)', nozoku, '') where nozoku like '%、ただし、%' and nozoku not like '%除く%';  

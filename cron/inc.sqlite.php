@@ -33,7 +33,7 @@ function _replace($target, $search, $replacement) {
 
 function _explode($delimiter, $target, $col) {
   $cols = explode($delimiter, $target);
-  return $cols[$col - 1] ? $cols[$col - 1] : NULL;
+  return $cols[$col] ? $cols[$col] : NULL;
 }
 
 function _fuzzy($str) {
