@@ -1,7 +1,7 @@
 --/d
-/* 製剤追加情報テーブル 2026.08.03 */
+/* 製剤追加情報テーブル 2026.09.01 */
 create table if not exists info (item varchar primary key, value varchar);
-insert or replace into info (item, value) values ('seizai', '2026.08.03');
+insert or replace into info (item, value) values ('seizai', '2026.09.01');
 drop table if exists seizai;
 create table seizai (bango integer primary key, dokusei varchar, kousin varchar);
 begin transaction;
@@ -405,7 +405,6 @@ insert into seizai values (16700, '普', NULL);
 insert into seizai values (16706, '普', NULL);
 insert into seizai values (16714, '劇', NULL);
 insert into seizai values (16715, '劇', NULL);
-insert into seizai values (16720, '劇', NULL);
 insert into seizai values (16721, '劇', NULL);
 insert into seizai values (16722, '劇', NULL);
 insert into seizai values (16742, '劇', NULL);
@@ -3763,4 +3762,6 @@ insert into seizai values (25056, '普', NULL);
 insert into seizai values (25057, '普', NULL);
 insert into seizai values (25058, '劇', NULL);
 insert into seizai values (25059, '劇', NULL);
+insert into seizai values (25060, '普', NULL);
+insert into seizai values (25061, '普', NULL);
 commit;

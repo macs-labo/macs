@@ -1,7 +1,7 @@
 --/d
-/* —LŒø¬•ª“Å«ƒ}ƒXƒ^[ 2026.08.03 */
+/* —LŒø¬•ª“Å«ƒ}ƒXƒ^[ 2026.09.01 */
 create table if not exists info (item varchar primary key, value varchar);
-insert or replace into info (item, value) values ('m_dokusei', '2026.08.03');
+insert or replace into info (item, value) values ('m_dokusei', '2026.09.01');
 drop table if exists m_dokusei;
 create table m_dokusei (ippanmei varchar, nai varchar, yoto varchar, biko varchar, ojas varchar, rac varchar, dokusei varchar, adi varchar, arfd varchar, wqs varchar, eqs varchar, hatsutoroku varchar, jogai varchar);
 begin transaction;
@@ -140,7 +140,7 @@ insert into m_dokusei values ('ƒyƒLƒƒ}ƒCƒZƒX ƒeƒkƒCƒyƒX','Paecilomyces tenuipes
 insert into m_dokusei values ('ƒyƒLƒƒ}ƒCƒZƒX ƒtƒ‚ƒ\ƒƒZƒEƒX','Paecilomyces fumosoroseus (Wize) Brown & Smith','’','”÷','›','-(¶)','-','-','-','-','-','2001.06.11',NULL);
 insert into m_dokusei values ('ƒyƒ‹ƒƒgƒŠƒ“','Permethrin','’',NULL,NULL,'I-3A','•','0.05','0.5','0.1','0.17','1985.02.21',NULL);
 insert into m_dokusei values ('ƒxƒ“ƒYƒsƒŠƒ‚ƒLƒTƒ“','Benzpyrimoxan','’',NULL,NULL,'I-UN','•','0.026','0.1','0.069','220','2020.09.14',NULL);
-insert into m_dokusei values ('ƒxƒ“ƒtƒ‰ƒJƒ‹ƒu','Benfuracarb','’',NULL,NULL,'I-1A','Œ€','0.0089','0.0092',NULL,'0.99','1986.10.28','6%•');
+insert into m_dokusei values ('ƒxƒ“ƒtƒ‰ƒJƒ‹ƒu','Benfuracarb','’',NULL,NULL,'I-1A','Œ€','0.0089','0.0092','0.023','0.99','1986.10.28','6%•');
 insert into m_dokusei values ('ƒ{[ƒxƒŠƒA ƒoƒVƒA[ƒi','Beauveria bassiana (Balsamo) Vuillemin','’','”÷','›','I-UNF','-','-','-','-','-','2002.11.12',NULL);
 insert into m_dokusei values ('ƒ{[ƒxƒŠƒA ƒuƒƒ“ƒjƒAƒeƒB','Beauveria brongniartii (Sacc.) Petch','’','”÷','›','-','-','-','-','-','-','1995.11.17',NULL);
 insert into m_dokusei values ('ƒzƒXƒ`ƒAƒ[[ƒg','Fosthiazate','’',NULL,NULL,'I-1B','Œ€','0.002','0.007 (0.002)','0.005','23','1992.04.01','1.5%•');
@@ -193,7 +193,7 @@ insert into m_dokusei values ('ƒIƒLƒTƒ`ƒAƒsƒvƒƒŠƒ“','Oxathiapiprolin','‹Û',NULL
 insert into m_dokusei values ('ƒIƒLƒVƒeƒgƒ‰ƒTƒCƒNƒŠƒ“','Oxytetracycline','‹Û',NULL,NULL,'F-41','•','0.03','0.03','0.07','84','1957.09.28',NULL);
 insert into m_dokusei values ('ƒIƒLƒXƒ|ƒRƒiƒ][ƒ‹ƒtƒ}ƒ‹_‰–','Oxpoconazole fumarate','‹Û',NULL,NULL,'F-3','•','0.03','0.2','0.079','250','2000.04.28',NULL);
 insert into m_dokusei values ('ƒIƒLƒ\ƒŠƒjƒbƒN_','Oxolinic acid','‹Û',NULL,NULL,'F-31','•','0.021','0.06','0.055','450','1989.02.08',NULL);
-insert into m_dokusei values ('ƒJƒXƒKƒ}ƒCƒVƒ“','Kasugamycin','‹Û',NULL,NULL,'F-24','•','0.094','-','0.25','6600','1965.05.10',NULL);
+insert into m_dokusei values ('ƒJƒXƒKƒ}ƒCƒVƒ“','Kasugamycin','‹Û',NULL,'›','F-24','•','0.094','-','0.25','6600','1965.05.10',NULL);
 insert into m_dokusei values ('ƒLƒmƒLƒTƒŠƒ“Œn','Chinomethionat','‹Û',NULL,NULL,'F-M10','•','0.0064','1.5','0.017','1.5','1961.06.14',NULL);
 insert into m_dokusei values ('ƒLƒmƒtƒƒŠƒ“','quinofumelin','‹Û',NULL,NULL,'F-52','•','0.03','0.3','0.07','120','2025.02.10',NULL);
 insert into m_dokusei values ('ƒLƒƒƒvƒ^ƒ“','Captan','‹Û',NULL,NULL,'F-M4','•','0.1','3 (0.3)','0.2','2.6','1953.03.10',NULL);
@@ -277,12 +277,12 @@ insert into m_dokusei values ('ƒtƒ‹ƒIƒ‹ƒCƒ~ƒh','Fluoroimide','‹Û',NULL,NULL,'F-M
 insert into m_dokusei values ('ƒtƒ‹ƒLƒTƒsƒƒLƒTƒh','Fluxapyroxad','‹Û',NULL,NULL,'F-7','•','0.021','1.2','0.055','29','2013.06.13',NULL);
 insert into m_dokusei values ('ƒtƒ‹ƒWƒIƒLƒ\ƒjƒ‹','Fludioxonil','‹Û',NULL,NULL,'F-12','•','0.33','2.5','0.87','77','1996.10.29',NULL);
 insert into m_dokusei values ('ƒtƒ‹ƒXƒ‹ƒtƒ@ƒ~ƒh','Flusulfamide','‹Û',NULL,NULL,'F-36','Œ€','0.001',NULL,NULL,'29','1992.11.04','0.3%•');
-insert into m_dokusei values ('ƒtƒ‹ƒ`ƒAƒjƒ‹','Flutianil','‹Û',NULL,NULL,'F-U13','•','2.4','-','9.3','85','2013.02.01',NULL);
+insert into m_dokusei values ('ƒtƒ‹ƒ`ƒAƒjƒ‹','Flutianil','‹Û',NULL,NULL,'F-U13','•','2.4','-','6.3','85','2013.02.01',NULL);
 insert into m_dokusei values ('ƒtƒ‹ƒgƒ‰ƒjƒ‹','Flutolanil','‹Û',NULL,NULL,'F-7','•','0.087','-','0.23','310','1985.02.21',NULL);
 insert into m_dokusei values ('ƒvƒƒNƒƒ‰ƒY','Prochloraz','‹Û',NULL,NULL,'F-3','•','0.04','1.6','0.1','310','1990.03.31',NULL);
 insert into m_dokusei values ('ƒvƒƒVƒ~ƒhƒ“','Procymidone','‹Û',NULL,NULL,'F-2','•','0.035','0.3 (0.035)','0.093','420','1981.03.19',NULL);
 insert into m_dokusei values ('ƒvƒƒ`ƒIƒRƒiƒ][ƒ‹','prothioconazole','‹Û',NULL,NULL,'F-3','•','0.011','1 (0.02)','0.029','120','2021.08.11',NULL);
-insert into m_dokusei values ('ƒvƒƒpƒ‚ƒJƒ‹ƒu‰–_‰–','Propamocarb-hydrochloride','‹Û',NULL,NULL,'F-28','•','0.12','0.2','0.77','10000','1989.02.08',NULL);
+insert into m_dokusei values ('ƒvƒƒpƒ‚ƒJƒ‹ƒu‰–_‰–','Propamocarb-hydrochloride','‹Û',NULL,NULL,'F-28','•','0.12','0.2','0.31','10000','1989.02.08',NULL);
 insert into m_dokusei values ('ƒvƒƒsƒRƒiƒ][ƒ‹','Propiconazole','‹Û',NULL,NULL,'F-3','•','0.019','0.3','0.05','560','1990.11.07',NULL);
 insert into m_dokusei values ('ƒvƒƒsƒlƒu','Propineb','‹Û',NULL,NULL,'F-M3','•','0.0025',NULL,NULL,'21','1969.03.12',NULL);
 insert into m_dokusei values ('ƒvƒƒxƒiƒ][ƒ‹','Probenazole','‹Û',NULL,NULL,'F-P2','•','0.01','2','0.02','270','1974.04.27',NULL);
@@ -331,7 +331,7 @@ insert into m_dokusei values ('ƒCƒ}ƒUƒ‚ƒbƒNƒXƒAƒ“ƒ‚ƒjƒEƒ€‰–','Imazamox-ammonium'
 insert into m_dokusei values ('ƒCƒ}ƒ]ƒXƒ‹ƒtƒƒ“','Imazosulfuron','‘',NULL,NULL,'H-2','•','0.089',NULL,NULL,'690','1993.04.28',NULL);
 insert into m_dokusei values ('ƒCƒ“ƒ_ƒWƒtƒ‰ƒ€','Indaziflam','‘',NULL,NULL,'H-29','•','-','-','0.05','71','2012.04.06',NULL);
 insert into m_dokusei values ('ƒCƒ“ƒ_ƒmƒtƒ@ƒ“','Indanofan','‘',NULL,NULL,'H-15','•','0.0035',NULL,'0.0093','2.9','1999.08.24',NULL);
-insert into m_dokusei values ('ƒGƒXƒvƒƒJƒ‹ƒu','Esprocarb','‘',NULL,NULL,'H-15','•','-','-','0.02','15','1988.03.24',NULL);
+insert into m_dokusei values ('ƒGƒXƒvƒƒJƒ‹ƒu','Esprocarb','‘',NULL,NULL,'H-15','•','0.01','0.05','0.02','15','1988.03.24',NULL);
 insert into m_dokusei values ('ƒGƒgƒLƒVƒXƒ‹ƒtƒƒ“','Ethoxysulfuron','‘',NULL,NULL,'H-2','•','0.056',NULL,'0.14','300','1998.04.24',NULL);
 insert into m_dokusei values ('ƒGƒgƒxƒ“ƒUƒjƒh','Etobenzanid','‘',NULL,NULL,'H-0','•','0.044',NULL,'0.11','78','1995.11.28',NULL);
 insert into m_dokusei values ('‰–‘f_‰–','Sodium chlorate','‘',NULL,NULL,'-','Œ€','-','-',NULL,'7900','1951.11.22',NULL);
@@ -388,7 +388,7 @@ insert into m_dokusei values ('ƒgƒŠƒtƒƒLƒVƒXƒ‹ƒtƒƒ“ƒiƒgƒŠƒEƒ€‰–','Trifloxysulf
 insert into m_dokusei values ('ƒgƒ‹ƒsƒ‰ƒŒ[ƒg','Tolpyralate','‘',NULL,NULL,'H-27','•','0.0076','0.1','0.00085','2200','2016.11.14',NULL);
 insert into m_dokusei values ('ƒiƒvƒƒpƒ~ƒh','Napropamide','‘',NULL,NULL,'H-0','•','0.125',NULL,'0.29','680','1975.12.24',NULL);
 insert into m_dokusei values ('ƒjƒRƒXƒ‹ƒtƒƒ“','Nicosulfuron','‘',NULL,NULL,'H-2','•',NULL,NULL,NULL,'9800','1994.11.28',NULL);
-insert into m_dokusei values ('ƒpƒ‰ƒR[ƒg','Paraquat','‘',NULL,NULL,'H-22','“Å','0.0045','0.0045',NULL,'240','1965.03.16',NULL);
+insert into m_dokusei values ('ƒpƒ‰ƒR[ƒg','Paraquat','‘',NULL,NULL,'H-22','“Å','0.0045','0.0045','0.016','240','1965.03.16',NULL);
 insert into m_dokusei values ('ƒnƒƒXƒ‹ƒtƒƒ“ƒƒ`ƒ‹','Halosulfuron-methyl','‘',NULL,NULL,'H-2','•','0.1',NULL,'0.26','5','1995.03.31',NULL);
 insert into m_dokusei values ('ƒrƒXƒsƒŠƒoƒbƒNƒiƒgƒŠƒEƒ€‰–','Bispyribac-sodium','‘',NULL,NULL,'H-2','•','0.011',NULL,NULL,'1200','1997.04.30',NULL);
 insert into m_dokusei values ('ƒsƒ‰ƒNƒƒjƒ‹','Pyraclonil','‘',NULL,NULL,'H-14','•','0.0044',NULL,'0.011','3.8','2007.12.28',NULL);
@@ -403,8 +403,8 @@ insert into m_dokusei values ('ƒsƒƒLƒTƒXƒ‹ƒzƒ“','Pyroxasulfone','‘',NULL,NULL,
 insert into m_dokusei values ('ƒtƒFƒmƒLƒTƒXƒ‹ƒzƒ“','Fenoxasulfone','‘',NULL,NULL,'H-15','•','0.17',NULL,'0.45','0.93','2014.05.16',NULL);
 insert into m_dokusei values ('ƒtƒFƒ“ƒLƒmƒgƒŠƒIƒ“','Fenquinotrione','‘',NULL,NULL,'H-27','•','0.0016','-','0.0042','1300','2018.02.28',NULL);
 insert into m_dokusei values ('ƒtƒFƒ“ƒgƒ‰ƒUƒ~ƒh','Fentrazamide','‘',NULL,NULL,'H-15','•','0.0052',NULL,'0.013','6','2000.12.21',NULL);
-insert into m_dokusei values ('ƒtƒFƒ“ƒƒfƒBƒtƒ@ƒ€','Phenmedipham','‘',NULL,NULL,'H-5','•','0.046','-','0.12','2.9','1969.05.08',NULL);
-insert into m_dokusei values ('ƒuƒ^ƒNƒ[ƒ‹','Butachlor','‘',NULL,NULL,'H-15','•','0.01','0.49','0.026','3.1','1998.12.22',NULL);
+insert into m_dokusei values ('ƒtƒFƒ“ƒƒfƒBƒtƒ@ƒ€','Phenmedipham','‘',NULL,NULL,'H-5','•','0.046','-','0.12','2.7','1969.05.08',NULL);
+insert into m_dokusei values ('ƒuƒ^ƒNƒ[ƒ‹','Butachlor','‘',NULL,NULL,'H-15','•','0.01','0.49','0.02','3.1','1998.12.22',NULL);
 insert into m_dokusei values ('ƒuƒ^ƒ~ƒzƒX','Butamifos','‘',NULL,NULL,'H-3','•','0.008',NULL,'0.02','62','1980.07.09',NULL);
 insert into m_dokusei values ('ƒtƒ‰ƒUƒXƒ‹ƒtƒƒ“','Flazasulfuron','‘',NULL,NULL,'H-2','•','0.013','0.5','0.034','17','1989.12.01',NULL);
 insert into m_dokusei values ('ƒtƒ‹ƒAƒWƒzƒbƒvP','Fluazifop-P-butyl ','‘',NULL,NULL,'H-1','•','0.0044','- (0.02)','0.011','82','1998.12.22',NULL);
@@ -415,7 +415,7 @@ insert into m_dokusei values ('ƒtƒ‹ƒ|ƒLƒTƒ€','Flupoxam','‘',NULL,NULL,'H-29','•
 insert into m_dokusei values ('ƒtƒ‹ƒ~ƒIƒLƒTƒWƒ“','Flumioxazin','‘',NULL,NULL,'H-14','•','0.018','- (0.03)','0.047','0.55','2000.04.28',NULL);
 insert into m_dokusei values ('ƒvƒŒƒ`ƒ‰ƒNƒ[ƒ‹','Pretilachior','‘',NULL,NULL,'H-15','•','0.018','-','0.047','2.8','1984.04.09',NULL);
 insert into m_dokusei values ('ƒvƒƒWƒAƒ~ƒ“','Prodiamine','‘',NULL,NULL,'H-3','•','-','-','0.17','0.46','1991.10.08',NULL);
-insert into m_dokusei values ('ƒvƒƒXƒ‹ƒzƒJƒ‹ƒu','Prosulfocarb','‘',NULL,NULL,'H-15','•','0.005','0.1','0.05','36','2010.08.10',NULL);
+insert into m_dokusei values ('ƒvƒƒXƒ‹ƒzƒJƒ‹ƒu','Prosulfocarb','‘',NULL,NULL,'H-15','•','0.005','0.1','0.01','36','2010.08.10',NULL);
 insert into m_dokusei values ('ƒvƒƒpƒjƒ‹','Propanil','‘',NULL,NULL,'H-5','•','0.016','0.57','0.042','49','2019.10.31',NULL);
 insert into m_dokusei values ('ƒvƒƒsƒUƒ~ƒh','Propyzamide','‘',NULL,NULL,'H-3','•','0.019',NULL,'0.05','470','1973.02.28',NULL);
 insert into m_dokusei values ('ƒvƒƒsƒŠƒXƒ‹ƒtƒƒ“','Propyrisulfuron','‘',NULL,NULL,'H-2','•','0.011',NULL,'0.029','11','2010.12.13',NULL);
@@ -423,7 +423,7 @@ insert into m_dokusei values ('ƒuƒƒ}ƒVƒ‹','Bromacil','‘',NULL,NULL,'H-5','•',
 insert into m_dokusei values ('ƒvƒƒƒgƒŠƒ“','Prometryn','‘',NULL,NULL,'H-5','•','0.03','1.5','0.07','35','1963.06.22',NULL);
 insert into m_dokusei values ('ƒtƒƒ‹ƒsƒ‰ƒEƒLƒVƒtƒFƒ“ƒxƒ“ƒWƒ‹','Florpyrauxifen-benzyl','‘',NULL,NULL,'H-4','•','8','-','21','4.1','2020.04.23',NULL);
 insert into m_dokusei values ('ƒuƒƒ‚ƒuƒ`ƒh','Bromobutide','‘',NULL,NULL,'H-30','•','0.04',NULL,'0.1','480','1986.04.14',NULL);
-insert into m_dokusei values ('ƒtƒƒ‰ƒXƒ‰ƒ€','Florasulam','‘',NULL,NULL,'H-2','•','0.049','-',NULL,'9.4','2000.01.13',NULL);
+insert into m_dokusei values ('ƒtƒƒ‰ƒXƒ‰ƒ€','Florasulam','‘',NULL,NULL,'H-2','•','0.049','-','0.13','9.4','2000.01.13',NULL);
 insert into m_dokusei values ('ƒwƒLƒTƒWƒmƒ“','Hexazinone','‘',NULL,NULL,'H-5','•','0.049',NULL,'0.13','41','2013.06.13',NULL);
 insert into m_dokusei values ('ƒyƒmƒLƒXƒXƒ‰ƒ€','Penoxsulam','‘',NULL,NULL,'H-2','•','0.05',NULL,'0.13','230','2007.12.28',NULL);
 insert into m_dokusei values ('ƒyƒ‰ƒ‹ƒSƒ“_','Pelargonic acid','‘',NULL,NULL,'H-0','•','-','-','-','4600','2016.04.13',NULL);
