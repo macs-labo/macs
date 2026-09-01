@@ -737,9 +737,9 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 				d_concat('/',mid4,keito4,replace(rem4, 'FRAC系統名: ', '')),
 				d_concat('/',mid5,keito5,replace(rem5, 'FRAC系統名: ', ''))
 			) as mid
-			FROM tv_tsushoTekiyo
+			FROM t_tekiyo
 			WHERE tsusho = '${yakuzaiName}' AND sakumotsu IN (${currentSakumotsu})
-			GROUP BY sakumotsu, jiki, kaisu, baisu, ekiryo, hoho;
+			GROUP BY tsusho, sakumotsu, jiki, kaisu, baisu, ekiryo, hoho;
 		`;
 		if (debug) console.log(sql);
 		results = await dbExec(sql);

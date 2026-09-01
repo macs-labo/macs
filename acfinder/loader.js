@@ -945,7 +945,7 @@ async function execSQLLoadFromURL(url) {
 	try {
 		const response = await fetch(url);
 		if (!response.ok) throw new Error(`レスポンスステータス: ${response.status}`);
-		db.run(await response.text());
+		db.run(convTemplate(await response.text()));
 		if (debug) console.log('Executed: ' + url);
 	} catch (error) {
 		console.error(error.message);

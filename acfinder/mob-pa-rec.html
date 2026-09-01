@@ -295,8 +295,22 @@ async function setupPlanChem(moveThis = true) {
 	await waiting(true, '薬剤リストを作成中...');
 	try {
 		const sql =`
+			drop view if exists tv_tsushoTekiyo2;
+			create temp view tv_tsushoTekiyo2 as
+			select distinct
+				tsusho, shurui, zaikei, seizaidokusei, sakumotsu, byochu, mokuteki, baisu, ekiryo, jiki, kaisu, hoho,
+				iif(basho = '-', null, basho) as basho, iif(jikan = '-', null, jikan) as jikan, iif(ondo ='-', null, ondo) as ondo,
+				iif(dojo = '-', null, dojo) as dojo, iif(chitai ='-', null, chitai) as chitai, tekiyaku,
+				seibun1, yuko1, kaisu1, mid1, keito1, rem1, risk1,
+				seibun2, yuko2, kaisu2, mid2, keito2, rem2, risk2,
+				seibun3, yuko3, kaisu3, mid3, keito3, rem3, risk3,
+				seibun4, yuko4, kaisu4, mid4, keito4, rem4, risk4,
+				seibun5, yuko5, kaisu5, mid5, keito5, rem5, risk5,
+				kongo, seizaiyoto, seizaikoka, seizaiojas
+			from t_tekiyo left join tsushoruby as t using (tsusho) left join m_sakumotsu as s using (sakumotsu) left join m_byochu as b using (byochu)
+			order by t.ruby, s.ruby, idbyochu;
 			drop table if exists t_planTekiyo;
-			create temp table t_planTekiyo as select * from tv_tsushoTekiyo where sakumotsu in (${makeCropCondition(crops)});
+			create temp table t_planTekiyo as select * from tv_tsushoTekiyo2 where sakumotsu in (${makeCropCondition(crops)});
 			with t_tekiyo1 as (select tsusho, ruby, sakumotsu,
 				gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
 				n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords

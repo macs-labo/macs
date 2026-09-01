@@ -33,7 +33,7 @@ class ChemListManager {
 			<select name="yakuzaiSelect">
 				<option value="" selected>全　全て</option>
 				<option value="殺菌">菌　殺菌剤</option>
-				<option value="殺虫">虫　殺虫剤</option>
+				<option value="殺(線?虫|ダニ)|誘引">虫　殺虫剤</option>
 				<option value="除草">草　除草剤</option>
 				<option value="成長調整|植調">調　植調剤</option>
 				<option value="肥料">肥　農薬肥料</option>
