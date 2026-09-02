@@ -34,8 +34,11 @@ function OpenDB(&$db) {
   $db->sqliteCreateFunction('strconv', '_strconv', 2);
   $db->sqliteCreateFunction('chemruby', '_chemruby', 1);
   $db->sqliteCreateFunction('concat', '_concat');
+  $db->sqliteCreateFunction('n_concat', '_concat');
   $db->sqliteCreateAggregate('concat', '_concatStep', '_concatFinal', 2);
-  $db->sqliteCreateFunction('concat2', '_concat2');
+  $db->sqliteCreateAggregate('gn_concat', '_concatStep', '_concatFinal', 2);
+  $db->sqliteCreateFunction('d_concat', '_concat2');
   $db->sqliteCreateAggregate('concat2', '_concat2Step', '_concatFinal', 2);
+  $db->sqliteCreateAggregate('gd_concat', '_concat2Step', '_concatFinal', 2);
 }
 ?>

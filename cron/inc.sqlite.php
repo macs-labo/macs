@@ -1,6 +1,5 @@
 <?php
 // .make.(acis|spec).php 共通設定ファイル
-
 require_once 'inc.setup.php';
 
 if ($dbpath && !file_exists($dbpath)) mkdir($dbpath, 0705, true);
