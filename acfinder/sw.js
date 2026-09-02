@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v5.66'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v5.67'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -45,8 +45,8 @@ const ASSETS_TO_CACHE = [
 	'../android-chrome-192x192.png',
 	'../apple-touch-icon-180x180.png',
 	// 外部ライブラリもキャッシュしてオフライン対応を強化
-	'https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.min.js',
-	'https://cdn.jsdelivr.net/npm/sql.js@1.14.1/dist/sql-wasm.wasm',
+	'https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.min.js',
+	'https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.wasm',
 	'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js',
 	'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js',
 	'https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js',
