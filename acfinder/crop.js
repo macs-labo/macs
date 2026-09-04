@@ -637,16 +637,18 @@ function normalizeColName(name) {
 }
 
 // 作物名 csv を sakuhojo 用作物名正規表現に変換
-function csvToRegexp(csv) {
+function csvToRegexp(csv, opt = true) {
 	// 半角括弧を全角に一括置換
 	csv = normalizeColName(csv);
 
 	// 先頭が栽培条件付き作物名の場合、上位作物群にも栽培条件を追加
+	// ぶどう関係の例外処理追加 2026.9.2
+	// 「野菜類(施設栽培、ただし、○○を除く)」等のパターンへの対応 2026.9.4
 	let items = csv.split(',');
 	const f = items[0];
 	const m = f.match(/（((露地|施設|水耕)栽培)[）（]/);
 	if (m) {
-		const a = m[0].replace(/（$/, '）');
+		const a = m[0].replace(/（$/, '[）、]');
 		const b = f.replace(/（.+$/, '');
 		items = items.map((item, i) => i === 0 || (item !== 'ぶどう' && item === b) ? item :
 						item.includes('品種）') ? item + a :
@@ -663,21 +665,26 @@ function csvToRegexp(csv) {
 	csv = csv.replace(/[（）［］]/g, (char) => escapeMap[char]);
 
 	csv = csv.replaceAll(',', '|');
-	return `、(${csv})、`;
+	return opt ? `、(${csv})、` : csv;
 }
 
 let cropConditions = [];
 
 // 単純作物名を上位下位展開して sakhojo 用検索条件に変換
+// class 5 作物で除外作物がある場合は、相反する栽培条件を拾わないよう最後に再判定 2026.9.4追加
 function expandCrops(crop) {
 	const sql = `
 		select gn_concat(',', sakumotsu) from (select idsaku, sakumotsu, toroku from m_sakumotsu order by idsaku desc) where toroku in (1, 3) and idsaku regexp (
 		select n_concat('|',idsaku,substr(idsaku,1,12)||'0000',substr(idsaku,1,8)||'00000000',substr(idsaku,1,6)||'0000000000',substr(idsaku,1,4)||'000000000000',substr(idsaku,1,2)||'00000000000000',
 		if(gunmei is not null,(select idsaku from m_sakumotsu where sakumotsu = a.gunmei))) from m_sakumotsu as a where sakumotsu = '${crop}');
+		select iif(class = 5, ifnull(nozoku, ''), '') from m_sakumotsu left join sakuhojo using(idsaku) where sakumotsu = '${crop}';
 	`;
 	const result = db.exec(sql);
 	const crops = csvToRegexp(result[0].values[0][0]);
-	return `('、'||n_concat('、', sakumotsu, shozoku)||'、' regexp '${crops}' and nozoku not regexp '${crops}' or fukumu regexp '${crops}')`;
+	const jogai = csvToRegexp(result[1].values[0][0].replaceAll('、', ',').replace(/^,+|,+$/g, ''), false);
+	let cond = `('、'||n_concat('、', sakumotsu, shozoku)||'、' regexp '${crops}' and nozoku not regexp '${crops}' or fukumu regexp '${crops}')`;
+	if (jogai) cond = `(${cond} and sakumotsu not regexp '${jogai}')`
+	return cond;
 }
 
 // 単純作物名配列を in 用検索条件に変換
