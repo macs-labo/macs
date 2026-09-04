@@ -339,7 +339,7 @@ create view ${viewsearch}2 as select class, idsaku, toroku, shukakubui, sakumots
 drop table if exists $dlgtbl;
 commit;
 
-/* 作物補助テーブル (2026.9.2) */
+/* 作物補助テーブル (2026.9.2,4) */
 begin transaction;
 drop table if exists tsakuhojo;
 create temp table tsakuhojo as select idsaku, sakumotsu, (select sakumotsu from m_sakumotsu where idsaku = substr(a.idsaku,1,12)||'0000') as shozoku, null as nozoku, null as fukumu from m_sakumotsu as a where class = 5;
@@ -356,9 +356,9 @@ update tsakuhojo set nozoku = replace(nozoku, re_replace('ぶどう\((.+?)[\)\(]
 update tsakuhojo set nozoku = (select '、'||gn_concat('、', re_replace('ぶどう\((.+?)[\)\(].*', sakumotsu, '$1'))||'、' from tsakuhojo where shozoku = 'ぶどう(3倍体品種)' and sakumotsu not like '%品種%' and sakumotsu not like '%除く%' and sakumotsu not like '%キングデラ%') where shozoku = 'ぶどう(3倍体品種)' and sakumotsu not like '%品種%' and sakumotsu not like '%除く%';
 update tsakuhojo set nozoku = replace(nozoku, re_replace('ぶどう\((.+?)[\)\(].*', sakumotsu, '$1')||'、', '') where shozoku = 'ぶどう(3倍体品種)' and nozoku is not null;
 update tsakuhojo set nozoku = replace(nozoku, '大粒系デラウェア、', '') where sakumotsu = 'ぶどう(キングデラ)';
---update tsakuhojo set shozoku = re_replace('\)\[.+?\]', sakumotsu, '')||')', fukumu = '、'||shozoku||'、' where sakumotsu like '%デラウェア)%' and sakumotsu like '%栽培]%' and sakumotsu like '%栽培)%';
-update tsakuhojo set shozoku = n_concat('、', shozoku, 'ぶどう(巨峰)') where sakumotsu regexp 'ぶどう\(巨峰\)?[\(\[]';
-update tsakuhojo set shozoku = n_concat('、', shozoku, re_replace('\[.*\]', sakumotsu, '')) where sakumotsu like 'ぶどう%' and sakumotsu not like '%品種%' and sakumotsu like '%栽培]';
+update tsakuhojo set fukumu = ifnullstr(fukumu, '、')||re_replace('\[.*\]', sakumotsu, '')||'、' where sakumotsu like 'ぶどう%' and sakumotsu not like '%品種%' and sakumotsu like '%栽培]' and sakumotsu not like '%(デラウェア)%';
+update tsakuhojo set fukumu = ifnullstr(fukumu, '、')||'ぶどう(巨峰)'||'、' where sakumotsu regexp 'ぶどう\(巨峰\(.+栽培\)\)';
+update tsakuhojo set nozoku = ifnullstr(nozoku, '、')||re_replace('\[.*\]', sakumotsu, '')||'、' where sakumotsu like 'ぶどう%' and sakumotsu not like '%品種%' and sakumotsu like '%栽培]';
 update tsakuhojo set nozoku = '、'||re_replace('.+[\(\[](.+)を除く.*', sakumotsu, '$1')||'、' where sakumotsu like 'ぶどう%' and sakumotsu  like '%除く%';
 --update tsakuhojo set nozoku = (select '、'||gn_concat('、', re_replace('メロン\((.+?)\)', sakumotsu, '$1'))||'、' from tsakuhojo where shozoku = 'メロン' and sakumotsu like '%メロン)') where shozoku = 'メロン' and sakumotsu like '%メロン)';
 --update tsakuhojo set nozoku = replace(nozoku, re_replace('メロン\((.+?)\)', sakumotsu, '$1')||'、', '') where  shozoku = 'メロン' and nozoku is not null;
@@ -378,7 +378,7 @@ update tsakuhojo set nozoku = replace(nozoku, '、ただし、らっかせいを
 update tsakuhojo set nozoku = re_replace('.*、ただし(?=、)', nozoku, '') where nozoku like '%、ただし、%' and nozoku not like '%除く%';  
 update tsakuhojo set nozoku = '、'||replace(sakumotsu, 'を除く', '')||'、' where nozoku like '%栽培、%';
 update tsakuhojo set nozoku = re_replace('\(.*?ただし、', nozoku, '(') where nozoku like '%ただし%';
-update tsakuhojo set shozoku = re_replace('、ただし、.*除く', sakumotsu, '') where sakumotsu like '%、ただし、%' and shozoku not like '%(%' and sakumotsu not like '%豆類%';
+update tsakuhojo set fukumu = ifnullstr(fukumu, '、')||re_replace('、ただし、.*除く', sakumotsu, '')||'、' where sakumotsu like '%、ただし、%' and shozoku not like '%(%' and sakumotsu not like '%豆類%';
 update tsakuhojo set nozoku = ifnullstr(nozoku, '、')||'豆類(未成熟)、' where shozoku like '%、豆類、%';
 update tsakuhojo set nozoku = (select gn_concat('、', sakumotsu) from tsakuhojo as b where b.shozoku = tsakuhojo.shozoku and sakumotsu not regexp '除く|[^\)\]]$' group by shozoku) where shozoku in ('果樹類', 'みかん', 'びわ', 'りんご', 'なし', '日本なし', '西洋なし', 'おうとう', 'すもも', 'かき') and sakumotsu not regexp '除く|[^\)\]]$'; 
 update tsakuhojo set nozoku = (select gn_concat('、', sakumotsu) from tsakuhojo as b where b.shozoku = tsakuhojo.shozoku and sakumotsu not like '%除く%' group by shozoku) where shozoku in ('野菜類', 'いも類', 'ばれいしょ', 'ごぼう', 'てんさい', 'たまねぎ', 'あさつき', 'ねぎ', '豆類(種実)', 'えだまめ', 'さやいんげん', 'きゅうり', 'とうがん', 'かぼちゃ', 'すいか', 'メロン', 'ピーマン', 'とうがらし類', 'なばな', 'キャベツ', 'はくさい', 'みつば', 'レタス', '非結球レタス', 'ほうれんそう', 'アスパラガス', '食用ぎく', 'いちご') and sakumotsu not like '%除く%'; 
@@ -393,13 +393,13 @@ update tsakuhojo set fukumu = ifnullstr(fukumu, '、')||replace(sakumotsu, '施�
 update tsakuhojo set nozoku = ifnullstr(nozoku, '、')||replace(shozoku, '施設', '露地')||'、', fukumu = ifnullstr(fukumu, '、')||replace(shozoku, '施設', '水耕')||'、' where shozoku like '%施設栽培%' and nozoku not like '%水耕栽培%';
 update tsakuhojo set nozoku = ifnullstr(nozoku, '、')||replace(sakumotsu, '露地', '施設')||'、'||replace(sakumotsu, '露地', '水耕')||'、' where sakumotsu like '%(露地栽培%';
 update tsakuhojo set nozoku = '、'||shozoku||'(施設栽培)、'||shozoku||'(水耕栽培)、' where sakumotsu like '%露地栽培%' and nozoku is null;
-update tsakuhojo set nozoku = replace(nozoku, '、すもも(貴陽)、', '、') where sakumotsu = 'すもも(中晩生種)'; 
-update tsakuhojo set nozoku = replace(nozoku, '、すもも(中晩生種)、','、') where sakumotsu = 'すもも(貴陽)'; 
-update tsakuhojo set nozoku = replace(nozoku, '、水稲(箱育苗)、', '、') where sakumotsu = '稲(箱育苗)'; 
-update tsakuhojo set nozoku = replace(nozoku, '、稲(箱育苗)、', '、') where sakumotsu = '水稲(箱育苗)'; 
-update tsakuhojo set nozoku = replace(nozoku, '、稲(湛水直播)、', '、') where sakumotsu = '湛水直播水稲'; 
-update tsakuhojo set nozoku = replace(nozoku, '、湛水直播水稲、', '、') where sakumotsu = '稲(湛水直播)'; 
-update tsakuhojo set nozoku = replace(nozoku, '、ベントグラス、', '、芝(ベントグラス)、西洋芝(ベントグラス)、') where nozoku = '、ベントグラス、'; 
+update tsakuhojo set nozoku = replace(nozoku, '、すもも(貴陽)、', '、') where sakumotsu = 'すもも(中晩生種)';
+update tsakuhojo set nozoku = replace(nozoku, '、すもも(中晩生種)、','、') where sakumotsu = 'すもも(貴陽)';
+update tsakuhojo set nozoku = replace(nozoku, '、水稲(箱育苗)、', '、') where sakumotsu = '稲(箱育苗)';
+update tsakuhojo set nozoku = replace(nozoku, '、稲(箱育苗)、', '、') where sakumotsu = '水稲(箱育苗)';
+update tsakuhojo set nozoku = replace(nozoku, '、稲(湛水直播)、', '、') where sakumotsu = '湛水直播水稲';
+update tsakuhojo set nozoku = replace(nozoku, '、湛水直播水稲、', '、') where sakumotsu = '稲(湛水直播)';
+update tsakuhojo set nozoku = replace(nozoku, '、ベントグラス、', '、芝(ベントグラス)、西洋芝(ベントグラス)、') where nozoku = '、ベントグラス、';
 drop table if exists sakuhojo;
 create table sakuhojo as select idsaku, shozoku, nozoku, fukumu from tsakuhojo order by idsaku;
 drop table tsakuhojo;
