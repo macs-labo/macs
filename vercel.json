@@ -10,5 +10,7 @@
     { "src": "/macs/(.*\\.(js|css|png|jpg|gif|ico|svg))$", "dest": "/macs/$1" },
     { "src": "/macs/(.*)", "dest": "/api/index.php" },
     { "handle": "filesystem" }
-  ]
+  ],
+  "framework": "other",
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- $(git diff --name-only HEAD^ HEAD | grep -v '^cron/')"
 }
