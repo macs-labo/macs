@@ -1,3 +1,8 @@
 {
-  "ignoreCommand": "git diff --quiet $VERCEL_GIT_PREVIOUS_SHA $VERCEL_GIT_COMMIT_SHA -- acfinder"
+  "git": {
+    "deploymentEnabled": {
+      "main": true,
+      "dev": false
+    }
+  }
 }
