@@ -4,7 +4,7 @@
 const cautionDate = Date.parse('2026/3/1');
 
 // データベース設定
-const debug = !window.location.href.includes('/acfinder/');
+const debug = !window.location.href.includes('/acfinder/') || !window.location.href.includes('-dev');
 var db = null;
 var tables = []; // テーブルインスタンスを保持する配列
 var lastUpdate = '';
