@@ -6,7 +6,8 @@ acfinder/acfinder*.zip
 #!data/acis.zip
 #!data/spec.zip
 data/
-macs/
+macs/*
+!macs/*.css
 api/
 LICENSE
 README.md
