@@ -11,6 +11,5 @@
     { "src": "/macs/(.*)", "dest": "/api/index.php" },
     { "handle": "filesystem" }
   ],
-  "framework": "other",
   "ignoreCommand": "git diff --quiet HEAD^ HEAD -- $(git diff --name-only HEAD^ HEAD | grep -v '^cron/')"
 }
