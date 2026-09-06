@@ -6,6 +6,7 @@ let branch = "○○分室"; //本室、本室別館、秋田分室、大阪分�
 const branches = [
   { host: 'macs.xii.jp', branch: '本室' },
   { host: 'macs.vercel.app', branch: '本室別館' },
+  { host: 'macs-git-dev-macs-labo.vercel.app', branch: '開発室' },
   { host: 'macs.kabe.info', branch: '秋田分室' },
   { host: 'noyaku.ebb.jp', branch: '大阪分室' }
 ];
