@@ -2,8 +2,11 @@
 .github/
 cron/
 acfinder/acfinder*.zip
-data/*
-!data/acis.zip
-!data/spec.zip
+#data/*
+#!data/acis.zip
+#!data/spec.zip
+data/
+macs/
+api/
 LICENSE
 README.md
