@@ -1,5 +1,4 @@
 {
   "framework": "other",
-  "rootDirectory": "acfinder",
-  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- ."
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- acfinder"
 }
