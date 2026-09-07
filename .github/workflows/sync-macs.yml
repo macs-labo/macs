@@ -41,6 +41,14 @@ jobs:
             git diff --cached --quiet || git commit -m "Auto sync macs source [skip ci]"
             git push
           fi
+ 
+      # Vercel CLI をインストール
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      # 公式コマンドで本番デプロイを実行
+      - name: Deploy to Vercel (Production)
+        run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=macs-labo
 
       - name: Trigger Remote Sync
         # Push時、または手動で同期モードが選ばれた時に実行
@@ -52,8 +60,8 @@ jobs:
           # GitHub CDN の反映待ち
           # push 時、または run_mode が 'full_sync' か 'github_only' の場合のみ待機
           if [[ "${{ github.event_name }}" == "push" || "${{ github.event.inputs.run_mode }}" == "full_sync" ]]; then
-            echo "Waiting 120 seconds for GitHub to reflect changes..."
-            sleep 120
+            echo "Waiting 60 seconds for GitHub to reflect changes..."
+            sleep 60
           fi
           OPT=$([[ "${{ github.event.inputs.force_update }}" == "true" ]] && echo "?update=1" || echo "")
           CURL_OPTS=(-s -u "${{ secrets.SYNC_USER }}:${{ secrets.SYNC_PASS }}" -H "X-GitHub-Token: ${{ secrets.GITHUB_TOKEN }}")
