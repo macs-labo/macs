@@ -1,4 +1,4 @@
-name: MACS-labo Test Site Deploy (Manual)
+name: MACS-labo Site Deploy (Manual)
 
 on:
   # 手動実行のみに制限
@@ -8,14 +8,19 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1. 最初にリポジトリのコード（特に vercel.json）を読み込むステップが必要です
+      # 1. リポジトリのコードをチェックアウト
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Vercelへのデプロイを実行
+      # 2. 【重要】古い設定ファイルの衝突を防ぐため、.vercel ディレクトリを削除
+      - name: Remove Old Vercel Metadata
+        run: rm -rf .vercel
+
+      # 3. リポジトリルートを基準に Vercel へのデプロイを実行
       - name: Deploy to Vercel (Preview)
         uses: amondnet/vercel-action@v25
         with:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          working-directory: . 
