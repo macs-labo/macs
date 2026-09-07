@@ -18,4 +18,4 @@ jobs:
 
       # 3. 公式コマンドで直接プレビューデプロイを実行（--scope や --prod は不要）
       - name: Deploy to Vercel (Preview)
-        run: vercel deploy --token=${{ secrets.VERCEL_TOKEN }}
+        run: vercel deploy --yes --token=${{ secrets.VERCEL_TOKEN }}
