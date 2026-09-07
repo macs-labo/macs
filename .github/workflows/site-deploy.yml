@@ -18,4 +18,6 @@ jobs:
 
       # 3. 公式コマンドで直接プレビューデプロイを実行（--scope や --prod は不要）
       - name: Deploy to Vercel (Preview)
-        run: vercel deploy --yes --token=${{ secrets.VERCEL_TOKEN }}
+        run: |
+          url="$(vercel deploy --prebuilt --token=${{ secrets.VERCEL_TOKEN }})"
+          vercel alias --token=${{ secrets.VERCEL_TOKEN }} set "$url" macs-git-dev-macs-labo.vercel.app
