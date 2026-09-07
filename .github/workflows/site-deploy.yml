@@ -8,6 +8,11 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
+      # 1. 最初にリポジトリのコード（特に vercel.json）を読み込むステップが必要です
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      # 2. Vercelへのデプロイを実行
       - name: Deploy to Vercel (Preview)
         uses: amondnet/vercel-action@v25
         with:
