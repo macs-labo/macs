@@ -164,8 +164,8 @@ jobs:
     steps:
       - name: Trigger Remote Sync
         run: |
-          echo "Waiting 120 seconds for GitHub CDN to reflect changes..."
-          sleep 120
+          echo "Waiting 60 seconds for GitHub CDN to reflect changes..."
+          sleep 60
 
           QUERY=""
           case "${{ needs.update-db.outputs.sync_mode }}" in
