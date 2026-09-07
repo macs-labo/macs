@@ -32,10 +32,12 @@ const head = `
 <h2>${branch}</h2>
 `;
 
-const main = `
-<p class="node"><button class="menu" type="button" onclick="window.open('${acfbpath}/', '_blank')"><span>農薬検索システム ACFinderBE</span><span>≫</span></button></p>
+let main = `<p class="node"><button class="menu" type="button" onclick="window.open('${acfbpath}/', '_blank')"><span>農薬検索システム ACFinderBE</span><span>≫</span></button></p>`;
+main += window.location.href.inclues('-dev-') ? '' : `
 <p class="node"><button class="menu" type="button" onclick="location.href='${macspath}/'"><span>携帯農薬検索システム MACS</span><span>≫</span></button></p>
 <p class="node"><button class="menu" type="button" onclick="location.href='${datapath}/'"><span>農薬登録情報ダウンロード</span><span>≫</span></button></p>
+`;
+main += `
 <p class="node"><button class="menu" type="button" onclick="window.open('https://www.facebook.com/groups/272174746319343/', '_blank')"><span>農薬検索研究会facebook</span><span>☞</span></button></p>
 <p class="node"><button class="menu" type="button" onclick="window.open('https://github.com/macs-labo/macs/', '_blank')"><span>ソースコード(GitHub)</span><span>☞</span></button></p>
 <p class="node"><button class="help" type="button" onclick="location.href='./about.html'">このサイトについて</button></p>
