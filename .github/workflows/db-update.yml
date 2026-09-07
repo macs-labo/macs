@@ -21,7 +21,7 @@ on:
         options: [fully_sync, dbupdate_only, site_sync_only, push_notification_only]
 
   schedule:
-    - cron: '2 0-6/1 * * 1-5'
+    - cron: '10 0-6/1 * * 1-5'
 
 permissions:
   contents: write
@@ -140,7 +140,22 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  # 並列ジョブ2: 外部サイトの同期（各拠点の .sync.data.php を叩く）
+  # 並列ジョブ2: Vercel へのデプロイトリガーを引く
+  deploy-vercel:
+    needs: update-db
+    # acisが変わった、または強制更新の場合
+    if: (needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.force_update == 'true') && github.event.inputs.sync_mode != 'push_notification_only'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Vercel (Production)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod' # 本番（Production）環境としてデプロイを強制するフラグ
+
+  # 並列ジョブ3: 外部サイトの同期（各拠点の .sync.data.php を叩く）
   sync-remote:
     needs: update-db
     # acisが変わった、または強制更新の場合
@@ -170,7 +185,7 @@ jobs:
           curl "${CURL_OPTS[@]}" "https://macs.kabe.info/cron/.sync.data.php$OPT"
           curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/cron/.sync.data.php$OPT"
 
-  # 並列ジョブ3: 通知
+  # 並列ジョブ4: 通知
   push-notification:
     needs: update-db
     if: always() && (needs.update-db.result == 'success') && (needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.spec_changed == 'true' || github.event.inputs.sync_mode == 'push_notification_only')
