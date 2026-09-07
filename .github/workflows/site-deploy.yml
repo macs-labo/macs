@@ -8,20 +8,14 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     steps:
-      # 1. リポジトリのコードをチェックアウト
+      # 1. コードをチェックアウト
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. 【重要】古い設定ファイルの衝突を防ぐため、.vercel ディレクトリを削除
-      - name: Remove Old Vercel Metadata
-        run: rm -rf .vercel
+      # 2. Vercel CLI をインストール
+      - name: Install Vercel CLI
+        run: npm install -g vercel
 
-      # 3. リポジトリルートを基準に Vercel へのデプロイを実行
+      # 3. 公式コマンドで直接プレビューデプロイを実行（--scope や --prod は不要）
       - name: Deploy to Vercel (Preview)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-args: '--scope macs-labo'
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: . 
+        run: vercel deploy --token=${{ secrets.VERCEL_TOKEN }}
