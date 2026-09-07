@@ -119,6 +119,20 @@ jobs:
           curl "${CURL_OPTS[@]}" "https://macs.kabe.info/acfinder/.sync.acfinder.php$OPT"
           curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/acfinder/.sync.acfinder.php$OPT"
 
+  deploy-vercel:
+    needs: sync-and-notify
+    # 成功かつアプリが更新された場合に Vercel デプロイのトリガーを引く
+    if: always() && (needs.sync-and-notify.result == 'success') && (needs.sync-and-notify.outputs.app_updated == 'true')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Vercel (Production)
+        uses: amondnet/vercel-action@v25
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+          vercel-args: '--prod' # 本番（Production）環境としてデプロイを強制するフラグ
+
   push-notification:
     needs: sync-and-notify
     # 成功かつアプリが更新された場合に通知を実行
