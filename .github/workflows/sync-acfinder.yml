@@ -125,13 +125,13 @@ jobs:
     if: always() && (needs.sync-and-notify.result == 'success') && (needs.sync-and-notify.outputs.app_updated == 'true')
     runs-on: ubuntu-latest
     steps:
+      # 1. Vercel CLI をインストール
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      # 2. 公式コマンドで直接プレビューデプロイを実行
       - name: Deploy to Vercel (Production)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod' # 本番（Production）環境としてデプロイを強制するフラグ
+        run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=macs-labo
 
   push-notification:
     needs: sync-and-notify
