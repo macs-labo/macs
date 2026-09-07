@@ -33,7 +33,7 @@ const head = `
 `;
 
 let main = `<p class="node"><button class="menu" type="button" onclick="window.open('${acfbpath}/', '_blank')"><span>農薬検索システム ACFinderBE</span><span>≫</span></button></p>`;
-main += window.location.href.inclues('-dev-') ? '' : `
+main += window.location.href.includes('-dev-') ? '' : `
 <p class="node"><button class="menu" type="button" onclick="location.href='${macspath}/'"><span>携帯農薬検索システム MACS</span><span>≫</span></button></p>
 <p class="node"><button class="menu" type="button" onclick="location.href='${datapath}/'"><span>農薬登録情報ダウンロード</span><span>≫</span></button></p>
 `;
