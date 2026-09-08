@@ -1208,8 +1208,8 @@ async function fileOpen(item = null) {
 				multiple: false
 			});
 		}
-		currentFileHandle = handle; // ハンドルを記憶
-		const file = await handle.getFile();
+		currentFileHandle = fileHandle; // ハンドルを記憶
+		const file = await fileHandle.getFile();
 		loadPlanFromJson(await file.tex()); // データ読み込み共通関数へ
 	} catch (err) {
 		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
@@ -1218,13 +1218,12 @@ async function fileOpen(item = null) {
 }
 
 // fallbackFileInput の場合の読込
-async function readFile(e) {
+function readFile(e) {
 
-	const file = e.target.files[0];
-	if (!file) return;
-	if (!file.name.toLowerCase().endsWith('.json')) {
+	const files = e.dataTransfer.files;
+	if (!files || files.length === 0) return;
+	if (!files[0].name.toLowerCase().endsWith('.json')) {
 		alert('対応していないファイル形式です。');
-		return;
 	}
 
 	currentFileHandle = null; // ハンドルは取れないのでnull
@@ -1240,7 +1239,7 @@ async function readFile(e) {
 	reader.onerror = () => {
 		alert('ファイルの読み込み中にエラーが発生しました。');
 	};
-	reader.readAsText(file); // テキストとして読み込み開始
+	reader.readAsText(files[0]); // テキストとして読み込み開始
 
 }
 
