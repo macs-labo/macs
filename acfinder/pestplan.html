@@ -1013,15 +1013,17 @@ function createPlanTable() {
 				<title>Excelファイルとして保存</title>
 				<use href="icons.svg#file-xls"></use>
 			</svg>
-			<svg id="btnJsonSavePlan" class="icon disabled" onclick="savePlanAsJson()">
-				<title>JSON形式で保存</title>
-				<use href="icons.svg?v=3#file-type-json"></use>
+			<svg id="btnPlanSave" class="icon disabled" onclick="savePlanAsJson()">
+				<title>防除計画/防除記録を上書き保存</title>
+				<use href="icons.svg?#save"></use>
 			</svg>
-			<!--<input type="file" id="planJsonInput" accept=".json" class="hidden" onchange="loadPlanFromJson(event)">-->
-			<!--<svg class="icon" onclick="document.getElementById('planJsonInput').click()">-->
+			<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)">
+				<title>防除計画/防除記録を名前を付けて保存</title>
+				<use href="icons.svg?#saveas"></use>
+			</svg>
 			<svg class="icon" onclick="loadPlanFromJson()">
-				<title>JSONファイル読込</title>
-				<use href="icons.svg?v=3#open-json"></use>
+				<title>防除計画/防除記録を開く</title>
+				<use href="icons.svg?folder-open"></use>
 			</svg>
 		</div>
 	`;
@@ -1115,7 +1117,7 @@ function getTimingArray(mode, td) {
 }
 
 // planTableの内容をJSON形式で保存する関数
-async function savePlanAsJson() {
+async function savePlanAsJson(overwrite = true) {
 	const table = document.getElementById('planTable');
 	if (!table) return;
 
@@ -1144,11 +1146,42 @@ async function savePlanAsJson() {
 		planData.push(rowData);
 	});
 
-	const jsonString = JSON.stringify(saveData, null, 2);
-	const blob = new Blob([jsonString], { type: 'application/json' });
+	const jsonData = JSON.stringify(planData, null, 2);
+	// overwrite = true ですでにファイルを開いている、または一度保存していてハンドルがある場合は「上書き」
+	if (overwrite && currentFileHandle) {
+		try {
+			const writable = await currentFileHandle.createWritable();
+			await writable.write(jsonData);
+			await writable.close();
+			alert('ファイルを上書き保存しました。');
+			return;
+		} catch (err) {
+			console.error('上書き失敗（新規保存に切り替えます）:', err);
+		}
+	}
+
+	// overwrite = false またはハンドルがない、または上書きに失敗した場合は「名前を付けて保存」
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
 	const baseName = isRecordMode ? '防除記録' : '防除計画';
-	saveAs(blob, `${prefix}${baseName}_${formatDateTime()}.json`);
+	try {
+		const fileHandle = await window.showSaveFilePicker({
+			suggestedName: `${prefix}${baseName}_${formatDateTime()}.json`,
+			types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
+		});
+		
+		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
+		
+		const writable = await fileHandle.createWritable();
+		await writable.write(jsonData);
+		await writable.close();
+		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		
+	} catch (err) {
+		if (err.name !== 'AbortError') {
+			alert('ファイルの保存に失敗しました。');
+		}
+	}
+
 }
 
 // JSONファイルを読み込んでplanTableを復元する関数
@@ -1333,11 +1366,27 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 	}
 
 	// Excel ファイルを生成してダウンロード
-	const buffer = await workbook.xlsx.writeBuffer();
 	const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-	const prefix = getFilenamePrefix();
+	// Excel ファイルを生成して保存
+	const buffer = await workbook.xlsx.writeBuffer();
+	const prefix = getFilenamePrefix(); // 作物名プレフィックス
 	const baseName = isRecordMode ? '防除記録' : '防除計画';
-	saveAs(blob, `${prefix}${baseName}_${formatDateTime()}.xlsx`);
+	try {
+		const fileHandle = await window.showSaveFilePicker({
+			suggestedName: `${prefix}${baseName}_${formatDateTime()}.xlsx`,
+			types: [{ description: 'JSON Files', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }]
+		});
+		
+		const writable = await fileHandle.createWritable();
+		await writable.write(buffer);
+		await writable.close();
+		alert('ファイルを保存しました');
+		
+	} catch (err) {
+		if (err.name !== 'AbortError') {
+			alert('ファイルの保存に失敗しました。');
+		}
+	}
 }
 
 // planTableの内容をクリップボードにコピーする関数
@@ -1661,7 +1710,7 @@ function updateRowNumbers() {
 	}
 
 	tabExecuted = hasRows; // 防除計画に行があれば実行済み
-	['btnSortPlan', 'btnCopyPlan', 'btnExcelPlan', 'btnJsonSavePlan'].forEach(id => {
+	['btnSortPlan', 'btnCopyPlan', 'btnExcelPlan', 'btnPlanSave', 'btnPlanSaveAs'].forEach(id => {
 		const btn = document.getElementById(id);
 		if (btn) {
 			btn.classList.toggle('disabled', !hasRows);
