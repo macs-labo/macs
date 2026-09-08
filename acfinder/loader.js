@@ -11,7 +11,8 @@ var lastUpdate = '';
 var dbStatusCached = false;
 
 const isCloud = window.location.hostname.match(/\.(vercel\.app|pages\.dev|github\.io)$/); // クラウドホスティング判定: ドメイン名が vercel.app, pages.dev, github.io
-const datdir = isCloud ? 'https://raw.githubusercontent.com/macs-labo/macs/main/data/' : '../data/'; // 実サーバ以外では github から取得
+const github = 'https://raw.githubusercontent.com/macs-labo/macs/main';
+const datdir = isCloud ? `${github}/data/` : '../data/'; // 実サーバ以外では github から取得
 const maindb = 'acis';
 const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
@@ -1572,7 +1573,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		title.textContent = 'ACFinderBE DT' + (debug ? ' 開発版' : '');
 		titleWrapper.appendChild(title);
 		const version = document.createElement('span');
-		const baseUrl = debug ? '.' : 'https://raw.githubusercontent.com/macs-labo/macs/main/acfinder';
+		const baseUrl = isCloud ? `${github}/acfinder` : '.';
 		version.innerHTML = `Release <a href="${baseUrl}/acfinder${appVer}.zip">${appVer}</a>`;
 		titleWrapper.appendChild(version);
 		titleBar.appendChild(titleWrapper);
