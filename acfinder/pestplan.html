@@ -1212,7 +1212,7 @@ async function loadPlanFromJson(item = null) {
 		const file = await fileHandle.getFile();
 		const text = await file.text(); 
 		const loadedData = JSON.parse(text);
-		const data = JSON.parse(text);
+		const planData = loadedData.plan;
 
 		// 先頭行が日付形式なら記録モードを自動有効化
 		const firstRow = planData[0];
