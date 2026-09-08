@@ -1881,7 +1881,7 @@ function handleDrop(event) {
 		}
 	} else {
 		const file = event.dataTransfer.files[0];
-		if (file && files.name.toLowerCase().endsWith('.json')) {
+		if (file && file.name.toLowerCase().endsWith('.json')) {
 			loadPlanFromJson(file);
 		} else {
 			alert('対応していないファイル形式です。');
