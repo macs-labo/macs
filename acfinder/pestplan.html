@@ -1210,7 +1210,8 @@ async function fileOpen(item = null) {
 		}
 		currentFileHandle = fileHandle; // ハンドルを記憶
 		const file = await fileHandle.getFile();
-		loadPlanFromJson(await file.tex()); // データ読み込み共通関数へ
+		const text = await file.text();
+		loadPlanFromJson(text); // データ読み込み共通関数へ
 	} catch (err) {
 		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
 	}
@@ -1906,7 +1907,7 @@ function handleDrop(event) {
 
 	// Chrome, Edge の場合
 	const item = event.dataTransfer.items[0];
-	if (item && item.kind === 'file' && item.name.toLowerCase().endsWith('.json')) {
+	if (item && item.kind === 'file') {
 		fileOpen(item);
 	} else {
 		alert('対応していないファイル形式です。');
