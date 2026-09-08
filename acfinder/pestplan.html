@@ -1210,18 +1210,44 @@ async function fileOpen(item = null) {
 		}
 		currentFileHandle = handle; // ハンドルを記憶
 		const file = await handle.getFile();
-		loadPlanFromJson(file); // データ読み込み共通関数へ
+		loadPlanFromJson(await file.tex()); // データ読み込み共通関数へ
 	} catch (err) {
 		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
 	}
 
 }
 
+// fallbackFileInput の場合の読込
+async function readFile(e) {
+
+	const file = e.target.files[0];
+	if (!file) return;
+	if (!file.name.toLowerCase().endsWith('.json')) {
+		alert('対応していないファイル形式です。');
+		return;
+	}
+
+	currentFileHandle = null; // ハンドルは取れないのでnull
+
+	const reader = new FileReader();
+	reader.onload = (event) => {
+		try {
+			loadPlanFromJson(event.target.result); // データ読み込み共通関数へ
+		} catch (err) {
+			alert('ファイルの解析に失敗しました。正しいJSONファイルか確認してください。');
+		}
+	};
+	reader.onerror = () => {
+		alert('ファイルの読み込み中にエラーが発生しました。');
+	};
+	reader.readAsText(file); // テキストとして読み込み開始
+
+}
+
 // JSONファイルを読み込んでplanTableを復元する関数
-async function loadPlanFromJson(file) {
+async function loadPlanFromJson(jsonText) {
 
 	try {
-		const jsonText = await file.tex();
 		const loadedData = JSON.parse(jsonText);
 		const planData = loadedData.plan;
 
@@ -1872,20 +1898,19 @@ function updateYakuzaiCountTable() {
 
 function handleDrop(event) {
 	event.preventDefault();
-	if (isFileSystemAccessSupported) {
-		const item = event.dataTransfer.items[0];
-		if (item && item.kind === 'file' && item.name.toLowerCase().endsWith('.json')) {
-			fileOpen(item);
-		} else {
-			alert('対応していないファイル形式です。');
-		}
+
+	// firefox, Safari の場合
+	if (!isFileSystemAccessSupported) {
+		readFile(event);
+		return;
+	}
+
+	// Chrome, Edge の場合
+	const item = event.dataTransfer.items[0];
+	if (item && item.kind === 'file' && item.name.toLowerCase().endsWith('.json')) {
+		fileOpen(item);
 	} else {
-		const file = event.dataTransfer.files[0];
-		if (file && file.name.toLowerCase().endsWith('.json')) {
-			loadPlanFromJson(file);
-		} else {
-			alert('対応していないファイル形式です。');
-		}
+		alert('対応していないファイル形式です。');
 	}
 }
 
@@ -1915,14 +1940,8 @@ window.addEventListener('DOMContentLoaded', async function() {
 	// フォールバック用inputが変更された時の処理（Firefox/Safari用）
 	const fallbackInput = document.getElementById('fallbackFileInput');
 	fallbackInput.addEventListener('change', (e) => {
-		const file = e.target.files[0];
-		if (!file) return;
-		
-		currentFileHandle = null; // ハンドルは取れないのでnull
-		loadPlanFromJson(file); // データ読み込み共通関数へ
-		
-		// 連続で同じファイルを選んでもイベントが走るように値をリセット
-		fallbackInput.value = ''; 
+		readFile(e);
+		fallbackInput.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
 	});
 
 	// ドラッグ＆ドロップのイベントリスナーを設定
