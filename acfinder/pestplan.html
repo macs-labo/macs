@@ -1365,8 +1365,6 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 		}
 	}
 
-	// Excel ファイルを生成してダウンロード
-	const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 	// Excel ファイルを生成して保存
 	const buffer = await workbook.xlsx.writeBuffer();
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
