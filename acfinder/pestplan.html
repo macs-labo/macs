@@ -327,6 +327,12 @@ let currentCbyochu = null;   // 現在選択されているcid
 let currentByochu = null;   // 現在選択されている病害虫
 let currentYakuzai = null;   // 現在選択されている薬剤
 
+// 読み込んだ、または一度保存した「ファイルハンドル」を保持する変数
+let currentFileHandle = null;
+
+// サポート判定（File System Access API が使えるか）
+const isFileSystemAccessSupported = 'showOpenFilePicker' in window;
+
 // clearContent プロトタイプ宣言
 if (!HTMLElement.prototype.clearContent) {
 	HTMLElement.prototype.clearContent = function() {
@@ -334,14 +340,6 @@ if (!HTMLElement.prototype.clearContent) {
 		//this.className = 'hidden';
 	};
 }
-
-// Helper function to format YYYY-MM-DD to YY-MM-DD
-/*
-function formatToYYMMDD(dateString) {
-	if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return '';
-	return dateString.substring(2); // "YYYY-MM-DD" -> "YY-MM-DD"
-}
-*/
 
 async function dbExec(sql) {
 	await waiting(true, 'データベース検索中');
@@ -818,8 +816,6 @@ async function setByochuList(sql) {
 		return;
 	}
 
-
-
 	const rows = sqlResult[0]?.values || [];
 	
 	byochuButtons.innerHTML = `
@@ -1014,17 +1010,18 @@ function createPlanTable() {
 				<use href="icons.svg#file-xls"></use>
 			</svg>
 			<svg id="btnPlanSave" class="icon disabled" onclick="savePlanAsJson()">
-				<title>防除計画/防除記録を上書き保存</title>
+				<title>防除計画/防除記録を${isFileSystemAccessSupported ? '上書き' : ''}保存</title>
 				<use href="icons.svg?#save"></use>
 			</svg>
-			<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)">
+			<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)${isFileSystemAccessSupported ? '' : ' class="hidden"'}">
 				<title>防除計画/防除記録を名前を付けて保存</title>
 				<use href="icons.svg?#save-as"></use>
 			</svg>
-			<svg class="icon" onclick="loadPlanFromJson()">
+			<svg class="icon" onclick="fileOpen()">
 				<title>防除計画/防除記録を開く</title>
 				<use href="icons.svg?#folder-open"></use>
 			</svg>
+			<input type="file" id="fallbackFileInput" accept=".json" class="hidden">
 		</div>
 	`;
 }
@@ -1184,8 +1181,8 @@ async function savePlanAsJson(overwrite = true) {
 
 }
 
-// JSONファイルを読み込んでplanTableを復元する関数
-async function loadPlanFromJson(item = null) {
+// ファイルオープナー
+async function fileOpen(item = null) {
 
 	const planTableBody = document.querySelector('#planTable tbody');
 	if (planTableBody && planTableBody.rows.length > 0) {
@@ -1194,9 +1191,16 @@ async function loadPlanFromJson(item = null) {
 		}
 	}
 
+	// 【パターンB】Firefox / Safari など（隠しinputを代わりにクリック）
+	if (!isFileSystemAccessSupported) {
+		document.getElementById('fallbackFileInput')?.click();
+		return;
+	}
+
+	// 【パターンA】Chrome / Edge など（上書き保存のルートに乗せる）
 	try {
 		let fileHandle = null;
- 		if (item) {
+		if (item) {
 			fileHandle = await item.getAsFileSystemHandle();
 		} else {
 			[fileHandle] = await window.showOpenFilePicker({
@@ -1204,14 +1208,21 @@ async function loadPlanFromJson(item = null) {
 				multiple: false
 			});
 		}
+		currentFileHandle = handle; // ハンドルを記憶
+		const file = await handle.getFile();
+		loadPlanFromJson(file); // データ読み込み共通関数へ
+	} catch (err) {
+		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
+	}
 
-		// ★ここでファイルハンドルをグローバル変数などに保存しておく（上書き用）
-		window.currentFileHandle = fileHandle; 
+}
 
-		// FileReaderを使わずにテキストを取得
-		const file = await fileHandle.getFile();
-		const text = await file.text(); 
-		const loadedData = JSON.parse(text);
+// JSONファイルを読み込んでplanTableを復元する関数
+async function loadPlanFromJson(file) {
+
+	try {
+		const jsonText = await file.tex();
+		const loadedData = JSON.parse(jsonText);
 		const planData = loadedData.plan;
 
 		// 先頭行が日付形式なら記録モードを自動有効化
@@ -1285,10 +1296,10 @@ async function loadPlanFromJson(item = null) {
 		});
 
 		updateRowNumbers(); // 行番号の再採番と成分別使用回数の更新
-		alert('防除計画を読み込みました。');
+		alert('防除計画/防除記録を読み込みました。');
 
 	} catch(err) {
-		console.error('JSONファイルの読み込みまたは解析に失敗しました:', err);
+		console.error('JSONファイルの解析に失敗しました:', err);
 		alert('ファイルの読み込みに失敗しました。有効なJSONファイルを選択してください。');
 	}
 }
@@ -1861,12 +1872,20 @@ function updateYakuzaiCountTable() {
 
 function handleDrop(event) {
 	event.preventDefault();
-  const item = e.dataTransfer.items[0];
-  
-  if (item && item.kind === 'file' && item.name.toLowerCase().endsWith('.json')) {
-		loadPlanFromJson(item);
+	if (isFileSystemAccessSupported) {
+		const item = event.dataTransfer.items[0];
+		if (item && item.kind === 'file' && item.name.toLowerCase().endsWith('.json')) {
+			fileOpen(item);
+		} else {
+			alert('対応していないファイル形式です。');
+		}
 	} else {
-		alert('対応していないファイル形式です。');
+		const file = event.dataTransfer.files[0];
+		if (file && files.name.toLowerCase().endsWith('.json')) {
+			loadPlanFromJson(file);
+		} else {
+			alert('対応していないファイル形式です。');
+		}
 	}
 }
 
@@ -1892,6 +1911,19 @@ window.addEventListener('DOMContentLoaded', async function() {
 	// イベントリスナーの一括登録
 	document.getElementById('cbyochuSelect').addEventListener('change', onCbyochuChange);
 	document.getElementById('byochuSelect').addEventListener('change', handleByochuSelection);
+
+	// フォールバック用inputが変更された時の処理（Firefox/Safari用）
+	const fallbackInput = document.getElementById('fallbackFileInput');
+	fallbackInput.addEventListener('change', (e) => {
+		const file = e.target.files[0];
+		if (!file) return;
+		
+		currentFileHandle = null; // ハンドルは取れないのでnull
+		loadPlanFromJson(file); // データ読み込み共通関数へ
+		
+		// 連続で同じファイルを選んでもイベントが走るように値をリセット
+		fallbackInput.value = ''; 
+	});
 
 	// ドラッグ＆ドロップのイベントリスナーを設定
 	const planContainer = document.getElementById('planContainer');
