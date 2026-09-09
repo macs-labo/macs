@@ -1275,7 +1275,7 @@ function readFile(file) {
 }
 
 // JSONファイルを読み込んでplanTableを復元する関数
-async function loadPlanFromJson(jsonText) {
+async function loadPlanFromJson(jsonText, msg) {
 
 	try {
 		const loadedData = JSON.parse(jsonText);
@@ -1353,7 +1353,8 @@ async function loadPlanFromJson(jsonText) {
 
 		updateRowNumbers(); // 行番号の再採番と成分別使用回数の更新
 		isDirty = false;
-		alert('防除計画/防除記録を読み込みました。');
+		if (!msg) msg = '防除計画/防除記録を読み込みました。';
+		alert(msg);
 
 	} catch(err) {
 		console.error('JSONファイルの解析に失敗しました:', err);
@@ -1999,7 +2000,8 @@ window.addEventListener('DOMContentLoaded', async function() {
 		try {
 			const appData = JSON.parse(savedString);
 			console.log('planData:', appData.planData);
-			loadPlanFromJson(appData.planData); 
+			const msg = `前回の未保存データ（ファイル名: ${appData.fileName}）を復元しました。`;
+			loadPlanFromJson(appData.planData, msg); 
 			currentFilename = appData.fileName;
 			localStorage.removeItem('unsavedPlan');
 		} catch (err) {
