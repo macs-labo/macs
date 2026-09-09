@@ -1,0 +1,112 @@
+name: Manual Release (ZIP and Push to main)
+
+on:
+  workflow_dispatch: # 手動実行トリガー
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/dev'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # タイムスタンプ復元に必須
+
+      - name: Restore file timestamps from Git history
+        # working-directory を指定することで、このステップは自動的に acfinder 内で実行されます
+        working-directory: acfinder
+        run: |
+          # acfinder 内のファイルのみを対象にタイムスタンプを復元
+          git ls-files -z | xargs -0 -n1 -I {} sh -c '
+            ts=$(git log -1 --date=format-local:%Y%m%d%H%M.%S --format="%ad" "{}")
+            if [ -n "$ts" ]; then touch -t "$ts" "{}"; fi
+          '
+
+      - name: Run Build and ZIP Process
+        # 同様に acfinder 内で実行し、そこに ZIP を生成させます
+        working-directory: acfinder
+        run: |
+          set -euo pipefail
+
+          ZIP_BASE_NAME="acfinder"
+          HEADER_JS_PATH="header.js"
+
+          BASEFILES=(
+            "crop.html" "pest.html" "chem.html" "sql.html" "prop.html" "pestplan.html"
+            "pesticides-pests.html" "pesticides-crops.html" "rac_moa.html" "feedrice.html"
+            "acisupdate.html" "proc.html" "notice.html"
+            "mob-crop.html" "mob-pest.html" "mob-chem.html" "mob-pa-rec.html"
+            "common.css" "loader.css" "table.css" "crop.css" "filer.css" "editor.css"
+            "loader.js" "table.js" "crop.js" "pest.js" "chem.js" "filer.js" "theme.js"
+            "init_create_view.sql" "stdviews.sql" "stdsql.zip"
+            "previews/preview.css" "previews/preview.js" "previews/preview.html"
+            "previews/autosize.html" "previews/resizable.html"
+            "icons.svg" "index.html"
+          )
+
+          EXTRA_FILES=("$HEADER_JS_PATH" "sw.js" "manifest.json")
+
+          LATEST_MTIME=0
+
+          for file in "${BASEFILES[@]}"; do
+            if [ -f "$file" ]; then
+              mtime=$(stat -c %Y "$file")
+              if (( mtime > LATEST_MTIME )); then
+                LATEST_MTIME=$mtime
+              fi
+            fi
+          done
+
+          if [ "$LATEST_MTIME" -eq 0 ]; then
+            echo "Error: No files found to determine version." >&2
+            exit 1
+          fi
+
+          NEW_APP_VER=$(TZ="Asia/Tokyo" date -d "@$LATEST_MTIME" +"%Y.%m%d.%H%M")
+          echo "Generated version: ${NEW_APP_VER}"
+
+          echo "ZIP_FILENAME=${ZIP_BASE_NAME}${NEW_APP_VER}.zip" >> $GITHUB_ENV
+
+          if [ -f "$HEADER_JS_PATH" ]; then
+            sed -i -E "s/const[[:space:]]+appVer[[:space:]]*=[[:space:]]*'[^']+'/const appVer = '${NEW_APP_VER}'/g" "$HEADER_JS_PATH"
+          else
+            echo "Error: ${HEADER_JS_PATH} not found." >&2
+            exit 1
+          fi
+
+          ZIP_FILENAME="${ZIP_BASE_NAME}${NEW_APP_VER}.zip"
+          ALL_FILES=("${BASEFILES[@]}" "${EXTRA_FILES[@]}")
+          
+          if zip -Dq "$ZIP_FILENAME" "${ALL_FILES[@]}"; then
+            echo "Created ${ZIP_FILENAME}"
+          else
+            echo "Failed to create ${ZIP_FILENAME}" >&2
+            exit 1
+          fi
+
+      - name: Switch to main branch and Push
+        # このステップはリポジトリのルート（直下）で実行し、
+        # main ブランチの直下（または任意の場所）に ZIP を配置してプッシュします
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@://github.com"
+
+          # acfinder ディレクトリ内にできた ZIP を一時的に /tmp に退避
+          mv "acfinder/${{ env.ZIP_FILENAME }}" /tmp/
+
+          git fetch origin main
+          git checkout main
+
+          # main ブランチの acfinder に ZIP を配置
+          mv "/tmp/${{ env.ZIP_FILENAME }}" ./acfinder/
+
+          git add "${{ env.ZIP_FILENAME }}"
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit. ${{ env.ZIP_FILENAME }} is already up to date."
+          else
+            git commit -m "Release: Auto-generated ${{ env.ZIP_FILENAME }} via Actions"
+            git push origin main
+          fi
