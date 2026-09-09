@@ -1,7 +1,14 @@
 name: Manual Release (ZIP and Push to main)
 
 on:
-  workflow_dispatch: # 手動実行トリガー
+  workflow_dispatch:
+    # ⬇️ 実行時に画面で選択できるオプションを追加
+    inputs:
+      push_to_main:
+        description: 'ZIP作成後に main ブランチへ自動プッシュする'
+        type: boolean
+        required: true
+        default: true # デフォルトはON（チェックが入った状態）
 
 jobs:
   release:
@@ -15,20 +22,17 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # タイムスタンプ復元に必須
+          fetch-depth: 0
 
       - name: Restore file timestamps from Git history
-        # working-directory を指定することで、このステップは自動的に acfinder 内で実行されます
         working-directory: acfinder
         run: |
-          # acfinder 内のファイルのみを対象にタイムスタンプを復元
           git ls-files -z | xargs -0 -n1 -I {} sh -c '
             ts=$(git log -1 --date=format-local:%Y%m%d%H%M.%S --format="%ad" "{}")
             if [ -n "$ts" ]; then touch -t "$ts" "{}"; fi
           '
 
       - name: Run Build and ZIP Process
-        # 同様に acfinder 内で実行し、そこに ZIP を生成させます
         working-directory: acfinder
         run: |
           set -euo pipefail
@@ -89,20 +93,26 @@ jobs:
             exit 1
           fi
 
+      # ⬇️ プッシュしない場合でも、ブラウザからZIPをダウンロードできるようにGitHub上に一時保存するステップ
+      - name: Upload ZIP as Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.ZIP_FILENAME }}
+          path: acfinder/${{ env.ZIP_FILENAME }}
+          retention-days: 5 # 5日間保存（必要に応じて変更してください）
+
+      # ⬇️ ユーザーが「自動プッシュする」を選択した場合（true）のみ実行されるステップ
       - name: Switch to main branch and Push
-        # このステップはリポジトリのルート（直下）で実行し、
-        # main ブランチの直下（または任意の場所）に ZIP を配置してプッシュします
+        if: ${{ github.event.inputs.push_to_main == 'true' }}
         run: |
           git config --global user.name "github-actions[bot]"
           git config --global user.email "github-actions[bot]@://github.com"
 
-          # acfinder ディレクトリ内にできた ZIP を一時的に /tmp に退避
           mv "acfinder/${{ env.ZIP_FILENAME }}" /tmp/
 
           git fetch origin main
           git checkout main
 
-          # main ブランチの acfinder に ZIP を配置
           mv "/tmp/${{ env.ZIP_FILENAME }}" ./acfinder/
 
           git add "${{ env.ZIP_FILENAME }}"
