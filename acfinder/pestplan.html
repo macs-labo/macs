@@ -1245,20 +1245,19 @@ async function fileOpen(item = null) {
 }
 
 // fallbackFileInput の場合の読込
-function readFile(e) {
-
-	const files = e.dataTransfer.files;
-	if (!files || files.length === 0) return;
-	if (!files[0].name.toLowerCase().endsWith('.json')) {
+function readFile(event) {
+	const file = event.dataTransfer.files[0];
+	if (!file) return;
+	if (!file.name.toLowerCase().endsWith('.json')) {
 		alert('対応していないファイル形式です。');
 	}
 
 	currentFileHandle = null; // ハンドルは取れないのでnull
 
 	const reader = new FileReader();
-	reader.onload = (event) => {
+	reader.onload = (e) => {
 		try {
-			loadPlanFromJson(event.target.result); // データ読み込み共通関数へ
+			loadPlanFromJson(e.target.result); // データ読み込み共通関数へ
 		} catch (err) {
 			alert('ファイルの解析に失敗しました。正しいJSONファイルか確認してください。');
 		}
@@ -1266,7 +1265,7 @@ function readFile(e) {
 	reader.onerror = () => {
 		alert('ファイルの読み込み中にエラーが発生しました。');
 	};
-	reader.readAsText(files[0]); // テキストとして読み込み開始
+	reader.readAsText(file); // テキストとして読み込み開始
 
 }
 
@@ -1945,6 +1944,7 @@ function handleDrop(event) {
 
 	// Chrome, Edge の場合
 	const item = event.dataTransfer.items[0];
+	console.log('item: ', item);
 	if (item && item.kind === 'file') {
 		fileOpen(item);
 	} else {
