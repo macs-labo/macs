@@ -83,23 +83,21 @@ jobs:
             exit 1
           fi
 
+          # ZIPは本来の挙動通り、シンプルにカレントディレクトリ（acfinder内）に出力します
           ALL_FILES=("${BASEFILES[@]}" "${EXTRA_FILES[@]}")
-          
-          # ★ 修正ポイント: 作成中のZIPファイルが巻き込まれないよう、一時的に /tmp に直接出力します
-          if zip -Dq "/tmp/${ZIP_FILENAME}" "${ALL_FILES[@]}"; then
-            echo "Created /tmp/${ZIP_FILENAME}"
-            # 作成完了後、本来の acfinder ディレクトリ内に安全に移動します
-            mv "/tmp/${ZIP_FILENAME}" ./
+          if zip -Dq "$ZIP_FILENAME" "${ALL_FILES[@]}"; then
+            echo "Created ${ZIP_FILENAME}"
           else
             echo "Failed to create ${ZIP_FILENAME}" >&2
             exit 1
           fi
 
+      # ★ 修正ポイント: Artifactのフォルダ名（name）をZIPファイル名ではなく、ただの「外枠」にします
       - name: Upload ZIP as Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ZIP_FILENAME }}
-          path: acfinder/${{ env.ZIP_FILENAME }}
+          name: release-artifact # ダウンロードされる外側のZIPの名前
+          path: acfinder/${{ env.ZIP_FILENAME }} # 中身に本物の「acfinder2026.xxxx.zip」だけを入れます
           retention-days: 5
 
       - name: Switch to main branch and Push
