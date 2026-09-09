@@ -2,7 +2,6 @@ name: Manual Release (ZIP and Push to main)
 
 on:
   workflow_dispatch:
-    # ⬇️ 実行時に画面で選択できるオプションを追加
     inputs:
       push_to_main:
         description: 'ZIP作成後に main ブランチへ自動プッシュする'
@@ -74,7 +73,8 @@ jobs:
           NEW_APP_VER=$(TZ="Asia/Tokyo" date -d "@$LATEST_MTIME" +"%Y.%m%d.%H%M")
           echo "Generated version: ${NEW_APP_VER}"
 
-          echo "ZIP_FILENAME=${ZIP_BASE_NAME}${NEW_APP_VER}.zip" >> $GITHUB_ENV
+          ZIP_FILENAME="${ZIP_BASE_NAME}${NEW_APP_VER}.zip"
+          echo "ZIP_FILENAME=${ZIP_FILENAME}" >> $GITHUB_ENV
 
           if [ -f "$HEADER_JS_PATH" ]; then
             sed -i -E "s/const[[:space:]]+appVer[[:space:]]*=[[:space:]]*'[^']+'/const appVer = '${NEW_APP_VER}'/g" "$HEADER_JS_PATH"
@@ -83,25 +83,25 @@ jobs:
             exit 1
           fi
 
-          ZIP_FILENAME="${ZIP_BASE_NAME}${NEW_APP_VER}.zip"
           ALL_FILES=("${BASEFILES[@]}" "${EXTRA_FILES[@]}")
           
-          if zip -Dq "$ZIP_FILENAME" "${ALL_FILES[@]}"; then
-            echo "Created ${ZIP_FILENAME}"
+          # ★ 修正ポイント: 作成中のZIPファイルが巻き込まれないよう、一時的に /tmp に直接出力します
+          if zip -Dq "/tmp/${ZIP_FILENAME}" "${ALL_FILES[@]}"; then
+            echo "Created /tmp/${ZIP_FILENAME}"
+            # 作成完了後、本来の acfinder ディレクトリ内に安全に移動します
+            mv "/tmp/${ZIP_FILENAME}" ./
           else
             echo "Failed to create ${ZIP_FILENAME}" >&2
             exit 1
           fi
 
-      # ⬇️ プッシュしない場合でも、ブラウザからZIPをダウンロードできるようにGitHub上に一時保存するステップ
       - name: Upload ZIP as Artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ env.ZIP_FILENAME }}
           path: acfinder/${{ env.ZIP_FILENAME }}
-          retention-days: 5 # 5日間保存（必要に応じて変更してください）
+          retention-days: 5
 
-      # ⬇️ ユーザーが「自動プッシュする」を選択した場合（true）のみ実行されるステップ
       - name: Switch to main branch and Push
         if: ${{ github.event.inputs.push_to_main == 'true' }}
         run: |
