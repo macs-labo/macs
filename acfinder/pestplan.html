@@ -330,7 +330,10 @@ let currentYakuzai = null;   // 現在選択されている薬剤
 // 読み込んだ、または一度保存した「ファイルハンドル」を保持する変数
 let currentFileHandle = null;
 
-// サポート判定（File System Access API が使えるか）
+// 無保存データフラグ
+let isDirty = false;
+
+// File System Access API サポート判定
 const isFileSystemAccessSupported = 'showOpenFilePicker' in window;
 
 // clearContent プロトタイプ宣言
@@ -984,9 +987,9 @@ function createPlanTable() {
 	const headers = ['操作', 'No', '防除時期', '作物名', '薬剤名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC'];
 
 	const btnSaveAs = !isFileSystemAccessSupported ? '' : `
-		<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)>
+		<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)">
 			<title>防除計画/防除記録を名前を付けて保存</title>
-			<use href="icons.svg?#save-as"></use>
+			<use href="icons.svg#save-as"></use>
 		</svg>
 	`;
 
@@ -1006,7 +1009,7 @@ function createPlanTable() {
 		<div class="iconsbar">
 			<svg id="btnSortPlan" class="icon disabled" onclick="sortPlanByTiming()">
 				<title>防除時期で並べ替え</title>
-				<use href="icons.svg?v=3#sort-ascending"></use>
+				<use href="icons.svg#sort-ascending"></use>
 			</svg>
 			<svg id="btnCopyPlan" class="icon disabled" onclick="copyPlanTableToClipboard()">
 				<title>クリップボードにコピー</title>
@@ -1018,12 +1021,12 @@ function createPlanTable() {
 			</svg>
 			<svg id="btnPlanSave" class="icon disabled" onclick="savePlanAsJson()">
 				<title>防除計画/防除記録を${isFileSystemAccessSupported ? '上書き' : ''}保存</title>
-				<use href="icons.svg?#save"></use>
+				<use href="icons.svg#save"></use>
 			</svg>
 			${btnSaveAs}
 			<svg class="icon" onclick="fileOpen()">
 				<title>防除計画/防除記録を開く</title>
-				<use href="icons.svg?#folder-open"></use>
+				<use href="icons.svg#folder-open"></use>
 			</svg>
 			<input type="file" id="fallbackFileInput" accept=".json" class="hidden">
 		</div>
@@ -1147,13 +1150,14 @@ async function savePlanAsJson(overwrite = true) {
 		planData.push(rowData);
 	});
 
-	const jsonData = JSON.stringify(planData, null, 2);
+	const jsonData = JSON.stringify(saveData, null, 2);
 	// overwrite = true ですでにファイルを開いている、または一度保存していてハンドルがある場合は「上書き」
 	if (overwrite && currentFileHandle) {
 		try {
 			const writable = await currentFileHandle.createWritable();
 			await writable.write(jsonData);
 			await writable.close();
+			isDirty = false;
 			alert('ファイルを上書き保存しました。');
 			return;
 		} catch (err) {
@@ -1170,6 +1174,7 @@ async function savePlanAsJson(overwrite = true) {
 	if (!isFileSystemAccessSupported) {
 		const blob = new Blob([jsonData], { type: 'application/json' });
 		saveAs(blob, filename);
+		isDirty = false;
 		alert(
 			`「${filename}」をダウンロードしました。\n\n` +
 			"【便利なヒント】\n" +
@@ -1191,6 +1196,7 @@ async function savePlanAsJson(overwrite = true) {
 		const writable = await fileHandle.createWritable();
 		await writable.write(jsonData);
 		await writable.close();
+		isDirty = false;
 		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
 	} catch (err) {
@@ -1342,6 +1348,7 @@ async function loadPlanFromJson(jsonText) {
 		});
 
 		updateRowNumbers(); // 行番号の再採番と成分別使用回数の更新
+		isDirty = false;
 		alert('防除計画/防除記録を読み込みました。');
 
 	} catch(err) {
@@ -1759,6 +1766,7 @@ function updateRowNumbers() {
 
 	const rows = planTableBody.rows;
 	const hasRows = rows.length > 0;
+	isDirty = hasRows;
 
 	// 行がない場合は記録モード解除
 	if (!hasRows) {
@@ -1980,6 +1988,13 @@ window.addEventListener('DOMContentLoaded', async function() {
 		event.preventDefault(); // Allow drop
 	});
 	planContainer.addEventListener('drop', handleDrop);
+});
+
+// タブ終了時の処理
+window.addEventListener('beforeunload', (event) => {
+	if (!isDirty) return; // 保存済みなら即終了
+	event.preventDefault();  // ブラウザの確認ダイアログ表示
+	event.returnValue = ''; // 古いブラウザ（互換性）のための記述
 });
 </script>
 </head>
