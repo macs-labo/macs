@@ -1999,13 +1999,8 @@ window.addEventListener('DOMContentLoaded', async function() {
 		try {
 			const appData = JSON.parse(savedString);
 			console.log('planData:', appData.planData);
-			// 1. データを画面に復元
-			//loadPlanFromJson(JSON.stringify(appData.planData)); 
 			loadPlanFromJson(appData.planData); 
-			// 2. ユーザーにお知らせ（ファイル名を表示）
 			currentFilename = appData.fileName;
-			alert(`前回の未保存データ（ファイル名: ${currentFilename}）を復元しました。`);
-			// 3. 復元が終わったら localStorage をクリア
 			localStorage.removeItem('unsavedPlan');
 		} catch (err) {
 			console.error('データの復元に失敗しました:', err);
