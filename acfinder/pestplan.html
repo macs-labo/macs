@@ -327,6 +327,12 @@ let currentCbyochu = null;   // 現在選択されているcid
 let currentByochu = null;   // 現在選択されている病害虫
 let currentYakuzai = null;   // 現在選択されている薬剤
 
+// 読み込んだ、または一度保存した「ファイルハンドル」を保持する変数
+let currentFileHandle = null;
+
+// サポート判定（File System Access API が使えるか）
+const isFileSystemAccessSupported = 'showOpenFilePicker' in window;
+
 // clearContent プロトタイプ宣言
 if (!HTMLElement.prototype.clearContent) {
 	HTMLElement.prototype.clearContent = function() {
@@ -334,14 +340,6 @@ if (!HTMLElement.prototype.clearContent) {
 		//this.className = 'hidden';
 	};
 }
-
-// Helper function to format YYYY-MM-DD to YY-MM-DD
-/*
-function formatToYYMMDD(dateString) {
-	if (!dateString || !/^\d{4}-\d{2}-\d{2}$/.test(dateString)) return '';
-	return dateString.substring(2); // "YYYY-MM-DD" -> "YY-MM-DD"
-}
-*/
 
 async function dbExec(sql) {
 	await waiting(true, 'データベース検索中');
@@ -818,8 +816,6 @@ async function setByochuList(sql) {
 		return;
 	}
 
-
-
 	const rows = sqlResult[0]?.values || [];
 	
 	byochuButtons.innerHTML = `
@@ -987,6 +983,13 @@ function createPlanTable() {
 	if (!planContainer) return;
 	const headers = ['操作', 'No', '防除時期', '作物名', '薬剤名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC'];
 
+	const btnSaveAs = !isFileSystemAccessSupported ? '' : `
+		<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)>
+			<title>防除計画/防除記録を名前を付けて保存</title>
+			<use href="icons.svg?#save-as"></use>
+		</svg>
+	`;
+
 	planContainer.innerHTML = `
 		<div class="checkListItem"">
 			<input type="checkbox" id="checkRecordMode" onchange="toggleRecordMode(this.checked)" autocomplete="off">
@@ -1013,15 +1016,16 @@ function createPlanTable() {
 				<title>Excelファイルとして保存</title>
 				<use href="icons.svg#file-xls"></use>
 			</svg>
-			<svg id="btnJsonSavePlan" class="icon disabled" onclick="savePlanAsJson()">
-				<title>JSON形式で保存</title>
-				<use href="icons.svg?v=3#file-type-json"></use>
+			<svg id="btnPlanSave" class="icon disabled" onclick="savePlanAsJson()">
+				<title>防除計画/防除記録を${isFileSystemAccessSupported ? '上書き' : ''}保存</title>
+				<use href="icons.svg?#save"></use>
 			</svg>
-			<input type="file" id="planJsonInput" accept=".json" class="hidden" onchange="loadPlanFromJson(event)">
-			<svg class="icon" onclick="document.getElementById('planJsonInput').click()">
-				<title>JSONファイル読込</title>
-				<use href="icons.svg?v=3#open-json"></use>
+			${btnSaveAs}
+			<svg class="icon" onclick="fileOpen()">
+				<title>防除計画/防除記録を開く</title>
+				<use href="icons.svg?#folder-open"></use>
 			</svg>
+			<input type="file" id="fallbackFileInput" accept=".json" class="hidden">
 		</div>
 	`;
 }
@@ -1114,7 +1118,7 @@ function getTimingArray(mode, td) {
 }
 
 // planTableの内容をJSON形式で保存する関数
-async function savePlanAsJson() {
+async function savePlanAsJson(overwrite = true) {
 	const table = document.getElementById('planTable');
 	if (!table) return;
 
@@ -1143,114 +1147,207 @@ async function savePlanAsJson() {
 		planData.push(rowData);
 	});
 
-	const jsonString = JSON.stringify(saveData, null, 2);
-	const blob = new Blob([jsonString], { type: 'application/json' });
+	const jsonData = JSON.stringify(planData, null, 2);
+	// overwrite = true ですでにファイルを開いている、または一度保存していてハンドルがある場合は「上書き」
+	if (overwrite && currentFileHandle) {
+		try {
+			const writable = await currentFileHandle.createWritable();
+			await writable.write(jsonData);
+			await writable.close();
+			alert('ファイルを上書き保存しました。');
+			return;
+		} catch (err) {
+			console.error('上書き失敗（新規保存に切り替えます）:', err);
+		}
+	}
+
+	// デフォルトファイル名
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
 	const baseName = isRecordMode ? '防除記録' : '防除計画';
-	saveAs(blob, `${prefix}${baseName}_${formatDateTime()}.json`);
+	const filename = `${prefix}${baseName}_${formatDateTime()}.json`;
+
+	// API 非対応ブラウザの場合はダウンロード型保存
+	if (!isFileSystemAccessSupported) {
+		const blob = new Blob([jsonData], { type: 'application/json' });
+		saveAs(blob, filename);
+		alert(
+			`「${filename}」をダウンロードしました。\n\n` +
+			"【便利なヒント】\n" +
+			"Google Chrome や Microsoft Edge などのブラウザでお使いいただくと、" +
+			"同じファイルへの「上書き保存」や「名前を付けて保存」ができるようになり、ファイルがたまらず便利です！"
+		);
+		return;
+	}
+
+	// overwrite = false またはハンドルがない、または上書きに失敗した場合は「名前を付けて保存」
+	try {
+		const fileHandle = await window.showSaveFilePicker({
+			suggestedName: filename,
+			types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
+		});
+		
+		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
+		
+		const writable = await fileHandle.createWritable();
+		await writable.write(jsonData);
+		await writable.close();
+		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		
+	} catch (err) {
+		if (err.name !== 'AbortError') {
+			alert('ファイルの保存に失敗しました。');
+		}
+	}
+
 }
 
-// JSONファイルを読み込んでplanTableを復元する関数
-async function loadPlanFromJson(event) {
-	const file = event.target.files[0];
-	if (!file) return;
+// 防除計画ファイルを開く
+async function fileOpen(item = null) {
 
 	const planTableBody = document.querySelector('#planTable tbody');
 	if (planTableBody && planTableBody.rows.length > 0) {
 		if (!confirm('jsonファイルを読み込みます。現在の防除計画はクリアされます')) {
-			// ユーザーがキャンセルした場合
-			event.target.value = ''; // ファイル選択をリセット
 			return;
 		}
 	}
 
-	const reader = new FileReader();
-	reader.onload = async function(e) {
-		try {
-			const loadedData = JSON.parse(e.target.result);
-			const planData = loadedData.plan;
+	// 【パターンB】Firefox / Safari など（隠しinputを代わりにクリック）
+	if (!isFileSystemAccessSupported) {
+		document.getElementById('fallbackFileInput')?.click();
+		return;
+	}
 
-			// 先頭行が日付形式なら記録モードを自動有効化
-			const firstRow = planData[0];
-			isRecordMode = !!(firstRow && firstRow.timing && /^\d{4}-\d{2}-\d{2}$/.test(firstRow.timing));
-			const modeCheck = document.getElementById('checkRecordMode');
-			if (modeCheck) modeCheck.checked = isRecordMode;
-
-			// 'plan', 'titleText', 'crops' の存在をチェック
-			if (!Array.isArray(planData) || loadedData.titleText === undefined) { // loadedData.crops はオプションなのでチェックしない
-				throw new Error('Invalid JSON format: missing plan, titleText, or crops.');
-			}
-
-			// 作物情報の復元
-			window.checkedCrops = loadedData.crops || []; // crops がない場合は空配列で初期化
-
-			// currentSakumotsu を checkedCrops から再構築、または古い形式のsakumotsuから復元
-			currentSakumotsu = null; // まず初期化
-			if (window.checkedCrops.length > 0) {
-				currentSakumotsu = makeCropCondition(window.checkedCrops.map(item => item.sakumotsu));
-			} else if (loadedData.sakumotsu) { // 古い形式のJSONでcropsがない場合
-				currentSakumotsu = loadedData.sakumotsu;
-			}
-
-			// 作物ツリーのチェック状態を視覚的に復元
-			if (_defaultCropTreeManager && typeof _defaultCropTreeManager.syncCheckState === 'function') {
-				_defaultCropTreeManager.syncCheckState();
-			}
-
-			// searchCrop を呼び出して、UIと関連リストを更新
-			await searchCrop(); // searchCrop が null currentSakumotsu を処理するように変更
-
-			// テーブルを復元
-			const planTableBody = document.querySelector('#planTable tbody');
-			if (!planTableBody) return;
-
-			// #title のテキスト内容を復元
-			const titleElement = document.getElementById('title');
-			if (titleElement) {
-				titleElement.textContent = loadedData.titleText;
-				titleElement.classList.remove('hidden'); // タイトルを表示状態にする
-			}
-
-			// 既存のテーブル内容と候補テーブルをクリア
-			planTableBody?.clearContent();
-			document.getElementById('yakuzaiTekiyo')?.clearContent();
-
-			// JSONデータからテーブルを再構築
-			planData.forEach(rowData => {
-				const newRow = planTableBody.insertRow();
-				const yakuzaiName = rowData.yakuzai || '';
-				const data = {
-					timing: rowData.timing || '', // Add timing property
-					// 日付形式(YYYY-MM-DD)から月と旬を計算するフォールバック
-					timingMonth: rowData.timingMonth || (rowData.timing && /^\d{4}-\d{2}-\d{2}$/.test(rowData.timing) ? String(new Date(rowData.timing).getMonth() + 1) : ''),
-					timingPeriod: rowData.timingPeriod || (rowData.timing && /^\d{4}-\d{2}-\d{2}$/.test(rowData.timing) ? (new Date(rowData.timing).getDate() <= 10 ? '上旬' : new Date(rowData.timing).getDate() <= 20 ? '中旬' : '下旬') : ''),
-					sakumotsu: rowData.sakumotsu || '',
-					yakuzai: rowData.yakuzai || '',
-					byochu: rowData.byochu || '',
-					jiki: rowData.jiki || '',
-					kaisu: rowData.kaisu || '-',
-					baisu: rowData.baisu || '',
-					ekiryo: rowData.ekiryo || '',
-					hoho: rowData.hoho || '',
-					//yukoseibun: rowData.yukoseibun || '',
-					seibun: rowData.seibun || '',
-					seibunkaisu: rowData.seibunkaisu || '',
-					mid: rowData.mid || ''
-				};
-				addYakuzaiToPlanRow(newRow, yakuzaiName, data);
+	// 【パターンA】Chrome / Edge など（上書き保存のルートに乗せる）
+	try {
+		let fileHandle = null;
+		if (item) {
+			fileHandle = await item.getAsFileSystemHandle();
+		} else {
+			[fileHandle] = await window.showOpenFilePicker({
+				types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
+				multiple: false
 			});
+		}
+		currentFileHandle = fileHandle; // ハンドルを記憶
+		const file = await fileHandle.getFile();
+		const text = await file.text();
+		loadPlanFromJson(text); // データ読み込み共通関数へ
+	} catch (err) {
+		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
+	}
 
-			updateRowNumbers(); // 行番号の再採番と成分別使用回数の更新
-			alert('防除計画を読み込みました。');
+}
+
+// fallbackFileInput の場合の読込
+function readFile(e) {
+
+	const files = e.dataTransfer.files;
+	if (!files || files.length === 0) return;
+	if (!files[0].name.toLowerCase().endsWith('.json')) {
+		alert('対応していないファイル形式です。');
+	}
+
+	currentFileHandle = null; // ハンドルは取れないのでnull
+
+	const reader = new FileReader();
+	reader.onload = (event) => {
+		try {
+			loadPlanFromJson(event.target.result); // データ読み込み共通関数へ
 		} catch (err) {
-			console.error('JSONファイルの読み込みまたは解析に失敗しました:', err);
-			alert('ファイルの読み込みに失敗しました。有効なJSONファイルを選択してください。');
+			alert('ファイルの解析に失敗しました。正しいJSONファイルか確認してください。');
 		}
 	};
-	reader.readAsText(file);
+	reader.onerror = () => {
+		alert('ファイルの読み込み中にエラーが発生しました。');
+	};
+	reader.readAsText(files[0]); // テキストとして読み込み開始
 
-	// 同じファイルを再度選択できるように、inputの値をクリアする
-	event.target.value = '';
+}
+
+// JSONファイルを読み込んでplanTableを復元する関数
+async function loadPlanFromJson(jsonText) {
+
+	try {
+		const loadedData = JSON.parse(jsonText);
+		const planData = loadedData.plan;
+
+		// 先頭行が日付形式なら記録モードを自動有効化
+		const firstRow = planData[0];
+		isRecordMode = !!(firstRow && firstRow.timing && /^\d{4}-\d{2}-\d{2}$/.test(firstRow.timing));
+		const modeCheck = document.getElementById('checkRecordMode');
+		if (modeCheck) modeCheck.checked = isRecordMode;
+
+		// 'plan', 'titleText', 'crops' の存在をチェック
+		if (!Array.isArray(planData) || loadedData.titleText === undefined) { // loadedData.crops はオプションなのでチェックしない
+			throw new Error('Invalid JSON format: missing plan, titleText, or crops.');
+		}
+
+		// 作物情報の復元
+		window.checkedCrops = loadedData.crops || []; // crops がない場合は空配列で初期化
+
+		// currentSakumotsu を checkedCrops から再構築、または古い形式のsakumotsuから復元
+		currentSakumotsu = null; // まず初期化
+		if (window.checkedCrops.length > 0) {
+			currentSakumotsu = makeCropCondition(window.checkedCrops.map(item => item.sakumotsu));
+		} else if (loadedData.sakumotsu) { // 古い形式のJSONでcropsがない場合
+			currentSakumotsu = loadedData.sakumotsu;
+		}
+
+		// 作物ツリーのチェック状態を視覚的に復元
+		if (_defaultCropTreeManager && typeof _defaultCropTreeManager.syncCheckState === 'function') {
+			_defaultCropTreeManager.syncCheckState();
+		}
+
+		// searchCrop を呼び出して、UIと関連リストを更新
+		await searchCrop(); // searchCrop が null currentSakumotsu を処理するように変更
+
+		// テーブルを復元
+		const planTableBody = document.querySelector('#planTable tbody');
+		if (!planTableBody) return;
+
+		// #title のテキスト内容を復元
+		const titleElement = document.getElementById('title');
+		if (titleElement) {
+			titleElement.textContent = loadedData.titleText;
+			titleElement.classList.remove('hidden'); // タイトルを表示状態にする
+		}
+
+		// 既存のテーブル内容と候補テーブルをクリア
+		planTableBody?.clearContent();
+		document.getElementById('yakuzaiTekiyo')?.clearContent();
+
+		// JSONデータからテーブルを再構築
+		planData.forEach(rowData => {
+			const newRow = planTableBody.insertRow();
+			const yakuzaiName = rowData.yakuzai || '';
+			const data = {
+				timing: rowData.timing || '', // Add timing property
+				// 日付形式(YYYY-MM-DD)から月と旬を計算するフォールバック
+				timingMonth: rowData.timingMonth || (rowData.timing && /^\d{4}-\d{2}-\d{2}$/.test(rowData.timing) ? String(new Date(rowData.timing).getMonth() + 1) : ''),
+				timingPeriod: rowData.timingPeriod || (rowData.timing && /^\d{4}-\d{2}-\d{2}$/.test(rowData.timing) ? (new Date(rowData.timing).getDate() <= 10 ? '上旬' : new Date(rowData.timing).getDate() <= 20 ? '中旬' : '下旬') : ''),
+				sakumotsu: rowData.sakumotsu || '',
+				yakuzai: rowData.yakuzai || '',
+				byochu: rowData.byochu || '',
+				jiki: rowData.jiki || '',
+				kaisu: rowData.kaisu || '-',
+				baisu: rowData.baisu || '',
+				ekiryo: rowData.ekiryo || '',
+				hoho: rowData.hoho || '',
+				//yukoseibun: rowData.yukoseibun || '',
+				seibun: rowData.seibun || '',
+				seibunkaisu: rowData.seibunkaisu || '',
+				mid: rowData.mid || ''
+			};
+			addYakuzaiToPlanRow(newRow, yakuzaiName, data);
+		});
+
+		updateRowNumbers(); // 行番号の再採番と成分別使用回数の更新
+		alert('防除計画/防除記録を読み込みました。');
+
+	} catch(err) {
+		console.error('JSONファイルの解析に失敗しました:', err);
+		alert('ファイルの読み込みに失敗しました。有効なJSONファイルを選択してください。');
+	}
 }
 
 // planTableの内容をExcelファイルとして保存する関数
@@ -1258,8 +1355,9 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 	const table = document.getElementById('planTable');
 	if (!table) return;
 
+	const baseName = isRecordMode ? '防除記録' : '防除計画';
 	const workbook = new ExcelJS.Workbook();
-	const planWorksheet = workbook.addWorksheet('防除計画');
+	const planWorksheet = workbook.addWorksheet(baseName);
 
 	// ヘッダー行を追加 (「操作」列を除く)
 	const headers = [];
@@ -1325,12 +1423,35 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 		}
 	}
 
-	// Excel ファイルを生成してダウンロード
+	// Excel ファイルを生成して保存
 	const buffer = await workbook.xlsx.writeBuffer();
-	const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-	const prefix = getFilenamePrefix();
-	const baseName = isRecordMode ? '防除記録' : '防除計画';
-	saveAs(blob, `${prefix}${baseName}_${formatDateTime()}.xlsx`);
+	const prefix = getFilenamePrefix(); // 作物名プレフィックス
+	const filename = `${prefix}${baseName}_${formatDateTime()}.xlsx`;
+
+	// API 非対応ブラウザの場合はダウンロード型保存
+	if (!isFileSystemAccessSupported) {
+		const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+		saveAs(blob, filename);
+		alert('Exelファイルをダウンロードしました。');
+		return;
+	}
+
+	try {
+		const fileHandle = await window.showSaveFilePicker({
+			suggestedName: filename,
+			types: [{ description: 'JSON Files', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }]
+		});
+		
+		const writable = await fileHandle.createWritable();
+		await writable.write(buffer);
+		await writable.close();
+		alert('ファイルを保存しました');
+		
+	} catch (err) {
+		if (err.name !== 'AbortError') {
+			alert('ファイルの保存に失敗しました。');
+		}
+	}
 }
 
 // planTableの内容をクリップボードにコピーする関数
@@ -1654,7 +1775,7 @@ function updateRowNumbers() {
 	}
 
 	tabExecuted = hasRows; // 防除計画に行があれば実行済み
-	['btnSortPlan', 'btnCopyPlan', 'btnExcelPlan', 'btnJsonSavePlan'].forEach(id => {
+	['btnSortPlan', 'btnCopyPlan', 'btnExcelPlan', 'btnPlanSave', 'btnPlanSaveAs'].forEach(id => {
 		const btn = document.getElementById(id);
 		if (btn) {
 			btn.classList.toggle('disabled', !hasRows);
@@ -1807,13 +1928,19 @@ function updateYakuzaiCountTable() {
 
 function handleDrop(event) {
 	event.preventDefault();
-	const files = event.dataTransfer.files;
-	if (files && files.length > 0) {
-		if (files[0].name.toLowerCase().endsWith('.json')) {
-			loadPlanFromJson({ target: { files: files } });
-		} else {
-			alert('対応していないファイル形式です。');
-		}
+
+	// firefox, Safari の場合
+	if (!isFileSystemAccessSupported) {
+		readFile(event);
+		return;
+	}
+
+	// Chrome, Edge の場合
+	const item = event.dataTransfer.items[0];
+	if (item && item.kind === 'file') {
+		fileOpen(item);
+	} else {
+		alert('対応していないファイル形式です。');
 	}
 }
 
@@ -1839,6 +1966,13 @@ window.addEventListener('DOMContentLoaded', async function() {
 	// イベントリスナーの一括登録
 	document.getElementById('cbyochuSelect').addEventListener('change', onCbyochuChange);
 	document.getElementById('byochuSelect').addEventListener('change', handleByochuSelection);
+
+	// フォールバック用inputが変更された時の処理（Firefox/Safari用）
+	const fallbackInput = document.getElementById('fallbackFileInput');
+	fallbackInput.addEventListener('change', (e) => {
+		readFile(e);
+		fallbackInput.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
+	});
 
 	// ドラッグ＆ドロップのイベントリスナーを設定
 	const planContainer = document.getElementById('planContainer');
