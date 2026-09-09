@@ -327,8 +327,9 @@ let currentCbyochu = null;   // 現在選択されているcid
 let currentByochu = null;   // 現在選択されている病害虫
 let currentYakuzai = null;   // 現在選択されている薬剤
 
-// 読み込んだ、または一度保存した「ファイルハンドル」を保持する変数
+// 読み込んだ、または一度保存したファイルハンドル及びファイル名を保持する変数
 let currentFileHandle = null;
+let currentFilename = '';
 
 // 無保存データフラグ
 let isDirty = false;
@@ -1116,10 +1117,10 @@ function getTimingArray(mode, td) {
 	return [timing, timingMonth, timingPeriod];
 }
 
-// planTableの内容をJSON形式で保存する関数
-async function savePlanAsJson(overwrite = true) {
+// planTable の内容を json 形式にする関数
+function convPlanToJson() {
 	const table = document.getElementById('planTable');
-	if (!table) return;
+	if (!table) return '';
 
 	const planData = [];
 	const saveData = {
@@ -1146,7 +1147,13 @@ async function savePlanAsJson(overwrite = true) {
 		planData.push(rowData);
 	});
 
-	const jsonData = JSON.stringify(saveData, null, 2);
+	return JSON.stringify(saveData, null, 2);
+}
+
+// planTable の内容を JSON 形式で保存する関数
+async function savePlanAsJson(overwrite = true) {
+	const saveData = convPlanToJson();
+
 	// overwrite = true ですでにファイルを開いている、または一度保存していてハンドルがある場合は「上書き」
 	if (overwrite && currentFileHandle) {
 		try {
@@ -1187,11 +1194,13 @@ async function savePlanAsJson(overwrite = true) {
 			types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
 		});
 		
-		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
 		
 		const writable = await fileHandle.createWritable();
 		await writable.write(jsonData);
 		await writable.close();
+
+		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
+		currentFilename = fileHandle.name;
 		isDirty = false;
 		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
@@ -1230,9 +1239,10 @@ async function fileOpen(item = null) {
 				multiple: false
 			});
 		}
-		currentFileHandle = fileHandle; // ハンドルを記憶
 		const file = await fileHandle.getFile();
 		const text = await file.text();
+		currentFileHandle = fileHandle; // ハンドルを記憶
+		currentFilename = fileHandle.name; // ファイル名を保存
 		loadPlanFromJson(text); // データ読み込み共通関数へ
 	} catch (err) {
 		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
@@ -1261,7 +1271,7 @@ function readFile(file) {
 		alert('ファイルの読み込み中にエラーが発生しました。');
 	};
 	reader.readAsText(file); // テキストとして読み込み開始
-
+	currentFilename = file.name; // ファイル名保存
 }
 
 // JSONファイルを読み込んでplanTableを復元する関数
@@ -1982,13 +1992,36 @@ window.addEventListener('DOMContentLoaded', async function() {
 		event.preventDefault(); // Allow drop
 	});
 	planContainer.addEventListener('drop', handleDrop);
+
+	// unsavedPlan がある場合は復元
+	const savedString = localStorage.getItem('savedPlan');
+	if (savedString) {
+		try {
+			const appData = JSON.parse(savedString);
+			// 1. データを画面に復元
+			loadPlanFromJson(JSON.stringify(appData.records)); 
+			// 2. ユーザーにお知らせ（ファイル名を表示）
+			currentFilename = appData.fileName;
+			alert(`前回の未保存データ（ファイル名: ${currentFilename}）を復元しました。`);
+			// 3. 復元が終わったら localStorage をクリア
+			localStorage.removeItem('unsavedPlan');
+		} catch (err) {
+			console.error('データの復元に失敗しました:', err);
+		}
+	}
+
 });
 
 // タブ終了時の処理
 window.addEventListener('beforeunload', (event) => {
 	if (!isDirty) return; // 保存済みなら即終了
-	event.preventDefault();  // ブラウザの確認ダイアログ表示
-	event.returnValue = ''; // 古いブラウザ（互換性）のための記述
+	//event.preventDefault();  // ブラウザの確認ダイアログ表示
+	//event.returnValue = ''; // 古いブラウザ（互換性）のための記述
+	const appData = {
+		planData: convPlanToJson(),
+		fileName: currentFilename
+	};
+	localStorage.setItem('unsavedPlan', JSON.stringify(appData));
 });
 </script>
 </head>
