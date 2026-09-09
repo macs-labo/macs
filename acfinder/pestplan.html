@@ -983,6 +983,13 @@ function createPlanTable() {
 	if (!planContainer) return;
 	const headers = ['操作', 'No', '防除時期', '作物名', '薬剤名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC'];
 
+	const btnSaveAs = !isFileSystemAccessSupported ? '' : `
+		<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)>
+			<title>防除計画/防除記録を名前を付けて保存</title>
+			<use href="icons.svg?#save-as"></use>
+		</svg>
+	`;
+
 	planContainer.innerHTML = `
 		<div class="checkListItem"">
 			<input type="checkbox" id="checkRecordMode" onchange="toggleRecordMode(this.checked)" autocomplete="off">
@@ -1013,10 +1020,7 @@ function createPlanTable() {
 				<title>防除計画/防除記録を${isFileSystemAccessSupported ? '上書き' : ''}保存</title>
 				<use href="icons.svg?#save"></use>
 			</svg>
-			<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)${isFileSystemAccessSupported ? '' : ' class="hidden"'}">
-				<title>防除計画/防除記録を名前を付けて保存</title>
-				<use href="icons.svg?#save-as"></use>
-			</svg>
+			${btnSaveAs}
 			<svg class="icon" onclick="fileOpen()">
 				<title>防除計画/防除記録を開く</title>
 				<use href="icons.svg?#folder-open"></use>
@@ -1157,12 +1161,28 @@ async function savePlanAsJson(overwrite = true) {
 		}
 	}
 
-	// overwrite = false またはハンドルがない、または上書きに失敗した場合は「名前を付けて保存」
+	// デフォルトファイル名
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
 	const baseName = isRecordMode ? '防除記録' : '防除計画';
+	const filename = `${prefix}${baseName}_${formatDateTime()}.json`;
+
+	// API 非対応ブラウザの場合はダウンロード型保存
+	if (!isFileSystemAccessSupported) {
+		const blob = new Blob([jsonData], { type: 'application/json' });
+		saveAs(blob, filename);
+		alert(
+			`「${filename}」をダウンロードしました。\n\n` +
+			"【便利なヒント】\n" +
+			"Google Chrome や Microsoft Edge などのブラウザでお使いいただくと、" +
+			"同じファイルへの「上書き保存」や「名前を付けて保存」ができるようになり、ファイルがたまらず便利です！"
+		);
+		return;
+	}
+
+	// overwrite = false またはハンドルがない、または上書きに失敗した場合は「名前を付けて保存」
 	try {
 		const fileHandle = await window.showSaveFilePicker({
-			suggestedName: `${prefix}${baseName}_${formatDateTime()}.json`,
+			suggestedName: filename,
 			types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
 		});
 		
@@ -1181,7 +1201,7 @@ async function savePlanAsJson(overwrite = true) {
 
 }
 
-// ファイルオープナー
+// 防除計画ファイルを開く
 async function fileOpen(item = null) {
 
 	const planTableBody = document.querySelector('#planTable tbody');
@@ -1335,8 +1355,9 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 	const table = document.getElementById('planTable');
 	if (!table) return;
 
+	const baseName = isRecordMode ? '防除記録' : '防除計画';
 	const workbook = new ExcelJS.Workbook();
-	const planWorksheet = workbook.addWorksheet('防除計画');
+	const planWorksheet = workbook.addWorksheet(baseName);
 
 	// ヘッダー行を追加 (「操作」列を除く)
 	const headers = [];
@@ -1405,10 +1426,19 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 	// Excel ファイルを生成して保存
 	const buffer = await workbook.xlsx.writeBuffer();
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
-	const baseName = isRecordMode ? '防除記録' : '防除計画';
+	const filename = `${prefix}${baseName}_${formatDateTime()}.xlsx`;
+
+	// API 非対応ブラウザの場合はダウンロード型保存
+	if (!isFileSystemAccessSupported) {
+		const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+		saveAs(blob, filename);
+		alert('Exelファイルをダウンロードしました。');
+		return;
+	}
+
 	try {
 		const fileHandle = await window.showSaveFilePicker({
-			suggestedName: `${prefix}${baseName}_${formatDateTime()}.xlsx`,
+			suggestedName: filename,
 			types: [{ description: 'JSON Files', accept: { 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'] } }]
 		});
 		
