@@ -1994,12 +1994,14 @@ window.addEventListener('DOMContentLoaded', async function() {
 	planContainer.addEventListener('drop', handleDrop);
 
 	// unsavedPlan がある場合は復元
-	const savedString = localStorage.getItem('savedPlan');
+	const savedString = localStorage.getItem('unsavedPlan');
 	if (savedString) {
 		try {
 			const appData = JSON.parse(savedString);
+			console.log('planData:', appData.planData);
 			// 1. データを画面に復元
-			loadPlanFromJson(JSON.stringify(appData.records)); 
+			//loadPlanFromJson(JSON.stringify(appData.planData)); 
+			loadPlanFromJson(appData.planData); 
 			// 2. ユーザーにお知らせ（ファイル名を表示）
 			currentFilename = appData.fileName;
 			alert(`前回の未保存データ（ファイル名: ${currentFilename}）を復元しました。`);
