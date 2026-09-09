@@ -1245,8 +1245,7 @@ async function fileOpen(item = null) {
 }
 
 // fallbackFileInput の場合の読込
-function readFile(event) {
-	const file = event.dataTransfer.files[0];
+function readFile(file) {
 	if (!file) return;
 	if (!file.name.toLowerCase().endsWith('.json')) {
 		alert('対応していないファイル形式です。');
@@ -1938,14 +1937,13 @@ function handleDrop(event) {
 
 	// firefox, Safari の場合
 	if (!isFileSystemAccessSupported) {
-		readFile(event);
+		readFile(event.dataTransfer.files[0]);
 		return;
 	}
 
 	// Chrome, Edge の場合
 	const item = event.dataTransfer.items[0];
-	console.log('item: ', item);
-	if (item && item.kind === 'file') {
+	if (item && item.kind === 'file' && item.type === 'application/json') {
 		fileOpen(item);
 	} else {
 		alert('対応していないファイル形式です。');
@@ -1978,7 +1976,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	// フォールバック用inputが変更された時の処理（Firefox/Safari用）
 	const fallbackInput = document.getElementById('fallbackFileInput');
 	fallbackInput.addEventListener('change', (e) => {
-		readFile(e);
+		readFile(e.target.files[0]);
 		fallbackInput.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
 	});
 
