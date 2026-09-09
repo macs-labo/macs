@@ -986,7 +986,7 @@ function createPlanTable() {
 	const btnSaveAs = !isFileSystemAccessSupported ? '' : `
 		<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)>
 			<title>防除計画/防除記録を名前を付けて保存</title>
-			<use href="icons.svg?#save-as"></use>
+			<use href="icons.svg?v=2#save-as"></use>
 		</svg>
 	`;
 
@@ -1147,7 +1147,7 @@ async function savePlanAsJson(overwrite = true) {
 		planData.push(rowData);
 	});
 
-	const jsonData = JSON.stringify(planData, null, 2);
+	const jsonData = JSON.stringify(saveData, null, 2);
 	// overwrite = true ですでにファイルを開いている、または一度保存していてハンドルがある場合は「上書き」
 	if (overwrite && currentFileHandle) {
 		try {
