@@ -8,7 +8,7 @@ on:
         description: 'ZIP作成後に main ブランチへ自動プッシュする'
         type: boolean
         required: true
-        default: true # デフォルトはON（チェックが入った状態）
+        default: false
 
 jobs:
   release:
