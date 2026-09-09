@@ -197,6 +197,10 @@ svg.disabled {
 	opacity: 0.3;
 }
 
+#btnPlanSaveAs.hidden {
+	display: none;
+}
+
 /* 薬剤候補テーブルのスタイル調整 */
 #yakuzaiTekiyo .handsontable-like,
 #planContainer .handsontable-like,
@@ -986,13 +990,6 @@ function createPlanTable() {
 	if (!planContainer) return;
 	const headers = ['操作', 'No', '防除時期', '作物名', '薬剤名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC'];
 
-	const btnSaveAs = !isFileSystemAccessSupported ? '' : `
-		<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)">
-			<title>防除計画/防除記録を名前を付けて保存</title>
-			<use href="icons.svg#save-as"></use>
-		</svg>
-	`;
-
 	planContainer.innerHTML = `
 		<div class="checkListItem"">
 			<input type="checkbox" id="checkRecordMode" onchange="toggleRecordMode(this.checked)" autocomplete="off">
@@ -1023,7 +1020,10 @@ function createPlanTable() {
 				<title>防除計画/防除記録を${isFileSystemAccessSupported ? '上書き' : ''}保存</title>
 				<use href="icons.svg#save"></use>
 			</svg>
-			${btnSaveAs}
+			<svg id="btnPlanSaveAs" class="icon disabled${isFileSystemAccessSupported ? '' : ' hidden'}" onclick="savePlanAsJson(false)">
+				<title>防除計画/防除記録を名前を付けて保存</title>
+				<use href="icons.svg#save-as"></use>
+			</svg>
 			<svg class="icon" onclick="fileOpen()">
 				<title>防除計画/防除記録を開く</title>
 				<use href="icons.svg#folder-open"></use>
