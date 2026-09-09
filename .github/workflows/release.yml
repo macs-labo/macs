@@ -4,6 +4,7 @@ on:
   workflow_dispatch: # 手動実行トリガー
 
 jobs:
+  permissions: contents: write
   release:
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/dev'
