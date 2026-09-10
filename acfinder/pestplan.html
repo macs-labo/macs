@@ -1161,7 +1161,7 @@ async function savePlanAsJson(overwrite = true) {
 	const baseName = isRecordMode ? '防除記録' : '防除計画';
 	let filename = currentFilename ? currentFilename : `${prefix}${baseName}_${formatDateTime('year')}.json`;
 	if (currentFilename) {
-		if (isRecodeMode) {
+		if (isRecordMode) {
 			filename = filename.replace('計画', '記録');
 		} else {
 			filename = filename.replace('記録', '計画');
