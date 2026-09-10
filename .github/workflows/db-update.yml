@@ -47,6 +47,10 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Switch to main branch
+        run: |
+          git checkout main
+
       - name: Restore timestamps
         uses: chetan/git-restore-mtime-action@v2
 
