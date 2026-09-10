@@ -21,7 +21,7 @@ on:
         options: [fully_sync, dbupdate_only, site_sync_only, push_notification_only]
 
   schedule:
-    - cron: '2 0-6/1 * * 1-5'
+    - cron: '10 0-6/1 * * 1-5'
 
 permissions:
   contents: write
@@ -46,6 +46,10 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Switch to main branch
+        run: |
+          git checkout main
 
       - name: Restore timestamps
         uses: chetan/git-restore-mtime-action@v2
@@ -147,13 +151,13 @@ jobs:
     if: (needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.force_update == 'true') && github.event.inputs.sync_mode != 'push_notification_only'
     runs-on: ubuntu-latest
     steps:
+      # 1. Vercel CLI をインストール
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      # 2. 公式コマンドで本番デプロイを実行
       - name: Deploy to Vercel (Production)
-        uses: amondnet/vercel-action@v25
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          vercel-args: '--prod' # 本番（Production）環境としてデプロイを強制するフラグ
+        run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=macs-labo
 
   # 並列ジョブ3: 外部サイトの同期（各拠点の .sync.data.php を叩く）
   sync-remote:
