@@ -1035,17 +1035,15 @@ function createPlanTable() {
 }
 
 // 現在時刻を YYYYMMDD-hhmmss にフォーマット
-function formatDateTime() {
+function formatDateTime(opt = '') {
 	const now = new Date();
-	const formattedDate = now.toLocaleString('ja-JP', {
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-		hour: '2-digit',
-		minute: '2-digit',
-		second: '2-digit',
-		hour12: false
-	});
+	let format = { year: 'numeric' }
+	switch (opt.toLowerCase()) {
+		case 'year': break;
+		case 'date': format = {...format, month: '2-digit', day: '2-digit'}; break;
+		default: format = {...format, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+	}
+	const formattedDate = now.toLocaleString('ja-JP', format);
 	return formattedDate.replace(/[\/:]/g, '').replace(' ', '-');
 }
 
@@ -1158,25 +1156,17 @@ function convPlanToJson() {
 async function savePlanAsJson(overwrite = true) {
 	const saveData = convPlanToJson();
 
-	// overwrite = true ですでにファイルを開いている、または一度保存していてハンドルがある場合は「上書き」
-	if (overwrite && currentFileHandle) {
-		console.log('fileHandel: ', currentFileHandle);
-		try {
-			const writable = await currentFileHandle.createWritable();
-			await writable.write(saveData);
-			await writable.close();
-			isDirty = false;
-			alert('ファイルを上書き保存しました。');
-			return;
-		} catch (err) {
-			console.error('上書き失敗（新規保存に切り替えます）:', err);
-		}
-	}
-
 	// デフォルトファイル名
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
 	const baseName = isRecordMode ? '防除記録' : '防除計画';
-	const filename = currentFilename ? currentFilename : `${prefix}${baseName}_${formatDateTime()}.json`;
+	let filename = currentFilename ? currentFilename : `${prefix}${baseName}_${formatDateTime('year')}.json`;
+	if (currentFilename) {
+		if (isRecodeMode) {
+			filename = filename.replace('計画', '記録');
+		} else {
+			filename = filename.replace('記録', '計画');
+		}
+	}
 
 	// API 非対応ブラウザの場合はダウンロード型保存
 	if (!isFileSystemAccessSupported) {
@@ -1192,7 +1182,22 @@ async function savePlanAsJson(overwrite = true) {
 		return;
 	}
 
-	// overwrite = false またはハンドルがない、または上書きに失敗した場合は「名前を付けて保存」
+	// overwrite = true でファイルハンドルがあり、basename が一致している場合は「上書き」
+	if (overwrite && currentFileHandle && currentFilename.includes(basename)) {
+		console.log('fileHandel: ', currentFileHandle);
+		try {
+			const writable = await currentFileHandle.createWritable();
+			await writable.write(saveData);
+			await writable.close();
+			isDirty = false;
+			alert('ファイルを上書き保存しました。');
+			return;
+		} catch (err) {
+			console.error('上書き失敗（新規保存に切り替えます）:', err);
+		}
+	}
+
+	// overwrite = false またはハンドルがない、または basename が一致、または上書きに失敗した場合は「名前を付けて保存」
 	try {
 		const fileHandle = await window.showSaveFilePicker({
 			suggestedName: filename,
@@ -1443,7 +1448,7 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 	// Excel ファイルを生成して保存
 	const buffer = await workbook.xlsx.writeBuffer();
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
-	const filename = `${prefix}${baseName}_${formatDateTime()}.xlsx`;
+	const filename = `${prefix}${baseName}_${formatDateTime('date')}.xlsx`;
 
 	// API 非対応ブラウザの場合はダウンロード型保存
 	if (!isFileSystemAccessSupported) {
@@ -1968,7 +1973,7 @@ function restorePlan() {
 	try {
 		const appData = JSON.parse(savedString);
 		console.log('planData:', appData.planData);
-		const msg = `前回の未保存データ（ファイル名: ${appData.fileName}）を復元しました。`;
+		const msg = `前回の未保存データ${appData.fileName ? `(ファイル名: ${appData.fileName})` : ''}を復元しました。`;
 		loadPlanFromJson(appData.planData, msg); 
 		currentFilename = appData.fileName;
 		localStorage.removeItem('unsavedPlan');
