@@ -1156,9 +1156,10 @@ async function savePlanAsJson(overwrite = true) {
 
 	// overwrite = true ですでにファイルを開いている、または一度保存していてハンドルがある場合は「上書き」
 	if (overwrite && currentFileHandle) {
+		console.log('fileHandel: ', currentFileHandle);
 		try {
 			const writable = await currentFileHandle.createWritable();
-			await writable.write(jsonData);
+			await writable.write(saveData);
 			await writable.close();
 			isDirty = false;
 			alert('ファイルを上書き保存しました。');
@@ -1171,11 +1172,11 @@ async function savePlanAsJson(overwrite = true) {
 	// デフォルトファイル名
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
 	const baseName = isRecordMode ? '防除記録' : '防除計画';
-	const filename = `${prefix}${baseName}_${formatDateTime()}.json`;
+	const filename = currentFilename ? currentFilename : `${prefix}${baseName}_${formatDateTime()}.json`;
 
 	// API 非対応ブラウザの場合はダウンロード型保存
 	if (!isFileSystemAccessSupported) {
-		const blob = new Blob([jsonData], { type: 'application/json' });
+		const blob = new Blob([saveData], { type: 'application/json' });
 		saveAs(blob, filename);
 		isDirty = false;
 		alert(
@@ -1196,7 +1197,7 @@ async function savePlanAsJson(overwrite = true) {
 		
 		
 		const writable = await fileHandle.createWritable();
-		await writable.write(jsonData);
+		await writable.write(saveData);
 		await writable.close();
 
 		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
