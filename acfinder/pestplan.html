@@ -1963,7 +1963,7 @@ function handleDrop(event) {
 }
 
 // 自動保存データ復元
-function restoreDPlan() {
+function restorePlan() {
 	const savedString = localStorage.getItem('unsavedPlan');
 	try {
 		const appData = JSON.parse(savedString);
