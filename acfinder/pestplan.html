@@ -1183,7 +1183,7 @@ async function savePlanAsJson(overwrite = true) {
 	}
 
 	// overwrite = true でファイルハンドルがあり、basename が一致している場合は「上書き」
-	if (overwrite && currentFileHandle && currentFilename.includes(basename)) {
+	if (overwrite && currentFileHandle && currentFilename.includes(baseName)) {
 		console.log('fileHandel: ', currentFileHandle);
 		try {
 			const writable = await currentFileHandle.createWritable();
