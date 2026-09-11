@@ -605,11 +605,11 @@ async function setRacList(byochu = false) {
 
 	const byochuCondition = byochu ? ` and (byochu in (${currentByochu}) or mokuteki in (${currentByochu}))` : '';
 	const sql = `with racs as (
-		select distinct mid1 as mid, iif(instr(rem1, 'FRAC'), concat_ws('/', replace(rem1, 'FRAC系統名: ', ''), risk1), null) as rem, keito1 as keito from tv_tsushoTekiyo where mid1 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} union
-		select distinct mid2 as mid, iif(instr(rem2, 'FRAC'), concat_ws('/', replace(rem2, 'FRAC系統名: ', ''), risk2), null) as rem, keito2 as keito from tv_tsushoTekiyo where mid2 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} union
-		select distinct mid3 as mid, iif(instr(rem3, 'FRAC'), concat_ws('/', replace(rem3, 'FRAC系統名: ', ''), risk3), null) as rem, keito3 as keito from tv_tsushoTekiyo where mid3 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} union
-		select distinct mid4 as mid, iif(instr(rem4, 'FRAC'), concat_ws('/', replace(rem4, 'FRAC系統名: ', ''), risk4), null) as rem, keito4 as keito from tv_tsushoTekiyo where mid4 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} union
-		select distinct mid5 as mid, iif(instr(rem5, 'FRAC'), concat_ws('/', replace(rem5, 'FRAC系統名: ', ''), risk5), null) as rem, keito5 as keito from tv_tsushoTekiyo where mid5 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} order by mid)
+		select distinct mid1 as mid, iif(instr(rem1, 'FRAC'), replace(rem1, 'FRAC系統名: ', ''), null) as rem, keito1 as keito from tv_tsushoTekiyo where mid1 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} union
+		select distinct mid2 as mid, iif(instr(rem2, 'FRAC'), replace(rem2, 'FRAC系統名: ', ''), null) as rem, keito2 as keito from tv_tsushoTekiyo where mid2 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} union
+		select distinct mid3 as mid, iif(instr(rem3, 'FRAC'), replace(rem3, 'FRAC系統名: ', ''), null) as rem, keito3 as keito from tv_tsushoTekiyo where mid3 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} union
+		select distinct mid4 as mid, iif(instr(rem4, 'FRAC'), replace(rem4, 'FRAC系統名: ', ''), null) as rem, keito4 as keito from tv_tsushoTekiyo where mid4 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} union
+		select distinct mid5 as mid, iif(instr(rem5, 'FRAC'), replace(rem5, 'FRAC系統名: ', ''), null) as rem, keito5 as keito from tv_tsushoTekiyo where mid5 is not null and sakumotsu in (${currentSakumotsu})${byochuCondition} order by mid)
 		select mid as rac, iif(rem = keito, null, replace(rem, keito, '')) as rem, gn_concat(', ', keito) as keito from racs group by mid;
 		--select concat(mid, ' ['||iif(rem = keito, null, replace(rem, iif(instr(keito, ', '), explode(', ', keito, 2), keito), ''))||']') as rac, gn_concat(', ', keito) as keito from racs group by mid;
 	`;
@@ -733,11 +733,11 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 			concat_ws('<br>', yuko1, yuko2, yuko3, yuko4, yuko5) as seibun,
 			concat_ws('<br>',kaisu1,kaisu2,kaisu3,kaisu4,kaisu5) as seibunkaisu,
 			concat_ws('<br>',
-				concat_ws('/',mid1,keito1,replace(rem1, 'FRAC系統名: ', '')),
-				concat_ws('/',mid2,keito2,replace(rem2, 'FRAC系統名: ', '')),
-				concat_ws('/',mid3,keito3,replace(rem3, 'FRAC系統名: ', '')),
-				concat_ws('/',mid4,keito4,replace(rem4, 'FRAC系統名: ', '')),
-				concat_ws('/',mid5,keito5,replace(rem5, 'FRAC系統名: ', ''))
+				concat_ws('/',mid1,keito1,replace(rem1, 'FRAC系統名: ', ''), risk1),
+				concat_ws('/',mid2,keito2,replace(rem2, 'FRAC系統名: ', ''), risk2),
+				concat_ws('/',mid3,keito3,replace(rem3, 'FRAC系統名: ', ''), risk3),
+				concat_ws('/',mid4,keito4,replace(rem4, 'FRAC系統名: ', ''), risk4),
+				concat_ws('/',mid5,keito5,replace(rem5, 'FRAC系統名: ', ''), risk5)
 			) as mid
 			FROM t_tekiyo
 			WHERE tsusho = '${yakuzaiName}' AND sakumotsu IN (${currentSakumotsu})
