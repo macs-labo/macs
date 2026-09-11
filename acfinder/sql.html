@@ -190,6 +190,12 @@ span.cm-variable-3 { font-weight: bold;  }
 let editor; // CodeMirror instance
 let varEditor; // CodeMirror instance for variables
 
+// CodeMirrorのプロトタイプにカスタムメソッドを追加
+CodeMirror.prototype.isEdited = function() {
+	// historySize() はインスタンス（this）の履歴を返す
+	return this.historySize().undo > 0;
+};
+
 function loadLocalFile(event) {
 	const file = event.target.files[0];
 	if (!file) return;
