@@ -12,6 +12,14 @@
 		<path d="M20 11a8.1 8.1 0 0 0 -15.5 -2m-.5 -4v4h4" />
 		<path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
 	</symbol>
+	<symbol id="undo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M12 21A9 9 0 1 0 4.204 7.5" />
+		<path d="M3 3v1.278c0 2.192 0 3.288.707 3.887c.708.6 1.789.42 3.95.059L9 8" />
+	</symbol>
+	<symbol id="redo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M12 21a9 9 0 1 1 7.796-13.5" />
+		<path d="M21 3v1.278c0 2.192 0 3.288-.708 3.887c-.707.6-1.788.42-3.95.059L14.999 8" />
+	</symbol>
 	<symbol id="alert-triangle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-alert-triangle">
 		<path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 9v4" />
 		<path d="M10.363 3.591l-8.106 13.534a1.914 1.914 0 0 0 1.636 2.871h16.214a1.914 1.914 0 0 0 1.636 -2.87l-8.106 -13.536a1.914 1.914 0 0 0 -3.274 0" />
