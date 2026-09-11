@@ -1779,6 +1779,12 @@ function updateRowNumbers() {
 	const planTableBody = document.querySelector('#planTable tbody');
 	if (!planTableBody) return;
 
+	// 事故防止のため、ここに来た段階で自動保存データを削除して復元ボタンを隠す
+	if (localStorage.getItem('unsavedPlan')) {
+		localStorage.removeItem('unsavedPlan');
+		document.getElementById('btnRestorePlan')?.classList.add('hidden');
+	}
+
 	const rows = planTableBody.rows;
 	const hasRows = rows.length > 0;
 	isDirty = hasRows;
@@ -1976,11 +1982,8 @@ function restorePlan() {
 		const msg = `前回の未保存データ${appData.fileName ? `(ファイル名: ${appData.fileName})` : ''}を復元しました。`;
 		loadPlanFromJson(appData.planData, msg); 
 		currentFilename = appData.fileName;
-		localStorage.removeItem('unsavedPlan');
 	} catch (err) {
 		console.error('データの復元に失敗しました:', err);
-	} finally {
-		document.getElementById('btnRestorePlan')?.classList.add('hidden');
 	}
 }
 
