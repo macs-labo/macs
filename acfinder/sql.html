@@ -1049,7 +1049,7 @@ function updateToolbarState(cm) {
 	if (cm.btnRedo) cm.btnRedo.classList.toggle('disabled', !cm.canRedo());
 
 	// btnExec がある場合はそれも設定
-	if (cm.btnExec) cm.btnExecclassList.toggle('disabled', cm.isEmpty());
+	if (cm.btnExec) cm.btnExec.classList.toggle('disabled', cm.isEmpty());
 }
 
 // 改行文字を表示するための処理
