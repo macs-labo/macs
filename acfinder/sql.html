@@ -1237,7 +1237,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	});
 
 	// CodeMirrorの初期化
-	sqlEditor = setupEditor('sqlInput', 'sql_toolbar', {
+	sqlEditor = setupEditor('sqlInput', '#sql_toolbar', {
 		mode: 'text/x-sql',
 		extraKeys: {"Ctrl-Space": "autocomplete"}, // "autocomplete" は CodeMirror.hint.sql を呼び出す
 		hintOptions: { tables: tablesForHint },
@@ -1270,7 +1270,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	});
 
 	// 変数エディタの初期化
-	varEditor = setupEditor('varInput', 'var_toolbar', { mode: 'varMode' });
+	varEditor = setupEditor('varInput', '#var_toolbar', { mode: 'varMode' });
 
 	// sql, var をクリアする(firefox 対策)
 	sqlEditor.setValue('');
