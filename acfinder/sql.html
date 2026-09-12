@@ -345,6 +345,26 @@ function clearText(inputId) {
 	}
 }
 
+function undoEdit(inputId) {
+	if (inputId === 'varInput') {
+		varEditor.undo('');
+		varEditor.focus();
+	} else {
+		editor.undo('');
+		editor.focus();
+	}
+}
+
+function redoEdit(inputId) {
+	if (inputId === 'varInput') {
+		varEditor.redo('');
+		varEditor.focus();
+	} else {
+		editor.redo('');
+		editor.focus();
+	}
+}
+
 function setToolbarText(msg, autoClose = 0) {
 	const sqlToolbar = document.getElementById('sql_toolbar');
 	const toolbarText = document.getElementsByClassName('toolbar_text')[0];
@@ -1277,33 +1297,45 @@ window.addEventListener('DOMContentLoaded', async function() {
 				<div id="sql_editor"><!-- SQLエディタ部 -->
 					<div id="sql_toolbar" class="toolbar"><!-- SQLツールバー配置 -->
 						<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" onchange="loadLocalFile(event)" class="hidden">
-						<svg class="icon" onclick="loadAutoSavedSQL()">
-							<title>自動保存SQL読込</title>
-							<use href="icons.svg#library"></use>
-						</svg>
 						<label for="fileInputSQL">
 							<svg class="icon">
 								<title>SQL/ZIPファイル読込</title>
 								<use href="icons.svg#folder-open"></use>
 							</svg>
 						</label>
-						<svg class="icon" onclick="saveSQLFile()">
+						<svg class="icon save disabled" onclick="saveSQLFile()">
 							<title>SQLファイル保存</title>
-							<use href="icons.svg#floppy-disk"></use>
+							<use href="icons.svg#save"></use>
 						</svg>
-						<svg class="icon" onclick="clearText('sqlInput')">
+						<svg class="icon saveAs disabled hidden" onclick="saveSQLFile(false)">
+							<title>SQLファイルを名前を付けて保存</title>
+							<use href="icons.svg#save-as"></use>
+						</svg>
+						<svg class="icon disabled" onclick="clearText('sqlInput')">
 							<title>テキスト消去</title>
 							<use href="icons.svg#text-clear"></use>
+						</svg>
+						<svg class="icon undo disabled" onclick="undoEdit('sqlInput')">
+							<title>元に戻す</title>
+							<use href="icons.svg#undo"></use>
+						</svg>
+						<svg class="icon redo disabled" onclick="redoEdit('sqlInput')">
+							<title>やり直し</title>
+							<use href="icons.svg#redo"></use>
 						</svg>
 						<svg class="icon" onclick="toggleVarEditor()">
 							<title>変数エディタ開閉</title>
 							<use href="icons.svg#source-code"></use>
 						</svg>
-						<svg class="icon" onclick="dispatchSQLExecution()">
+						<svg class="icon disabled" onclick="dispatchSQLExecution()">
 							<title>クエリー実行</title>
 							<use href="icons.svg#database-search"></use>
 						</svg>
 						<span class="toolbar_text"></span>
+						<svg class="icon autoSave hidden" onclick="loadAutoSavedSQL()">
+							<title>自動保存SQL読込</title>
+							<use href="icons.svg#library"></use>
+						</svg>
 					</div>
 					<textarea id="sqlInput"></textarea><!--	SQL エディタ -->
 				</div>
@@ -1316,13 +1348,25 @@ window.addEventListener('DOMContentLoaded', async function() {
 								<use href="icons.svg#folder-open"></use>
 							</svg>
 						</label>
-						<svg class="icon" onclick="saveVarFile()">
+						<svg class="icon save disabled" onclick="saveVarFile()">
 							<title>変数ファイル保存</title>
-							<use href="icons.svg#floppy-disk"></use>
+							<use href="icons.svg#save"></use>
 						</svg>
-						<svg class="icon" onclick="clearText('varInput')">
+						<svg class="icon saveAs disabled hidden" onclick="saveVarFile(false)">
+							<title>変数ファイルを名前を付けて保存</title>
+							<use href="icons.svg#save-as"></use>
+						</svg>
+						<svg class="icon disabled" onclick="clearText('varInput')">
 							<title>テキスト消去</title>
 							<use href="icons.svg#text-clear"></use>
+						</svg>
+						<svg class="icon undo disabled" onclick="undoEdit('varInput')">
+							<title>元に戻す</title>
+							<use href="icons.svg#undo"></use>
+						</svg>
+						<svg class="icon redo disabled" onclick="redoEdit('varInput')">
+							<title>やり直し</title>
+							<use href="icons.svg#redo"></use>
 						</svg>
 						<svg class="icon" onclick="toggleVarEditor()">
 							<title>変数エディタ開閉</title>

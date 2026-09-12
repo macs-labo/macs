@@ -334,9 +334,6 @@ let currentFilename = '';
 // 無保存データフラグ
 let isDirty = false;
 
-// File System Access API サポート判定
-const isFileSystemAccessSupported = 'showOpenFilePicker' in window;
-
 // clearContent プロトタイプ宣言
 if (!HTMLElement.prototype.clearContent) {
 	HTMLElement.prototype.clearContent = function() {

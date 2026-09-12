@@ -17,6 +17,7 @@ const maindb = 'acis';
 const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
 const isElectron = typeof window.electronAPI !== 'undefined';
+const isFileSystemAccessSupported = 'showOpenFilePicker' in window; // File System Access API サポート判定
 
 // 公開用の自動ログキャンセル
 if (!debug) {
