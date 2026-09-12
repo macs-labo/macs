@@ -1052,11 +1052,9 @@ function updateToolbarState(cm) {
 	if (cm.btnExec) cm.btnExec.classList.toggle('disabled', cm.isEmpty());
 }
 
-// 改行文字を表示するための処理
+// 改行文字を表示
 function dispNewLine(cm, line, element) {
-	// 最終行には表示しない
-	if (line.lineNo() === cm.lastLine()) return;
-
+	if (line.lineNo() === cm.lastLine()) return; // 最終行には表示しない
 	const newlineChar = document.createElement('div');
 	newlineChar.textContent = '↲';
 	newlineChar.className = 'cm-newline-char';
@@ -1272,17 +1270,6 @@ window.addEventListener('DOMContentLoaded', async function() {
 			}
 			return null;
 		}
-	});
-
-	// 改行文字を表示するための処理
-	sqlEditor.on('renderLine', function(cm, line, element) {
-		// 最終行には表示しない
-		if (line.lineNo() === cm.lastLine()) return;
-
-		const newlineChar = document.createElement('div');
-		newlineChar.textContent = '↲';
-		newlineChar.className = 'cm-newline-char';
-		element.appendChild(newlineChar);
 	});
 
 	sqlEditor.on("focus", () => clearToolbarText());
