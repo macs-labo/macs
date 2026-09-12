@@ -1091,7 +1091,7 @@ function setupEditor(id, toolbarSelector, customOptions = {}) {
 	cm.btnExec = toolbar.querySelector('.exec');
 
 	// ツールバーボタンの設定
-	if (!isFileSystemAccessSupport) {
+	if (!isFileSystemAccessSupported) {
 		const title = cm.btnSave.querySelector('title');
 		if (title) {
 			title.textContent = title.textContent.replace('を上書き', '');
