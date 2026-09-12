@@ -48,7 +48,7 @@
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/sql-hint.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/selection/active-line.js"></script>
-<link rel="stylesheet" type="text/css" href="./editor.css" />
+<link rel="stylesheet" type="text/css" href="./sqlEditor.css" />
 <!--	タブ専用スタイル -->
 <style>
 /*
@@ -187,13 +187,56 @@ span.cm-variable-3 { font-weight: bold;  }
 <!--	タブ専用の script -->
 <script>
 
-let editor; // CodeMirror instance
+let sqlEditor; // CodeMirror instance for sql
 let varEditor; // CodeMirror instance for variables
 
 // CodeMirrorのプロトタイプにカスタムメソッドを追加
+// 1. 編集されたか（Undoできるか）
 CodeMirror.prototype.isEdited = function() {
-	// historySize() はインスタンス（this）の履歴を返す
 	return this.historySize().undo > 0;
+};
+
+// 2. やり直せるか（Redoできるか）
+CodeMirror.prototype.canRedo = function() {
+	return this.historySize().redo > 0;
+};
+
+// 3. 空かどうか
+CodeMirror.prototype.isEmpty = function() {
+	return this.lineCount() === 1 && this.getLine(0).length === 0;
+};
+
+// 4. テキストクリア
+CodeMirror.prototype.textClear = function() {
+	this.setValue('');
+	this.focus();
+};
+
+// 5. 改行表示
+CodeMirror.prototype.dispNewLine = function(line, element) {
+	if (line.lineNo() === this.lastLine()) return;
+
+	const newlineChar = document.createElement('div');
+	newlineChar.textContent = '↲';
+	newlineChar.className = 'cm-newline-char';
+	element.appendChild(newlineChar);
+};
+
+// CodeMirror既存メソッドのオーバーライド
+// 1. オリジナルのメソッドを変数に退避
+const originalUndo = CodeMirror.prototype.undo;
+const originalRedo = CodeMirror.prototype.redo;
+
+// 2. undo メソッドを上書き
+CodeMirror.prototype.undo = function() {
+	originalUndo.call(this); // オリジナルの undo を実行 (thisの固定が必要)
+	this.focus();
+};
+
+// 3. redo メソッドを上書き
+CodeMirror.prototype.redo = function() {
+	originalRedo.call(this); // オリジナルの redo を実行
+	this.focus();
 };
 
 function loadLocalFile(event) {
@@ -206,8 +249,8 @@ function loadLocalFile(event) {
 	if (extension === 'sql') {
 		const reader = new FileReader();
 		reader.onload = function () {
-			editor.setValue(reader.result);
-			editor.refresh();
+			sqlEditor.setValue(reader.result);
+			sqlEditor.refresh();
 		};
 		reader.readAsText(file);
 	} else if (extension === 'var') {
@@ -223,7 +266,7 @@ function loadLocalFile(event) {
 					const filePath = fileOwnersql.startsWith('/') ? fileOwnersql.substring(1) : fileOwnersql;
 					if (window.currentZip.file(filePath)) {
 						const sqlOwnersql = await loadFileFromZip(fileOwnersql);
-						if (sqlOwnersql) editor.setValue(sqlOwnersql);
+						if (sqlOwnersql) sqlEditor.setValue(sqlOwnersql);
 					}
 				}
 			}
@@ -316,7 +359,7 @@ function saveTextFile(filename, content) {
 }
 
 function saveSQLFile() {
-	const sqlText = editor.getValue();
+	const sqlText = sqlEditor.getValue();
 	if (!sqlText) {
 		setToolbarText('<span class="caution">保存する SQL がありません</span>', 3000);
 		return;
@@ -335,35 +378,6 @@ function saveVarFile() {
 	saveTextFile(downloadFilename, varText);
 }
 
-function clearText(inputId) {
-	if (inputId === 'varInput') {
-		varEditor.setValue('');
-		varEditor.focus();
-	} else {
-		editor.setValue('');
-		editor.focus();
-	}
-}
-
-function undoEdit(inputId) {
-	if (inputId === 'varInput') {
-		varEditor.undo('');
-		varEditor.focus();
-	} else {
-		editor.undo('');
-		editor.focus();
-	}
-}
-
-function redoEdit(inputId) {
-	if (inputId === 'varInput') {
-		varEditor.redo('');
-		varEditor.focus();
-	} else {
-		editor.redo('');
-		editor.focus();
-	}
-}
 
 function setToolbarText(msg, autoClose = 0) {
 	const sqlToolbar = document.getElementById('sql_toolbar');
@@ -560,7 +574,7 @@ async function dispatchSQLExecution() {
 	}
 	clearToolbarText(); // ツールバーメッセージクリア
 
-	let sql = editor.getValue();
+	let sql = sqlEditor.getValue();
 
 	// 使用変数のチェック
 	const usedVars = new Set();
@@ -952,8 +966,8 @@ async function handleFileSelection(path) {
 		} else {
 			const content = await zip.file(path).async('text');
 			if (path.endsWith('.sql')) {
-				editor.setValue(content);
-				editor.refresh();
+				sqlEditor.setValue(content);
+				sqlEditor.refresh();
 			} else if (path.endsWith('.var')) {
 				varEditor.setValue(content);
 				toggleVarEditor(false);
@@ -961,7 +975,7 @@ async function handleFileSelection(path) {
 				const fileOwnersql = getFilename(content, 'ownersql');
 				if (fileOwnersql) {
 					const sqlOwnersql = await loadFileFromZip(fileOwnersql);
-					if (sqlOwnersql) editor.setValue(sqlOwnersql);
+					if (sqlOwnersql) sqlEditor.setValue(sqlOwnersql);
 				}
 			} else {
 				alert('サポートされていないファイル形式です。');
@@ -982,14 +996,14 @@ function reloadStdSQL(obj) {
 function insertQueryToTextarea(selectedValue) {
 	if (selectedValue) {
 		// テキストエリアの現在の内容を取得
-		let currentText = editor.getValue();
+		let currentText = sqlEditor.getValue();
 
 		// テキストエリアが空でない場合は改行を追加
 		if (currentText && !currentText.endsWith('\n')) currentText += '\n';
 
 		// エディタに選択されたクエリを追加
-		editor.setValue(currentText + selectedValue + ' ');
-		editor.refresh();
+		sqlEditor.setValue(currentText + selectedValue + ' ');
+		sqlEditor.refresh();
 
 		// ドロップダウンを最初の選択肢にリセット
 		document.getElementById('queryDropdown').selectedIndex = 0;
@@ -999,14 +1013,14 @@ function insertQueryToTextarea(selectedValue) {
 function loadAutoSavedSQL() {
 	const savedSQL = localStorage.getItem('sqlText');
 	if (savedSQL) {
-		// editor にテキストがある場合は、confirm ダイアログ表示
-		let loadEnabled = editor.getValue() === '';
+		// sqlEditor にテキストがある場合は、confirm ダイアログ表示
+		let loadEnabled = sqlEditor.getValue() === '';
 		if (!loadEnabled) {
 			loadEnabled = window.confirm('エディタが空ではありません。自動保存されたSQLで上書きしてもよいですか？');
 		}
 		if (loadEnabled) {
-			editor.setValue(savedSQL);
-			editor.refresh();
+			sqlEditor.setValue(savedSQL);
+			sqlEditor.refresh();
 		}
 	} else {
 		alert('自動保存されたSQLは見つかりませんでした。');
@@ -1022,6 +1036,81 @@ function toggleVarEditor(sw = '') {
 	if (!sw && varEditor) {
 		setTimeout(() => varEditor.refresh(), 0);
 	}
+}
+
+function updateToolbarState(cm) {
+	// 共通ボタンの設定
+	if (cm.btnSave) cm.btnSave.classList.toggle('disabled', cm.isEmpty());
+	if (cm.btnSaveAs) cm.btnSaveAs.classList.toggle('disabled', cm.isEmpty());
+	if (cm.btnClear) cm.btnUndo.classList.toggle('disabled', cm.isEmpty());
+	if (cm.btnUndo) cm.btnUndo.classList.toggle('disabled', !cm.isEdited());
+	if (cm.btnRedo) cm.btnRedo.classList.toggle('disabled', !cm.canRedo());
+
+	// btnExec がある場合はそれも設定
+	if (cm.btnExec) cm.btnExecclassList.toggle('disabled', cm.isEmpty());
+}
+
+function setupEditor(id, toolbarSelector, customOptions = {}) {
+	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
+	const baseOptions = {
+		theme: theme,		
+		styleActiveLine: true,
+		lineNumbers: true,
+		lineWrapping: true,
+		tabSize: 2,
+		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
+		matchBrackets: true,
+		// 可視化したい全角文字を定義
+		specialChars: /[　（）；]/, // 全角スペース、全角括弧、全角セミコロンを対象にする
+		specialCharPlaceholder: function(char) {
+			// 上記 specialChars で定義した文字にマッチした場合に呼び出される
+			const span = document.createElement('span');
+
+			// 常にマッチした文字自身を表示し、スタイルを適用する
+			span.textContent = char;
+			span.className = 'cm-visible-zenkaku';
+
+			// 念のため、他の文字が来た場合のフォールバックは不要になりますが、
+			// もし特定の文字だけ除外したい場合は if 文で分岐させます。
+			return span;
+		}
+	};
+	const finalOptions = { ...baseOptions, ...customOptions };
+
+	// エディタの初期化
+	const cm = CodeMirror.fromTextArea(document.getElementById(id), finalOptions);
+
+	// インスタンスにDOMエレメントを直接格納する
+	const toolbar = document.querySelector(toolbarSelector);
+	//cm.btnLoad = toolbar.querySelector('.load');
+	cm.btnSave = toolbar.querySelector('.save');
+	cm.btnSaveAs = toolbar.querySelector('.saveAs');
+	cm.btnClear = toolbar.querySelector('.clear');
+	cm.btnUndo = toolbar.querySelector('.undo');
+	cm.btnRedo = toolbar.querySelector('.redo');
+	cm.btnExec = toolbar.querySelector('.exec');
+
+	// ツールバーボタンの設定
+	if (!isFileSystemAccessSupport) {
+		const title = cm.btnSave.querySelector('title');
+		if (title) {
+			title.textContent = title.textContent.replace('を上書き', '');
+		}
+		cm.btnSaveAs?.classList.add('hidden');
+	}
+
+	// ツールバーボタン側のクリックイベントもここでバインド
+	cm.btnClear.addEventListener('click', function() { cm.clearText(); })
+	cm.btnUndo.addEventListener('click', function() { cm.undo(); });
+	cm.btnRedo.addEventListener('click', function() { cm.redo(); });
+
+	// CodeMirrorのイベントをバインド
+	cm.on('change', updateToolbarState);
+	cm.on('undo', updateToolbarState);
+	cm.on('redo', updateToolbarState);
+	cm.on("renderLine", cm.dispNewLine.bind(cm));
+
+	return cm;
 }
 
 // DOM読込完了時の初期設定
@@ -1088,12 +1177,10 @@ window.addEventListener('DOMContentLoaded', async function() {
 		}
 	})();
 
-	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
-
 	// SQLキーワードがテーブル名より先に表示されるように、標準のヒント関数をオーバーライド
 	const originalSqlHint = CodeMirror.hint.sql;
-	CodeMirror.hint.sql = function(editor, options) {
-		const result = originalSqlHint(editor, options);
+	CodeMirror.hint.sql = function(sqlEditor, options) {
+		const result = originalSqlHint(sqlEditor, options);
 		if (result) {
 			const keywords = [];
 			const tables = [];
@@ -1150,36 +1237,15 @@ window.addEventListener('DOMContentLoaded', async function() {
 	});
 
 	// CodeMirrorの初期化
-	editor = CodeMirror.fromTextArea(document.getElementById('sqlInput'), {
+	sqlEditor = setupEditor('sqlInput', 'sql_toolbar', {
 		mode: 'text/x-sql',
-		theme: theme,		
-		styleActiveLine: true,
-		lineNumbers: true,
-		lineWrapping: true,
-		tabSize: 2,
-		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
 		extraKeys: {"Ctrl-Space": "autocomplete"}, // "autocomplete" は CodeMirror.hint.sql を呼び出す
 		hintOptions: { tables: tablesForHint },
-		autofocus: true,
-		// 可視化したい全角文字を定義
-		specialChars: /[　（）；]/, // 全角スペース、全角括弧、全角セミコロンを対象にする
-		specialCharPlaceholder: function(char) {
-			// 上記 specialChars で定義した文字にマッチした場合に呼び出される
-			const span = document.createElement('span');
-
-			// 常にマッチした文字自身を表示し、スタイルを適用する
-			span.textContent = char;
-			span.className = 'cm-visible-zenkaku';
-
-			// 念のため、他の文字が来た場合のフォールバックは不要になりますが、
-			// もし特定の文字だけ除外したい場合は if 文で分岐させます。
-			return span;
-		},
-		matchBrackets: true
+		autofocus: true
 	});
 
 	// SQLエディタで {$変数} をハイライトするオーバーレイ定義
-	editor.addOverlay({
+	sqlEditor.addOverlay({
 		token: function(stream) {
 			if (stream.match(/^\{\$[a-zA-Z0-9_]+\}/)) {
 				return "variable-3";
@@ -1193,39 +1259,9 @@ window.addEventListener('DOMContentLoaded', async function() {
 		}
 	});
 
-	// 改行文字を表示するための処理
-	editor.on("renderLine", function(cm, line, element) {
-		// 最終行には表示しない
-		if (line.lineNo() === cm.lastLine()) return;
-
-		const newlineChar = document.createElement('div');
-		newlineChar.textContent = '↲';
-		newlineChar.className = 'cm-newline-char';
-		element.appendChild(newlineChar);
-	});
-
-	// 変数エディタの初期化
-	varEditor = CodeMirror.fromTextArea(document.getElementById('varInput'), {
-		mode: 'varMode',
-		theme: theme,
-		styleActiveLine: true,
-		lineNumbers: true,
-		lineWrapping: true,
-		tabSize: 2,
-		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
-		matchBrackets: true
-	});
-	varEditor.on("renderLine", function(cm, line, element) {
-		if (line.lineNo() === cm.lastLine()) return;
-		const newlineChar = document.createElement('div');
-		newlineChar.textContent = '↲';
-		newlineChar.className = 'cm-newline-char';
-		element.appendChild(newlineChar);
-	});
-
-	editor.on("focus", () => clearToolbarText());
+	sqlEditor.on("focus", () => clearToolbarText());
 	// 文字入力時に自動で補完候補を表示する
-	editor.on("inputRead", function(cm, change) {
+	sqlEditor.on("inputRead", function(cm, change) {
 		// 入力が1文字の英数字または'.'の場合に補完をトリガー
 		if (/[\w.]/.test(change.text[0])) {
 			// completeSingle: false は、候補が1つの場合に自動で補完しないようにする設定
@@ -1233,8 +1269,11 @@ window.addEventListener('DOMContentLoaded', async function() {
 		}
 	});
 
+	// 変数エディタの初期化
+	varEditor = setupEditor('varInput', 'var_toolbar', { mode: 'varMode' });
+
 	// sql, var をクリアする(firefox 対策)
-	editor.setValue('');
+	sqlEditor.setValue('');
 	varEditor.setValue('');
 
 	// ドロップダウンの変更イベントを監視
@@ -1251,7 +1290,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 
 	// unload 前に sql を localStorage に保存
 	window.addEventListener('beforeunload', function() {
-		localStorage.setItem('sqlText', editor.getValue());
+		localStorage.setItem('sqlText', sqlEditor.getValue());
 	});
 });
 </script>
@@ -1298,36 +1337,36 @@ window.addEventListener('DOMContentLoaded', async function() {
 					<div id="sql_toolbar" class="toolbar"><!-- SQLツールバー配置 -->
 						<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" onchange="loadLocalFile(event)" class="hidden">
 						<label for="fileInputSQL">
-							<svg class="icon">
+							<svg class="icon load">
 								<title>SQL/ZIPファイル読込</title>
 								<use href="icons.svg#folder-open"></use>
 							</svg>
 						</label>
 						<svg class="icon save disabled" onclick="saveSQLFile()">
-							<title>SQLファイル保存</title>
+							<title>SQLファイルを上書き保存</title>
 							<use href="icons.svg#save"></use>
 						</svg>
-						<svg class="icon saveAs disabled hidden" onclick="saveSQLFile(false)">
+						<svg class="icon saveAs disabled" onclick="saveSQLFile(false)">
 							<title>SQLファイルを名前を付けて保存</title>
 							<use href="icons.svg#save-as"></use>
 						</svg>
-						<svg class="icon disabled" onclick="clearText('sqlInput')">
+						<svg class="icon clear disabled">
 							<title>テキスト消去</title>
 							<use href="icons.svg#text-clear"></use>
 						</svg>
-						<svg class="icon undo disabled" onclick="undoEdit('sqlInput')">
+						<svg class="icon undo disabled">
 							<title>元に戻す</title>
 							<use href="icons.svg#undo"></use>
 						</svg>
-						<svg class="icon redo disabled" onclick="redoEdit('sqlInput')">
-							<title>やり直し</title>
+						<svg class="icon redo disabled">
+							<title>やり直す</title>
 							<use href="icons.svg#redo"></use>
 						</svg>
 						<svg class="icon" onclick="toggleVarEditor()">
 							<title>変数エディタ開閉</title>
 							<use href="icons.svg#source-code"></use>
 						</svg>
-						<svg class="icon disabled" onclick="dispatchSQLExecution()">
+						<svg class="icon exec disabled" onclick="dispatchSQLExecution()">
 							<title>クエリー実行</title>
 							<use href="icons.svg#database-search"></use>
 						</svg>
@@ -1343,29 +1382,29 @@ window.addEventListener('DOMContentLoaded', async function() {
 					<div id="var_toolbar" class="toolbar"><!-- 変数ツールバー配置 -->
 						<input type="file" id="fileInputVar" accept=".var" onchange="loadLocalFile(event)" class="hidden">
 						<label for="fileInputVar">
-							<svg class="icon">
+							<svg class="icon load">
 								<title>変数ファイル読込</title>
 								<use href="icons.svg#folder-open"></use>
 							</svg>
 						</label>
 						<svg class="icon save disabled" onclick="saveVarFile()">
-							<title>変数ファイル保存</title>
+							<title>変数ファイルを上書き保存</title>
 							<use href="icons.svg#save"></use>
 						</svg>
-						<svg class="icon saveAs disabled hidden" onclick="saveVarFile(false)">
+						<svg class="icon saveAs disabled" onclick="saveVarFile(false)">
 							<title>変数ファイルを名前を付けて保存</title>
 							<use href="icons.svg#save-as"></use>
 						</svg>
-						<svg class="icon disabled" onclick="clearText('varInput')">
+						<svg class="icon clear disabled">
 							<title>テキスト消去</title>
 							<use href="icons.svg#text-clear"></use>
 						</svg>
-						<svg class="icon undo disabled" onclick="undoEdit('varInput')">
+						<svg class="icon undo disabled">
 							<title>元に戻す</title>
 							<use href="icons.svg#undo"></use>
 						</svg>
-						<svg class="icon redo disabled" onclick="redoEdit('varInput')">
-							<title>やり直し</title>
+						<svg class="icon redo disabled">
+							<title>やり直す</title>
 							<use href="icons.svg#redo"></use>
 						</svg>
 						<svg class="icon" onclick="toggleVarEditor()">
