@@ -212,6 +212,7 @@ CodeMirror.prototype.textClear = function() {
 	this.focus();
 };
 
+/*
 // 5. 改行表示
 CodeMirror.prototype.dispNewLine = function(line, element) {
 	if (line.lineNo() === this.lastLine()) return;
@@ -221,6 +222,7 @@ CodeMirror.prototype.dispNewLine = function(line, element) {
 	newlineChar.className = 'cm-newline-char';
 	element.appendChild(newlineChar);
 };
+*/
 
 // CodeMirror既存メソッドのオーバーライド
 // 1. オリジナルのメソッドを変数に退避
@@ -1050,6 +1052,18 @@ function updateToolbarState(cm) {
 	if (cm.btnExec) cm.btnExecclassList.toggle('disabled', cm.isEmpty());
 }
 
+// 改行文字を表示するための処理
+function dispNewLine(cm, line, element) {
+	// 最終行には表示しない
+	if (line.lineNo() === cm.lastLine()) return;
+
+	const newlineChar = document.createElement('div');
+	newlineChar.textContent = '↲';
+	newlineChar.className = 'cm-newline-char';
+	element.appendChild(newlineChar);
+};
+
+// CodeMirror の生成とツールバー設定
 function setupEditor(id, toolbarSelector, customOptions = {}) {
 	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
 	const baseOptions = {
@@ -1108,7 +1122,8 @@ function setupEditor(id, toolbarSelector, customOptions = {}) {
 	cm.on('change', updateToolbarState);
 	cm.on('undo', updateToolbarState);
 	cm.on('redo', updateToolbarState);
-	cm.on("renderLine", cm.dispNewLine.bind(cm));
+	//cm.on("renderLine", cm.dispNewLine.bind(cm));
+	cm.on("renderLine", dispNewLine);
 
 	return cm;
 }
