@@ -1067,7 +1067,7 @@ function dispNewLine(cm, line, element) {
 function setupEditor(id, toolbarSelector, customOptions = {}) {
 	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
 	const baseOptions = {
-		theme: theme,		
+		theme: theme,
 		styleActiveLine: true,
 		lineNumbers: true,
 		lineWrapping: true,
@@ -1123,7 +1123,17 @@ function setupEditor(id, toolbarSelector, customOptions = {}) {
 	cm.on('undo', updateToolbarState);
 	cm.on('redo', updateToolbarState);
 	//cm.on("renderLine", cm.dispNewLine.bind(cm));
-	cm.on("renderLine", dispNewLine);
+	//cm.on("renderLine", dispNewLine);
+	// 改行文字を表示するための処理
+	cm.on('renderLine', function(editor, line, element) {
+		// 最終行には表示しない
+		if (line.lineNo() === editor.lastLine()) return;
+
+		const newlineChar = document.createElement('div');
+		newlineChar.textContent = '↲';
+		newlineChar.className = 'cm-newline-char';
+		element.appendChild(newlineChar);
+	});
 
 	return cm;
 }
@@ -1251,7 +1261,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 		};
 	});
 
-	// CodeMirrorの初期化
+	// SQLエディタの初期化
 	sqlEditor = setupEditor('sqlInput', '#sql_toolbar', {
 		mode: 'text/x-sql',
 		extraKeys: {"Ctrl-Space": "autocomplete"}, // "autocomplete" は CodeMirror.hint.sql を呼び出す
