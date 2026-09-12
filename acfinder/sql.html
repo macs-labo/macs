@@ -1065,7 +1065,7 @@ function dispNewLine(cm, line, element) {
 function setupEditor(id, toolbarSelector, customOptions = {}) {
 	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
 	const baseOptions = {
-		theme: theme,
+		theme: 'eclipse', // theme,
 		styleActiveLine: true,
 		lineNumbers: true,
 		lineWrapping: true,
@@ -1121,7 +1121,7 @@ function setupEditor(id, toolbarSelector, customOptions = {}) {
 	cm.on('undo', updateToolbarState);
 	cm.on('redo', updateToolbarState);
 	//cm.on("renderLine", cm.dispNewLine.bind(cm)); // これは line.LineNo は関数じゃないと言われてダメ
-	//cm.on("renderLine", dispNewLine); // これは改行マークの位置が次行の先頭になる
+	cm.on("renderLine", dispNewLine); // これは改行マークの位置が次行の先頭になる
 
 	return cm;
 }
