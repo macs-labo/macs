@@ -273,7 +273,7 @@ select option:checked {
 
 /* 旧データ行であることが視覚的にわかるよう、背景色を付けて区別する */
 .olddata {
-	background-color: rgb(from var(--border-color) r g b / 0.2);
+	background-color: rgb(from var(--border-color) r g b / 0.25);
 }
 
 .captionLabel {
@@ -967,7 +967,7 @@ async function refreshPlan() {
 				row.classList.add('olddata');
 				if (kaisuCell) {
 					kaisuCell.dataset.originalKaisu = kaisuCell.textContent; // 元の値を保持しておき、再実行時に復元できるようにする
-					kaisuCell.textContent = '[失効]'; // 使用回数カラムに失効表示
+					kaisuCell.innnerHTML = '<em>[失効]</em>'; // 使用回数カラムに失効表示
 				}
 				continue;
 			}
