@@ -1362,7 +1362,7 @@ function openCautionDialog() {
 			</ul>
 		<div>
 			<button id="accept-caution" disabled>承諾</button>
-			<span>利用規約へのリンクをクリックすると、「承諾」ボタンが有効化されます。本注意事項を表示したままでも利用可能ですが、「承諾」いただくと以後非表示になります。</span>
+			<span><a href="https://github.com/macs-labo/macs#readme" target="_blank">利用規約</a>へのリンクをクリックすると、「承諾」ボタンが有効化されます。本注意事項を表示したままでも利用可能ですが、「承諾」いただくと以後非表示になります。</span>
 		</div>
 	`;
 	resultPane.appendChild(cautionDiv);

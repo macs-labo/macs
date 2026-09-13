@@ -189,6 +189,10 @@ span.cm-variable-3 { font-weight: bold;  }
 
 let sqlEditor; // CodeMirror instance for sql
 let varEditor; // CodeMirror instance for variables
+let currentSqlFileHandel = null;
+let currentVarFileHandle = null;
+let currentSqlFilename = '';
+let currentVarFilename = '';
 
 // CodeMirrorのプロトタイプにカスタムメソッドを追加
 // 1. 編集されたか（Undoできるか）
@@ -241,8 +245,82 @@ CodeMirror.prototype.redo = function() {
 	this.focus();
 };
 
-function loadLocalFile(event) {
-	const file = event.target.files[0];
+async function openFileVar(item = null) {
+	// 【パターンA】Firefox / Safari など（隠しinputを代わりにクリック）
+	if (!isFileSystemAccessSupported) {
+		document.getElementById('fileInputVar')?.click();
+		return;
+	}
+
+	// 【パターンB】Chrome / Edge など（上書き保存のルートに乗せる）
+	try {
+		let fileHandle = null;
+		if (item) {
+			fileHandle = await item.getAsFileSystemHandle();
+		} else {
+			[fileHandle] = await window.showOpenFilePicker({
+				types: [{ description: '変数ファイル', accept: { 'text/plain': ['.var'] }}],
+				excludeAcceptAllOption: false,
+				multiple: false
+			});
+		}
+		const file = await fileHandle.getFile();
+		if (file.name.toLowerCase().includes('.var')) {
+			currentVarFileHandle = fileHandle; // ハンドルを記憶
+			currentVarFilename = fileHandle.name; // ファイル名を保存
+		}
+		readFile(file); // データ読み込み共通関数へ
+	} catch (err) {
+		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
+	}
+}
+
+async function openFileSQL(item = null) {
+	// 【パターンA】Firefox / Safari など（隠しinputを代わりにクリック）
+	if (!isFileSystemAccessSupported) {
+		document.getElementById('fileInputSQL')?.click();
+		return;
+	}
+
+	// 【パターンB】Chrome / Edge など（上書き保存のルートに乗せる）
+	try {
+		let fileHandle = null;
+		if (item) {
+			fileHandle = await item.getAsFileSystemHandle();
+		} else {
+			[fileHandle] = await window.showOpenFilePicker({
+				types: [
+					{
+						description: '設定されたすべてのファイル',
+						accept: {
+							'text/plain': ['.txt', '.sql', '.var', '.url'],
+							'text/html': ['.html', '.htm'],
+							'application/zip': ['.zip'],
+							'application/pdf': ['.pdf']
+						}
+					}
+				],
+				excludeAcceptAllOption: false,
+				multiple: false
+			});
+		}
+		const file = await fileHandle.getFile();
+		const filename = file.name.toLowerCase();
+		if (filename.includes('.sql')) {
+			currentSqlFileHandle = fileHandle; // ハンドルを記憶
+			currentSqlFilename = fileHandle.name; // ファイル名を保存
+		}
+		if (filename.includes('.var')) {
+			currentVarFileHandle = fileHandle; // ハンドルを記憶
+			currentVarFilename = fileHandle.name; // ファイル名を保存
+		}
+		readFile(file); // データ読み込み共通関数へ
+	} catch (err) {
+		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
+	}
+}
+
+function readFile(file) {
 	if (!file) return;
 
 	const filename = file.name;
@@ -1016,16 +1094,36 @@ function loadAutoSavedSQL() {
 	const savedSQL = localStorage.getItem('sqlText');
 	if (savedSQL) {
 		// sqlEditor にテキストがある場合は、confirm ダイアログ表示
-		let loadEnabled = sqlEditor.getValue() === '';
+		let loadEnabled = sqlEditor.isEmpty;
 		if (!loadEnabled) {
 			loadEnabled = window.confirm('エディタが空ではありません。自動保存されたSQLで上書きしてもよいですか？');
 		}
 		if (loadEnabled) {
 			sqlEditor.setValue(savedSQL);
 			sqlEditor.refresh();
+			localStorage.removeItem('sqlText');
+			document.getElementById('autoSaved')?.classList.add('hidden')
 		}
 	} else {
 		alert('自動保存されたSQLは見つかりませんでした。');
+	}
+}
+
+function handleDrop(event) {
+	event.preventDefault();
+
+	// firefox, Safari の場合
+	if (!isFileSystemAccessSupported) {
+		readFile(event.dataTransfer.files[0]);
+		return;
+	}
+
+	// Chrome, Edge の場合
+	const item = event.dataTransfer.items[0];
+	if (item && item.kind === 'file') {
+		openFileSQL(item);
+	} else {
+		alert('対応していないファイル形式です。');
 	}
 }
 
@@ -1298,13 +1396,42 @@ window.addEventListener('DOMContentLoaded', async function() {
 	const topToggler = document.getElementById('topToggler');
 	if (topToggler) topToggler.title = 'SQLエディタを開閉';
 
+	// フォールバック用inputが変更された時の処理（Firefox/Safari用）
+	const fallbackSQL = document.getElementById('fileInputSQL');
+	fallbackSQL.addEventListener('change', (e) => {
+		readFile(e.target.files[0]);
+		fallbackSQL.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
+	});
+	const fallbackVar = document.getElementById('fileInputVar');
+	fallbackVar.addEventListener('change', (e) => {
+		readFile(e.target.files[0]);
+		fallbackVar.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
+	});
+
+	// ドラッグ＆ドロップのイベントリスナーを設定
+	const sql_editor = document.getElementById('sql_editor');
+	sql_editor.addEventListener('dragover', (event) => {
+		event.preventDefault(); // Allow drop
+	});
+	sql_editor.addEventListener('drop', handleDrop);
+	const var_editor = document.getElementById('var_editor');
+	var_editor.addEventListener('dragover', (event) => {
+		event.preventDefault(); // Allow drop
+	});
+	var_editor.addEventListener('drop', handleDrop);
+
+	// sqlText がある場合は autoSaved ボタン可視化
+	if (localStorage.getItem('sqlText')) document.getElementById('autoSaved')?.classList.remove('hidden');
+
 	// ファイルツリーを生成
 	setupFileTree();
 
-	// unload 前に sql を localStorage に保存
-	window.addEventListener('beforeunload', function() {
-		localStorage.setItem('sqlText', sqlEditor.getValue());
-	});
+});
+
+// unload 前に sql を localStorage に保存
+window.addEventListener('beforeunload', function() {
+	if (!sqlEditor.isEdited) return;
+	localStorage.setItem('sqlText', sqlEditor.getValue());
 });
 </script>
 </head>
@@ -1348,13 +1475,11 @@ window.addEventListener('DOMContentLoaded', async function() {
 			<div id="resultTop">
 				<div id="sql_editor"><!-- SQLエディタ部 -->
 					<div id="sql_toolbar" class="toolbar"><!-- SQLツールバー配置 -->
-						<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" onchange="loadLocalFile(event)" class="hidden">
-						<label for="fileInputSQL">
-							<svg class="icon load">
-								<title>SQL/ZIPファイル読込</title>
-								<use href="icons.svg#folder-open"></use>
-							</svg>
-						</label>
+						<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" class="hidden">
+						<svg class="icon" onclick="openFileSQL()">
+							<title>SQL/ZIPファイル読込</title>
+							<use href="icons.svg#folder-open"></use>
+						</svg>
 						<svg class="icon save disabled" onclick="saveSQLFile()">
 							<title>SQLファイルを上書き保存</title>
 							<use href="icons.svg#save"></use>
@@ -1384,7 +1509,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 							<use href="icons.svg#database-search"></use>
 						</svg>
 						<span class="toolbar_text"></span>
-						<svg class="icon autoSave hidden" onclick="loadAutoSavedSQL()">
+						<svg id="autoSaved" class="icon hidden" onclick="loadAutoSavedSQL()">
 							<title>自動保存SQL読込</title>
 							<use href="icons.svg#library"></use>
 						</svg>
@@ -1393,13 +1518,11 @@ window.addEventListener('DOMContentLoaded', async function() {
 				</div>
 				<div id="var_editor" class="closed"><!-- 変数エディタ部 -->
 					<div id="var_toolbar" class="toolbar"><!-- 変数ツールバー配置 -->
-						<input type="file" id="fileInputVar" accept=".var" onchange="loadLocalFile(event)" class="hidden">
-						<label for="fileInputVar">
-							<svg class="icon load">
-								<title>変数ファイル読込</title>
-								<use href="icons.svg#folder-open"></use>
-							</svg>
-						</label>
+						<input type="file" id="fileInputVar" accept=".var" class="hidden">
+						<svg class="icon" onclick="openFileVar()">
+							<title>変数ファイル読込</title>
+							<use href="icons.svg#folder-open"></use>
+						</svg>
 						<svg class="icon save disabled" onclick="saveVarFile()">
 							<title>変数ファイルを上書き保存</title>
 							<use href="icons.svg#save"></use>
