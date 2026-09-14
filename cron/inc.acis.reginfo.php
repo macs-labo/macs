@@ -99,19 +99,19 @@ $heads = explode(',', str_replace("'", '', rtrim(mb_convert_encoding(fgets($fh),
 foreach($heads as $head) $cols[] = $hdkihon[$head] ? $hdkihon[$head] : 'dummy'.$i++;
 $collist = implode(',', $cols);
 $sql = <<<ACIS3
-create temp table kihon ($collist);
+create temp table t_kihon ($collist);
 begin transaction;
 ACIS3;
 $db->exec($sql);
 while ($line = rtrim(mb_convert_encoding(fgets($fh), 'UTF-8', 'SJIS-win'))) {
-//  $db->exec("insert into kihon ($collist) values ($line);");
-  $db->exec("insert into kihon values ($line);");
+//  $db->exec("insert into t_kihon ($collist) values ($line);");
+  $db->exec("insert into t_kihon values ($line);");
 }
 $sql = <<<ACIS4
 drop table if exists seibun;
 drop index if exists idxSeibun;
 create table seibun (bango integer,ippanmei varchar,nodo varchar,seibun varchar);
-insert into seibun (bango,ippanmei,nodo,seibun) select bango,ippanmei,nodo,seibun from kihon;
+insert into seibun (bango,ippanmei,nodo,seibun) select bango,ippanmei,nodo,seibun from t_kihon;
 create index idxSeibun on seibun (bango,ippanmei,seibun);
 commit;
 ACIS4;
@@ -131,16 +131,16 @@ if ($res === false) {
 $time = -microtime(true);
 $sql = <<<ACIS5
 begin transaction;
---create temp table kihon3 as select bango,shurui,yoto,zaikei,replace(re_replace('/([1-9])(?=/|$)',torokubi,'/0$1'), '/', '.') as torokubi,replace(re_replace('/([1-9])(?=/|$)',kigen,'/0$1'), '/', '.') as kigen from kihon group by bango;
-create temp table kihon3 as select bango,shurui,yoto,zaikei,replace(re_replace('/([1-9])(?=/|$)',torokubi,'/0$1'), '/', '.') as torokubi, null as kigen from kihon group by bango;
-create temp table kihon2 as select bango,kongo,meisho,meisho as tsusho,ryakusho,re_replace('(燻|くん)(蒸|煙)剤|エアゾル|ペースト剤|マイクロカプセル剤|乳剤|塗布剤|水和剤|水溶剤|油剤|液剤|粉剤|粉末|(粉)?粒剤|複合肥料|(?<!合|着)剤', shurui, '') as seibun1,null as keito1,null as seibun2,null as keito2,null as seibun3,null as keito3,null as seibun4,null as keito4,null as seibun5,null as keito5,0 as nkoka,null as koka from kihon group by bango;
-drop table kihon;
+--create temp table kihon3 as select bango,shurui,yoto,zaikei,replace(re_replace('/([1-9])(?=/|$)',torokubi,'/0$1'), '/', '.') as torokubi,replace(re_replace('/([1-9])(?=/|$)',kigen,'/0$1'), '/', '.') as kigen from t_kihon group by bango;
+create temp table kihon3 as select bango,shurui,yoto,zaikei,replace(re_replace('/([1-9])(?=/|$)',torokubi,'/0$1'), '/', '.') as torokubi, null as kigen from t_kihon group by bango;
+create temp table kihon2 as select bango,kongo,meisho,meisho as tsusho,ryakusho,re_replace('(燻|くん)(蒸|煙)剤|エアゾル|ペースト剤|マイクロカプセル剤|乳剤|塗布剤|水和剤|水溶剤|油剤|液剤|粉剤|粉末|(粉)?粒剤|複合肥料|(?<!合|着)剤', shurui, '') as seibun1,null as keito1,null as seibun2,null as keito2,null as seibun3,null as keito3,null as seibun4,null as keito4,null as seibun5,null as keito5,0 as nkoka,null as koka from t_kihon group by bango;
+drop table t_kihon;
 update kihon2 set seibun1 = replace(seibun1, '水和', '') where seibun1 like '%水和硫黄%';
 update kihon2 set seibun1 = replace(seibun1, '貯穀用', '') where seibun1 like '%貯穀用%';
-update kihon2 set seibun5 = explode('・', seibun1, 5) where kongo >= 5;
-update kihon2 set seibun4 = explode('・', seibun1, 4) where kongo >= 4;
-update kihon2 set seibun3 = explode('・', seibun1, 3) where kongo >= 3;
-update kihon2 set seibun2 = explode('・', seibun1, 2), seibun1 = explode('・', seibun1, 1) where kongo >= 2;
+update kihon2 set seibun5 = explode('・', seibun1, 4) where kongo >= 5;
+update kihon2 set seibun4 = explode('・', seibun1, 3) where kongo >= 4;
+update kihon2 set seibun3 = explode('・', seibun1, 2) where kongo >= 3;
+update kihon2 set seibun2 = explode('・', seibun1, 1), seibun1 = explode('・', seibun1, 0) where kongo >= 2;
 update kihon2 set seibun1 = null, koka = '展着' where seibun1 like '%展着剤';
 update kihon2 set seibun1 = null, koka = null where seibun1 like '%粘着剤';
 update kihon2 set keito1 = (select keito from bunrui where seibun = seibun1);
