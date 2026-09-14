@@ -196,20 +196,21 @@ span.cm-variable-3 { font-weight: bold;  }
 	border: 1px solid var(--border-color);
 	border-radius: 8px;
 	padding: 8px;
+	margin-bottom: 8px;
 }
 .searchbar input {
 	width: 200px;
+}
+.searchbar button:disabled {
+	background-color: var(--bg-color-listbox);
+	color: var(--bg-color-disabled);
+	border-color:  var(--bg-color-disabled);
+	cursor: default;
 }
 .search-counter {
 	color: var(--text-color-light);
 	min-width: 60px;
 	text-align: center;
-}
-.serchbar button:disabled {
-	background-color: var(--bg-color-listbox);
-	color: var(--bg-color-disabled);
-	border-color:  var(--bg-color-disabled);
-	cursor: default;
 }
 
 </style>
@@ -1238,6 +1239,10 @@ function dispNewLine(cm, line, element) {
 	element.appendChild(newlineChar);
 };
 
+function toggleSearchbar(cm) {
+	cm.searchbar.classList.toggle('hidden');
+}
+
 // CodeMirror の生成とツールバー設定
 function setupEditor(editorID, containerID, customOptions = {}) {
 	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
@@ -1293,7 +1298,7 @@ function setupEditor(editorID, containerID, customOptions = {}) {
 	cm.btnClear.addEventListener('click', function() { cm.clearText(); })
 	cm.btnUndo.addEventListener('click', function() { cm.undo(); });
 	cm.btnRedo.addEventListener('click', function() { cm.redo(); });
-	cm.btnFind.addEventListener('click', function() { cm.execCommand("find"); });
+	cm.btnFind.addEventListener('click', function() { toggleSearchbar(cm); });
 
 	// このエディタ専用のサーチ状態管理プロパティ初期化
 	cm.matches = [];
@@ -1301,6 +1306,7 @@ function setupEditor(editorID, containerID, customOptions = {}) {
 
 	// サーチバーのUIパーツをクラス名で取得
 	const searchbar = container.querySelector('.searchbar');
+	cm.searchbar = searchbar;
 	cm.searchInput = searchbar.querySelector(".search-input");
 	cm.searchCounter = searchbar.querySelector(".search-counter");
 	cm.btnPrev = searchbar.querySelector(".btn-prev");
@@ -1609,13 +1615,13 @@ window.addEventListener('beforeunload', function() {
 							<title>クエリー実行</title>
 							<use href="icons.svg#database-search"></use>
 						</svg>
-						<span class="toolbar_text"></span>
 						<svg id="autoSaved" class="icon hidden" onclick="loadAutoSavedSQL()">
 							<title>自動保存SQL読込</title>
 							<use href="icons.svg#library"></use>
 						</svg>
+						<span class="toolbar_text"></span>
 					</div>
-					<div class="searchbar">
+					<div class="searchbar hidden">
 						<input type="text" class="search-input" placeholder="検索キーワードを入力...">
 						<button class="btn-prev" disabled>◀ 前へ</button>
 						<button class="btn-next" disabled>次へ ▶</button>
