@@ -13,12 +13,23 @@
 		<path d="M4 13a8.1 8.1 0 0 0 15.5 2m.5 4v-4h-4" />
 	</symbol>
 	<symbol id="undo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-		<path d="M12 21A9 9 0 1 0 4.204 7.5" />
-		<path d="M3 3v1.278c0 2.192 0 3.288.707 3.887c.708.6 1.789.42 3.95.059L9 8" />
+		<path d="M4 9v5h5m11 2c-.497-4.5-3.367-8-8-8c-2.73 0-5.929 2.268-7.294 5.5" />
 	</symbol>
 	<symbol id="redo" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-		<path d="M12 21a9 9 0 1 1 7.796-13.5" />
-		<path d="M21 3v1.278c0 2.192 0 3.288-.708 3.887c-.707.6-1.788.42-3.95.059L14.999 8" />
+		<path d="M20 9v5h-5M4 16c.497-4.5 3.367-8 8-8c2.73 0 5.929 2.268 7.294 5.5" />
+	</symbol>
+	<symbol id="text-search" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M2.5 9h4m-4 5h4m-4-10h16m.036 13.036L21.5 20M20 13.5a5 5 0 1 0-10 0a5 5 0 0 0 10 0" />
+	</symbol>
+	<symbol id="doc-search" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M20 12V5.749a.6.6 0 0 0-.176-.425l-3.148-3.148A.6.6 0 0 0 16.252 2H4.6a.6.6 0 0 0-.6.6v18.8a.6.6 0 0 0 .6.6H11M8 10h8M8 6h4m-4 8h3m9.5 6.5L22 22" />
+		<path d="M15 18a3 3 0 1 0 6 0a3 3 0 0 0-6 0m1-16v3.4a.6.6 0 0 0 .6.6H20" />
+	</symbol>
+	<symbol id="search-box" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"  fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M3 4.5a2 2 0 0 1 2 -2h14a2 2 0 0 1 2 2v15a2 2 0 0 1 -2 2H5a2 2 0 0 1 -2 -2Z" />
+		<path d="M3 7h18" />
+		<path d="M8 13.5a3 3 0 1 0 6 0 3 3 0 1 0 -6 0" />
+		<path d="m13 15.5 2.5 2.5" />
 	</symbol>
 	<symbol id="alert-triangle" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-alert-triangle">
 		<path stroke="none" d="M0 0h24v24H0z" fill="none" /><path d="M12 9v4" />

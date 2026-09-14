@@ -48,6 +48,8 @@
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/sql-hint.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/selection/active-line.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/search.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/dialog/dialog.js"></script>
 <link rel="stylesheet" type="text/css" href="./editor.css" />
 <!--	タブ専用スタイル -->
 <style>
@@ -955,42 +957,42 @@ function openTextAsHtml(text, title, charset = 'UTF-8') {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${title}</title>
 <style>
-  body {
-    margin: 0;
-    padding: 2em 6%;
-    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
-    font-size: 16px;
-    line-height: 2.0;
-    color: #222;
-    background: #fdfcfa;
-    max-width: 860px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  h1 {
-    font-size: 1.1em;
-    font-weight: normal;
-    color: #666;
-    border-bottom: 1px solid #ddd;
-    padding-bottom: 0.4em;
-    margin-bottom: 1.5em;
-  }
-  pre {
-    white-space: pre-wrap;
-    word-break: break-all;
-    margin: 0;
-    font-family: inherit;
-    font-size: inherit;
-    line-height: inherit;
-  }
-  footer {
-    margin-top: 3em;
-    padding-top: 0.8em;
-    border-top: 1px solid #ddd;
-    font-size: 0.8em;
-    color: #aaa;
-    text-align: right;
-  }
+	body {
+		margin: 0;
+		padding: 2em 6%;
+		font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
+		font-size: 16px;
+		line-height: 2.0;
+		color: #222;
+		background: #fdfcfa;
+		max-width: 860px;
+		margin-left: auto;
+		margin-right: auto;
+	}
+	h1 {
+		font-size: 1.1em;
+		font-weight: normal;
+		color: #666;
+		border-bottom: 1px solid #ddd;
+		padding-bottom: 0.4em;
+		margin-bottom: 1.5em;
+	}
+	pre {
+		white-space: pre-wrap;
+		word-break: break-all;
+		margin: 0;
+		font-family: inherit;
+		font-size: inherit;
+		line-height: inherit;
+	}
+	footer {
+		margin-top: 3em;
+		padding-top: 0.8em;
+		border-top: 1px solid #ddd;
+		font-size: 0.8em;
+		color: #aaa;
+		text-align: right;
+	}
 </style>
 </head>
 <body>
@@ -1145,6 +1147,7 @@ function updateToolbarState(cm) {
 	if (cm.btnClear) cm.btnUndo.classList.toggle('disabled', cm.isEmpty());
 	if (cm.btnUndo) cm.btnUndo.classList.toggle('disabled', !cm.isEdited());
 	if (cm.btnRedo) cm.btnRedo.classList.toggle('disabled', !cm.canRedo());
+	if (cm.btnFind) cm.btnFind.classList.toggle('disabled', cm.isEmpty());
 
 	// btnExec がある場合はそれも設定
 	if (cm.btnExec) cm.btnExec.classList.toggle('disabled', cm.isEmpty());
@@ -1198,6 +1201,7 @@ function setupEditor(id, toolbarSelector, customOptions = {}) {
 	cm.btnClear = toolbar.querySelector('.clear');
 	cm.btnUndo = toolbar.querySelector('.undo');
 	cm.btnRedo = toolbar.querySelector('.redo');
+	cm.btnFind = toolbar.querySelector('.find');
 	cm.btnExec = toolbar.querySelector('.exec');
 
 	// ツールバーボタンの設定
@@ -1213,6 +1217,7 @@ function setupEditor(id, toolbarSelector, customOptions = {}) {
 	cm.btnClear.addEventListener('click', function() { cm.clearText(); })
 	cm.btnUndo.addEventListener('click', function() { cm.undo(); });
 	cm.btnRedo.addEventListener('click', function() { cm.redo(); });
+	cm.btnFind.addEventListener('click', function() { cm.execCommand("find"); });
 
 	// CodeMirrorのイベントをバインド
 	cm.on('change', updateToolbarState);
@@ -1500,6 +1505,10 @@ window.addEventListener('beforeunload', function() {
 							<title>やり直す</title>
 							<use href="icons.svg#redo"></use>
 						</svg>
+						<svg class="icon find disabled">
+							<title>テキスト検索</title>
+							<use href="icons.svg#search-box"></use>
+						</svg>
 						<svg class="icon" onclick="toggleVarEditor()">
 							<title>変数エディタ開閉</title>
 							<use href="icons.svg#source-code"></use>
@@ -1542,6 +1551,10 @@ window.addEventListener('beforeunload', function() {
 						<svg class="icon redo disabled">
 							<title>やり直す</title>
 							<use href="icons.svg#redo"></use>
+						</svg>
+						<svg class="icon find disabled">
+							<title>テキスト検索</title>
+							<use href="icons.svg#search-box"></use>
 						</svg>
 						<svg class="icon" onclick="toggleVarEditor()">
 							<title>変数エディタ開閉</title>
