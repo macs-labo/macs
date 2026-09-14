@@ -187,6 +187,25 @@ span.cm-variable-3 { font-weight: bold;  }
 	opacity: 0.8;
 }
 
+/* サーチルバーのスタイル */
+.searchbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: var(--bg-color);
+	border: 1px solid var(--border-color);
+	border-radius: 8px;
+	padding: 8px;
+}
+.searchbar input {
+	width: 200px;
+}
+.search-counter {
+	color: var(--text-color-light);
+	min-width: 60px;
+	text-align: center;
+}
+
 </style>
 <!--	タブ専用の script -->
 <script>
@@ -220,17 +239,66 @@ CodeMirror.prototype.textClear = function() {
 	this.focus();
 };
 
-/*
-// 5. 改行表示
-CodeMirror.prototype.dispNewLine = function(line, element) {
-	if (line.lineNo() === this.lastLine()) return;
+// 5. テキスト検索
+CodeMirror.prototype.find = function() {
+	const query = searchInput.value;
+	this.matches = [];
+	this.currentIndex = -1;
 
-	const newlineChar = document.createElement('div');
-	newlineChar.textContent = '↲';
-	newlineChar.className = 'cm-newline-char';
-	element.appendChild(newlineChar);
+	if (!query) {
+		updateUI();
+		return;
+	}
+
+	// getSearchCursor を使って裏側で位置情報を収集（スクロールは発生しない）
+	const cursor = this.getSearchCursor(query);
+	while (cursor.findNext()) {
+		this.matches.push({ from: cursor.from(), to: cursor.to() });
+	}
+
+	if (this.matches.length > 0) {
+		this.currentIndex = 0;
+		this.selectCurrentMatch();
+	}
+
+	this.updateSerchbar();
 };
-*/
+
+// 6. テキスト検索(次へ)
+CodeMirror.prototype.findNext = function() {
+	if (this.matches.length === 0) return;
+	this.currentIndex = (this.currentIndex + 1) % this.matches.length; // ループ移動
+	this.selectCurrentMatch();
+	this.updateSerchbar();
+}
+
+// 7. テキスト検索(前へ)
+CodeMirror.prototype.findPrev = function() {
+	if (this.matches.length === 0) return;
+	this.currentIndex = (this.currentIndex - 1 + this.matches.length) % this.matches.length; // ループ移動
+	this.selectCurrentMatch();
+	this.updateSerchbar();
+}
+
+// 8. 現在のマッチ箇所を選択して画面内にスクロール移動
+CodeMirror.prototype.selectCurrentMatch = function() {
+	if (this.currentIndex < 0 || this.currentIndex >= this.matches.length) return;
+	const match = this.matches[this.currentIndex];
+	this.setSelection(match.from(), match.to());
+}
+
+// 9. サーチバーUI更新
+CodeMirror.prototype.updateSerchbar = function() {
+	if (this.matches.length === 0) {
+		this.searchCounter.textContent = "0 / 0";
+		this.btnPrev.disabled = true;
+		this.btnNext.disabled = true;
+	} else {
+		this.searchCounter.textContent = (this.currentIndex + 1) + " / " + this.matches.length;
+		this.btnPrev.disabled = false;
+		this.btnNext.disabled = false;
+	}
+}
 
 // CodeMirror既存メソッドのオーバーライド
 // 1. オリジナルのメソッドを変数に退避
@@ -1165,7 +1233,7 @@ function dispNewLine(cm, line, element) {
 };
 
 // CodeMirror の生成とツールバー設定
-function setupEditor(id, toolbarSelector, customOptions = {}) {
+function setupEditor(editorID, containerID, customOptions = {}) {
 	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
 	const baseOptions = {
 		theme: theme,
@@ -1193,11 +1261,11 @@ function setupEditor(id, toolbarSelector, customOptions = {}) {
 	const finalOptions = { ...baseOptions, ...customOptions };
 
 	// エディタの初期化
-	const cm = CodeMirror.fromTextArea(document.getElementById(id), finalOptions);
+	const cm = CodeMirror.fromTextArea(document.getElementById(editorID), finalOptions);
+	const container = document.getElementById(containerID);
 
 	// インスタンスにDOMエレメントを直接格納する
-	const toolbar = document.querySelector(toolbarSelector);
-	//cm.btnLoad = toolbar.querySelector('.load');
+	const toolbar = container.querySelector('.toolbar');
 	cm.btnSave = toolbar.querySelector('.save');
 	cm.btnSaveAs = toolbar.querySelector('.saveAs');
 	cm.btnClear = toolbar.querySelector('.clear');
@@ -1215,11 +1283,27 @@ function setupEditor(id, toolbarSelector, customOptions = {}) {
 		cm.btnSaveAs?.classList.add('hidden');
 	}
 
-	// ツールバーボタン側のクリックイベントもここでバインド
+	// ツールバーボタンのイベントハンドラをバインド
 	cm.btnClear.addEventListener('click', function() { cm.clearText(); })
 	cm.btnUndo.addEventListener('click', function() { cm.undo(); });
 	cm.btnRedo.addEventListener('click', function() { cm.redo(); });
 	cm.btnFind.addEventListener('click', function() { cm.execCommand("find"); });
+
+	// このエディタ専用のサーチ状態管理プロパティ初期化
+	cm.matches = [];
+	cm.currentIndex = -1;
+
+	// サーチバーのUIパーツをクラス名で取得
+	const searchbar = container.querySelector('.searchbar');
+	cm.searchInput = searchbar.querySelector(".search-input");
+	cm.searchCounter = searchbar.querySelector(".search-counter");
+	cm.btnPrev = searchbar.querySelector(".btn-prev");
+	cm.btnNext = searchbar.querySelector(".btn-next");
+
+	// サーチバーUIパーツのイベントハンドラをバインド
+	cm.searchInput.addEventListener('change', function() { cm.find() });
+	cm.btnPrev.addEventListener('click', function() { cm.findPrev() });
+	cm.btnNext.addEventListener('click', function() { cm.findNext() });
 
 	// CodeMirrorのイベントをバインド
 	cm.on('change', updateToolbarState);
@@ -1355,7 +1439,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	});
 
 	// SQLエディタの初期化
-	sqlEditor = setupEditor('sqlInput', '#sql_toolbar', {
+	sqlEditor = setupEditor('sqlInput', 'sql_editor', {
 		mode: 'text/x-sql',
 		extraKeys: {"Ctrl-Space": "autocomplete"}, // "autocomplete" は CodeMirror.hint.sql を呼び出す
 		hintOptions: { tables: tablesForHint },
@@ -1388,7 +1472,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	});
 
 	// 変数エディタの初期化
-	varEditor = setupEditor('varInput', '#var_toolbar', { mode: 'varMode' });
+	varEditor = setupEditor('varInput', 'var_editor', { mode: 'varMode' });
 
 	// sql, var をクリアする(firefox 対策)
 	sqlEditor.setValue('');
@@ -1525,6 +1609,12 @@ window.addEventListener('beforeunload', function() {
 							<use href="icons.svg#library"></use>
 						</svg>
 					</div>
+					<div class="searchbar">
+						<input type="text" class="search-input" placeholder="検索キーワードを入力...">
+						<button class="btn-prev" disabled>◀ 前へ</button>
+						<button class="btn-next" disabled>次へ ▶</button>
+						<span class="search-counter">0 / 0</span>
+					</div>
 					<textarea id="sqlInput"></textarea><!--	SQL エディタ -->
 				</div>
 				<div id="var_editor" class="closed"><!-- 変数エディタ部 -->
@@ -1562,6 +1652,12 @@ window.addEventListener('beforeunload', function() {
 							<title>変数エディタ開閉</title>
 							<use href="icons.svg#source-code"></use>
 						</svg>
+					</div>
+					<div class="searchbar">
+						<input type="text" class="search-input" placeholder="検索キーワードを入力...">
+						<button class="btn-prev" disabled>◀ 前へ</button>
+						<button class="btn-next" disabled>次へ ▶</button>
+						<span class="search-counter">0 / 0</span>
 					</div>
 					<textarea id="varInput"></textarea><!--	変数エディタ -->
 				</div>
