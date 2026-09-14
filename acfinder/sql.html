@@ -241,12 +241,12 @@ CodeMirror.prototype.textClear = function() {
 
 // 5. テキスト検索
 CodeMirror.prototype.find = function() {
-	const query = searchInput.value;
+	const query = this.searchInput.value;
 	this.matches = [];
 	this.currentIndex = -1;
 
 	if (!query) {
-		updateUI();
+		this.updateSerchbar();
 		return;
 	}
 
@@ -1301,7 +1301,7 @@ function setupEditor(editorID, containerID, customOptions = {}) {
 	cm.btnNext = searchbar.querySelector(".btn-next");
 
 	// サーチバーUIパーツのイベントハンドラをバインド
-	cm.searchInput.addEventListener('change', function() { cm.find() });
+	cm.searchInput.addEventListener('input', function() { cm.find() });
 	cm.btnPrev.addEventListener('click', function() { cm.findPrev() });
 	cm.btnNext.addEventListener('click', function() { cm.findNext() });
 
