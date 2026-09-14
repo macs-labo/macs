@@ -284,7 +284,7 @@ CodeMirror.prototype.findPrev = function() {
 CodeMirror.prototype.selectCurrentMatch = function() {
 	if (this.currentIndex < 0 || this.currentIndex >= this.matches.length) return;
 	const match = this.matches[this.currentIndex];
-	this.setSelection(match.from(), match.to());
+	this.setSelection(match.from, match.to);
 }
 
 // 9. サーチバーUI更新
