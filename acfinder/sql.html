@@ -49,7 +49,6 @@
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/sql-hint.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/selection/active-line.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/searchcursor.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/search.js"></script>
 <link rel="stylesheet" type="text/css" href="./editor.css" />
 <!--	タブ専用スタイル -->
 <style>
@@ -1239,19 +1238,31 @@ function dispNewLine(cm, line, element) {
 	element.appendChild(newlineChar);
 };
 
+function doSearch(cm) {
+	const selection = cm.getSelection();
+	if (!selection) return;
+	cm.searchInput.value = selection;
+	cm.find();
+}
+
 function toggleSearchbar(cm) {
 	cm.searchbar.classList.toggle('hidden');
 	if (cm.searchbar.classList.contains('hidden')) return;
-	const selection = cm.getSelection();
-	if (selection) {
-		cm.searchInput.value = selection;
-		cm.find();
-	}
+	doSearch(cm)
+}
+
+function handleSearchFocus(cm) {
+	cm.searchbar.classList.remove('hidden');
+	doSearch(cm)
 }
 
 // CodeMirror の生成とツールバー設定
 function setupEditor(editorID, containerID, customOptions = {}) {
 	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
+	// キーバインドの定義（Windows/Mac両対応）
+	const keyMaps = {};
+	keyMaps["Ctrl-F"] = function(cm) { handleSearchFocus(cm); };
+	keyMaps["Cmd-F"] = function(cm) { handleSearchFocus(cm); };
 	const baseOptions = {
 		theme: theme,
 		styleActiveLine: true,
@@ -1260,6 +1271,7 @@ function setupEditor(editorID, containerID, customOptions = {}) {
 		tabSize: 2,
 		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
 		matchBrackets: true,
+		extraKeys: keyMaps, // ここでキー入力をフック
 		// 可視化したい全角文字を定義
 		specialChars: /[　（）；]/, // 全角スペース、全角括弧、全角セミコロンを対象にする
 		specialCharPlaceholder: function(char) {
