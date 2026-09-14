@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v5.68r76'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v5.68r77'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -63,14 +63,12 @@ const ASSETS_TO_CACHE = [
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.js',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/sql-hint.js',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/selection/active-line.js',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/dialog/dialog.js',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/searchcursor.js',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/search.js',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.css',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/eclipse.css',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/darcula.css',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.css',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/dialog/dialog.css',
 	'https://cdn.jsdelivr.net/npm/codemirror-colorpicker@1.9.80/dist/codemirror-colorpicker.css',
 	'https://cdn.jsdelivr.net/npm/codemirror-colorpicker@1.9.80/dist/codemirror-colorpicker.min.js',
 	'https://cdn.jsdelivr.net/npm/swiper@12.1.4/swiper-bundle.min.js',
