@@ -948,6 +948,7 @@ async function execSQLLoadFromURL(url) {
 		const response = await fetch(url);
 		if (!response.ok) throw new Error(`レスポンスステータス: ${response.status}`);
 		db.run(convTemplate(await response.text()));
+		//db.run(await response.text());
 		if (debug) console.log('Executed: ' + url);
 	} catch (error) {
 		console.error(error.message);
@@ -1072,12 +1073,14 @@ async function fetchDB(optiondb = '') {
 	
 	let files = [
 		{ fileName: `${maindb}.zip`, serverUrl: `${datdir}${maindb}.zip` },
-		{ fileName: `${subdb}.zip`, serverUrl: `${datdir}${subdb}.zip` }
-		//,{ fileName: 'option.db', serverUrl: 'option.db' } //ここに ATTACH するサブデータベースファイルを複数追加可能
+		{ fileName: `${subdb}.zip`, serverUrl: `${datdir}${subdb}.zip` },
+		//{ fileName: 'option.db', serverUrl: 'option.db' } //ここに ATTACH するサブデータベースファイルを複数追加可能
+		{ fileName: 'init_create_view.sql', serverUrl: 'init_create_view.sql' }
 	];
 
 	// optiondb がある場合、files の init_creqte_view.sql の前に追加
-	if (optiondb) files.push({ fileName: optiondb.split('/').pop(), serverUrl: optiondb });
+	if (optiondb) files.splice(-1, 0, { fileName: optiondb.split('/').pop(), serverUrl: optiondb });
+	//if (optiondb) files.push({ fileName: optiondb.split('/').pop(), serverUrl: optiondb });
 
 	await waiting(true);
 	let errorOccurred = false;
@@ -1111,7 +1114,18 @@ async function fetchDB(optiondb = '') {
 		console.log(`Main database loaded from ${dbname}.`);
 		
 		//サブ DB ロード & attach
+/*
 		for(let j = 1; j < files.length; j++) {
+			console.log(`Attaching sub DB ${files[j].fileName}...`);
+			await waiting(true, `サブデータベース読込中: ${files[j].fileName}`);
+			dbname = basename(files[j].fileName) + '.db';
+			let content = new Uint8Array(await blobs[j].arrayBuffer());
+			if (files[j].fileName.split('.').pop() == 'zip') content = await unzip(content, dbname);
+			attachDB(new SQL.Database(content), basename(files[j].fileName));
+			console.log(`Sub database attached from ${dbname}.`);
+		}
+*/
+		for(let j = 1; j < files.length - 1; j++) {
 			console.log(`Attaching sub DB ${files[j].fileName}...`);
 			await waiting(true, `サブデータベース読込中: ${files[j].fileName}`);
 			dbname = basename(files[j].fileName) + '.db';
@@ -1123,7 +1137,11 @@ async function fetchDB(optiondb = '') {
 		
 		// init_create_view 実行
 		await waiting(true, 'データ構築中...');
-		await execSQLLoadFromURL('init_create_view.sql');
+		//await execSQLLoadFromURL('init_create_view.sql');
+		const sqlFileIndex = files.length - 1;
+		const transformedSql = convTemplate(await blobs[sqlFileIndex].text());
+		await db.run(transformedSql);
+		console.log(`Executed ${files[sqlFileIndex].fileName}.`);
 		await setTabViews();
 
 		// キャッシュ利用が発生したファイルがあれば通知
