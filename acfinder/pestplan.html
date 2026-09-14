@@ -1280,8 +1280,8 @@ function createPlanTable() {
 			<input type="checkbox" id="checkRecordMode" onchange="toggleRecordMode(this.checked)" autocomplete="off">
 			<label for="checkRecordMode"> 記録モード (日付入力)</label>
 		</div>
-		<div>
-			<table id="planTable" class="handsontable-like">
+		<div class="handsontable-like">
+			<table id="planTable">
 				<thead>
 					<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
 				</thead>
@@ -2222,15 +2222,17 @@ function updateSeibunCountTable() {
 	}).join('');
 
 	seibunContainer.innerHTML = `
-		<table id="seibunCountTable" class="handsontable-like">
-			<thead>
-				<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th></tr>
-			</thead>
-			<tbody>${rowsHtml}</tbody>
-			<tfoot>
-				<tr><td>合計</td><td></td><td>${totalCount}</td><td></td></tr>
-			</tfoot>
-		</table>
+		<div class="handsontable-like">
+			<table id="seibunCountTable">
+				<thead>
+					<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th></tr>
+				</thead>
+				<tbody>${rowsHtml}</tbody>
+				<tfoot>
+					<tr><td>合計</td><td></td><td>${totalCount}</td><td></td></tr>
+				</tfoot>
+			</table>
+		</div>
 		<div class="iconsbar">
 			<svg class="icon" onclick="copyTableToClipboard('seibunCountTable')">
 				<title>クリップボードにコピー</title>
@@ -2275,12 +2277,14 @@ function updateYakuzaiCountTable() {
 	}).join('');
 
 	container.innerHTML = `
-		<table id="yakuzaiCountTable" class="handsontable-like">
-			<thead>
-				<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th></tr>
-			</thead>
-			<tbody>${rowsHtml}</tbody>
-		</table>
+		<div class="handsontable-like">
+			<table id="yakuzaiCountTable" class="handsontable-like">
+				<thead>
+					<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th></tr>
+				</thead>
+				<tbody>${rowsHtml}</tbody>
+			</table>
+		</div>
 		<div class="iconsbar">
 			<svg class="icon" onclick="copyTableToClipboard('yakuzaiCountTable')">
 				<title>クリップボードにコピー</title>
