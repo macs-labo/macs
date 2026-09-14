@@ -1241,7 +1241,7 @@ function dispNewLine(cm, line, element) {
 
 function toggleSearchbar(cm) {
 	cm.searchbar.classList.toggle('hidden');
-	if (cm.searchbarclassList.contains('hidden')) return;
+	if (cm.searchbar.classList.contains('hidden')) return;
 	const selection = cm.getSelection();
 	if (selection) cm.searchInput.value = selection;
 }
