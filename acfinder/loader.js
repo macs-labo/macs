@@ -947,8 +947,8 @@ async function execSQLLoadFromURL(url) {
 	try {
 		const response = await fetch(url);
 		if (!response.ok) throw new Error(`レスポンスステータス: ${response.status}`);
-		db.run(convTemplate(await response.text()));
-		//db.run(await response.text());
+		const sql = await response.text();
+		await db.run(convTemplate(sql));
 		if (debug) console.log('Executed: ' + url);
 	} catch (error) {
 		console.error(error.message);
@@ -1139,9 +1139,9 @@ async function fetchDB(optiondb = '') {
 		await waiting(true, 'データ構築中...');
 		//await execSQLLoadFromURL('init_create_view.sql');
 		const sqlFileIndex = files.length - 1;
-		const transformedSql = convTemplate(await blobs[sqlFileIndex].text());
-		await db.run(transformedSql);
-		console.log(`Executed ${files[sqlFileIndex].fileName}.`);
+		const sql = await blobs[sqlFileIndex].text();
+		await db.run(convTemplate(sql));
+		console.log('Executed: \n', sql);
 		await setTabViews();
 
 		// キャッシュ利用が発生したファイルがあれば通知
