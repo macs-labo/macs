@@ -1243,7 +1243,10 @@ function toggleSearchbar(cm) {
 	cm.searchbar.classList.toggle('hidden');
 	if (cm.searchbar.classList.contains('hidden')) return;
 	const selection = cm.getSelection();
-	if (selection) cm.searchInput.value = selection;
+	if (selection) {
+		cm.searchInput.value = selection;
+		cm.find();
+	}
 }
 
 // CodeMirror の生成とツールバー設定
