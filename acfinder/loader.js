@@ -1140,8 +1140,9 @@ async function fetchDB(optiondb = '') {
 		//await execSQLLoadFromURL('init_create_view.sql');
 		const sqlFileIndex = files.length - 1;
 		const sql = await blobs[sqlFileIndex].text();
-		await db.run(convTemplate(sql));
-		console.log('Executed: \n', sql);
+		const convertedSql = convTemplate(sql);
+		await db.run(convertedSql);
+		console.log('Executed: \n', convertedSql);
 		await setTabViews();
 
 		// キャッシュ利用が発生したファイルがあれば通知
