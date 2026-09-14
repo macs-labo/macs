@@ -948,7 +948,7 @@ async function execSQLLoadFromURL(url) {
 		const response = await fetch(url);
 		if (!response.ok) throw new Error(`レスポンスステータス: ${response.status}`);
 		const sql = await response.text();
-		await db.run(convTemplate(sql));
+		db.run(convTemplate(sql));
 		if (debug) console.log('Executed: ' + url);
 	} catch (error) {
 		console.error(error.message);
@@ -1141,7 +1141,7 @@ async function fetchDB(optiondb = '') {
 		const sqlFileIndex = files.length - 1;
 		const sql = await blobs[sqlFileIndex].text();
 		const convertedSql = convTemplate(sql);
-		await db.run(convertedSql);
+		db.run(convertedSql);
 		console.log('Executed: \n', convertedSql);
 		await setTabViews();
 
