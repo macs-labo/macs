@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v5.68r68'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v5.68r69'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -63,9 +63,9 @@ const ASSETS_TO_CACHE = [
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.js',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/sql-hint.js',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/selection/active-line.js',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/search.js',
-	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/searchcursor.js',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/dialog/dialog.js',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/searchcursor.js',
+	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/search.js',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/lib/codemirror.css',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/eclipse.css',
 	'https://cdn.jsdelivr.net/npm/codemirror@5.65.21/theme/darcula.css',
