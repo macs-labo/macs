@@ -201,7 +201,7 @@ span.cm-variable-3 { font-weight: bold;  }
 .searchbar input {
 	width: 200px;
 }
-.searchbar .button {
+.searchbar button {
 	padding: 4px 8px;
 }
 .searchbar button:disabled {
@@ -256,22 +256,46 @@ CodeMirror.prototype.doFind = function() {
 	this.currentIndex = -1;
 
 	if (!query) {
-		this.updateSerchbar();
+		this.updateSerchbar(); // ※元のコードのタイポ(Serchbar)に合わせています
 		return;
 	}
 
-	// getSearchCursor を使って裏側で位置情報を収集（スクロールは発生しない）
+	// 1. getSearchCursor を使って裏側で位置情報をすべて収集
 	const cursor = this.getSearchCursor(query);
 	while (cursor.findNext()) {
 		this.matches.push({ from: cursor.from(), to: cursor.to() });
 	}
 
+	// 2. マッチが存在する場合の処理
 	if (this.matches.length > 0) {
-		this.currentIndex = 0;
+		// 現在のエディタのカーソル位置（選択開始位置）を取得
+		const currentPos = this.getCursor("start");
+		
+		// 現在位置以降（下方向）にある、一番近いマッチのインデックスを探す
+		let foundIndex = -1;
+		for (let i = 0; i < this.matches.length; i++) {
+			const matchFrom = this.matches[i].from;
+			
+			// マッチ行が現在行より後ろ、または同じ行で文字位置が現在より後ろ（または同じ）の場合
+			if (matchFrom.line > currentPos.line || 
+					(matchFrom.line === currentPos.line && matchFrom.ch >= currentPos.ch)) {
+				foundIndex = i;
+				break; // 最も近いものが見つかったのでループを抜ける
+			}
+		}
+
+		// もし現在位置より後ろにマッチがなければ、ドキュメントの先頭（0番目）に戻す
+		if (foundIndex === -1) {
+			this.currentIndex = 0;
+		} else {
+			this.currentIndex = foundIndex;
+		}
+
+		// 算出した最適なインデックスのマッチを選択（スクロール）
 		this.selectCurrentMatch();
 	}
 
-	this.updateSerchbar();
+  this.updateSerchbar();
 };
 
 // 6. テキスト検索(次へ)
@@ -1298,9 +1322,9 @@ function handleSearchFocus(cm) {
 function setupEditor(editorID, containerID, options = {}) {
 	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
 	// キーバインドの定義（Windows/Mac両対応）
-	const keyMaps = {};
-	keyMaps["Ctrl-F"] = function(cm) { handleSearchFocus(cm); };
-	keyMaps["Cmd-F"] = function(cm) { handleSearchFocus(cm); };
+	//const keyMaps = {};
+	//keyMaps["Ctrl-F"] = function(cm) { handleSearchFocus(cm); };
+	//keyMaps["Cmd-F"] = function(cm) { handleSearchFocus(cm); };
 	const baseOptions = {
 		theme: theme,
 		styleActiveLine: true,
@@ -1309,7 +1333,7 @@ function setupEditor(editorID, containerID, options = {}) {
 		tabSize: 2,
 		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
 		matchBrackets: true,
-		extraKeys: keyMaps, // ここでキー入力をフック
+		//extraKeys: keyMaps, // ここでキー入力をフック
 		// 可視化したい全角文字を定義
 		specialChars: /[　（）；]/, // 全角スペース、全角括弧、全角セミコロンを対象にする
 		specialCharPlaceholder: function(char) {
