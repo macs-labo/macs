@@ -223,6 +223,16 @@ span.cm-variable-3 { font-weight: bold;  }
 	text-align: center;
 }
 
+/* すべてのマッチ箇所に適用されるハイライトスタイル */
+.cm-search-highlight {
+  background: rgba(255, 255, 0, 0.4); /* 薄い黄色 */
+  border-bottom: 1px solid gold;
+}
+/* 現在選択されているマッチ箇所（currentIndex）を強調する場合 */
+.cm-search-highlight-current {
+  background: rgba(255, 128, 0, 0.5) !important; /* オレンジ色 */
+}
+
 </style>
 <!--	タブ専用の script -->
 <script>
@@ -276,51 +286,66 @@ CodeMirror.prototype.clearText = function() {
 
 // 6. テキスト検索
 CodeMirror.prototype.doFind = function() {
-	const query = this.searchInput.value;
-	this.matches = [];
-	this.currentIndex = -1;
+  const query = this.searchInput.value;
+  this.matches = [];
+  this.currentIndex = -1;
 
-	if (!query) {
-		this.updateSearchbar(); // ※元のコードのタイポ(Serchbar)に合わせています
-		return;
-	}
+  // 💡 前回付与したハイライト（マーカー）があればすべてクリアする
+  if (this.searchMarkers) {
+    this.searchMarkers.forEach(marker => marker.clear());
+  }
+  this.searchMarkers = []; // 初期化
 
-	// 1. getSearchCursor を使って裏側で位置情報をすべて収集
-	const cursor = this.getSearchCursor(query);
-	while (cursor.findNext()) {
-		this.matches.push({ from: cursor.from(), to: cursor.to() });
-	}
+  if (!query) {
+    this.updateSerchbar();
+    return;
+  }
 
-	// 2. マッチが存在する場合の処理
-	if (this.matches.length > 0) {
-		// 現在のエディタのカーソル位置（選択開始位置）を取得
-		const currentPos = this.getCursor("start");
-		
-		// 現在位置以降（下方向）にある、一番近いマッチのインデックスを探す
-		let foundIndex = -1;
-		for (let i = 0; i < this.matches.length; i++) {
-			const matchFrom = this.matches[i].from;
-			
-			// マッチ行が現在行より後ろ、または同じ行で文字位置が現在より後ろ（または同じ）の場合
-			if (matchFrom.line > currentPos.line || 
-					(matchFrom.line === currentPos.line && matchFrom.ch >= currentPos.ch)) {
-				foundIndex = i;
-				break; // 最も近いものが見つかったのでループを抜ける
-			}
-		}
+  // getSearchCursor を使って裏側で位置情報をすべて収集
+  const cursor = this.getSearchCursor(query);
+  while (cursor.findNext()) {
+    const fromPos = cursor.from();
+    const toPos = cursor.to();
+    
+    // 1. マッチ情報を配列に保存
+    this.matches.push({ from: fromPos, to: toPos });
 
-		// もし現在位置より後ろにマッチがなければ、ドキュメントの先頭（0番目）に戻す
-		if (foundIndex === -1) {
-			this.currentIndex = 0;
-		} else {
-			this.currentIndex = foundIndex;
-		}
+    // 2. ✨ 全てのマッチ箇所にハイライト用のクラスを付与
+    const marker = this.markText(fromPos, toPos, {
+      className: "cm-search-highlight"
+    });
+    this.searchMarkers.push(marker);
+  }
 
-		// 算出した最適なインデックスのマッチを選択（スクロール）
-		this.selectCurrentMatch();
-	}
+  // マッチが存在する場合の処理
+  if (this.matches.length > 0) {
+    const currentPos = this.getCursor("start");
+    
+    let foundIndex = -1;
+    for (let i = 0; i < this.matches.length; i++) {
+      const matchFrom = this.matches[i].from;
+      if (matchFrom.line > currentPos.line || 
+         (matchFrom.line === currentPos.line && matchFrom.ch >= currentPos.ch)) {
+        foundIndex = i;
+        break;
+      }
+    }
 
-  this.updateSearchbar();
+    if (foundIndex === -1) {
+      this.currentIndex = 0;
+    } else {
+      this.currentIndex = foundIndex;
+    }
+
+    // カレントマッチを選択（必要に応じて画面スクロール）
+    this.selectCurrentMatch();
+    
+    // （オプション）現在選択されている箇所だけさらに色を強くしたい場合
+    // この doFind の直後に selectCurrentMatch 内などで現在のインデックスのマーカーに対して
+    // 別のクラスを当てるか、通常の選択反転（setSelection）に色付けを任せればOKです。
+  }
+
+  this.updateSerchbar();
 };
 
 // 7. テキスト検索(次へ)
@@ -353,7 +378,7 @@ CodeMirror.prototype.updateSearchbar = function() {
 		this.btnPrev.disabled = true;
 		this.btnNext.disabled = true;
 	} else {
-		this.searchCounter.textContent = (this.currentIndex + 1) + " / " + this.matches.length;
+		this.searchCounter.textContent = (this.currentIndex + 1) + "/" + this.matches.length;
 		this.btnPrev.disabled = false;
 		this.btnNext.disabled = false;
 	}
