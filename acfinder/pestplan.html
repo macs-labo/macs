@@ -921,7 +921,7 @@ function escapeHtml(str) {
 // ・それ以外は単純な文字列完全一致
 function fieldMatches(field, oldVal, newVal) {
 	if (field === 'byochu') return byochuEquals(oldVal, newVal);
-	if (field === 'mid') return recEquals(newVal, oldVal);
+	if (field === 'mid') return racEquals(oldVal, newVal);
 	return (oldVal || '') === (newVal || '');
 }
 
