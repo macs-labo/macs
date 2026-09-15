@@ -286,66 +286,63 @@ CodeMirror.prototype.clearText = function() {
 
 // 6. テキスト検索
 CodeMirror.prototype.doFind = function() {
-  const query = this.searchInput.value;
-  this.matches = [];
-  this.currentIndex = -1;
+	const query = this.searchInput.value;
+	this.matches = [];
+	this.currentIndex = -1;
 
-  // 💡 前回付与したハイライト（マーカー）があればすべてクリアする
-  if (this.searchMarkers) {
-    this.searchMarkers.forEach(marker => marker.clear());
-  }
-  this.searchMarkers = []; // 初期化
+	// 前回付与したハイライト（マーカー）があればすべてクリア
+	if (this.searchMarkers) {
+		this.searchMarkers.forEach(marker => marker.clear());
+	}
+	this.searchMarkers = [];
 
-  if (!query) {
-    this.updateSerchbar();
-    return;
-  }
+	if (!query) {
+		this.updateSearchbarState(); // タイポ修正済みのメソッド名に対応
+		return;
+	}
 
-  // getSearchCursor を使って裏側で位置情報をすべて収集
-  const cursor = this.getSearchCursor(query);
-  while (cursor.findNext()) {
-    const fromPos = cursor.from();
-    const toPos = cursor.to();
-    
-    // 1. マッチ情報を配列に保存
-    this.matches.push({ from: fromPos, to: toPos });
+	// ✨ チェックボックスがONなら caseFold を false（区別する）、OFFなら true（区別しない）
+	const searchOptions = { caseFold: !this.searchCase.checked };
 
-    // 2. ✨ 全てのマッチ箇所にハイライト用のクラスを付与
-    const marker = this.markText(fromPos, toPos, {
-      className: "cm-search-highlight"
-    });
-    this.searchMarkers.push(marker);
-  }
+	// getSearchCursor の第3引数にオプションを渡す
+	const cursor = this.getSearchCursor(query, null, searchOptions);
+	while (cursor.findNext()) {
+		const fromPos = cursor.from();
+		const toPos = cursor.to();
+		
+		this.matches.push({ from: fromPos, to: toPos });
 
-  // マッチが存在する場合の処理
-  if (this.matches.length > 0) {
-    const currentPos = this.getCursor("start");
-    
-    let foundIndex = -1;
-    for (let i = 0; i < this.matches.length; i++) {
-      const matchFrom = this.matches[i].from;
-      if (matchFrom.line > currentPos.line || 
-         (matchFrom.line === currentPos.line && matchFrom.ch >= currentPos.ch)) {
-        foundIndex = i;
-        break;
-      }
-    }
+		// 全てのマッチ箇所にハイライト用のクラスを付与
+		const marker = this.markText(fromPos, toPos, {
+			className: "cm-search-highlight"
+		});
+		this.searchMarkers.push(marker);
+	}
 
-    if (foundIndex === -1) {
-      this.currentIndex = 0;
-    } else {
-      this.currentIndex = foundIndex;
-    }
+	// マッチが存在する場合の処理
+	if (this.matches.length > 0) {
+		const currentPos = this.getCursor("start");
+		
+		let foundIndex = -1;
+		for (let i = 0; i < this.matches.length; i++) {
+			const matchFrom = this.matches[i].from;
+			if (matchFrom.line > currentPos.line || 
+				(matchFrom.line === currentPos.line && matchFrom.ch >= currentPos.ch)) {
+				foundIndex = i;
+				break;
+			}
+		}
 
-    // カレントマッチを選択（必要に応じて画面スクロール）
-    this.selectCurrentMatch();
-    
-    // （オプション）現在選択されている箇所だけさらに色を強くしたい場合
-    // この doFind の直後に selectCurrentMatch 内などで現在のインデックスのマーカーに対して
-    // 別のクラスを当てるか、通常の選択反転（setSelection）に色付けを任せればOKです。
-  }
+		if (foundIndex === -1) {
+			this.currentIndex = 0;
+		} else {
+			this.currentIndex = foundIndex;
+		}
 
-  this.updateSearchbar();
+		this.selectCurrentMatch();
+	}
+
+	this.updateSearchbarState();
 };
 
 // 7. テキスト検索(次へ)
@@ -391,7 +388,8 @@ CodeMirror.prototype.doReplace = function() {
 	if (!query) return;
 
 	// 1. 現在の選択位置（start）を起点に SearchCursor を生成
-	const cursor = this.getSearchCursor(query, this.getCursor("start"));
+	const searchOptions = { caseFold: !this.searchCase.checked };
+	const cursor = this.getSearchCursor(query, this.getCursor("start"), searchOptions);
 
 	// 2. 起点から数えて「最初のマッチ」を探す
 	if (cursor.findNext()) {
@@ -1475,9 +1473,12 @@ function setupEditor(editorID, containerID, options = {}) {
 	searchbar.innerHTML = `
 		<input type="text" class="search-input" placeholder="検索キーワードを入力...">
 		<input type="text" class="replace-input" placeholder="置換後の文字列...">
+		<label class="case-label" titile="大文字/小文字を区別">
+			<input type="checkbox" class="search-case">Aa
+		</label>
 		<span class="search-counter">0/0</span>
-		<button class="btn-prev" disabled>↑</button>
-		<button class="btn-next" disabled>↓</button>
+		<button class="btn-prev" title="前の一致項目" disabled>↑</button>
+		<button class="btn-next" title="次の一致項目" disabled>↓</button>
 		<button class="btn-replace" disabled>置換</button>
 	`;
 	toolbar.insertAdjacentElement('afterend', searchbar);
@@ -1486,6 +1487,7 @@ function setupEditor(editorID, containerID, options = {}) {
 	cm.searchbar = searchbar;
 	cm.searchInput = searchbar.querySelector(".search-input");
 	cm.replaceInput = searchbar.querySelector(".replace-input");
+	cm.searchCase = searchbar.querySelector(".search-case");
 	cm.searchCounter = searchbar.querySelector(".search-counter");
 	cm.btnPrev = searchbar.querySelector(".btn-prev");
 	cm.btnNext = searchbar.querySelector(".btn-next");
@@ -1493,6 +1495,7 @@ function setupEditor(editorID, containerID, options = {}) {
 
 	// サーチバーUIパーツのイベントハンドラをバインド
 	cm.searchInput.addEventListener('input', function() { cm.doFind() });
+	cm.searchCase.addEventListener("change", function() { cm.doFind(); });
 	cm.btnPrev.addEventListener('click', function() { cm.findPrev() });
 	cm.btnNext.addEventListener('click', function() { cm.findNext() });
 	cm.btnReplace.addEventListener('click', function() { cm.doReplace() });
