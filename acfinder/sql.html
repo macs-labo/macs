@@ -1521,32 +1521,34 @@ window.addEventListener('DOMContentLoaded', async function() {
 		hintOptions: { tables: tablesForHint },
 		autofocus: true
 	};
-	sqlOptions['toolbar']['top'] = `
-		<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" class="hidden">
-		<svg class="icon" onclick="openFileSQL()">
-			<title>SQL/ZIPファイル読込</title>
-			<use href="icons.svg#folder-open"></use>
-		</svg>
-		<svg class="icon save disabled" onclick="saveSQLFile()">
-			<title>SQLファイルを上書き保存</title>
-			<use href="icons.svg#save"></use>
-		</svg>
-		<svg class="icon saveAs disabled" onclick="saveSQLFile(false)">
-			<title>SQLファイルを名前を付けて保存</title>
-			<use href="icons.svg#save-as"></use>
-		</svg>
-	`;
-	sqlOptions['toolbar']['end'] = `
-		<svg class="icon exec disabled" onclick="dispatchSQLExecution()">
-			<title>クエリー実行</title>
-			<use href="icons.svg#database-search"></use>
-		</svg>
-		<svg id="autoSaved" class="icon hidden" onclick="loadAutoSavedSQL()">
-			<title>自動保存SQL読込</title>
-			<use href="icons.svg#library"></use>
-		</svg>
-		<span id="toolbar_text"></span>
-	`;
+	sqlOptions['toolbar'] = {
+		top: `
+			<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" class="hidden">
+			<svg class="icon" onclick="openFileSQL()">
+				<title>SQL/ZIPファイル読込</title>
+				<use href="icons.svg#folder-open"></use>
+			</svg>
+			<svg class="icon save disabled" onclick="saveSQLFile()">
+				<title>SQLファイルを上書き保存</title>
+				<use href="icons.svg#save"></use>
+			</svg>
+			<svg class="icon saveAs disabled" onclick="saveSQLFile(false)">
+				<title>SQLファイルを名前を付けて保存</title>
+				<use href="icons.svg#save-as"></use>
+			</svg>
+		`,
+		end : `
+			<svg class="icon exec disabled" onclick="dispatchSQLExecution()">
+				<title>クエリー実行</title>
+				<use href="icons.svg#database-search"></use>
+			</svg>
+			<svg id="autoSaved" class="icon hidden" onclick="loadAutoSavedSQL()">
+				<title>自動保存SQL読込</title>
+				<use href="icons.svg#library"></use>
+			</svg>
+			<span id="toolbar_text"></span>
+		`
+	};
 	sqlEditor = setupEditor('sqlInput', 'sql_editor', sqlOptions);
 
 	// SQLエディタで {$変数} をハイライトするオーバーレイ定義
@@ -1577,7 +1579,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	// 変数エディタの初期化
 	const varOptions = {};
 	varOptions['customOptions'] = { mode: 'varMode' };
-	varOptions['toolbar']['top'] = `
+	varOptions['toolbar'] = { top: `
 		<input type="file" id="fileInputVar" accept=".var" class="hidden">
 		<svg class="icon" onclick="openFileVar()">
 			<title>変数ファイル読込</title>
@@ -1591,7 +1593,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 			<title>変数ファイルを名前を付けて保存</title>
 			<use href="icons.svg#save-as"></use>
 		</svg>
-	`;
+	`};
 	varEditor = setupEditor('varInput', 'var_editor', varOptions);
 
 	// sql, var をクリアする(firefox 対策)
