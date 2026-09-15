@@ -538,7 +538,7 @@ function saveVarFile() {
 }
 
 function setToolbarText(msg, autoClose = 0) {
-	const toolbarText = document.getElementById('toolbar_text')[0];
+	const toolbarText = document.getElementById('toolbar_text');
 	return new Promise(resolve => {
 		// ブラウザに制御を返すために setTimeout を使用
 		// 描画を保証するために requestAnimationFrame を使用
