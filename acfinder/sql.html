@@ -538,8 +538,7 @@ function saveVarFile() {
 }
 
 function setToolbarText(msg, autoClose = 0) {
-	const sqlToolbar = document.getElementById('sql_toolbar');
-	const toolbarText = document.getElementsByClassName('toolbar_text')[0];
+	const toolbarText = document.getElementsById('toolbar_text')[0];
 	return new Promise(resolve => {
 		// ブラウザに制御を返すために setTimeout を使用
 		// 描画を保証するために requestAnimationFrame を使用
@@ -1322,8 +1321,20 @@ function setupEditor(editorID, containerID, customOptions = {}) {
 	cm.matches = [];
 	cm.currentIndex = -1;
 
+	// サーチバー追加
+	const searchbar =decument.createElement('div');
+	searchbar.className = '.searchbar';
+	searchbar.innerHTML = `
+		<div class="searchbar hidden">
+			<input type="text" class="search-input" placeholder="検索キーワードを入力...">
+			<span class="search-counter">0/0</span>
+			<button class="btn-prev" disabled>↑</button>
+			<button class="btn-next" disabled>↓</button>
+		</div>
+	`;
+	toolbar.insertAdjacentElement('afterend', searchbar);
+	
 	// サーチバーのUIパーツをクラス名で取得
-	const searchbar = container.querySelector('.searchbar');
 	cm.searchbar = searchbar;
 	cm.searchInput = searchbar.querySelector(".search-input");
 	cm.searchCounter = searchbar.querySelector(".search-counter");
@@ -1595,7 +1606,7 @@ window.addEventListener('beforeunload', function() {
 		<div id="resultPane">
 			<div id="resultTop">
 				<div id="sql_editor"><!-- SQLエディタ部 -->
-					<div id="sql_toolbar" class="toolbar"><!-- SQLツールバー配置 -->
+					<div class="toolbar"><!-- SQLツールバー配置 -->
 						<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" class="hidden">
 						<svg class="icon" onclick="openFileSQL()">
 							<title>SQL/ZIPファイル読込</title>
@@ -1637,18 +1648,12 @@ window.addEventListener('beforeunload', function() {
 							<title>自動保存SQL読込</title>
 							<use href="icons.svg#library"></use>
 						</svg>
-						<span class="toolbar_text"></span>
-					</div>
-					<div class="searchbar hidden">
-						<input type="text" class="search-input" placeholder="検索キーワードを入力...">
-						<button class="btn-prev" disabled>◀ 前へ</button>
-						<button class="btn-next" disabled>次へ ▶</button>
-						<span class="search-counter">0 / 0</span>
+						<span id="toolbar_text"></span>
 					</div>
 					<textarea id="sqlInput"></textarea><!--	SQL エディタ -->
 				</div>
 				<div id="var_editor" class="closed"><!-- 変数エディタ部 -->
-					<div id="var_toolbar" class="toolbar"><!-- 変数ツールバー配置 -->
+					<div class="toolbar"><!-- 変数ツールバー配置 -->
 						<input type="file" id="fileInputVar" accept=".var" class="hidden">
 						<svg class="icon" onclick="openFileVar()">
 							<title>変数ファイル読込</title>
@@ -1682,12 +1687,6 @@ window.addEventListener('beforeunload', function() {
 							<title>変数エディタ開閉</title>
 							<use href="icons.svg#source-code"></use>
 						</svg>
-					</div>
-					<div class="searchbar hidden">
-						<input type="text" class="search-input" placeholder="検索キーワードを入力...">
-						<button class="btn-prev" disabled>◀ 前へ</button>
-						<button class="btn-next" disabled>次へ ▶</button>
-						<span class="search-counter">0 / 0</span>
 					</div>
 					<textarea id="varInput"></textarea><!--	変数エディタ -->
 				</div>
