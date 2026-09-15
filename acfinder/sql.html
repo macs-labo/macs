@@ -252,7 +252,7 @@ CodeMirror.prototype.textClear = function() {
 };
 
 // 5. テキスト検索
-CodeMirror.prototype.find = function() {
+CodeMirror.prototype.doFind = function() {
 	const query = this.searchInput.value;
 	this.matches = [];
 	this.currentIndex = -1;
@@ -310,6 +310,11 @@ CodeMirror.prototype.updateSerchbar = function() {
 		this.btnPrev.disabled = false;
 		this.btnNext.disabled = false;
 	}
+}
+
+// 10. 選択文字列置換
+CodeMirror.prototype.doReplace = function() {
+	this.replace(this.replaceInput.value);
 }
 
 // CodeMirror既存メソッドのオーバーライド
@@ -1246,7 +1251,7 @@ function doSearch(cm) {
 	const selection = cm.getSelection();
 	if (!selection) return;
 	cm.searchInput.value = selection;
-	cm.find();
+	cm.doFind();
 }
 
 function toggleSearchbar(cm) {
@@ -1264,9 +1269,9 @@ function handleSearchFocus(cm) {
 function setupEditor(editorID, containerID, options = {}) {
 	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
 	// キーバインドの定義（Windows/Mac両対応）
-	//const keyMaps = {};
-	//keyMaps["Ctrl-F"] = function(cm) { handleSearchFocus(cm); };
-	//keyMaps["Cmd-F"] = function(cm) { handleSearchFocus(cm); };
+	const keyMaps = {};
+	keyMaps["Ctrl-F"] = function(cm) { handleSearchFocus(cm); };
+	keyMaps["Cmd-F"] = function(cm) { handleSearchFocus(cm); };
 	const baseOptions = {
 		theme: theme,
 		styleActiveLine: true,
@@ -1275,7 +1280,7 @@ function setupEditor(editorID, containerID, options = {}) {
 		tabSize: 2,
 		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
 		matchBrackets: true,
-		//extraKeys: keyMaps, // ここでキー入力をフック
+		extraKeys: keyMaps, // ここでキー入力をフック
 		// 可視化したい全角文字を定義
 		specialChars: /[　（）；]/, // 全角スペース、全角括弧、全角セミコロンを対象にする
 		specialCharPlaceholder: function(char) {
@@ -1300,7 +1305,7 @@ function setupEditor(editorID, containerID, options = {}) {
 
 	// ツールバー追加
 	const toolbar = document.createElement('div');
-	toolbar.className = 'toolbar hidden';
+	toolbar.className = 'toolbar';
 	const toolbarOption = options.toolbar || {};
 	const toolbarTop = toolbarOption.top || '';
 	const toolbarEnd = toolbarOption.end || '';
@@ -1362,23 +1367,31 @@ function setupEditor(editorID, containerID, options = {}) {
 	searchbar.className = 'searchbar hidden';
 	searchbar.innerHTML = `
 		<input type="text" class="search-input" placeholder="検索キーワードを入力...">
+		<input type="text" class="replace-input" placeholder="置換後の文字列...">
 		<span class="search-counter">0/0</span>
 		<button class="btn-prev" disabled>↑</button>
 		<button class="btn-next" disabled>↓</button>
+		<button class="btn-replace" disabled>置換</button>
 	`;
 	toolbar.insertAdjacentElement('afterend', searchbar);
 
 	// サーチバーのUIパーツをクラス名で取得
 	cm.searchbar = searchbar;
 	cm.searchInput = searchbar.querySelector(".search-input");
+	cm.replaceInput = searchbar.querySelector(".replace-input");
 	cm.searchCounter = searchbar.querySelector(".search-counter");
 	cm.btnPrev = searchbar.querySelector(".btn-prev");
 	cm.btnNext = searchbar.querySelector(".btn-next");
+	cm.btnReplace = searchbar.querySelector(".btn-replace");
 
 	// サーチバーUIパーツのイベントハンドラをバインド
-	cm.searchInput.addEventListener('input', function() { cm.find() });
+	cm.searchInput.addEventListener('input', function() { cm.doFind() });
 	cm.btnPrev.addEventListener('click', function() { cm.findPrev() });
 	cm.btnNext.addEventListener('click', function() { cm.findNext() });
+	cm.btnReplace.addEventListener('click', function() { cm.doReplace() });
+	cm.replaceInput.addEventListener('input', () => {
+		cm.btnReplace.disabled = cm.replaceInput.value === ''
+	});
 
 	// CodeMirrorのイベントをバインド
 	cm.on('change', updateToolbarState);
