@@ -1307,7 +1307,7 @@ function createPlanTable() {
 	hasHadOldDataRows = false; // 新しい計画表の作成に伴い、旧データ行の履歴フラグもリセット
 
 	planContainer.innerHTML = `
-		<div class="checkListItem"">
+		<div class="checkListItem">
 			<input type="checkbox" id="checkRecordMode" onchange="toggleRecordMode(this.checked)" autocomplete="off">
 			<label for="checkRecordMode"> 記録モード (日付入力)</label>
 		</div>
@@ -1454,7 +1454,7 @@ function convPlanToJson() {
 	// #db-update の表示テキストから登録更新日情報を取得する（先頭の「最新DB:」「⚠️過去参照: 」は除いて保存する）
 	const dbUpdateText = (document.getElementById('db-update')?.textContent || '')
 		.trim()
-		.replace(/^(最新DB:|⚠️過去参照:)\s*/, '');
+		.replace(/^((最新|保存)DB:|⚠️過去参照:)\s*/, '');
 
 	const saveData = {
 		dataset: dbUpdateText, // 保存時点の農薬登録情報DBの登録更新日
