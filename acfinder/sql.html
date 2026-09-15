@@ -321,22 +321,27 @@ CodeMirror.prototype.doReplace = function() {
 
 	// 2. 起点から数えて「最初のマッチ」を探す
 	if (cursor.findNext()) {
-		// 3. マッチした場所を新しい文字列に置換
-		cursor.replace(replaceText);
+		const fromPos = cursor.from();
+		const toPos = cursor.to();
+		this.replaceRange(replaceText, fromPos, toPos);
 		
-		// 4. 置換した直後の位置を取得（置換により文字数が変わるため重要）
-		const afterReplacePos = cursor.to();
+		// 3. 置換した直後のカーソル位置（行と文字位置）を計算
+		// 置換後の文字数によって位置が変わるため、再計算します
+		const nextStartPos = {
+			line: fromPos.line,
+			ch: fromPos.ch + replaceText.length
+		};
 		
-		// 5. 新しい位置からもう一度次のマッチを探して、あれば自動で選択（スクロール）する
-		const nextCursor = this.getSearchCursor(query, afterReplacePos);
+		// 4. 次のマッチ箇所を自動で探して選択（ハイライト）する
+		const nextCursor = this.getSearchCursor(query, nextStartPos);
 		if (nextCursor.findNext()) {
-			editor.setSelection(nextCursor.from(), nextCursor.to());
+			this.setSelection(nextCursor.from(), nextCursor.to());
 		} else {
-			// 次のマッチがなければ選択を解除して、置換後の末尾にカーソルを置く
-			this.setCursor(afterReplacePos);
+			// 次がなければ、置換した文字の直後にカーソルを移動
+			this.setCursor(nextStartPos);
 		}
 		
-		// 6. 文字列が変わったので、全体のスキャン（件数カウントなど）を再実行
+		// 5. 文字列が変わったので、全体のスキャン（件数カウントなど）を再実行
 		this.doFind(); 
 	}
 }
