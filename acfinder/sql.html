@@ -1302,7 +1302,7 @@ function updateToolbarState(cm) {
 	// 共通ボタンの設定
 	if (cm.btnSave) cm.btnSave.classList.toggle('disabled', cm.isEmpty());
 	if (cm.btnSaveAs) cm.btnSaveAs.classList.toggle('disabled', cm.isEmpty());
-	if (cm.btnClear) cm.btnUndo.classList.toggle('disabled', cm.isEmpty());
+	if (cm.btnClear) cm.btnClear.classList.toggle('disabled', cm.isEmpty());
 	if (cm.btnUndo) cm.btnUndo.classList.toggle('disabled', !cm.isEdited());
 	if (cm.btnRedo) cm.btnRedo.classList.toggle('disabled', !cm.canRedo());
 	if (cm.btnFind) cm.btnFind.classList.toggle('disabled', cm.isEmpty());
