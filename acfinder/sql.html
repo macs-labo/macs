@@ -1322,7 +1322,7 @@ function setupEditor(editorID, containerID, customOptions = {}) {
 	cm.currentIndex = -1;
 
 	// サーチバー追加
-	const searchbar =decument.createElement('div');
+	const searchbar = document.createElement('div');
 	searchbar.className = '.searchbar';
 	searchbar.innerHTML = `
 		<div class="searchbar hidden">
@@ -1333,7 +1333,7 @@ function setupEditor(editorID, containerID, customOptions = {}) {
 		</div>
 	`;
 	toolbar.insertAdjacentElement('afterend', searchbar);
-	
+
 	// サーチバーのUIパーツをクラス名で取得
 	cm.searchbar = searchbar;
 	cm.searchInput = searchbar.querySelector(".search-input");
