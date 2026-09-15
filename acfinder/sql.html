@@ -243,8 +243,24 @@ CodeMirror.prototype.isEmpty = function() {
 	return this.lineCount() === 1 && this.getLine(0).length === 0;
 };
 
+// 4. ツールバー UI 更新
+CodeMirror.prototype.updateToolbarState = function() {
+	// 共通ボタンの設定
+	if (this.btnSave) this.btnSave.classList.toggle('disabled', this.isEmpty());
+	if (this.btnSaveAs) this.btnSaveAs.classList.toggle('disabled', this.isEmpty());
+	if (this.btnClear) this.btnUndo.classList.toggle('disabled', this.isEmpty());
+	if (this.btnUndo) this.btnUndo.classList.toggle('disabled', !this.isEdited());
+	if (this.btnRedo) this.btnRedo.classList.toggle('disabled', !this.canRedo());
+	if (this.btnFind) this.btnFind.classList.toggle('disabled', this.isEmpty());
+
+	// btnExec がある場合はそれも設定
+	if (this.btnExec) this.btnExec.classList.toggle('disabled', this.isEmpty());
+};
+
 // 4. テキストクリア
-CodeMirror.prototype.textClear = function() {
+CodeMirror.prototype.clearText = function() {
+	this.searchbar.classList.add(hidden);
+	this.updateToolbarState();
 	this.setValue('');
 	this.focus();
 };
@@ -378,12 +394,14 @@ const originalRedo = CodeMirror.prototype.redo;
 // 2. undo メソッドを上書き
 CodeMirror.prototype.undo = function() {
 	originalUndo.call(this); // オリジナルの undo を実行 (thisの固定が必要)
+	if (!this.searchbar.classList.contains('hidden')) this.doFind();
 	this.focus();
 };
 
 // 3. redo メソッドを上書き
 CodeMirror.prototype.redo = function() {
 	originalRedo.call(this); // オリジナルの redo を実行
+	if (!this.searchbar.classList.contains('hidden')) this.doFind();
 	this.focus();
 };
 
@@ -1278,19 +1296,6 @@ function toggleVarEditor(sw = '') {
 	}
 }
 
-function updateToolbarState(cm) {
-	// 共通ボタンの設定
-	if (cm.btnSave) cm.btnSave.classList.toggle('disabled', cm.isEmpty());
-	if (cm.btnSaveAs) cm.btnSaveAs.classList.toggle('disabled', cm.isEmpty());
-	if (cm.btnClear) cm.btnUndo.classList.toggle('disabled', cm.isEmpty());
-	if (cm.btnUndo) cm.btnUndo.classList.toggle('disabled', !cm.isEdited());
-	if (cm.btnRedo) cm.btnRedo.classList.toggle('disabled', !cm.canRedo());
-	if (cm.btnFind) cm.btnFind.classList.toggle('disabled', cm.isEmpty());
-
-	// btnExec がある場合はそれも設定
-	if (cm.btnExec) cm.btnExec.classList.toggle('disabled', cm.isEmpty());
-}
-
 // 改行文字を表示
 function dispNewLine(cm, line, element) {
 	if (line.lineNo() === cm.lastLine()) return; // 最終行には表示しない
@@ -1322,9 +1327,11 @@ function handleSearchFocus(cm) {
 function setupEditor(editorID, containerID, options = {}) {
 	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
 	// キーバインドの定義（Windows/Mac両対応）
-	//const keyMaps = {};
-	//keyMaps["Ctrl-F"] = function(cm) { handleSearchFocus(cm); };
-	//keyMaps["Cmd-F"] = function(cm) { handleSearchFocus(cm); };
+	const keyMaps = {
+		"Ctrl-F": function(cm) { handleSearchFocus(cm); },
+		"Cmd-F": function(cm) { handleSearchFocus(cm); },
+		...options.keyMaps || {}
+	}
 	const baseOptions = {
 		theme: theme,
 		styleActiveLine: true,
@@ -1333,7 +1340,7 @@ function setupEditor(editorID, containerID, options = {}) {
 		tabSize: 2,
 		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
 		matchBrackets: true,
-		//extraKeys: keyMaps, // ここでキー入力をフック
+		extraKeys: keyMaps, // ここでキー入力をフック
 		// 可視化したい全角文字を定義
 		specialChars: /[　（）；]/, // 全角スペース、全角括弧、全角セミコロンを対象にする
 		specialCharPlaceholder: function(char) {
@@ -1583,10 +1590,10 @@ window.addEventListener('DOMContentLoaded', async function() {
 	const sqlOptions = {}
 	sqlOptions['customOptions'] = {
 		mode: 'text/x-sql',
-		extraKeys: {"Ctrl-Space": "autocomplete"}, // "autocomplete" は CodeMirror.hint.sql を呼び出す
 		hintOptions: { tables: tablesForHint },
 		autofocus: true
 	};
+	sqlOptions['keyMaps'] = { "Ctrl-Space": "autocomplete" }; // "autocomplete" は CodeMirror.hint.sql を呼び出す
 	sqlOptions['toolbar'] = {
 		top: `
 			<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" class="hidden">
