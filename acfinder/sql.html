@@ -191,8 +191,8 @@ span.cm-variable-3 { font-weight: bold;  }
 	gap: 8px;
 	background: var(--bg-color);
 	border: 1px solid var(--border-color);
-	border-radius: 8px;
-	padding: 8px;
+	border-radius: 4px;
+	padding: 4px;
 	margin-bottom: 4px;
 }
 .searchbar.hidden {
@@ -201,10 +201,8 @@ span.cm-variable-3 { font-weight: bold;  }
 .searchbar input {
 	width: 200px;
 }
-.searchbar .btn-next,
-.searchbar .btn-prev {
-	padding: 3px 6px;
-	font-size: 13px;
+.searchbar .button {
+	padding: 4px 8px;
 }
 .searchbar button:disabled {
 	background-color: var(--bg-color-listbox);
@@ -314,7 +312,33 @@ CodeMirror.prototype.updateSerchbar = function() {
 
 // 10. 選択文字列置換
 CodeMirror.prototype.doReplace = function() {
-	this.replace(this.replaceInput.value);
+	const query = this.searchInput.value;
+	const replaceText = this.replaceInput.value; // 置換後の文字列
+	if (!query) return;
+
+	// 1. 現在の選択位置（start）を起点に SearchCursor を生成
+	const cursor = this.getSearchCursor(query, this.getCursor("start"));
+
+	// 2. 起点から数えて「最初のマッチ」を探す
+	if (cursor.findNext()) {
+		// 3. マッチした場所を新しい文字列に置換
+		cursor.replace(replaceText);
+		
+		// 4. 置換した直後の位置を取得（置換により文字数が変わるため重要）
+		const afterReplacePos = cursor.to();
+		
+		// 5. 新しい位置からもう一度次のマッチを探して、あれば自動で選択（スクロール）する
+		const nextCursor = this.getSearchCursor(query, afterReplacePos);
+		if (nextCursor.findNext()) {
+			editor.setSelection(nextCursor.from(), nextCursor.to());
+		} else {
+			// 次のマッチがなければ選択を解除して、置換後の末尾にカーソルを置く
+			this.setCursor(afterReplacePos);
+		}
+		
+		// 6. 文字列が変わったので、全体のスキャン（件数カウントなど）を再実行
+		this.doFind(); 
+	}
 }
 
 // CodeMirror既存メソッドのオーバーライド
