@@ -199,7 +199,7 @@ span.cm-variable-3 { font-weight: bold;  }
 .searchbar.hidden {
 	display: none;
 }
-.searchbar input {
+.searchbar input[type="text"] {
 	width: 200px;
 }
 .searchbar button {
@@ -297,7 +297,7 @@ CodeMirror.prototype.doFind = function() {
 	this.searchMarkers = [];
 
 	if (!query) {
-		this.updateSearchbarState(); // タイポ修正済みのメソッド名に対応
+		this.updateSearchbar();
 		return;
 	}
 
@@ -342,7 +342,7 @@ CodeMirror.prototype.doFind = function() {
 		this.selectCurrentMatch();
 	}
 
-	this.updateSearchbarState();
+	this.updateSearchbar();
 };
 
 // 7. テキスト検索(次へ)
@@ -1473,9 +1473,8 @@ function setupEditor(editorID, containerID, options = {}) {
 	searchbar.innerHTML = `
 		<input type="text" class="search-input" placeholder="検索キーワードを入力...">
 		<input type="text" class="replace-input" placeholder="置換後の文字列...">
-		<label class="case-label" titile="大文字/小文字を区別">
-			<input type="checkbox" class="search-case">Aa
-		</label>
+		<input type="checkbox" id="caseInsensitive" class="search-case" titile="大文字/小文字を区別">
+		<label for="caseInsensitive" class="case-label"> Aa</label>
 		<span class="search-counter">0/0</span>
 		<button class="btn-prev" title="前の一致項目" disabled>↑</button>
 		<button class="btn-next" title="次の一致項目" disabled>↓</button>
