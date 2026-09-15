@@ -947,8 +947,7 @@ async function execSQLLoadFromURL(url) {
 	try {
 		const response = await fetch(url);
 		if (!response.ok) throw new Error(`レスポンスステータス: ${response.status}`);
-		const sql = await response.text();
-		db.run(convTemplate(sql));
+		db.run(convTemplate(await response.text()));
 		if (debug) console.log('Executed: ' + url);
 	} catch (error) {
 		console.error(error.message);
@@ -1073,14 +1072,12 @@ async function fetchDB(optiondb = '') {
 	
 	let files = [
 		{ fileName: `${maindb}.zip`, serverUrl: `${datdir}${maindb}.zip` },
-		{ fileName: `${subdb}.zip`, serverUrl: `${datdir}${subdb}.zip` },
-		//{ fileName: 'option.db', serverUrl: 'option.db' } //ここに ATTACH するサブデータベースファイルを複数追加可能
-		{ fileName: 'init_create_view.sql', serverUrl: 'init_create_view.sql' }
+		{ fileName: `${subdb}.zip`, serverUrl: `${datdir}${subdb}.zip` }
+		//,{ fileName: 'option.db', serverUrl: 'option.db' } //ここに ATTACH するサブデータベースファイルを複数追加可能
 	];
 
 	// optiondb がある場合、files の init_creqte_view.sql の前に追加
-	if (optiondb) files.splice(-1, 0, { fileName: optiondb.split('/').pop(), serverUrl: optiondb });
-	//if (optiondb) files.push({ fileName: optiondb.split('/').pop(), serverUrl: optiondb });
+	if (optiondb) files.push({ fileName: optiondb.split('/').pop(), serverUrl: optiondb });
 
 	await waiting(true);
 	let errorOccurred = false;
@@ -1114,18 +1111,7 @@ async function fetchDB(optiondb = '') {
 		console.log(`Main database loaded from ${dbname}.`);
 		
 		//サブ DB ロード & attach
-/*
 		for(let j = 1; j < files.length; j++) {
-			console.log(`Attaching sub DB ${files[j].fileName}...`);
-			await waiting(true, `サブデータベース読込中: ${files[j].fileName}`);
-			dbname = basename(files[j].fileName) + '.db';
-			let content = new Uint8Array(await blobs[j].arrayBuffer());
-			if (files[j].fileName.split('.').pop() == 'zip') content = await unzip(content, dbname);
-			attachDB(new SQL.Database(content), basename(files[j].fileName));
-			console.log(`Sub database attached from ${dbname}.`);
-		}
-*/
-		for(let j = 1; j < files.length - 1; j++) {
 			console.log(`Attaching sub DB ${files[j].fileName}...`);
 			await waiting(true, `サブデータベース読込中: ${files[j].fileName}`);
 			dbname = basename(files[j].fileName) + '.db';
@@ -1137,12 +1123,7 @@ async function fetchDB(optiondb = '') {
 		
 		// init_create_view 実行
 		await waiting(true, 'データ構築中...');
-		//await execSQLLoadFromURL('init_create_view.sql');
-		const sqlFileIndex = files.length - 1;
-		const sql = await blobs[sqlFileIndex].text();
-		const convertedSql = convTemplate(sql);
-		db.run(convertedSql);
-		console.log('Executed: \n', convertedSql);
+		await execSQLLoadFromURL('init_create_view.sql');
 		await setTabViews();
 
 		// キャッシュ利用が発生したファイルがあれば通知
@@ -1278,7 +1259,7 @@ async function loadHistoricalDB(tag, releaseName) {
 		
 		// 2. 必要な他のファイル（spec, sql）は既存の IndexedDB から取得
 		const specBlob = await getFileFromCache(fcDB, `${subdb}.zip`);
-		const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
+		//const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
 
 		// 3. 現在のDBを閉じる
 		if (db) db.close();
@@ -1301,8 +1282,9 @@ async function loadHistoricalDB(tag, releaseName) {
 		// サブDBアタッチ & ビュー作成
 		const specContent = await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db');
 		await attachDB(new SQL.Database(specContent), 'spec');
-		const transformedSql = convTemplate(await sqlBlob.text());
-		await db.run(transformedSql);
+		//const transformedSql = convTemplate(await sqlBlob.text());
+		//await db.run(transformedSql);
+		await execSQLLoadFromURL('init_create_view.sql');
 		await setTabViews();
 
 	} catch (error) {
@@ -1323,7 +1305,7 @@ async function loadLatestFromCache() {
 		// IndexedDBから全ファイルを取得
 		const acisBlob = await getFileFromCache(fcDB, `${maindb}.zip`);
 		const specBlob = await getFileFromCache(fcDB, `${subdb}.zip`);
-		const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
+		//const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
 
 		if (db) db.close();
 
@@ -1347,8 +1329,9 @@ async function loadLatestFromCache() {
 		attachDB(new SQL.Database(specContent), 'spec');
 
 		// ビュー再構築
-		const transformedSql = convTemplate(await sqlBlob.text());
-		await db.run(transformedSql);
+		//const transformedSql = convTemplate(await sqlBlob.text());
+		//await db.run(transformedSql);
+		await execSQLLoadFromURL('init_create_view.sql');
 		await setTabViews();
 
 	} catch (error) {
@@ -1386,10 +1369,12 @@ function openCautionDialog() {
 	`;
 	resultPane.appendChild(cautionDiv);
 
-	const readmeLink = cautionDiv.querySelector('a');
+	const readmeLinks = cautionDiv.querySelectors('a');
 	const acceptBtn = cautionDiv.querySelector('#accept-caution');
-	readmeLink.addEventListener('click', () => {
-		acceptBtn.disabled = false;
+	readmeLinks.forEach(readmeLink => {
+		readmeLink.addEventListener('click', () => {
+			acceptBtn.disabled = false;
+		});
 	});
 
 	acceptBtn.addEventListener('click', function() {

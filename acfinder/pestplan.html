@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -197,7 +198,6 @@ select option:checked {
 #seibunContainer .handsontable-like,
 #yakuzaiCountContainer .handsontable-like {
 	width: auto !important; /* テーブル幅を内容に合わせ、他のスタイルを上書きする */
-	overflow-x: auto;
 }
 
 #yakuzaiTekiyo th,
@@ -215,7 +215,6 @@ select option:checked {
   100% { opacity: 1; } /* 表示 */
 }
 
-#planContainer em,
 #seibunContainer em,
 #yakuzaiCountContainer em {
 	font-style: normal;
@@ -234,7 +233,7 @@ select option:checked {
 
 #seibunContainer,
 #yakuzaiCountContainer {
-	overflow-x: hidden;
+	overflow-x: auto;
 }
 
 .handsontable-like {
@@ -273,9 +272,8 @@ select option:checked {
 }
 
 /* 旧データ行であることが視覚的にわかるよう、背景色を付けて区別する */
-.olddata,
-.olddata select {
-	background-color: rgb(from var(--border-color) r g b / 0.5);
+.olddata {
+	background-color: var(--bg-color-fixed-header);
 }
 
 .captionLabel {
@@ -355,6 +353,10 @@ let currentFilename = '';
 
 // 無保存データフラグ
 let isDirty = false;
+
+// refreshPlan で旧データ行(olddata)が発生したことがあるかどうかのフラグ
+// （旧データ行がすべて削除されたタイミングで「作成時DB登録日」表示を消すために使う）
+let hasHadOldDataRows = false;
 
 // clearContent プロトタイプ宣言
 if (!HTMLElement.prototype.clearContent) {
@@ -822,14 +824,14 @@ async function getYakuzaiCandidates(yakuzaiName) {
 		gn_concat('<br>',json_array(byochu)) as byochu,
 		gn_concat('<br>',json_array(mokuteki)) as mokuteki,
 		jiki, kaisu, baisu, ekiryo, hoho, 
-		concat_ws('<br>', yuko1, yuko2, yuko3, yuko4, yuko5) as seibun,
-		concat_ws('<br>', kaisu1, kaisu2, kaisu3, kaisu4, kaisu5) as seibunkaisu,
+		concat_ws('<br>', MAX(yuko1), MAX(yuko2), MAX(yuko3), MAX(yuko4), MAX(yuko5)) as seibun,
+		concat_ws('<br>', MAX(kaisu1), MAX(kaisu2), MAX(kaisu3), MAX(kaisu4), MAX(kaisu5)) as seibunkaisu,
 		concat_ws('<br>',
-			concat_ws('/', mid1, keito1, replace(rem1, 'FRAC系統名: ', ''), risk1),
-			concat_ws('/', mid2, keito2, replace(rem2, 'FRAC系統名: ', ''), risk2),
-			concat_ws('/', mid3, keito3, replace(rem3, 'FRAC系統名: ', ''), risk3),
-			concat_ws('/', mid4, keito4, replace(rem4, 'FRAC系統名: ', ''), risk4),
-			concat_ws('/', mid5, keito5, replace(rem5, 'FRAC系統名: ', ''), risk5)
+			concat_ws('/', MAX(mid1), MAX(keito1), replace(MAX(rem1), 'FRAC系統名: ', ''), MAX(risk1)),
+			concat_ws('/', MAX(mid2), MAX(keito2), replace(MAX(rem2), 'FRAC系統名: ', ''), MAX(risk2)),
+			concat_ws('/', MAX(mid3), MAX(keito3), replace(MAX(rem3), 'FRAC系統名: ', ''), MAX(risk3)),
+			concat_ws('/', MAX(mid4), MAX(keito4), replace(MAX(rem4), 'FRAC系統名: ', ''), MAX(risk4)),
+			concat_ws('/', MAX(mid5), MAX(keito5), replace(MAX(rem5), 'FRAC系統名: ', ''), MAX(risk5))
 		) as mid
 		FROM t_tekiyo
 		WHERE tsusho = '${yakuzaiName}' AND sakumotsu IN (${currentSakumotsu})
@@ -896,6 +898,13 @@ function byochuEquals(byochuA, byochuB) {
 	return listA.every((v, i) => v === listB[i]);
 }
 
+function racEquals(oldVal, newVal) {
+	const oldList = (oldVal || '').split('<br>').sort();
+	const newList = (newVal || '').split('<br>').sort();
+	if (oldList.length !== newList.length) return false;
+	return newList.every((v, i) => v.startsWith(oldList[i]));
+}
+
 // 病害虫名セルに個別ハイライトを付ける際、病害虫名自体に含まれうる特殊文字をエスケープする
 function escapeHtml(str) {
 	return String(str)
@@ -904,6 +913,16 @@ function escapeHtml(str) {
 		.replace(/>/g, '&gt;')
 		.replace(/"/g, '&quot;')
 		.replace(/'/g, '&#39;');
+}
+
+// refreshPlan の比較で使う、カラムごとの「一致」判定
+// ・病害虫名(byochu)は個別名の集合として比較する
+// ・RAC(mid)は、新データが旧データの後方に情報を追記しただけ（前方一致）であれば「変更なし」とみなす
+// ・それ以外は単純な文字列完全一致
+function fieldMatches(field, oldVal, newVal) {
+	if (field === 'byochu') return byochuEquals(oldVal, newVal);
+	if (field === 'mid') return recEquals(newVal, oldVal);
+	return (oldVal || '') === (newVal || '');
 }
 
 // 防除計画表(#planTable)の各行を、DBの最新の登録内容と比較し、差分があれば
@@ -969,7 +988,7 @@ async function refreshPlan() {
 				row.classList.add('olddata');
 				if (kaisuCell) {
 					kaisuCell.dataset.originalKaisu = kaisuCell.textContent; // 元の値を保持しておき、再実行時に復元できるようにする
-					kaisuCell.innerHTML = '<em>[失効]</em>'; // 使用回数カラムに失効表示
+					kaisuCell.textContent = '[失効]'; // 使用回数カラムに失効表示
 				}
 				continue;
 			}
@@ -988,12 +1007,18 @@ async function refreshPlan() {
 				mid: (row.cells[13]?.innerHTML || '').trim()
 			};
 
-			// 全カラムが一致するレコードが候補内にあれば、その行はそのまま（何もしない）
-			// ・病害虫名(byochu)は個別名の集合として比較する（並び順の違いは無視する）
-			const exactMatch = candidates.some(c => compareFields.every(f =>
-				f === 'byochu' ? byochuEquals(c.byochu, oldData.byochu) : ((c[f] || '') === (oldData[f] || ''))
-			));
-			if (exactMatch) continue;
+			// 全カラムが一致するレコードが候補内にあれば、その行はそのまま
+			// ・病害虫名(byochu)は個別名の集合として比較（並び順は無視）
+			// ・RAC(mid)は前方一致（新データが旧データの続きになっているだけ）なら一致とみなす
+			const exactMatchCandidate = candidates.find(c => compareFields.every(f => fieldMatches(f, oldData[f], c[f])));
+			if (exactMatchCandidate) {
+				// RAC(mid)が前方一致で伸びている場合、旧行の表示だけを最新の値に書き換える
+				const midCell = row.cells[fieldToCellIndex.mid];
+				if (midCell && exactMatchCandidate.mid && exactMatchCandidate.mid !== oldData.mid) {
+					midCell.innerHTML = exactMatchCandidate.mid;
+				}
+				continue;
+			}
 
 			// 一致しない場合、最も一致するカラム数が多い候補レコードを探す
 			// ・kaisu/baisu/ekiryo/hoho等はDBのGROUP BYキーのため、これらが同点の候補が複数残ることがある
@@ -1003,7 +1028,7 @@ async function refreshPlan() {
 			let bestScore = -1;
 			let bestByochuSim = -1;
 			candidates.forEach(c => {
-				const score = otherFields.reduce((n, f) => n + (((c[f] || '') === (oldData[f] || '')) ? 1 : 0), 0);
+				const score = otherFields.reduce((n, f) => n + (fieldMatches(f, oldData[f], c[f]) ? 1 : 0), 0);
 				const byochuSim = getByochuSimilarity(oldData.byochu, c.byochu);
 				if (score > bestScore || (score === bestScore && byochuSim > bestByochuSim)) {
 					bestScore = score;
@@ -1014,11 +1039,19 @@ async function refreshPlan() {
 			if (!bestCandidate) continue;
 
 			// 旧行のうち、最新レコードと値が異なるカラムだけを赤字表示する（病害虫名以外）
+			// ・RAC(mid)は前方一致であれば「変更なし」として扱い、旧行の表示だけ最新の値に書き換える
 			compareFields.forEach(f => {
 				if (f === 'byochu') return; // 病害虫名は個別名単位で別途処理する
-				if ((oldData[f] || '') !== (bestCandidate[f] || '')) {
-					row.cells[fieldToCellIndex[f]]?.classList.add('cell-changed');
+				if (fieldMatches(f, oldData[f], bestCandidate[f])) {
+					if (f === 'mid') {
+						const midCell = row.cells[fieldToCellIndex.mid];
+						if (midCell && bestCandidate.mid && bestCandidate.mid !== oldData.mid) {
+							midCell.innerHTML = bestCandidate.mid;
+						}
+					}
+					return;
 				}
+				row.cells[fieldToCellIndex[f]]?.classList.add('cell-changed');
 			});
 
 			// 病害虫名セルは、候補側に存在しない個別の病害虫名だけを赤字表示する
@@ -1064,6 +1097,12 @@ async function refreshPlan() {
 		}
 
 		updateRowNumbers(); // 行番号・使用回数集計等を更新
+
+		// 更新候補・見つからなかった薬剤のいずれも無く、変更が全く無かった場合は
+		// 「作成時DB登録日」の表示も不要になるためクリアする
+		if (updatedCount === 0 && notFoundYakuzai.size === 0) {
+			document.getElementById('datasetInfo')?.classList.add('hidden');
+		}
 
 		let msg = updatedCount > 0
 			? `${updatedCount} 件の行で登録内容の変更が見つかったため、最新のレコードを行の下に追加しました。\n内容をご確認のうえ、不要な行を削除してください。`
@@ -1275,13 +1314,16 @@ function createPlanTable() {
 	if (!planContainer) return;
 	const headers = ['操作', 'No', '防除時期', '作物名', '薬剤名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC'];
 
+	hasHadOldDataRows = false; // 新しい計画表の作成に伴い、旧データ行の履歴フラグもリセット
+
 	planContainer.innerHTML = `
 		<div class="checkListItem"">
 			<input type="checkbox" id="checkRecordMode" onchange="toggleRecordMode(this.checked)" autocomplete="off">
 			<label for="checkRecordMode"> 記録モード (日付入力)</label>
 		</div>
-		<div class="handsontable-like">
-			<table id="planTable">
+		<div id="datasetInfo" class="hidden"></div>
+		<div>
+			<table id="planTable" class="handsontable-like">
 				<thead>
 					<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
 				</thead>
@@ -1309,7 +1351,7 @@ function createPlanTable() {
 				<title>防除計画/防除記録を名前を付けて保存</title>
 				<use href="icons.svg#save-as"></use>
 			</svg>
-			<svg class="icon" onclick="openFile()">
+			<svg class="icon" onclick="fileOpen()">
 				<title>防除計画/防除記録を開く</title>
 				<use href="icons.svg#folder-open"></use>
 			</svg>
@@ -1418,7 +1460,14 @@ function convPlanToJson() {
 	if (!table) return '';
 
 	const planData = [];
+
+	// #db-update の表示テキストから登録更新日情報を取得する（先頭の「最新DB:」「⚠️過去参照: 」は除いて保存する）
+	const dbUpdateText = (document.getElementById('db-update')?.textContent || '')
+		.trim()
+		.replace(/^(最新DB:|⚠️過去参照:)\s*/, '');
+
 	const saveData = {
+		dataset: dbUpdateText, // 保存時点の農薬登録情報DBの登録更新日
 		sakumotsu: currentSakumotsu, // 作物条件のSQL文字列
 		crops: checkedCrops, // 選択作物オブジェクトの配列(モバイル版互換用)
 		titleText: document.getElementById('title').textContent, // #title のテキスト内容
@@ -1516,7 +1565,7 @@ async function savePlanAsJson(overwrite = true) {
 }
 
 // 防除計画ファイルを開く
-async function openFile(item = null) {
+async function fileOpen(item = null) {
 
 	const planTableBody = document.querySelector('#planTable tbody');
 	if (planTableBody && planTableBody.rows.length > 0) {
@@ -1539,7 +1588,6 @@ async function openFile(item = null) {
 		} else {
 			[fileHandle] = await window.showOpenFilePicker({
 				types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
-				excludeAcceptAllOption: false,
 				multiple: false
 			});
 		}
@@ -1657,6 +1705,18 @@ async function loadPlanFromJson(jsonText, msg) {
 
 		updateRowNumbers(); // 行番号の再採番と成分別使用回数の更新
 		isDirty = false;
+
+		// 保存時点の農薬登録情報DB登録更新日(dataset)を表示する
+		const datasetInfoEl = document.getElementById('datasetInfo');
+		if (datasetInfoEl) {
+			if (loadedData.dataset) {
+				datasetInfoEl.textContent = `作成時DB登録日: ${loadedData.dataset}`;
+				datasetInfoEl.classList.remove('hidden');
+			} else {
+				datasetInfoEl.textContent = '';
+				datasetInfoEl.classList.add('hidden');
+			}
+		}
 
 		// jsonファイルを読み込んだので、登録内容更新（refresh）アイコンを有効化する
 		document.getElementById('btnRefreshPlan')?.classList.remove('disabled');
@@ -2152,6 +2212,15 @@ function updateRowNumbers() {
 	// hidden属性の旧データ行（refreshPlanで作成）が1件でもあれば「旧データ一括削除」ボタンを表示する
 	const hasOldDataRows = Array.from(rows).some(row => row.hasAttribute('hidden'));
 	document.getElementById('btnDeleteOldRows')?.classList.toggle('hidden', !hasOldDataRows);
+
+	// 旧データ行(olddata)が発生したことがある状態から、すべて削除されて0件になったら、
+	// 「作成時DB登録日」の表示を消す（読み込み直後、一度も旧データ行が出ていない状態では消さない）
+	if (hasOldDataRows) {
+		hasHadOldDataRows = true;
+	} else if (hasHadOldDataRows) {
+		document.getElementById('datasetInfo')?.classList.add('hidden');
+		hasHadOldDataRows = false;
+	}
 }
 
 // refreshPlan によって hidden 属性が付いた旧データ行（変更候補あり／notFoundYakuzai）を一括削除する
@@ -2222,17 +2291,15 @@ function updateSeibunCountTable() {
 	}).join('');
 
 	seibunContainer.innerHTML = `
-		<div class="handsontable-like">
-			<table id="seibunCountTable">
-				<thead>
-					<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th></tr>
-				</thead>
-				<tbody>${rowsHtml}</tbody>
-				<tfoot>
-					<tr><td>合計</td><td></td><td>${totalCount}</td><td></td></tr>
-				</tfoot>
-			</table>
-		</div>
+		<table id="seibunCountTable" class="handsontable-like">
+			<thead>
+				<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th></tr>
+			</thead>
+			<tbody>${rowsHtml}</tbody>
+			<tfoot>
+				<tr><td>合計</td><td></td><td>${totalCount}</td><td></td></tr>
+			</tfoot>
+		</table>
 		<div class="iconsbar">
 			<svg class="icon" onclick="copyTableToClipboard('seibunCountTable')">
 				<title>クリップボードにコピー</title>
@@ -2277,14 +2344,12 @@ function updateYakuzaiCountTable() {
 	}).join('');
 
 	container.innerHTML = `
-		<div class="handsontable-like">
-			<table id="yakuzaiCountTable" class="handsontable-like">
-				<thead>
-					<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th></tr>
-				</thead>
-				<tbody>${rowsHtml}</tbody>
-			</table>
-		</div>
+		<table id="yakuzaiCountTable" class="handsontable-like">
+			<thead>
+				<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th></tr>
+			</thead>
+			<tbody>${rowsHtml}</tbody>
+		</table>
 		<div class="iconsbar">
 			<svg class="icon" onclick="copyTableToClipboard('yakuzaiCountTable')">
 				<title>クリップボードにコピー</title>
@@ -2306,7 +2371,7 @@ function handleDrop(event) {
 	// Chrome, Edge の場合
 	const item = event.dataTransfer.items[0];
 	if (item && item.kind === 'file' && item.type === 'application/json') {
-		openFile(item);
+		fileOpen(item);
 	} else {
 		alert('対応していないファイル形式です。');
 	}
