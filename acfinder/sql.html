@@ -1474,10 +1474,10 @@ function setupEditor(editorID, containerID, options = {}) {
 	const searchbar = document.createElement('div');
 	searchbar.className = 'searchbar hidden';
 	searchbar.innerHTML = `
+		<input type="checkbox" id="caseInsensitive" class="search-case" title="大文字/小文字を区別">
+		<label for="caseInsensitive" class="case-label" title="大文字/小文字を区別">Aa</label>
 		<input type="text" class="search-input" placeholder="検索キーワードを入力...">
 		<input type="text" class="replace-input" placeholder="置換後の文字列...">
-		<span title="大文字/小文字を区別">
-		<label for="caseInsensitive" class="case-label" title="大文字/小文字を区別">Aa</label>
 		<span class="search-counter">0/0</span>
 		<button class="btn-prev" title="前の一致項目" disabled>↑</button>
 		<button class="btn-next" title="次の一致項目" disabled>↓</button>
