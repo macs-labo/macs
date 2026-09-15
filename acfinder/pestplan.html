@@ -198,6 +198,7 @@ select option:checked {
 #seibunContainer .handsontable-like,
 #yakuzaiCountContainer .handsontable-like {
 	width: auto !important; /* テーブル幅を内容に合わせ、他のスタイルを上書きする */
+	overflow-x: auto;
 }
 
 #yakuzaiTekiyo th,
@@ -215,6 +216,7 @@ select option:checked {
   100% { opacity: 1; } /* 表示 */
 }
 
+#planContainer em,
 #seibunContainer em,
 #yakuzaiCountContainer em {
 	font-style: normal;
@@ -231,9 +233,10 @@ select option:checked {
 	margin: 0 2px;
 }
 
+#planContainer,
 #seibunContainer,
 #yakuzaiCountContainer {
-	overflow-x: auto;
+	overflow-x: hidden;
 }
 
 .handsontable-like {
@@ -988,7 +991,7 @@ async function refreshPlan() {
 				row.classList.add('olddata');
 				if (kaisuCell) {
 					kaisuCell.dataset.originalKaisu = kaisuCell.textContent; // 元の値を保持しておき、再実行時に復元できるようにする
-					kaisuCell.textContent = '[失効]'; // 使用回数カラムに失効表示
+					kaisuCell.innerHTML = '<em>[失効]</em>'; // 使用回数カラムに失効表示
 				}
 				continue;
 			}
@@ -2291,15 +2294,17 @@ function updateSeibunCountTable() {
 	}).join('');
 
 	seibunContainer.innerHTML = `
-		<table id="seibunCountTable" class="handsontable-like">
-			<thead>
-				<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th></tr>
-			</thead>
-			<tbody>${rowsHtml}</tbody>
-			<tfoot>
-				<tr><td>合計</td><td></td><td>${totalCount}</td><td></td></tr>
-			</tfoot>
-		</table>
+		<div class="handsontable-like">
+			<table id="seibunCountTable">
+				<thead>
+					<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th></tr>
+				</thead>
+				<tbody>${rowsHtml}</tbody>
+				<tfoot>
+					<tr><td>合計</td><td></td><td>${totalCount}</td><td></td></tr>
+				</tfoot>
+			</table>
+		</div>
 		<div class="iconsbar">
 			<svg class="icon" onclick="copyTableToClipboard('seibunCountTable')">
 				<title>クリップボードにコピー</title>
@@ -2344,12 +2349,14 @@ function updateYakuzaiCountTable() {
 	}).join('');
 
 	container.innerHTML = `
-		<table id="yakuzaiCountTable" class="handsontable-like">
-			<thead>
-				<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th></tr>
-			</thead>
-			<tbody>${rowsHtml}</tbody>
-		</table>
+		<div class="handsontable-like">
+			<table id="yakuzaiCountTable">
+				<thead>
+					<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th></tr>
+				</thead>
+				<tbody>${rowsHtml}</tbody>
+			</table>
+		</div>
 		<div class="iconsbar">
 			<svg class="icon" onclick="copyTableToClipboard('yakuzaiCountTable')">
 				<title>クリップボードにコピー</title>
