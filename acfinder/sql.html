@@ -256,7 +256,7 @@ CodeMirror.prototype.doFind = function() {
 	this.currentIndex = -1;
 
 	if (!query) {
-		this.updateSerchbar(); // ※元のコードのタイポ(Serchbar)に合わせています
+		this.updateSearchbar(); // ※元のコードのタイポ(Serchbar)に合わせています
 		return;
 	}
 
@@ -295,7 +295,7 @@ CodeMirror.prototype.doFind = function() {
 		this.selectCurrentMatch();
 	}
 
-  this.updateSerchbar();
+  this.updateSearchbar();
 };
 
 // 6. テキスト検索(次へ)
@@ -303,7 +303,7 @@ CodeMirror.prototype.findNext = function() {
 	if (this.matches.length === 0) return;
 	this.currentIndex = (this.currentIndex + 1) % this.matches.length; // ループ移動
 	this.selectCurrentMatch();
-	this.updateSerchbar();
+	this.updateSearchbar();
 }
 
 // 7. テキスト検索(前へ)
@@ -311,7 +311,7 @@ CodeMirror.prototype.findPrev = function() {
 	if (this.matches.length === 0) return;
 	this.currentIndex = (this.currentIndex - 1 + this.matches.length) % this.matches.length; // ループ移動
 	this.selectCurrentMatch();
-	this.updateSerchbar();
+	this.updateSearchbar();
 }
 
 // 8. 現在のマッチ箇所を選択して画面内にスクロール移動
@@ -322,7 +322,7 @@ CodeMirror.prototype.selectCurrentMatch = function() {
 }
 
 // 9. サーチバーUI更新
-CodeMirror.prototype.updateSerchbar = function() {
+CodeMirror.prototype.updateSearchbar = function() {
 	if (this.matches.length === 0) {
 		this.searchCounter.textContent = "0 / 0";
 		this.btnPrev.disabled = true;
