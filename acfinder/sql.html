@@ -1323,14 +1323,12 @@ function setupEditor(editorID, containerID, customOptions = {}) {
 
 	// サーチバー追加
 	const searchbar = document.createElement('div');
-	searchbar.className = '.searchbar';
+	searchbar.className = '.searchbar hidden';
 	searchbar.innerHTML = `
-		<div class="searchbar hidden">
-			<input type="text" class="search-input" placeholder="検索キーワードを入力...">
-			<span class="search-counter">0/0</span>
-			<button class="btn-prev" disabled>↑</button>
-			<button class="btn-next" disabled>↓</button>
-		</div>
+		<input type="text" class="search-input" placeholder="検索キーワードを入力...">
+		<span class="search-counter">0/0</span>
+		<button class="btn-prev" disabled>↑</button>
+		<button class="btn-next" disabled>↓</button>
 	`;
 	toolbar.insertAdjacentElement('afterend', searchbar);
 
