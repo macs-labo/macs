@@ -310,11 +310,23 @@ CodeMirror.prototype.doFind = function(shouldSelect = true) {
 		return;
 	}
 
-	// ✨ チェックボックスがONなら caseFold を false（区別する）、OFFなら true（区別しない）
-	const searchOptions = { caseFold: !this.searchCase.checked };
+	// 大文字小文字オプションのフラグ
+	const isCaseSensitive = this.searchCase.checked;
+	const regExpFlags = isCaseSensitive ? "" : "i";
 
-	// getSearchCursor の第3引数にオプションを渡す
-	const cursor = this.getSearchCursor(query, null, searchOptions);
+	let queryRegExp;
+	try {
+		// ✨ 常に正規表現オブジェクトとして生成
+		queryRegExp = new RegExp(queryText, regExpFlags);
+	} catch (e) {
+		// ユーザーが不完全な正規表現（例: 「(」だけなど）を入力している最中は、
+		// エラーにせず、一旦検索処理をスキップして安全に抜ける
+		this.updateSearchbar();
+		return;
+	}
+
+	// getSearchCursor に生成した RegExp オブジェクトを渡す
+	const cursor = this.getSearchCursor(queryRegExp);
 	while (cursor.findNext()) {
 		const fromPos = cursor.from();
 		const toPos = cursor.to();
