@@ -317,7 +317,7 @@ CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	let queryRegExp;
 	try {
 		// ✨ 常に正規表現オブジェクトとして生成
-		queryRegExp = new RegExp(queryText, regExpFlags);
+		queryRegExp = new RegExp(query, regExpFlags);
 	} catch (e) {
 		// ユーザーが不完全な正規表現（例: 「(」だけなど）を入力している最中は、
 		// エラーにせず、一旦検索処理をスキップして安全に抜ける
