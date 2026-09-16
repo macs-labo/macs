@@ -1482,6 +1482,7 @@ function toggleSearchbar(cm) {
 		cm.clearSearchHighlights();
 	} else {
 		doSearch(cm);
+		cm.focus();
 	}
 }
 
@@ -1550,7 +1551,7 @@ function setupEditor(editorID, containerID, options = {}) {
 			<use href="icons.svg#redo"></use>
 		</svg>
 		<svg class="icon find disabled">
-			<title>テキスト検索</title>
+			<title>テキスト検索/置換</title>
 			<use href="icons.svg#search-box"></use>
 		</svg>
 		<svg class="icon" onclick="toggleVarEditor()">
@@ -1601,7 +1602,7 @@ function setupEditor(editorID, containerID, options = {}) {
 		<span class="search-counter">0/0</span>
 		<button class="btn-prev" title="前の一致項目" disabled>↑</button>
 		<button class="btn-next" title="次の一致項目" disabled>↓</button>
-		<button class="btn-replace" disabled>置換</button>
+		<button class="btn-replace" title="逐次置換" disabled>置換</button>
 	`;
 	toolbar.insertAdjacentElement('afterend', searchbar);
 
