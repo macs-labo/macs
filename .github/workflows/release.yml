@@ -128,7 +128,7 @@ jobs:
 
           mv "/tmp/${{ env.ZIP_FILENAME }}" ./acfinder/
 
-          git add "${{ env.ZIP_FILENAME }}"
+          git add "acfinder/${{ env.ZIP_FILENAME }}"
           
           if git diff --staged --quiet; then
             echo "No changes to commit. ${{ env.ZIP_FILENAME }} is already up to date."
