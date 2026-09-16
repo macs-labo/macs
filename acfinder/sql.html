@@ -1328,7 +1328,7 @@ function loadAutoSavedSQL() {
 			sqlEditor.setValue(savedSQL);
 			sqlEditor.refresh();
 			localStorage.removeItem('sqlText');
-			document.getElementById('autoSaved')?.classList.add('hidden')
+			document.getElementById('autoSaved')?.classList.add('hidden');
 		}
 	} else {
 		alert('自動保存されたSQLは見つかりませんでした。');
@@ -1374,7 +1374,14 @@ function updateToolbarState(cm) {
 	if (cm.btnFind) cm.btnFind.classList.toggle('disabled', cm.isEmpty());
 
 	// btnExec がある場合はそれも設定
-	if (cm.btnExec) cm.btnExec.classList.toggle('disabled', cm.isEmpty());
+	if (cm.btnExec) {
+		cm.btnExec.classList.toggle('disabled', cm.isEmpty());
+		const autoSaved = document.getElementById('autoSaved');
+		if (cm.isEdited() && !autoSaved.classList.contains('hidden')) {
+			localStorage.removeItem('sqlText');
+			autoSaved.classList.add('hidden');
+		}
+	}
 };
 
 // 改行文字を表示
