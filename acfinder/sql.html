@@ -222,11 +222,11 @@ span.cm-variable-3 { font-weight: bold;  }
 	min-width: 60px;
 	text-align: center;
 }
-/*
-.case-label {
-	margin-left: -6px;
+.searchbar label input[type="checkbox"] {
+	position: relative;
+	top: 3px;
+	margin-right: 2px;
 }
-*/
 
 /* すべてのマッチ箇所に適用されるハイライトスタイル */
 .cm-search-highlight {
@@ -591,7 +591,6 @@ function readFile(file) {
 	} else {
 		alert('サポートされていないファイル形式です。SQL, VAR または ZIPファイルを選択してください。');
 	}
-	event.target.value = ''; // 同じファイルを選択できるようにリセット
 }
 
 function getFilename(target, command, ext = '.sql') {
@@ -1478,7 +1477,6 @@ function setupEditor(editorID, containerID, options = {}) {
 	const searchbar = document.createElement('div');
 	searchbar.className = 'searchbar hidden';
 	searchbar.innerHTML = `
-		<span class="checkbox">
 		<label for="caseInsensitive" class="case-label" title="大文字/小文字を区別">
 			<input type="checkbox" id="caseInsensitive" class="search-case">Aa
 		</label>
