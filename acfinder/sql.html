@@ -312,7 +312,7 @@ CodeMirror.prototype.doFind = function(shouldSelect = true) {
 
 	// 大文字小文字オプションのフラグ
 	const isCaseSensitive = this.searchCase.checked;
-	const regExpFlags = isCaseSensitive ? "" : "i";
+	const regExpFlags = isCaseSensitive ? "g" : "gi";
 
 	let queryRegExp;
 	try {
