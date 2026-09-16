@@ -43,12 +43,12 @@ jobs:
           fi
  
       # Vercel CLI をインストール
-      - name: Install Vercel CLI
-        run: npm install -g vercel
+      #- name: Install Vercel CLI
+        #run: npm install -g vercel
 
       # 公式コマンドで本番デプロイを実行
-      - name: Deploy to Vercel (Production)
-        run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=macs-labo
+      #- name: Deploy to Vercel (Production)
+        #run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=macs-labo
 
       - name: Trigger Remote Sync
         # Push時、または手動で同期モードが選ばれた時に実行
