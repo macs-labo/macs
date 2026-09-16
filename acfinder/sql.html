@@ -222,6 +222,10 @@ span.cm-variable-3 { font-weight: bold;  }
 	min-width: 60px;
 	text-align: center;
 }
+.searchbar label {
+	position: relative;
+	top: -2px;
+}
 .searchbar label input[type="checkbox"] {
 	position: relative;
 	top: 3px;
@@ -423,6 +427,21 @@ CodeMirror.prototype.doReplace = function() {
 	}
 }
 
+// 12. 検索結果のハイライトだけをクリアするメソッド
+CodeMirror.prototype.clearSearchHighlights = function() {
+	// 1. 画面上に表示されているハイライト（マーカー）をすべて消去
+	if (this.searchMarkers) {
+		this.searchMarkers.forEach(marker => marker.clear());
+	}
+	this.searchMarkers = []; // 配列を空にする
+
+	// 2. カウンタなどの表示もリセットしたい場合はここでUI側をクリア
+	// （Matches自体は残しておいても害はありませんが、混乱を防ぐため空にするのが安全です）
+	this.matches = [];
+	this.currentIndex = -1;
+	this.updateSearchbar(); 
+};
+
 // CodeMirror既存メソッドのオーバーライド
 // 1. オリジナルのメソッドを変数に退避
 const originalUndo = CodeMirror.prototype.undo;
@@ -431,14 +450,12 @@ const originalRedo = CodeMirror.prototype.redo;
 // 2. undo メソッドを上書き
 CodeMirror.prototype.undo = function() {
 	originalUndo.call(this); // オリジナルの undo を実行 (thisの固定が必要)
-	if (!this.searchbar.classList.contains('hidden')) this.doFind();
 	this.focus();
 };
 
 // 3. redo メソッドを上書き
 CodeMirror.prototype.redo = function() {
 	originalRedo.call(this); // オリジナルの redo を実行
-	if (!this.searchbar.classList.contains('hidden')) this.doFind();
 	this.focus();
 };
 
@@ -1365,8 +1382,11 @@ function doSearch(cm) {
 
 function toggleSearchbar(cm) {
 	cm.searchbar.classList.toggle('hidden');
-	if (cm.searchbar.classList.contains('hidden')) return;
-	doSearch(cm)
+	if (cm.searchbar.classList.contains('hidden')) {
+		cm.clearSearchHighlights();
+	} else {
+		doSearch(cm);
+	}
 }
 
 function handleSearchFocus(cm) {
@@ -1509,11 +1529,26 @@ function setupEditor(editorID, containerID, options = {}) {
 		cm.btnReplace.disabled = cm.replaceInput.value === ''
 	});
 
+	let debounceTimer = null;
+
 	// CodeMirrorのイベントをバインド
-	cm.on('change', updateToolbarState);
 	cm.on('undo', updateToolbarState);
 	cm.on('redo', updateToolbarState);
 	cm.on("renderLine", dispNewLine);
+	cm.on('change', function(cm, changeObj) {
+		// 1. すでに動いているタイマーがあればキャンセル（イベントの間引き）
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+		}
+
+		// 2. ユーザーの入力が止まってから「150ミリ秒後」に doFind を実行
+		// ※ 体感で遅れを感じず、かつ負荷を下げられる 150ms 〜 200ms あたりが最適です
+		debounceTimer = setTimeout(function() {
+			updateToolbarState(cm);
+			// if (changeObj.origin === "setValue") cm.searchInput.value = ""; // 💡 setValue が実行されたときだけ検索ワードをクリアしたい場合はこれを有効に
+			if (!cm.searchbar.classList.contains('hidden')) cm.doFind();
+		}, 150);
+	});
 
 	return cm;
 }
