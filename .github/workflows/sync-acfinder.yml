@@ -119,19 +119,19 @@ jobs:
           curl "${CURL_OPTS[@]}" "https://macs.kabe.info/acfinder/.sync.acfinder.php$OPT"
           curl "${CURL_OPTS[@]}" "https://noyaku.ebb.jp/acfinder/.sync.acfinder.php$OPT"
 
-  deploy-vercel:
-    needs: sync-and-notify
+  #deploy-vercel:
+    #needs: sync-and-notify
     # 成功かつアプリが更新された場合に Vercel デプロイのトリガーを引く
-    if: always() && (needs.sync-and-notify.result == 'success') && (needs.sync-and-notify.outputs.app_updated == 'true')
-    runs-on: ubuntu-latest
-    steps:
+    #if: always() && (needs.sync-and-notify.result == 'success') && (needs.sync-and-notify.outputs.app_updated == 'true')
+    #runs-on: ubuntu-latest
+    #steps:
       # 1. Vercel CLI をインストール
-      - name: Install Vercel CLI
-        run: npm install -g vercel
+      #- name: Install Vercel CLI
+        #run: npm install -g vercel
 
       # 2. 公式コマンドで本番デプロイを実行
-      - name: Deploy to Vercel (Production)
-        run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=macs-labo
+      #- name: Deploy to Vercel (Production)
+        #run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=macs-labo
 
   push-notification:
     needs: sync-and-notify
