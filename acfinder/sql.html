@@ -234,12 +234,21 @@ span.cm-variable-3 { font-weight: bold;  }
 
 /* すべてのマッチ箇所に適用されるハイライトスタイル */
 .cm-search-highlight {
-  background: rgba(255, 255, 0, 0.4); /* 薄い黄色 */
-  border-bottom: 1px solid gold;
+	background: rgba(255, 192, 0, 0.4); /* 薄い黄色 */
+	padding: 2px 4px;
+}
+.cm-search-highlight[data-theme="dark"] {
+	background: rgba(128, 128, 0, 0.4); /* 暗い黄色 */
+	padding: 2px 4px;
 }
 /* 現在選択されているマッチ箇所（currentIndex）を強調する場合 */
 .cm-search-highlight-current {
-  background: rgba(255, 128, 0, 0.5) !important; /* オレンジ色 */
+	background: rgba(255, 128, 0, 0.4) !important; /* オレンジ色 */
+	padding: 2px 4px;
+}
+.cm-search-highlight-current[data-theme="dark"] {
+	background: rgba(128, 64, 0, 0.4) !important; /* オレンジ色 */
+	padding: 2px 4px;
 }
 
 </style>
