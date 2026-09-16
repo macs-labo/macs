@@ -294,7 +294,7 @@ CodeMirror.prototype.clearText = function() {
 };
 
 // 6. テキスト検索
-CodeMirror.prototype.doFind = function() {
+CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	const query = this.searchInput.value;
 	this.matches = [];
 	this.currentIndex = -1;
@@ -348,7 +348,8 @@ CodeMirror.prototype.doFind = function() {
 			this.currentIndex = foundIndex;
 		}
 
-		this.selectCurrentMatch();
+		// shouldSelect が true（またはデフォルト）の時だけキャレット・画面を動かす
+		if (shouldSelect) this.selectCurrentMatch();
 	}
 
 	this.updateSearchbar();
@@ -1546,7 +1547,7 @@ function setupEditor(editorID, containerID, options = {}) {
 		debounceTimer = setTimeout(function() {
 			updateToolbarState(cm);
 			// if (changeObj.origin === "setValue") cm.searchInput.value = ""; // 💡 setValue が実行されたときだけ検索ワードをクリアしたい場合はこれを有効に
-			if (!cm.searchbar.classList.contains('hidden')) cm.doFind();
+			if (!cm.searchbar.classList.contains('hidden')) cm.doFind(false);
 		}, 150);
 	});
 
