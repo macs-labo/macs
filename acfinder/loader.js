@@ -1369,7 +1369,7 @@ function openCautionDialog() {
 	`;
 	resultPane.appendChild(cautionDiv);
 
-	const readmeLinks = cautionDiv.querySelectors('a');
+	const readmeLinks = cautionDiv.querySelectorAll('a');
 	const acceptBtn = cautionDiv.querySelector('#accept-caution');
 	readmeLinks.forEach(readmeLink => {
 		readmeLink.addEventListener('click', () => {
