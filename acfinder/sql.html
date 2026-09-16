@@ -232,22 +232,23 @@ span.cm-variable-3 { font-weight: bold;  }
 	margin-right: 2px;
 }
 
+:root {
+	--bg-color-highlight: rgba(255, 192, 0, 0.4); /* 薄い黄色 */
+	--bgcolor-highlight-current: rgba(255, 128, 0, 0.4) !important; /* オレンジ色 */
+}
+[data-theme="dark"] {
+	--bg-color-highlight: rgba(0, 32, 128, 0.7); /* 暗い青 */
+	--bgcolor-highlight-current: rgba(32, 0, 128, 0.6) !important; /* 暗い青紫 */
+}
+
 /* すべてのマッチ箇所に適用されるハイライトスタイル */
 .cm-search-highlight {
-	background: rgba(255, 192, 0, 0.4); /* 薄い黄色 */
-	padding: 1px;
-}
-.cm-search-highlight[data-theme="dark"] {
-	background: rgba(0, 32, 128, 0.7); /* 暗い青 */
+	background: var(--bg-color-highlight);
 	padding: 1px;
 }
 /* 現在選択されているマッチ箇所（currentIndex）を強調する場合 */
 .cm-search-highlight-current {
-	background: rgba(255, 128, 0, 0.4) !important; /* オレンジ色 */
-	padding: 1px;
-}
-.cm-search-highlight-current[data-theme="dark"] {
-	background: rgba(32, 0, 128, 0.6) !important; /* 暗い青紫 */
+	background: var(--bg-color-highlight-current);
 	padding: 1px;
 }
 
