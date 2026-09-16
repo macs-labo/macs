@@ -145,19 +145,19 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # 並列ジョブ2: Vercel へのデプロイトリガーを引く
-  deploy-vercel:
-    needs: update-db
+  #deploy-vercel:
+    #needs: update-db
     # acisが変わった、または強制更新の場合
-    if: (needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.force_update == 'true') && github.event.inputs.sync_mode != 'push_notification_only'
-    runs-on: ubuntu-latest
-    steps:
+    #if: (needs.update-db.outputs.acis_changed == 'true' || needs.update-db.outputs.force_update == 'true') && github.event.inputs.sync_mode != 'push_notification_only'
+    #runs-on: ubuntu-latest
+    #steps:
       # 1. Vercel CLI をインストール
-      - name: Install Vercel CLI
-        run: npm install -g vercel
+      #- name: Install Vercel CLI
+        #run: npm install -g vercel
 
       # 2. 公式コマンドで本番デプロイを実行
-      - name: Deploy to Vercel (Production)
-        run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=macs-labo
+      #- name: Deploy to Vercel (Production)
+        #run: vercel deploy --prod --yes --token=${{ secrets.VERCEL_TOKEN }} --scope=macs-labo
 
   # 並列ジョブ3: 外部サイトの同期（各拠点の .sync.data.php を叩く）
   sync-remote:
