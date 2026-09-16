@@ -514,6 +514,7 @@ async function openFileSQL(item = null) {
 		}
 		readFile(file); // データ読み込み共通関数へ
 	} catch (err) {
+		console.error('ファイル読込失敗:', err)
 		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
 	}
 }
@@ -1477,10 +1478,10 @@ function setupEditor(editorID, containerID, options = {}) {
 	const searchbar = document.createElement('div');
 	searchbar.className = 'searchbar hidden';
 	searchbar.innerHTML = `
-		<span class="checkbox" title="大文字/小文字を区別">
-			<input type="checkbox" id="caseInsensitive" class="search-case">
-			<label for="caseInsensitive" class="case-label">Aa</label>
-		</span>
+		<span class="checkbox">
+		<label for="caseInsensitive" class="case-label" title="大文字/小文字を区別">
+			<input type="checkbox" id="caseInsensitive" class="search-case">Aa
+		</label>
 		<input type="text" class="search-input" placeholder="検索キーワードを入力...">
 		<input type="text" class="replace-input" placeholder="置換後の文字列...">
 		<span class="search-counter">0/0</span>
