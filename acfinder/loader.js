@@ -4,18 +4,20 @@
 const cautionDate = Date.parse('2026/3/1');
 
 // データベース設定
-const debug = !window.location.href.includes('/acfinder/');
+const debug = !window.location.href.includes('/acfinder/') || window.location.href.includes('-dev-');
 var db = null;
 var tables = []; // テーブルインスタンスを保持する配列
 var lastUpdate = '';
 var dbStatusCached = false;
 
 const isCloud = window.location.hostname.match(/\.(vercel\.app|pages\.dev|github\.io)$/); // クラウドホスティング判定: ドメイン名が vercel.app, pages.dev, github.io
-const datdir = isCloud ? 'https://raw.githubusercontent.com/macs-labo/macs/main/data/' : '../data/'; // 実サーバ以外では github から取得
+const github = 'https://raw.githubusercontent.com/macs-labo/macs/main';
+const datdir = isCloud ? `${github}/data/` : '../data/'; // 実サーバ以外では github から取得
 const maindb = 'acis';
 const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
 const isElectron = typeof window.electronAPI !== 'undefined';
+const isFileSystemAccessSupported = 'showOpenFilePicker' in window; // File System Access API サポート判定
 
 // 公開用の自動ログキャンセル
 if (!debug) {
@@ -1257,7 +1259,7 @@ async function loadHistoricalDB(tag, releaseName) {
 		
 		// 2. 必要な他のファイル（spec, sql）は既存の IndexedDB から取得
 		const specBlob = await getFileFromCache(fcDB, `${subdb}.zip`);
-		const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
+		//const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
 
 		// 3. 現在のDBを閉じる
 		if (db) db.close();
@@ -1280,8 +1282,9 @@ async function loadHistoricalDB(tag, releaseName) {
 		// サブDBアタッチ & ビュー作成
 		const specContent = await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db');
 		await attachDB(new SQL.Database(specContent), 'spec');
-		const transformedSql = convTemplate(await sqlBlob.text());
-		await db.run(transformedSql);
+		//const transformedSql = convTemplate(await sqlBlob.text());
+		//await db.run(transformedSql);
+		await execSQLLoadFromURL('init_create_view.sql');
 		await setTabViews();
 
 	} catch (error) {
@@ -1302,7 +1305,7 @@ async function loadLatestFromCache() {
 		// IndexedDBから全ファイルを取得
 		const acisBlob = await getFileFromCache(fcDB, `${maindb}.zip`);
 		const specBlob = await getFileFromCache(fcDB, `${subdb}.zip`);
-		const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
+		//const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
 
 		if (db) db.close();
 
@@ -1326,8 +1329,9 @@ async function loadLatestFromCache() {
 		attachDB(new SQL.Database(specContent), 'spec');
 
 		// ビュー再構築
-		const transformedSql = convTemplate(await sqlBlob.text());
-		await db.run(transformedSql);
+		//const transformedSql = convTemplate(await sqlBlob.text());
+		//await db.run(transformedSql);
+		await execSQLLoadFromURL('init_create_view.sql');
 		await setTabViews();
 
 	} catch (error) {
@@ -1360,15 +1364,17 @@ function openCautionDialog() {
 			</ul>
 		<div>
 			<button id="accept-caution" disabled>承諾</button>
-			<span>利用規約へのリンクをクリックすると、「承諾」ボタンが有効化されます。本注意事項を表示したままでも利用可能ですが、「承諾」いただくと以後非表示になります。</span>
+			<span><a href="https://github.com/macs-labo/macs#readme" target="_blank">利用規約</a>へのリンクをクリックすると、「承諾」ボタンが有効化されます。本注意事項を表示したままでも利用可能ですが、「承諾」いただくと以後非表示になります。</span>
 		</div>
 	`;
 	resultPane.appendChild(cautionDiv);
 
-	const readmeLink = cautionDiv.querySelector('a');
+	const readmeLinks = cautionDiv.querySelectors('a');
 	const acceptBtn = cautionDiv.querySelector('#accept-caution');
-	readmeLink.addEventListener('click', () => {
-		acceptBtn.disabled = false;
+	readmeLinks.forEach(readmeLink => {
+		readmeLink.addEventListener('click', () => {
+			acceptBtn.disabled = false;
+		});
 	});
 
 	acceptBtn.addEventListener('click', function() {
@@ -1572,7 +1578,7 @@ window.addEventListener('DOMContentLoaded', function() {
 		title.textContent = 'ACFinderBE DT' + (debug ? ' 開発版' : '');
 		titleWrapper.appendChild(title);
 		const version = document.createElement('span');
-		const baseUrl = debug ? '.' : 'https://raw.githubusercontent.com/macs-labo/macs/main/acfinder';
+		const baseUrl = isCloud ? `${github}/acfinder` : '.';
 		version.innerHTML = `Release <a href="${baseUrl}/acfinder${appVer}.zip">${appVer}</a>`;
 		titleWrapper.appendChild(version);
 		titleBar.appendChild(titleWrapper);

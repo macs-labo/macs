@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -184,34 +185,13 @@ select option:checked {
 	margin: 10px 0 5px;
 	font-weight: bold;
 }
-#planContainer > div {
-	overflow-x: auto;
-}
 #planContainer table {
 	margin-top: 0;
 }
 
-svg.disabled {
-	pointer-events: none;
-	cursor: not-allowed;
-	opacity: 0.3;
-}
-
 /* 薬剤候補テーブルのスタイル調整 */
-#yakuzaiTekiyo .handsontable-like,
-#planContainer .handsontable-like,
-#seibunContainer .handsontable-like,
-#yakuzaiCountContainer .handsontable-like {
-	width: auto !important; /* テーブル幅を内容に合わせ、他のスタイルを上書きする */
-}
-
-#yakuzaiTekiyo th,
-#yakuzaiTekiyo td,
-#planContainer th,
-#planContainer td,
-#seibunContainer th,
-#seibunContainer td {
-	white-space: nowrap; /* セル内のテキストを改行させない */
+div.handsontable-like {
+	overflow-x: auto;
 }
 
 @keyframes blink {
@@ -220,8 +200,7 @@ svg.disabled {
   100% { opacity: 1; } /* 表示 */
 }
 
-#seibunContainer em,
-#yakuzaiCountContainer em {
+.handsontable-like em {
 	font-style: normal;
 	font-weight: bold;
 	color: red;
@@ -236,19 +215,21 @@ svg.disabled {
 	margin: 0 2px;
 }
 
+#planContainer,
 #seibunContainer,
 #yakuzaiCountContainer {
-	overflow-x: auto;
+	overflow-x: hidden;
 }
 
-.handsontable-like {
+.handsontable-like table {
 	border-collapse: collapse;
-	width: 100%;
+	width: auto;
 	margin-top: 10px;
 }
 
 .handsontable-like th,
 .handsontable-like td {
+	white-space: nowrap; /* セル内のテキストを改行させない */
 	border: 1px solid var(--border-color); /* CSS変数を使用 */
 	padding: 2px;
 	text-align: left;
@@ -260,6 +241,26 @@ svg.disabled {
 .handsontable-like td.No { text-align: center;}
 
 .handsontable-like tfoot td { font-weight: bold; }
+
+/* refreshPlan で現在の作物条件では登録が見つからなかった薬剤の行 */
+#planTable tr.row-not-found td {
+	color: red;
+}
+
+/* refreshPlan で最新レコードと値が異なっていた旧行のカラム（セル全体、または病害虫名セル内の個別項目） */
+#planTable .cell-changed {
+	color: red;
+}
+
+/* refreshPlan で hidden 属性を付けた旧データ行：hidden属性は識別用マーカーとして使うため、表示自体は維持する */
+#planTable tbody tr[hidden] {
+	display: table-row !important;
+}
+
+/* 旧データ行であることが視覚的にわかるよう、背景色を付けて区別する */
+.olddata {
+	background-color: var(--bg-color-fixed-header);
+}
 
 .captionLabel {
 	font-weight: bold;
@@ -276,6 +277,11 @@ svg.disabled {
 	margin-top: 10px;
 	display: flex;
 	gap: 10px;
+}
+
+/* iconsbar 右端に配置する「旧データ一括削除」ボタン */
+#btnDeleteOldRows {
+	margin-left: auto;
 }
 
 .actions { white-space: nowrap; }
@@ -327,14 +333,16 @@ let currentCbyochu = null;   // 現在選択されているcid
 let currentByochu = null;   // 現在選択されている病害虫
 let currentYakuzai = null;   // 現在選択されている薬剤
 
-// 読み込んだ、または一度保存した「ファイルハンドル」を保持する変数
+// 読み込んだ、または一度保存したファイルハンドル及びファイル名を保持する変数
 let currentFileHandle = null;
+let currentFilename = '';
 
 // 無保存データフラグ
 let isDirty = false;
 
-// File System Access API サポート判定
-const isFileSystemAccessSupported = 'showOpenFilePicker' in window;
+// refreshPlan で旧データ行(olddata)が発生したことがあるかどうかのフラグ
+// （旧データ行がすべて削除されたタイミングで「作成時DB登録日」表示を消すために使う）
+let hasHadOldDataRows = false;
 
 // clearContent プロトタイプ宣言
 if (!HTMLElement.prototype.clearContent) {
@@ -705,7 +713,7 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 	let results = [];
 	try {
 		// 薬剤の適用候補をすべて取得するためのSQL文をここに記述
-		// d_concat は重複連結 mid1〜mid5 に同じ rac が含まれる場合に対応
+		// concat_ws は重複連結 mid1〜mid5 に同じ rac が含まれる場合に対応
 		/*
 			--seibun1,
 			(ifnull((select seibun from tSeibun where ippanmei = seibun1),seibun1)),
@@ -729,14 +737,14 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 			gn_concat('<br>',json_array(byochu)) as byochu,
 			gn_concat('<br>',json_array(mokuteki)) as mokuteki,
 			jiki, kaisu, baisu, ekiryo,hoho, 
-			d_concat('<br>', yuko1, yuko2, yuko3, yuko4, yuko5) as seibun,
-			d_concat('<br>',kaisu1,kaisu2,kaisu3,kaisu4,kaisu5) as seibunkaisu,
-			d_concat('<br>',
-				d_concat('/',mid1,keito1,replace(rem1, 'FRAC系統名: ', '')),
-				d_concat('/',mid2,keito2,replace(rem2, 'FRAC系統名: ', '')),
-				d_concat('/',mid3,keito3,replace(rem3, 'FRAC系統名: ', '')),
-				d_concat('/',mid4,keito4,replace(rem4, 'FRAC系統名: ', '')),
-				d_concat('/',mid5,keito5,replace(rem5, 'FRAC系統名: ', ''))
+			concat_ws('<br>', yuko1, yuko2, yuko3, yuko4, yuko5) as seibun,
+			concat_ws('<br>',kaisu1,kaisu2,kaisu3,kaisu4,kaisu5) as seibunkaisu,
+			concat_ws('<br>',
+				concat_ws('/',mid1,keito1,replace(rem1, 'FRAC系統名: ', ''), risk1),
+				concat_ws('/',mid2,keito2,replace(rem2, 'FRAC系統名: ', ''), risk2),
+				concat_ws('/',mid3,keito3,replace(rem3, 'FRAC系統名: ', ''), risk3),
+				concat_ws('/',mid4,keito4,replace(rem4, 'FRAC系統名: ', ''), risk4),
+				concat_ws('/',mid5,keito5,replace(rem5, 'FRAC系統名: ', ''), risk5)
 			) as mid
 			FROM t_tekiyo
 			WHERE tsusho = '${yakuzaiName}' AND sakumotsu IN (${currentSakumotsu})
@@ -757,7 +765,8 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 
 	const headers = ['操作', '作物名', '通称名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC'];
 	const columns = results[0].columns;
-	let tableHtml = `<table id="candidateTable" class="handsontable-like">
+	let tableHtml = `<div class="handsontable-like">
+		<table id="candidateTable">
 		<thead><tr>${headers.map(text => `<th>${text}</th>`).join('')}</tr></thead>
 		<tbody>`;
 
@@ -788,8 +797,314 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 			</tr>`;
 	});
 
-	tableHtml += `</tbody></table>`;
+	tableHtml += `</tbody></table></div>`;
 	tekiyoContainer.innerHTML = tableHtml;
+}
+
+// 指定した薬剤名・現在の作物条件(currentSakumotsu)で、DBの最新の適用候補一覧を取得するヘルパー関数
+// showYakuzaiTekiyo と同じ検索条件・整形ロジックを、比較しやすいオブジェクト配列として返す
+async function getYakuzaiCandidates(yakuzaiName) {
+	if (!yakuzaiName || !currentSakumotsu) return [];
+
+	const sql = `
+		SELECT sakumotsu, 
+		gn_concat('<br>',json_array(byochu)) as byochu,
+		gn_concat('<br>',json_array(mokuteki)) as mokuteki,
+		jiki, kaisu, baisu, ekiryo, hoho, 
+		concat_ws('<br>', MAX(yuko1), MAX(yuko2), MAX(yuko3), MAX(yuko4), MAX(yuko5)) as seibun,
+		concat_ws('<br>', MAX(kaisu1), MAX(kaisu2), MAX(kaisu3), MAX(kaisu4), MAX(kaisu5)) as seibunkaisu,
+		concat_ws('<br>',
+			concat_ws('/', MAX(mid1), MAX(keito1), replace(MAX(rem1), 'FRAC系統名: ', ''), MAX(risk1)),
+			concat_ws('/', MAX(mid2), MAX(keito2), replace(MAX(rem2), 'FRAC系統名: ', ''), MAX(risk2)),
+			concat_ws('/', MAX(mid3), MAX(keito3), replace(MAX(rem3), 'FRAC系統名: ', ''), MAX(risk3)),
+			concat_ws('/', MAX(mid4), MAX(keito4), replace(MAX(rem4), 'FRAC系統名: ', ''), MAX(risk4)),
+			concat_ws('/', MAX(mid5), MAX(keito5), replace(MAX(rem5), 'FRAC系統名: ', ''), MAX(risk5))
+		) as mid
+		FROM t_tekiyo
+		WHERE tsusho = '${yakuzaiName}' AND sakumotsu IN (${currentSakumotsu})
+		GROUP BY tsusho, sakumotsu, jiki, kaisu, baisu, ekiryo, hoho;
+	`;
+
+	let results = [];
+	try {
+		if (debug) console.log(sql);
+		results = await dbExec(sql);
+	} catch (e) {
+		console.error('候補薬剤の再取得中にエラーが発生しました:', e);
+		return [];
+	}
+
+	if (!results.length || !results[0].values.length) return [];
+
+	const columns = results[0].columns;
+	return results[0].values.map(valueRow => {
+		const byochuText = String(valueRow[columns.indexOf('byochu')] || '').replace(/\["null"\]|\[null\]|\["|"\]/g, '');
+		const mokutekiText = String(valueRow[columns.indexOf('mokuteki')] || '').replace(/\["null"\]|\[null\]|\["|"\]/g, '');
+		const byochuMokuteki = [byochuText, mokutekiText].filter(Boolean).join('<br>');
+		return {
+			sakumotsu: String(valueRow[columns.indexOf('sakumotsu')] || ''),
+			byochu: byochuMokuteki,
+			jiki: String(valueRow[columns.indexOf('jiki')] || ''),
+			kaisu: String(valueRow[columns.indexOf('kaisu')] || '-') || '-',
+			baisu: String(valueRow[columns.indexOf('baisu')] || ''),
+			ekiryo: String(valueRow[columns.indexOf('ekiryo')] || ''),
+			hoho: String(valueRow[columns.indexOf('hoho')] || ''),
+			seibun: String(valueRow[columns.indexOf('seibun')] || ''),
+			seibunkaisu: String(valueRow[columns.indexOf('seibunkaisu')] || ''),
+			mid: String(valueRow[columns.indexOf('mid')] || '')
+		};
+	});
+}
+
+// 集約された病害虫名(byochu)セルの文字列を、個別の病害虫名の配列に分解する
+// （複数行の場合 <br> 区切りで格納されているため、それぞれを個別の項目として比較できるようにする）
+function parseByochuList(byochuHtml) {
+	if (!byochuHtml) return [];
+	return String(byochuHtml)
+		.split(/<br\s*\/?>/i)
+		.map(s => s.replace(/<[^>]+>/g, '').trim())
+		.filter(s => s.length > 0);
+}
+
+// 2つの病害虫名セルの内容を、個別の病害虫名の集合として比較し、近さ(Jaccard係数)を返す
+function getByochuSimilarity(byochuA, byochuB) {
+	const setA = new Set(parseByochuList(byochuA));
+	const setB = new Set(parseByochuList(byochuB));
+	if (setA.size === 0 && setB.size === 0) return 1;
+	let intersection = 0;
+	setA.forEach(v => { if (setB.has(v)) intersection++; });
+	const union = new Set([...setA, ...setB]).size;
+	return union === 0 ? 0 : intersection / union;
+}
+
+// 個別の病害虫名の集合として、2つの病害虫名セルの内容が同じかどうかを判定する（並び順は問わない）
+function byochuEquals(byochuA, byochuB) {
+	const listA = parseByochuList(byochuA).slice().sort();
+	const listB = parseByochuList(byochuB).slice().sort();
+	if (listA.length !== listB.length) return false;
+	return listA.every((v, i) => v === listB[i]);
+}
+
+function racEquals(oldVal, newVal) {
+	const oldList = (oldVal || '').split('<br>').sort();
+	const newList = (newVal || '').split('<br>').sort();
+	if (oldList.length !== newList.length) return false;
+	return newList.every((v, i) => v.startsWith(oldList[i]));
+}
+
+// 病害虫名セルに個別ハイライトを付ける際、病害虫名自体に含まれうる特殊文字をエスケープする
+function escapeHtml(str) {
+	return String(str)
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;')
+		.replace(/'/g, '&#39;');
+}
+
+// refreshPlan の比較で使う、カラムごとの「一致」判定
+// ・病害虫名(byochu)は個別名の集合として比較する
+// ・RAC(mid)は、新データが旧データの後方に情報を追記しただけ（前方一致）であれば「変更なし」とみなす
+// ・それ以外は単純な文字列完全一致
+function fieldMatches(field, oldVal, newVal) {
+	if (field === 'byochu') return byochuEquals(oldVal, newVal);
+	if (field === 'mid') return racEquals(oldVal, newVal);
+	return (oldVal || '') === (newVal || '');
+}
+
+// 防除計画表(#planTable)の各行を、DBの最新の登録内容と比較し、差分があれば
+// 最も一致度の高い最新レコードをその行の下に挿入する（登録内容更新）
+async function refreshPlan() {
+	const planTableBody = document.querySelector('#planTable tbody');
+	if (!planTableBody || planTableBody.rows.length === 0) return;
+
+	if (!currentSakumotsu) {
+		alert('対象作物が設定されていないため、更新できません。');
+		return;
+	}
+
+	if (!confirm('現在の防除計画を、データベースの最新の登録内容と比較します。\n変更が見つかった行の下には、最新のレコードが追加されます。\nよろしいですか？')) {
+		return;
+	}
+
+	waiting(true, '登録内容を確認中...');
+
+	// 比較対象のカラム（作物名・薬剤名以外の登録内容）
+	const compareFields = ['sakumotsu', 'byochu', 'jiki', 'kaisu', 'baisu', 'ekiryo', 'hoho', 'seibun', 'seibunkaisu', 'mid'];
+	// 各フィールドに対応する旧行（#planTable）のセル位置
+	const fieldToCellIndex = { sakumotsu: 3, byochu: 5, jiki: 6, kaisu: 7, baisu: 8, ekiryo: 9, hoho: 10, seibun: 11, seibunkaisu: 12, mid: 13 };
+	const candidateCache = new Map(); // 薬剤名ごとに候補セットをキャッシュし、同じ薬剤への再検索を避ける
+	const rows = Array.from(planTableBody.rows); // 追加行を巻き込まないよう、処理前の行を固定
+	const notFoundYakuzai = new Set();
+	let updatedCount = 0;
+
+	try {
+		for (const row of rows) {
+			const yakuzaiName = row.cells[4]?.textContent.trim() || '';
+			if (!yakuzaiName) continue;
+
+			// 再実行時に前回の表示が残らないよう、一旦クリア
+			row.classList.remove('row-not-found');
+			row.removeAttribute('hidden'); // 旧データ行としてのマークもリセット
+			row.classList.remove('olddata');
+			Object.values(fieldToCellIndex).forEach(idx => row.cells[idx]?.classList.remove('cell-changed'));
+			// 病害虫名セル内に前回付けた個別ハイライト(<span>)が残っていれば、プレーンな表示に戻す
+			const byochuCell = row.cells[fieldToCellIndex.byochu];
+			if (byochuCell) {
+				byochuCell.innerHTML = parseByochuList(byochuCell.innerHTML).join('<br>');
+			}
+			// 前回「失効」表示にした使用回数セルが残っていれば、元の値に戻す
+			const kaisuCell = row.cells[fieldToCellIndex.kaisu];
+			if (kaisuCell && kaisuCell.dataset.originalKaisu !== undefined) {
+				kaisuCell.textContent = kaisuCell.dataset.originalKaisu;
+				delete kaisuCell.dataset.originalKaisu;
+			}
+
+			let candidates;
+			if (candidateCache.has(yakuzaiName)) {
+				candidates = candidateCache.get(yakuzaiName);
+			} else {
+				candidates = await getYakuzaiCandidates(yakuzaiName);
+				candidateCache.set(yakuzaiName, candidates);
+			}
+
+			if (candidates.length === 0) {
+				notFoundYakuzai.add(yakuzaiName);
+				row.classList.add('row-not-found'); // 現在の作物条件で登録が見つからない行を赤字表示
+				row.setAttribute('hidden', ''); // 変更候補行と同様に、旧データ行としてマークする
+				row.classList.add('olddata');
+				if (kaisuCell) {
+					kaisuCell.dataset.originalKaisu = kaisuCell.textContent; // 元の値を保持しておき、再実行時に復元できるようにする
+					kaisuCell.innerHTML = '<em>[失効]</em>'; // 使用回数カラムに失効表示
+				}
+				continue;
+			}
+
+			// 現在の行の内容を、候補セットと同じ形のオブジェクトとして取得
+			const oldData = {
+				sakumotsu: row.cells[3]?.textContent.trim() || '',
+				byochu: (row.cells[5]?.innerHTML || '').trim(),
+				jiki: row.cells[6]?.textContent.trim() || '',
+				kaisu: row.cells[7]?.textContent.trim() || '',
+				baisu: row.cells[8]?.textContent.trim() || '',
+				ekiryo: row.cells[9]?.textContent.trim() || '',
+				hoho: row.cells[10]?.textContent.trim() || '',
+				seibun: (row.cells[11]?.innerHTML || '').trim(),
+				seibunkaisu: (row.cells[12]?.innerHTML || '').trim(),
+				mid: (row.cells[13]?.innerHTML || '').trim()
+			};
+
+			// 全カラムが一致するレコードが候補内にあれば、その行はそのまま
+			// ・病害虫名(byochu)は個別名の集合として比較（並び順は無視）
+			// ・RAC(mid)は前方一致（新データが旧データの続きになっているだけ）なら一致とみなす
+			const exactMatchCandidate = candidates.find(c => compareFields.every(f => fieldMatches(f, oldData[f], c[f])));
+			if (exactMatchCandidate) {
+				// RAC(mid)が前方一致で伸びている場合、旧行の表示だけを最新の値に書き換える
+				const midCell = row.cells[fieldToCellIndex.mid];
+				if (midCell && exactMatchCandidate.mid && exactMatchCandidate.mid !== oldData.mid) {
+					midCell.innerHTML = exactMatchCandidate.mid;
+				}
+				continue;
+			}
+
+			// 一致しない場合、最も一致するカラム数が多い候補レコードを探す
+			// ・kaisu/baisu/ekiryo/hoho等はDBのGROUP BYキーのため、これらが同点の候補が複数残ることがある
+			// ・その場合は「一番最初に見つかったもの」ではなく、病害虫名(byochu)が最も近いものを優先する
+			const otherFields = compareFields.filter(f => f !== 'byochu');
+			let bestCandidate = null;
+			let bestScore = -1;
+			let bestByochuSim = -1;
+			candidates.forEach(c => {
+				const score = otherFields.reduce((n, f) => n + (fieldMatches(f, oldData[f], c[f]) ? 1 : 0), 0);
+				const byochuSim = getByochuSimilarity(oldData.byochu, c.byochu);
+				if (score > bestScore || (score === bestScore && byochuSim > bestByochuSim)) {
+					bestScore = score;
+					bestByochuSim = byochuSim;
+					bestCandidate = c;
+				}
+			});
+			if (!bestCandidate) continue;
+
+			// 旧行のうち、最新レコードと値が異なるカラムだけを赤字表示する（病害虫名以外）
+			// ・RAC(mid)は前方一致であれば「変更なし」として扱い、旧行の表示だけ最新の値に書き換える
+			compareFields.forEach(f => {
+				if (f === 'byochu') return; // 病害虫名は個別名単位で別途処理する
+				if (fieldMatches(f, oldData[f], bestCandidate[f])) {
+					if (f === 'mid') {
+						const midCell = row.cells[fieldToCellIndex.mid];
+						if (midCell && bestCandidate.mid && bestCandidate.mid !== oldData.mid) {
+							midCell.innerHTML = bestCandidate.mid;
+						}
+					}
+					return;
+				}
+				row.cells[fieldToCellIndex[f]]?.classList.add('cell-changed');
+			});
+
+			// 病害虫名セルは、候補側に存在しない個別の病害虫名だけを赤字表示する
+			if (!byochuEquals(oldData.byochu, bestCandidate.byochu)) {
+				const oldByochuItems = parseByochuList(oldData.byochu);
+				const candidateByochuSet = new Set(parseByochuList(bestCandidate.byochu));
+				if (oldByochuItems.length > 0) {
+					row.cells[fieldToCellIndex.byochu].innerHTML = oldByochuItems.map(item =>
+						candidateByochuSet.has(item) ? escapeHtml(item) : `<span class="cell-changed">${escapeHtml(item)}</span>`
+					).join('<br>');
+				} else {
+					row.cells[fieldToCellIndex.byochu]?.classList.add('cell-changed');
+				}
+			}
+
+			// 防除時期はDBの登録内容ではないため、元の行の値をそのまま引き継ぐ
+			const timingCell = row.cells[2];
+			const [timing, timingMonth, timingPeriod] = getTimingArray(isRecordMode, timingCell);
+
+			const newData = {
+				timing, timingMonth, timingPeriod,
+				sakumotsu: bestCandidate.sakumotsu,
+				byochu: bestCandidate.byochu,
+				jiki: bestCandidate.jiki,
+				kaisu: bestCandidate.kaisu,
+				baisu: bestCandidate.baisu,
+				ekiryo: bestCandidate.ekiryo,
+				hoho: bestCandidate.hoho,
+				seibun: bestCandidate.seibun,
+				seibunkaisu: bestCandidate.seibunkaisu,
+				mid: bestCandidate.mid
+			};
+
+			// 元の行はそのまま残し、最新レコードを新しい行としてすぐ下に挿入する
+			const newRow = document.createElement('tr');
+			addYakuzaiToPlanRow(newRow, yakuzaiName, newData);
+			row.insertAdjacentElement('afterend', newRow);
+
+			// 元の行を「変更候補のある旧データ行」としてマークする（hidden属性で識別、表示自体はCSSで維持）
+			row.setAttribute('hidden', '');
+			row.classList.add('olddata');
+			updatedCount++;
+		}
+
+		updateRowNumbers(); // 行番号・使用回数集計等を更新
+
+		// 更新候補・見つからなかった薬剤のいずれも無く、変更が全く無かった場合は
+		// 「作成時DB登録日」の表示も不要になるためクリアする
+		if (updatedCount === 0 && notFoundYakuzai.size === 0) {
+			document.getElementById('datasetInfo')?.classList.add('hidden');
+		}
+
+		let msg = updatedCount > 0
+			? `${updatedCount} 件の行で登録内容の変更が見つかったため、最新のレコードを行の下に追加しました。\n内容をご確認のうえ、不要な行を削除してください。`
+			: '登録内容に変更は見つかりませんでした。';
+		if (notFoundYakuzai.size > 0) {
+			msg += `\n\n以下の薬剤は、現在の作物条件では登録が見つかりませんでした：\n${Array.from(notFoundYakuzai).join('、')}`;
+		}
+		alert(msg);
+
+	} catch (e) {
+		console.error('防除計画の更新確認中にエラーが発生しました:', e);
+		alert('防除計画の更新確認中にエラーが発生しました。');
+	} finally {
+		waiting(false);
+	}
 }
 
 function setAllCheckboxes(container, handler, checked = false) {
@@ -986,20 +1301,16 @@ function createPlanTable() {
 	if (!planContainer) return;
 	const headers = ['操作', 'No', '防除時期', '作物名', '薬剤名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC'];
 
-	const btnSaveAs = !isFileSystemAccessSupported ? '' : `
-		<svg id="btnPlanSaveAs" class="icon disabled" onclick="savePlanAsJson(false)">
-			<title>防除計画/防除記録を名前を付けて保存</title>
-			<use href="icons.svg#save-as"></use>
-		</svg>
-	`;
+	hasHadOldDataRows = false; // 新しい計画表の作成に伴い、旧データ行の履歴フラグもリセット
 
 	planContainer.innerHTML = `
-		<div class="checkListItem"">
+		<div class="checkListItem">
 			<input type="checkbox" id="checkRecordMode" onchange="toggleRecordMode(this.checked)" autocomplete="off">
 			<label for="checkRecordMode"> 記録モード (日付入力)</label>
 		</div>
-		<div>
-			<table id="planTable" class="handsontable-like">
+		<div id="datasetInfo" class="hidden"></div>
+		<div class="handsontable-like">
+			<table id="planTable">
 				<thead>
 					<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>
 				</thead>
@@ -1023,28 +1334,38 @@ function createPlanTable() {
 				<title>防除計画/防除記録を${isFileSystemAccessSupported ? '上書き' : ''}保存</title>
 				<use href="icons.svg#save"></use>
 			</svg>
-			${btnSaveAs}
+			<svg id="btnPlanSaveAs" class="icon disabled${isFileSystemAccessSupported ? '' : ' hidden'}" onclick="savePlanAsJson(false)">
+				<title>防除計画/防除記録を名前を付けて保存</title>
+				<use href="icons.svg#save-as"></use>
+			</svg>
 			<svg class="icon" onclick="fileOpen()">
 				<title>防除計画/防除記録を開く</title>
 				<use href="icons.svg#folder-open"></use>
 			</svg>
 			<input type="file" id="fallbackFileInput" accept=".json" class="hidden">
+			<svg id="btnRestorePlan" class="icon hidden" onclick="restorePlan()">
+				<title>自動保存したデータを復元</title>
+				<use href="icons.svg#library"></use>
+			</svg>
+			<svg id="btnRefreshPlan" class="icon disabled" onclick="refreshPlan()">
+				<title>計画表登録内容更新</title>
+				<use href="icons.svg#refresh"></use>
+			</svg>
+			<button type="button" id="btnDeleteOldRows" class="hidden" onclick="deleteOldDataRows()">旧データ一括削除</button>
 		</div>
 	`;
 }
 
 // 現在時刻を YYYYMMDD-hhmmss にフォーマット
-function formatDateTime() {
+function formatDateTime(opt = '') {
 	const now = new Date();
-	const formattedDate = now.toLocaleString('ja-JP', {
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-		hour: '2-digit',
-		minute: '2-digit',
-		second: '2-digit',
-		hour12: false
-	});
+	let format = { year: 'numeric' }
+	switch (opt.toLowerCase()) {
+		case 'year': break;
+		case 'date': format = {...format, month: '2-digit', day: '2-digit'}; break;
+		default: format = {...format, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+	}
+	const formattedDate = now.toLocaleString('ja-JP', format);
 	return formattedDate.replace(/[\/:]/g, '').replace(' ', '-');
 }
 
@@ -1120,13 +1441,20 @@ function getTimingArray(mode, td) {
 	return [timing, timingMonth, timingPeriod];
 }
 
-// planTableの内容をJSON形式で保存する関数
-async function savePlanAsJson(overwrite = true) {
+// planTable の内容を json 形式にする関数
+function convPlanToJson() {
 	const table = document.getElementById('planTable');
-	if (!table) return;
+	if (!table) return '';
 
 	const planData = [];
+
+	// #db-update の表示テキストから登録更新日情報を取得する（先頭の「最新DB:」「⚠️過去参照: 」は除いて保存する）
+	const dbUpdateText = (document.getElementById('db-update')?.textContent || '')
+		.trim()
+		.replace(/^((最新|保存)DB:|⚠️過去参照:)\s*/, '');
+
 	const saveData = {
+		dataset: dbUpdateText, // 保存時点の農薬登録情報DBの登録更新日
 		sakumotsu: currentSakumotsu, // 作物条件のSQL文字列
 		crops: checkedCrops, // 選択作物オブジェクトの配列(モバイル版互換用)
 		titleText: document.getElementById('title').textContent, // #title のテキスト内容
@@ -1150,29 +1478,40 @@ async function savePlanAsJson(overwrite = true) {
 		planData.push(rowData);
 	});
 
-	const jsonData = JSON.stringify(saveData, null, 2);
-	// overwrite = true ですでにファイルを開いている、または一度保存していてハンドルがある場合は「上書き」
-	if (overwrite && currentFileHandle) {
-		try {
-			const writable = await currentFileHandle.createWritable();
-			await writable.write(jsonData);
-			await writable.close();
-			isDirty = false;
-			alert('ファイルを上書き保存しました。');
-			return;
-		} catch (err) {
-			console.error('上書き失敗（新規保存に切り替えます）:', err);
-		}
+	return JSON.stringify(saveData, null, 2);
+}
+
+// planTable の内容を JSON 形式で保存する関数
+async function savePlanAsJson(overwrite = true) {
+	// 登録日の古い旧データ行(olddata)が残っている場合は、保存前に確認する
+	const planTableBodyForCheck = document.querySelector('#planTable tbody');
+	const hasOldDataRowsForSave = planTableBodyForCheck
+		? Array.from(planTableBodyForCheck.rows).some(row => row.hasAttribute('hidden'))
+		: false;
+	if (hasOldDataRowsForSave) {
+		const proceedWithSave = confirm(
+			'登録日の古いデータ行が残っています。保存すると現在開いているDBの登録更新日が保存されますので、古いデータ行を削除してから保存することをおすすめします。このまま保存する場合は、次回読み込み時に古いデータ行が残った状態で表示されることをご承知ください。'
+		);
+		if (!proceedWithSave) return;
 	}
+
+	const saveData = convPlanToJson();
 
 	// デフォルトファイル名
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
 	const baseName = isRecordMode ? '防除記録' : '防除計画';
-	const filename = `${prefix}${baseName}_${formatDateTime()}.json`;
+	let filename = currentFilename ? currentFilename : `${prefix}${baseName}_${formatDateTime('year')}.json`;
+	if (currentFilename) {
+		if (isRecordMode) {
+			filename = filename.replace('計画', '記録');
+		} else {
+			filename = filename.replace('記録', '計画');
+		}
+	}
 
 	// API 非対応ブラウザの場合はダウンロード型保存
 	if (!isFileSystemAccessSupported) {
-		const blob = new Blob([jsonData], { type: 'application/json' });
+		const blob = new Blob([saveData], { type: 'application/json' });
 		saveAs(blob, filename);
 		isDirty = false;
 		alert(
@@ -1184,18 +1523,35 @@ async function savePlanAsJson(overwrite = true) {
 		return;
 	}
 
-	// overwrite = false またはハンドルがない、または上書きに失敗した場合は「名前を付けて保存」
+	// overwrite = true でファイルハンドルがあり、basename が一致している場合は「上書き」
+	if (overwrite && currentFileHandle && currentFilename.includes(baseName)) {
+		console.log('fileHandel: ', currentFileHandle);
+		try {
+			const writable = await currentFileHandle.createWritable();
+			await writable.write(saveData);
+			await writable.close();
+			isDirty = false;
+			alert('ファイルを上書き保存しました。');
+			return;
+		} catch (err) {
+			console.error('上書き失敗（新規保存に切り替えます）:', err);
+		}
+	}
+
+	// overwrite = false またはハンドルがない、または basename が一致、または上書きに失敗した場合は「名前を付けて保存」
 	try {
 		const fileHandle = await window.showSaveFilePicker({
 			suggestedName: filename,
 			types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
 		});
 		
-		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
 		
 		const writable = await fileHandle.createWritable();
-		await writable.write(jsonData);
+		await writable.write(saveData);
 		await writable.close();
+
+		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
+		currentFilename = fileHandle.name;
 		isDirty = false;
 		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
@@ -1234,9 +1590,10 @@ async function fileOpen(item = null) {
 				multiple: false
 			});
 		}
-		currentFileHandle = fileHandle; // ハンドルを記憶
 		const file = await fileHandle.getFile();
 		const text = await file.text();
+		currentFileHandle = fileHandle; // ハンドルを記憶
+		currentFilename = fileHandle.name; // ファイル名を保存
 		loadPlanFromJson(text); // データ読み込み共通関数へ
 	} catch (err) {
 		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
@@ -1245,20 +1602,18 @@ async function fileOpen(item = null) {
 }
 
 // fallbackFileInput の場合の読込
-function readFile(e) {
-
-	const files = e.dataTransfer.files;
-	if (!files || files.length === 0) return;
-	if (!files[0].name.toLowerCase().endsWith('.json')) {
+function readFile(file) {
+	if (!file) return;
+	if (!file.name.toLowerCase().endsWith('.json')) {
 		alert('対応していないファイル形式です。');
 	}
 
 	currentFileHandle = null; // ハンドルは取れないのでnull
 
 	const reader = new FileReader();
-	reader.onload = (event) => {
+	reader.onload = (e) => {
 		try {
-			loadPlanFromJson(event.target.result); // データ読み込み共通関数へ
+			loadPlanFromJson(e.target.result); // データ読み込み共通関数へ
 		} catch (err) {
 			alert('ファイルの解析に失敗しました。正しいJSONファイルか確認してください。');
 		}
@@ -1266,12 +1621,12 @@ function readFile(e) {
 	reader.onerror = () => {
 		alert('ファイルの読み込み中にエラーが発生しました。');
 	};
-	reader.readAsText(files[0]); // テキストとして読み込み開始
-
+	reader.readAsText(file); // テキストとして読み込み開始
+	currentFilename = file.name; // ファイル名保存
 }
 
 // JSONファイルを読み込んでplanTableを復元する関数
-async function loadPlanFromJson(jsonText) {
+async function loadPlanFromJson(jsonText, msg) {
 
 	try {
 		const loadedData = JSON.parse(jsonText);
@@ -1349,7 +1704,24 @@ async function loadPlanFromJson(jsonText) {
 
 		updateRowNumbers(); // 行番号の再採番と成分別使用回数の更新
 		isDirty = false;
-		alert('防除計画/防除記録を読み込みました。');
+
+		// 保存時点の農薬登録情報DB登録更新日(dataset)を表示する
+		const datasetInfoEl = document.getElementById('datasetInfo');
+		if (datasetInfoEl) {
+			if (loadedData.dataset) {
+				datasetInfoEl.textContent = `作成時DB登録日: ${loadedData.dataset}`;
+				datasetInfoEl.classList.remove('hidden');
+			} else {
+				datasetInfoEl.textContent = '';
+				datasetInfoEl.classList.add('hidden');
+			}
+		}
+
+		// jsonファイルを読み込んだので、登録内容更新（refresh）アイコンを有効化する
+		document.getElementById('btnRefreshPlan')?.classList.remove('disabled');
+
+		if (!msg) msg = '防除計画/防除記録を読み込みました。';
+		alert(msg);
 
 	} catch(err) {
 		console.error('JSONファイルの解析に失敗しました:', err);
@@ -1433,7 +1805,7 @@ async function savePlanTableAsExcel() { // 関数名を savePlanTableExcel か�
 	// Excel ファイルを生成して保存
 	const buffer = await workbook.xlsx.writeBuffer();
 	const prefix = getFilenamePrefix(); // 作物名プレフィックス
-	const filename = `${prefix}${baseName}_${formatDateTime()}.xlsx`;
+	const filename = `${prefix}${baseName}_${formatDateTime('date')}.xlsx`;
 
 	// API 非対応ブラウザの場合はダウンロード型保存
 	if (!isFileSystemAccessSupported) {
@@ -1764,6 +2136,12 @@ function updateRowNumbers() {
 	const planTableBody = document.querySelector('#planTable tbody');
 	if (!planTableBody) return;
 
+	// 事故防止のため、ここに来た段階で自動保存データを削除して復元ボタンを隠す
+	if (localStorage.getItem('unsavedPlan')) {
+		localStorage.removeItem('unsavedPlan');
+		document.getElementById('btnRestorePlan')?.classList.add('hidden');
+	}
+
 	const rows = planTableBody.rows;
 	const hasRows = rows.length > 0;
 	isDirty = hasRows;
@@ -1790,10 +2168,17 @@ function updateRowNumbers() {
 		}
 	});
 
+	let noCounter = 0;
 	for (let i = 0; i < rows.length; i++) {
 		const row = rows[i];
+		// 変更候補行とペアになっている旧データ行（row-not-found ではない hidden 行）だけを連番から除外する。
+		// notFoundYakuzai行（row-not-found）はペアの新しい行を持たないため、通常どおり自分自身の番号を持つ。
+		const isPairedOldRow = row.hasAttribute('hidden') && !row.classList.contains('row-not-found');
+
 		// No. を更新
-		row.cells[1].textContent = i + 1;
+		if (!isPairedOldRow) {
+			row.cells[1].textContent = ++noCounter;
+		}
 		row.cells[1].className = 'No';
 
 		// ボタンの状態を更新
@@ -1809,9 +2194,48 @@ function updateRowNumbers() {
 		}
 	}
 
+	// 変更候補行とペアになっている旧データ行には、対応する行（直後の行。なければ直前の行）と同じNoを表示する
+	for (let i = 0; i < rows.length; i++) {
+		const row = rows[i];
+		if (!row.hasAttribute('hidden') || row.classList.contains('row-not-found')) continue;
+		const refRow = rows[i + 1] || rows[i - 1];
+		if (refRow && row.cells[1] && refRow.cells[1]) {
+			row.cells[1].textContent = refRow.cells[1].textContent;
+		}
+	}
+
 	// 各カウントテーブルを更新
 	updateYakuzaiCountTable();
 	updateSeibunCountTable();
+
+	// hidden属性の旧データ行（refreshPlanで作成）が1件でもあれば「旧データ一括削除」ボタンを表示する
+	const hasOldDataRows = Array.from(rows).some(row => row.hasAttribute('hidden'));
+	document.getElementById('btnDeleteOldRows')?.classList.toggle('hidden', !hasOldDataRows);
+
+	// 旧データ行(olddata)が発生したことがある状態から、すべて削除されて0件になったら、
+	// 「作成時DB登録日」の表示を消す（読み込み直後、一度も旧データ行が出ていない状態では消さない）
+	if (hasOldDataRows) {
+		hasHadOldDataRows = true;
+	} else if (hasHadOldDataRows) {
+		document.getElementById('datasetInfo')?.classList.add('hidden');
+		hasHadOldDataRows = false;
+	}
+}
+
+// refreshPlan によって hidden 属性が付いた旧データ行（変更候補あり／notFoundYakuzai）を一括削除する
+function deleteOldDataRows() {
+	const planTableBody = document.querySelector('#planTable tbody');
+	if (!planTableBody) return;
+
+	const oldRows = Array.from(planTableBody.rows).filter(row => row.hasAttribute('hidden'));
+	if (oldRows.length === 0) return;
+
+	if (!confirm(`旧データ行（変更候補のある行、または現在の作物条件で登録が見つからない行）を ${oldRows.length} 件削除します。よろしいですか？`)) {
+		return;
+	}
+
+	oldRows.forEach(row => row.remove());
+	updateRowNumbers();
 }
 
 // 成分の使用回数をカウントしてテーブルを更新する関数
@@ -1824,7 +2248,7 @@ function updateSeibunCountTable() {
 	}
 
 	const seibunData = new Map();
-	Array.from(planTableBody.rows).forEach(row => {
+	Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden')).forEach(row => {
 		const seibunCell = row.cells[11];
 		const seibunkaisuCell = row.cells[12];
 		const midCell = row.cells[13];
@@ -1866,15 +2290,17 @@ function updateSeibunCountTable() {
 	}).join('');
 
 	seibunContainer.innerHTML = `
-		<table id="seibunCountTable" class="handsontable-like">
-			<thead>
-				<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th></tr>
-			</thead>
-			<tbody>${rowsHtml}</tbody>
-			<tfoot>
-				<tr><td>合計</td><td></td><td>${totalCount}</td><td></td></tr>
-			</tfoot>
-		</table>
+		<div class="handsontable-like">
+			<table id="seibunCountTable">
+				<thead>
+					<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th></tr>
+				</thead>
+				<tbody>${rowsHtml}</tbody>
+				<tfoot>
+					<tr><td>合計</td><td></td><td>${totalCount}</td><td></td></tr>
+				</tfoot>
+			</table>
+		</div>
 		<div class="iconsbar">
 			<svg class="icon" onclick="copyTableToClipboard('seibunCountTable')">
 				<title>クリップボードにコピー</title>
@@ -1894,7 +2320,7 @@ function updateYakuzaiCountTable() {
 	}
 
 	const yakuzaiData = new Map();
-	Array.from(planTableBody.rows).forEach(row => {
+	Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden')).forEach(row => {
 		const tsusho = row.cells[4].textContent;
 		const kaisu = row.cells[7].textContent;
 
@@ -1919,12 +2345,14 @@ function updateYakuzaiCountTable() {
 	}).join('');
 
 	container.innerHTML = `
-		<table id="yakuzaiCountTable" class="handsontable-like">
-			<thead>
-				<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th></tr>
-			</thead>
-			<tbody>${rowsHtml}</tbody>
-		</table>
+		<div class="handsontable-like">
+			<table id="yakuzaiCountTable">
+				<thead>
+					<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th></tr>
+				</thead>
+				<tbody>${rowsHtml}</tbody>
+			</table>
+		</div>
 		<div class="iconsbar">
 			<svg class="icon" onclick="copyTableToClipboard('yakuzaiCountTable')">
 				<title>クリップボードにコピー</title>
@@ -1939,16 +2367,30 @@ function handleDrop(event) {
 
 	// firefox, Safari の場合
 	if (!isFileSystemAccessSupported) {
-		readFile(event);
+		readFile(event.dataTransfer.files[0]);
 		return;
 	}
 
 	// Chrome, Edge の場合
 	const item = event.dataTransfer.items[0];
-	if (item && item.kind === 'file') {
+	if (item && item.kind === 'file' && item.type === 'application/json') {
 		fileOpen(item);
 	} else {
 		alert('対応していないファイル形式です。');
+	}
+}
+
+// 自動保存データ復元
+function restorePlan() {
+	const savedString = localStorage.getItem('unsavedPlan');
+	try {
+		const appData = JSON.parse(savedString);
+		console.log('planData:', appData.planData);
+		const msg = `前回の未保存データ${appData.fileName ? `(ファイル名: ${appData.fileName})` : ''}を復元しました。`;
+		loadPlanFromJson(appData.planData, msg); 
+		currentFilename = appData.fileName;
+	} catch (err) {
+		console.error('データの復元に失敗しました:', err);
 	}
 }
 
@@ -1978,7 +2420,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	// フォールバック用inputが変更された時の処理（Firefox/Safari用）
 	const fallbackInput = document.getElementById('fallbackFileInput');
 	fallbackInput.addEventListener('change', (e) => {
-		readFile(e);
+		readFile(e.target.files[0]);
 		fallbackInput.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
 	});
 
@@ -1988,13 +2430,22 @@ window.addEventListener('DOMContentLoaded', async function() {
 		event.preventDefault(); // Allow drop
 	});
 	planContainer.addEventListener('drop', handleDrop);
+
+	// unsavedPlan がある場合は btnRestorePlan を可視化
+	if (localStorage.getItem('unsavedPlan')) document.getElementById('btnRestorePlan')?.classList.remove('hidden');
+
 });
 
 // タブ終了時の処理
 window.addEventListener('beforeunload', (event) => {
 	if (!isDirty) return; // 保存済みなら即終了
-	event.preventDefault();  // ブラウザの確認ダイアログ表示
-	event.returnValue = ''; // 古いブラウザ（互換性）のための記述
+	//event.preventDefault();  // ブラウザの確認ダイアログ表示
+	//event.returnValue = ''; // 古いブラウザ（互換性）のための記述
+	const appData = {
+		planData: convPlanToJson(),
+		fileName: currentFilename
+	};
+	localStorage.setItem('unsavedPlan', JSON.stringify(appData));
 });
 </script>
 </head>

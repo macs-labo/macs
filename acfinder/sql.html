@@ -48,6 +48,7 @@
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/show-hint.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/hint/sql-hint.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/selection/active-line.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/codemirror@5.65.21/addon/search/searchcursor.js"></script>
 <link rel="stylesheet" type="text/css" href="./editor.css" />
 <!--	タブ専用スタイル -->
 <style>
@@ -183,15 +184,382 @@ span.cm-variable-3 { font-weight: bold;  }
 	opacity: 0.8;
 }
 
+/* サーチルバーのスタイル */
+.searchbar {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	background: var(--bg-color-listbox);
+	border: 1px solid var(--bg-color-button);
+	border-radius: 4px;
+	box-shadow: 1px 1px 2px 1px rgba(0, 0, 0, 0.3);
+	padding: 4px 8px;
+	margin: 2px 0 5px;
+}
+.searchbar.hidden {
+	display: none;
+}
+.searchbar input[type="text"] {
+	width: 200px;
+}
+.searchbar button {
+	padding: 0 8px;
+	min-width: 24px;
+	height: 24px;
+}
+.searchbar .btn-prev,
+.searchbar .btn-next {
+	font-weight: bold;
+}
+.searchbar button:disabled {
+	background-color: var(--bg-color-listbox);
+	color: var(--bg-color-disabled);
+	border-color:  var(--bg-color-disabled);
+	cursor: default;
+}
+.search-counter {
+	color: var(--text-color-light);
+	min-width: 60px;
+	text-align: center;
+}
+.searchbar label {
+	position: relative;
+	top: -2px;
+}
+.searchbar label input[type="checkbox"] {
+	position: relative;
+	top: 3px;
+	margin-right: 2px;
+}
+
+:root {
+	--bg-color-highlight: rgba(255, 192, 0, 0.4); /* 薄い黄色 */
+	--bgcolor-highlight-current: rgba(255, 128, 0, 0.4) !important; /* オレンジ色 */
+}
+[data-theme="dark"] {
+	--bg-color-highlight: rgba(0, 96, 255, 0.5); /* 青 */
+	--bgcolor-highlight-current: rgba(96, 32 255, 0.5) !important; /* 青紫 */
+}
+
+/* すべてのマッチ箇所に適用されるハイライトスタイル */
+.cm-search-highlight {
+	background: var(--bg-color-highlight);
+	padding: 1px;
+}
+/* 現在選択されているマッチ箇所（currentIndex）を強調する場合 */
+.cm-search-highlight-current {
+	background: var(--bg-color-highlight-current);
+	padding: 1px;
+}
+
 </style>
 <!--	タブ専用の script -->
 <script>
 
-let editor; // CodeMirror instance
+let sqlEditor; // CodeMirror instance for sql
 let varEditor; // CodeMirror instance for variables
+let currentSqlFileHandel = null;
+let currentVarFileHandle = null;
+let currentSqlFilename = '';
+let currentVarFilename = '';
 
-function loadLocalFile(event) {
-	const file = event.target.files[0];
+// CodeMirrorのプロトタイプにカスタムメソッドを追加
+// 1. 編集されたか（Undoできるか）
+CodeMirror.prototype.isEdited = function() {
+	return this.historySize().undo > 0;
+};
+
+// 2. やり直せるか（Redoできるか）
+CodeMirror.prototype.canRedo = function() {
+	return this.historySize().redo > 0;
+};
+
+// 3. 空かどうか
+CodeMirror.prototype.isEmpty = function() {
+	return this.lineCount() === 1 && this.getLine(0).length === 0;
+};
+
+// 4. ツールバー UI 更新
+/*
+CodeMirror.prototype.updateToolbarState = function() {
+	// 共通ボタンの設定
+	if (this.btnSave) this.btnSave.classList.toggle('disabled', this.isEmpty());
+	if (this.btnSaveAs) this.btnSaveAs.classList.toggle('disabled', this.isEmpty());
+	if (this.btnClear) this.btnUndo.classList.toggle('disabled', this.isEmpty());
+	if (this.btnUndo) this.btnUndo.classList.toggle('disabled', !this.isEdited());
+	if (this.btnRedo) this.btnRedo.classList.toggle('disabled', !this.canRedo());
+	if (this.btnFind) this.btnFind.classList.toggle('disabled', this.isEmpty());
+
+	// btnExec がある場合はそれも設定
+	if (this.btnExec) this.btnExec.classList.toggle('disabled', this.isEmpty());
+};
+*/
+
+// 5. テキストクリア
+CodeMirror.prototype.clearText = function() {
+	this.searchbar.classList.add('hidden');
+	this.setValue('');
+	this.focus();
+	//this.updateToolbarState();
+};
+
+// 6. テキスト検索
+CodeMirror.prototype.doFind = function(shouldSelect = true) {
+	const query = this.searchInput.value;
+	this.matches = [];
+	this.currentIndex = -1;
+
+	// 前回付与したハイライト（マーカー）があればすべてクリア
+	if (this.searchMarkers) {
+		this.searchMarkers.forEach(marker => marker.clear());
+	}
+	this.searchMarkers = [];
+
+	if (!query) {
+		this.updateSearchbar();
+		return;
+	}
+
+	// 大文字小文字オプションのフラグ
+	const isCaseSensitive = this.searchCase.checked;
+	const regExpFlags = isCaseSensitive ? "g" : "gi";
+
+	let queryRegExp;
+	try {
+		// ✨ 常に正規表現オブジェクトとして生成
+		queryRegExp = new RegExp(query, regExpFlags);
+	} catch (e) {
+		// ユーザーが不完全な正規表現（例: 「(」だけなど）を入力している最中は、
+		// エラーにせず、一旦検索処理をスキップして安全に抜ける
+		this.updateSearchbar();
+		return;
+	}
+
+	// getSearchCursor に生成した RegExp オブジェクトを渡す
+	const cursor = this.getSearchCursor(queryRegExp);
+	while (cursor.findNext()) {
+		const fromPos = cursor.from();
+		const toPos = cursor.to();
+		
+		this.matches.push({ from: fromPos, to: toPos });
+
+		// 全てのマッチ箇所にハイライト用のクラスを付与
+		const marker = this.markText(fromPos, toPos, {
+			className: "cm-search-highlight"
+		});
+		this.searchMarkers.push(marker);
+	}
+
+	// マッチが存在する場合の処理
+	if (this.matches.length > 0) {
+		const currentPos = this.getCursor("start");
+		
+		let foundIndex = -1;
+		for (let i = 0; i < this.matches.length; i++) {
+			const matchFrom = this.matches[i].from;
+			if (matchFrom.line > currentPos.line || 
+				(matchFrom.line === currentPos.line && matchFrom.ch >= currentPos.ch)) {
+				foundIndex = i;
+				break;
+			}
+		}
+
+		if (foundIndex === -1) {
+			this.currentIndex = 0;
+		} else {
+			this.currentIndex = foundIndex;
+		}
+
+		// shouldSelect が true（またはデフォルト）の時だけキャレット・画面を動かす
+		if (shouldSelect) this.selectCurrentMatch();
+	}
+
+	this.updateSearchbar();
+};
+
+// 7. テキスト検索(次へ)
+CodeMirror.prototype.findNext = function() {
+	if (this.matches.length === 0) return;
+	this.currentIndex = (this.currentIndex + 1) % this.matches.length; // ループ移動
+	this.selectCurrentMatch();
+	this.updateSearchbar();
+}
+
+// 8. テキスト検索(前へ)
+CodeMirror.prototype.findPrev = function() {
+	if (this.matches.length === 0) return;
+	this.currentIndex = (this.currentIndex - 1 + this.matches.length) % this.matches.length; // ループ移動
+	this.selectCurrentMatch();
+	this.updateSearchbar();
+}
+
+// 9. 現在のマッチ箇所を選択して画面内にスクロール移動
+CodeMirror.prototype.selectCurrentMatch = function() {
+	if (this.currentIndex < 0 || this.currentIndex >= this.matches.length) return;
+	const match = this.matches[this.currentIndex];
+	this.setSelection(match.from, match.to);
+}
+
+// 10. サーチバーUI更新
+CodeMirror.prototype.updateSearchbar = function() {
+	if (this.matches.length === 0) {
+		this.searchCounter.textContent = "0/0";
+		this.btnPrev.disabled = true;
+		this.btnNext.disabled = true;
+	} else {
+		this.searchCounter.textContent = (this.currentIndex + 1) + "/" + this.matches.length;
+		this.btnPrev.disabled = false;
+		this.btnNext.disabled = false;
+	}
+}
+
+// 11. 選択文字列置換
+CodeMirror.prototype.doReplace = function() {
+	const query = this.searchInput.value;
+	const replaceText = this.replaceInput.value; // 置換後の文字列
+	if (!query) return;
+
+	// 1. 現在の選択位置（start）を起点に SearchCursor を生成
+	const searchOptions = { caseFold: !this.searchCase.checked };
+	const cursor = this.getSearchCursor(query, this.getCursor("start"), searchOptions);
+
+	// 2. 起点から数えて「最初のマッチ」を探す
+	if (cursor.findNext()) {
+		const fromPos = cursor.from();
+		const toPos = cursor.to();
+		this.replaceRange(replaceText, fromPos, toPos);
+		
+		// 3. 置換した直後のカーソル位置（行と文字位置）を計算
+		// 置換後の文字数によって位置が変わるため、再計算します
+		const nextStartPos = {
+			line: fromPos.line,
+			ch: fromPos.ch + replaceText.length
+		};
+		
+		// 4. 次のマッチ箇所を自動で探して選択（ハイライト）する
+		const nextCursor = this.getSearchCursor(query, nextStartPos);
+		if (nextCursor.findNext()) {
+			this.setSelection(nextCursor.from(), nextCursor.to());
+		} else {
+			// 次がなければ、置換した文字の直後にカーソルを移動
+			this.setCursor(nextStartPos);
+		}
+		
+		// 5. 文字列が変わったので、全体のスキャン（件数カウントなど）を再実行
+		this.doFind(); 
+	}
+}
+
+// 12. 検索結果のハイライトだけをクリアするメソッド
+CodeMirror.prototype.clearSearchHighlights = function() {
+	// 1. 画面上に表示されているハイライト（マーカー）をすべて消去
+	if (this.searchMarkers) {
+		this.searchMarkers.forEach(marker => marker.clear());
+	}
+	this.searchMarkers = []; // 配列を空にする
+
+	// 2. カウンタなどの表示もリセットしたい場合はここでUI側をクリア
+	// （Matches自体は残しておいても害はありませんが、混乱を防ぐため空にするのが安全です）
+	this.matches = [];
+	this.currentIndex = -1;
+	this.updateSearchbar(); 
+};
+
+// CodeMirror既存メソッドのオーバーライド
+// 1. オリジナルのメソッドを変数に退避
+const originalUndo = CodeMirror.prototype.undo;
+const originalRedo = CodeMirror.prototype.redo;
+
+// 2. undo メソッドを上書き
+CodeMirror.prototype.undo = function() {
+	originalUndo.call(this); // オリジナルの undo を実行 (thisの固定が必要)
+	this.focus();
+};
+
+// 3. redo メソッドを上書き
+CodeMirror.prototype.redo = function() {
+	originalRedo.call(this); // オリジナルの redo を実行
+	this.focus();
+};
+
+async function openFileVar(item = null) {
+	// 【パターンA】Firefox / Safari など（隠しinputを代わりにクリック）
+	if (!isFileSystemAccessSupported) {
+		document.getElementById('fileInputVar')?.click();
+		return;
+	}
+
+	// 【パターンB】Chrome / Edge など（上書き保存のルートに乗せる）
+	try {
+		let fileHandle = null;
+		if (item) {
+			fileHandle = await item.getAsFileSystemHandle();
+		} else {
+			[fileHandle] = await window.showOpenFilePicker({
+				types: [{ description: '変数ファイル', accept: { 'text/plain': ['.var'] }}],
+				excludeAcceptAllOption: false,
+				multiple: false
+			});
+		}
+		const file = await fileHandle.getFile();
+		if (file.name.toLowerCase().includes('.var')) {
+			currentVarFileHandle = fileHandle; // ハンドルを記憶
+			currentVarFilename = fileHandle.name; // ファイル名を保存
+		}
+		readFile(file); // データ読み込み共通関数へ
+	} catch (err) {
+		console.error('ファイル読込失敗:', err)
+		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
+	}
+}
+
+async function openFileSQL(item = null) {
+	// 【パターンA】Firefox / Safari など（隠しinputを代わりにクリック）
+	if (!isFileSystemAccessSupported) {
+		document.getElementById('fileInputSQL')?.click();
+		return;
+	}
+
+	// 【パターンB】Chrome / Edge など（上書き保存のルートに乗せる）
+	try {
+		let fileHandle = null;
+		if (item) {
+			fileHandle = await item.getAsFileSystemHandle();
+		} else {
+			[fileHandle] = await window.showOpenFilePicker({
+				types: [
+					{
+						description: '設定されたすべてのファイル',
+						accept: {
+							'text/plain': ['.txt', '.sql', '.var', '.url'],
+							'text/html': ['.html', '.htm'],
+							'application/zip': ['.zip'],
+							'application/pdf': ['.pdf']
+						}
+					}
+				],
+				excludeAcceptAllOption: false,
+				multiple: false
+			});
+		}
+		const file = await fileHandle.getFile();
+		const filename = file.name.toLowerCase();
+		if (filename.includes('.sql')) {
+			currentSqlFileHandle = fileHandle; // ハンドルを記憶
+			currentSqlFilename = fileHandle.name; // ファイル名を保存
+		}
+		if (filename.includes('.var')) {
+			currentVarFileHandle = fileHandle; // ハンドルを記憶
+			currentVarFilename = fileHandle.name; // ファイル名を保存
+		}
+		readFile(file); // データ読み込み共通関数へ
+	} catch (err) {
+		console.error('ファイル読込失敗:', err)
+		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
+	}
+}
+
+function readFile(file) {
 	if (!file) return;
 
 	const filename = file.name;
@@ -200,8 +568,8 @@ function loadLocalFile(event) {
 	if (extension === 'sql') {
 		const reader = new FileReader();
 		reader.onload = function () {
-			editor.setValue(reader.result);
-			editor.refresh();
+			sqlEditor.setValue(reader.result);
+			sqlEditor.refresh();
 		};
 		reader.readAsText(file);
 	} else if (extension === 'var') {
@@ -217,7 +585,7 @@ function loadLocalFile(event) {
 					const filePath = fileOwnersql.startsWith('/') ? fileOwnersql.substring(1) : fileOwnersql;
 					if (window.currentZip.file(filePath)) {
 						const sqlOwnersql = await loadFileFromZip(fileOwnersql);
-						if (sqlOwnersql) editor.setValue(sqlOwnersql);
+						if (sqlOwnersql) sqlEditor.setValue(sqlOwnersql);
 					}
 				}
 			}
@@ -263,7 +631,6 @@ function loadLocalFile(event) {
 	} else {
 		alert('サポートされていないファイル形式です。SQL, VAR または ZIPファイルを選択してください。');
 	}
-	event.target.value = ''; // 同じファイルを選択できるようにリセット
 }
 
 function getFilename(target, command, ext = '.sql') {
@@ -300,48 +667,103 @@ function getFilename(target, command, ext = '.sql') {
 	return filename;
 }
 
-function saveTextFile(filename, content) {
+function saveTextFileUrl(filename, content) {
 	const blob = new Blob([content], { type: "text/plain" });
-	const a = document.createElement("a");
-	a.href = URL.createObjectURL(blob);
-	a.download = filename;
-	a.click();
-	URL.revokeObjectURL(a.href);
+	saveAs(blob, filename);
+	//isDirty = false;
+	alert(
+		`「${filename}」をダウンロードしました。\n\n` +
+		"【便利なヒント】\n" +
+		"Google Chrome や Microsoft Edge などのブラウザでお使いいただくと、" +
+		"同じファイルへの「上書き保存」や「名前を付けて保存」ができるようになり、ファイルがたまらず便利です！"
+	);
 }
 
-function saveSQLFile() {
-	const sqlText = editor.getValue();
+async function saveTextFileApi(filename, content, overwrite) {
+	const isSql = filename.split('.').pop().toLowerCase() === 'sql';
+	const currentFileHandle = isSql ? currentSqlFileHandle : currentVarFileHandle;
+	const currentFilename = isSql ? currentSqlFilename : currentVarFilename;
+	// overwrite = true でファイルハンドルがあり、currentFilename === filename の場合は「上書き」
+	if (overwrite && currentFileHandle && currentFilename === filename) {
+		try {
+			const writable = await currentFileHandle.createWritable();
+			await writable.write(content);
+			await writable.close();
+			//isDirty = false;
+			alert('ファイルを上書き保存しました。');
+			return;
+		} catch (err) {
+			console.error('上書き失敗（新規保存に切り替えます）:', err);
+		}
+	}
+
+	// overwrite = false またはハンドルがない、または上書きに失敗した場合は「名前を付けて保存」
+	try {
+		let fileType;
+			fileType = { description: 'SQL Files', accept: { 'text/plain': ['.sql'] } };
+		if (isSql) {
+		} else {
+			fileType = { description: 'Var Files', accept: { 'text/plain': ['.var'] } };
+		}
+
+		const fileHandle = await window.showSaveFilePicker({
+			suggestedName: filename,
+			types: [fileType]
+		});
+		
+		
+		const writable = await fileHandle.createWritable();
+		await writable.write(content);
+		await writable.close();
+
+		if (isSql) {
+			currentSqlFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
+			currentSqlFilename = fileHandle.name;
+		} else {
+			currentVarFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
+			currentVarFilename = fileHandle.name;
+		}
+		//isDirty = false;
+		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		
+	} catch (err) {
+		if (err.name !== 'AbortError') {
+			alert('ファイルの保存に失敗しました。');
+		}
+	}
+
+}
+
+function saveSQLFile(overwrite = true) {
+	const sqlText = sqlEditor.getValue();
 	if (!sqlText) {
 		setToolbarText('<span class="caution">保存する SQL がありません</span>', 3000);
 		return;
 	}
-	const downloadFilename = getFilename(sqlText, 'filename') || 'query.sql';
-	saveTextFile(downloadFilename, sqlText);
+	const filename = getFilename(sqlText, 'filename') || 'query.sql';
+	if (isFileSystemAccessSupported) {
+		saveTextFileApi(filename, sqlText, overwrite);
+	} else {
+		saveTextFileUrl(filename, sqlText);
+	}
 }
 
-function saveVarFile() {
+function saveVarFile(overwrite = true) {
 	const varText = varEditor.getValue();
 	if (!varText) {
 		setToolbarText('<span class="caution">保存する変数定義がありません</span>', 3000);
 		return;
 	}
-	const downloadFilename = getFilename(varText, 'filename', '.var') || 'define.var';
-	saveTextFile(downloadFilename, varText);
-}
-
-function clearText(inputId) {
-	if (inputId === 'varInput') {
-		varEditor.setValue('');
-		varEditor.focus();
+	const filename = getFilename(varText, 'filename', '.var') || 'define.var';
+	if (isFileSystemAccessSupported) {
+		saveTextFileApi(filename, varText, overwrite);
 	} else {
-		editor.setValue('');
-		editor.focus();
+		saveTextFileUrl(filename, varText);
 	}
 }
 
 function setToolbarText(msg, autoClose = 0) {
-	const sqlToolbar = document.getElementById('sql_toolbar');
-	const toolbarText = document.getElementsByClassName('toolbar_text')[0];
+	const toolbarText = document.getElementById('toolbar_text');
 	return new Promise(resolve => {
 		// ブラウザに制御を返すために setTimeout を使用
 		// 描画を保証するために requestAnimationFrame を使用
@@ -534,7 +956,7 @@ async function dispatchSQLExecution() {
 	}
 	clearToolbarText(); // ツールバーメッセージクリア
 
-	let sql = editor.getValue();
+	let sql = sqlEditor.getValue();
 
 	// 使用変数のチェック
 	const usedVars = new Set();
@@ -835,42 +1257,42 @@ function openTextAsHtml(text, title, charset = 'UTF-8') {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${title}</title>
 <style>
-  body {
-    margin: 0;
-    padding: 2em 6%;
-    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
-    font-size: 16px;
-    line-height: 2.0;
-    color: #222;
-    background: #fdfcfa;
-    max-width: 860px;
-    margin-left: auto;
-    margin-right: auto;
-  }
-  h1 {
-    font-size: 1.1em;
-    font-weight: normal;
-    color: #666;
-    border-bottom: 1px solid #ddd;
-    padding-bottom: 0.4em;
-    margin-bottom: 1.5em;
-  }
-  pre {
-    white-space: pre-wrap;
-    word-break: break-all;
-    margin: 0;
-    font-family: inherit;
-    font-size: inherit;
-    line-height: inherit;
-  }
-  footer {
-    margin-top: 3em;
-    padding-top: 0.8em;
-    border-top: 1px solid #ddd;
-    font-size: 0.8em;
-    color: #aaa;
-    text-align: right;
-  }
+	body {
+		margin: 0;
+		padding: 2em 6%;
+		font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", "Noto Sans JP", sans-serif;
+		font-size: 16px;
+		line-height: 2.0;
+		color: #222;
+		background: #fdfcfa;
+		max-width: 860px;
+		margin-left: auto;
+		margin-right: auto;
+	}
+	h1 {
+		font-size: 1.1em;
+		font-weight: normal;
+		color: #666;
+		border-bottom: 1px solid #ddd;
+		padding-bottom: 0.4em;
+		margin-bottom: 1.5em;
+	}
+	pre {
+		white-space: pre-wrap;
+		word-break: break-all;
+		margin: 0;
+		font-family: inherit;
+		font-size: inherit;
+		line-height: inherit;
+	}
+	footer {
+		margin-top: 3em;
+		padding-top: 0.8em;
+		border-top: 1px solid #ddd;
+		font-size: 0.8em;
+		color: #aaa;
+		text-align: right;
+	}
 </style>
 </head>
 <body>
@@ -926,8 +1348,8 @@ async function handleFileSelection(path) {
 		} else {
 			const content = await zip.file(path).async('text');
 			if (path.endsWith('.sql')) {
-				editor.setValue(content);
-				editor.refresh();
+				sqlEditor.setValue(content);
+				sqlEditor.refresh();
 			} else if (path.endsWith('.var')) {
 				varEditor.setValue(content);
 				toggleVarEditor(false);
@@ -935,7 +1357,7 @@ async function handleFileSelection(path) {
 				const fileOwnersql = getFilename(content, 'ownersql');
 				if (fileOwnersql) {
 					const sqlOwnersql = await loadFileFromZip(fileOwnersql);
-					if (sqlOwnersql) editor.setValue(sqlOwnersql);
+					if (sqlOwnersql) sqlEditor.setValue(sqlOwnersql);
 				}
 			} else {
 				alert('サポートされていないファイル形式です。');
@@ -956,14 +1378,14 @@ function reloadStdSQL(obj) {
 function insertQueryToTextarea(selectedValue) {
 	if (selectedValue) {
 		// テキストエリアの現在の内容を取得
-		let currentText = editor.getValue();
+		let currentText = sqlEditor.getValue();
 
 		// テキストエリアが空でない場合は改行を追加
 		if (currentText && !currentText.endsWith('\n')) currentText += '\n';
 
 		// エディタに選択されたクエリを追加
-		editor.setValue(currentText + selectedValue + ' ');
-		editor.refresh();
+		sqlEditor.setValue(currentText + selectedValue + ' ');
+		sqlEditor.refresh();
 
 		// ドロップダウンを最初の選択肢にリセット
 		document.getElementById('queryDropdown').selectedIndex = 0;
@@ -973,17 +1395,37 @@ function insertQueryToTextarea(selectedValue) {
 function loadAutoSavedSQL() {
 	const savedSQL = localStorage.getItem('sqlText');
 	if (savedSQL) {
-		// editor にテキストがある場合は、confirm ダイアログ表示
-		let loadEnabled = editor.getValue() === '';
+		// sqlEditor にテキストがある場合は、confirm ダイアログ表示
+		let loadEnabled = sqlEditor.isEmpty;
 		if (!loadEnabled) {
 			loadEnabled = window.confirm('エディタが空ではありません。自動保存されたSQLで上書きしてもよいですか？');
 		}
 		if (loadEnabled) {
-			editor.setValue(savedSQL);
-			editor.refresh();
+			sqlEditor.setValue(savedSQL);
+			sqlEditor.refresh();
+			localStorage.removeItem('sqlText');
+			document.getElementById('autoSaved')?.classList.add('hidden');
 		}
 	} else {
 		alert('自動保存されたSQLは見つかりませんでした。');
+	}
+}
+
+function handleDrop(event) {
+	event.preventDefault();
+
+	// firefox, Safari の場合
+	if (!isFileSystemAccessSupported) {
+		readFile(event.dataTransfer.files[0]);
+		return;
+	}
+
+	// Chrome, Edge の場合
+	const item = event.dataTransfer.items[0];
+	if (item && item.kind === 'file') {
+		openFileSQL(item);
+	} else {
+		alert('対応していないファイル形式です。');
 	}
 }
 
@@ -996,6 +1438,215 @@ function toggleVarEditor(sw = '') {
 	if (!sw && varEditor) {
 		setTimeout(() => varEditor.refresh(), 0);
 	}
+}
+// ツールバー UI 更新
+function updateToolbarState(cm) {
+	// 共通ボタンの設定
+	if (cm.btnSave) cm.btnSave.classList.toggle('disabled', cm.isEmpty());
+	if (cm.btnSaveAs) cm.btnSaveAs.classList.toggle('disabled', cm.isEmpty());
+	if (cm.btnClear) cm.btnClear.classList.toggle('disabled', cm.isEmpty());
+	if (cm.btnUndo) cm.btnUndo.classList.toggle('disabled', !cm.isEdited());
+	if (cm.btnRedo) cm.btnRedo.classList.toggle('disabled', !cm.canRedo());
+	if (cm.btnFind) cm.btnFind.classList.toggle('disabled', cm.isEmpty());
+
+	// btnExec がある場合はそれも設定
+	if (cm.btnExec) {
+		cm.btnExec.classList.toggle('disabled', cm.isEmpty());
+		const autoSaved = document.getElementById('autoSaved');
+		if (cm.isEdited() && !autoSaved.classList.contains('hidden')) {
+			localStorage.removeItem('sqlText');
+			autoSaved.classList.add('hidden');
+		}
+	}
+};
+
+// 改行文字を表示
+function dispNewLine(cm, line, element) {
+	if (line.lineNo() === cm.lastLine()) return; // 最終行には表示しない
+	const newlineChar = document.createElement('div');
+	newlineChar.textContent = '↲';
+	newlineChar.className = 'cm-newline-char';
+	element.appendChild(newlineChar);
+};
+
+function doSearch(cm) {
+	const selection = cm.getSelection();
+	if (!selection) return;
+	cm.searchInput.value = selection;
+	cm.doFind();
+}
+
+function toggleSearchbar(cm) {
+	cm.searchbar.classList.toggle('hidden');
+	if (cm.searchbar.classList.contains('hidden')) {
+		cm.clearSearchHighlights();
+	} else {
+		doSearch(cm);
+	}
+}
+
+function handleSearchFocus(cm) {
+	cm.searchbar.classList.remove('hidden');
+	doSearch(cm)
+}
+
+// CodeMirror の生成とツールバー設定
+function setupEditor(editorID, containerID, options = {}) {
+	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
+	// キーバインドの定義（Windows/Mac両対応）
+	const keyMaps = {
+		"Ctrl-F": function(cm) { handleSearchFocus(cm); },
+		"Cmd-F": function(cm) { handleSearchFocus(cm); },
+		...options.keyMaps || {}
+	}
+	const baseOptions = {
+		theme: theme,
+		styleActiveLine: true,
+		lineNumbers: true,
+		lineWrapping: true,
+		tabSize: 2,
+		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
+		matchBrackets: true,
+		extraKeys: keyMaps, // ここでキー入力をフック
+		// 可視化したい全角文字を定義
+		specialChars: /[　（）；]/, // 全角スペース、全角括弧、全角セミコロンを対象にする
+		specialCharPlaceholder: function(char) {
+			// 上記 specialChars で定義した文字にマッチした場合に呼び出される
+			const span = document.createElement('span');
+
+			// 常にマッチした文字自身を表示し、スタイルを適用する
+			span.textContent = char;
+			span.className = 'cm-visible-zenkaku';
+
+			// 念のため、他の文字が来た場合のフォールバックは不要になりますが、
+			// もし特定の文字だけ除外したい場合は if 文で分岐させます。
+			return span;
+		}
+	};
+	const customOptions = options.customOptions || {};
+	const finalOptions = { ...baseOptions, ...customOptions };
+
+	// エディタの初期化
+	const cm = CodeMirror.fromTextArea(document.getElementById(editorID), finalOptions);
+	const container = document.getElementById(containerID);
+
+	// ツールバー追加
+	const toolbar = document.createElement('div');
+	toolbar.className = 'toolbar';
+	const toolbarOption = options.toolbar || {};
+	const toolbarTop = toolbarOption.top || '';
+	const toolbarEnd = toolbarOption.end || '';
+	const toolbarCmm = `
+		<svg class="icon clear disabled">
+			<title>テキスト消去</title>
+			<use href="icons.svg#text-clear"></use>
+		</svg>
+		<svg class="icon undo disabled">
+			<title>元に戻す</title>
+			<use href="icons.svg#undo"></use>
+		</svg>
+		<svg class="icon redo disabled">
+			<title>やり直す</title>
+			<use href="icons.svg#redo"></use>
+		</svg>
+		<svg class="icon find disabled">
+			<title>テキスト検索</title>
+			<use href="icons.svg#search-box"></use>
+		</svg>
+		<svg class="icon" onclick="toggleVarEditor()">
+			<title>変数エディタ開閉</title>
+			<use href="icons.svg#source-code"></use>
+		</svg>
+	`;
+	toolbar.innerHTML = toolbarTop + toolbarCmm + toolbarEnd;
+	container.prepend(toolbar);
+
+	// ツールバーボタンをインスタンスに格納
+	cm.btnSave = toolbar.querySelector('.save');
+	cm.btnSaveAs = toolbar.querySelector('.saveAs');
+	cm.btnClear = toolbar.querySelector('.clear');
+	cm.btnUndo = toolbar.querySelector('.undo');
+	cm.btnRedo = toolbar.querySelector('.redo');
+	cm.btnFind = toolbar.querySelector('.find');
+	cm.btnExec = toolbar.querySelector('.exec');
+
+	// ツールバーボタンの設定
+	if (!isFileSystemAccessSupported) {
+		const title = cm.btnSave.querySelector('title');
+		if (title) {
+			title.textContent = title.textContent.replace('を上書き', '');
+		}
+		cm.btnSaveAs?.classList.add('hidden');
+	}
+
+	// ツールバーボタンのイベントハンドラをバインド
+	cm.btnClear.addEventListener('click', function() { cm.clearText(); })
+	cm.btnUndo.addEventListener('click', function() { cm.undo(); });
+	cm.btnRedo.addEventListener('click', function() { cm.redo(); });
+	cm.btnFind.addEventListener('click', function() { toggleSearchbar(cm); });
+
+	// このエディタ専用のサーチ状態管理プロパティ初期化
+	cm.matches = [];
+	cm.currentIndex = -1;
+
+	// サーチバー追加
+	const searchbar = document.createElement('div');
+	searchbar.className = 'searchbar hidden';
+	searchbar.innerHTML = `
+		<label for="caseInsensitive" class="case-label" title="大文字/小文字を区別">
+			<input type="checkbox" id="caseInsensitive" class="search-case">Aa
+		</label>
+		<input type="text" class="search-input" placeholder="検索キーワードを入力...">
+		<input type="text" class="replace-input" placeholder="置換後の文字列...">
+		<span class="search-counter">0/0</span>
+		<button class="btn-prev" title="前の一致項目" disabled>↑</button>
+		<button class="btn-next" title="次の一致項目" disabled>↓</button>
+		<button class="btn-replace" disabled>置換</button>
+	`;
+	toolbar.insertAdjacentElement('afterend', searchbar);
+
+	// サーチバーのUIパーツをクラス名で取得
+	cm.searchbar = searchbar;
+	cm.searchInput = searchbar.querySelector(".search-input");
+	cm.replaceInput = searchbar.querySelector(".replace-input");
+	cm.searchCase = searchbar.querySelector(".search-case");
+	cm.searchCounter = searchbar.querySelector(".search-counter");
+	cm.btnPrev = searchbar.querySelector(".btn-prev");
+	cm.btnNext = searchbar.querySelector(".btn-next");
+	cm.btnReplace = searchbar.querySelector(".btn-replace");
+
+	// サーチバーUIパーツのイベントハンドラをバインド
+	cm.searchInput.addEventListener('input', function() { cm.doFind() });
+	cm.searchCase.addEventListener("change", function() { cm.doFind(); });
+	cm.btnPrev.addEventListener('click', function() { cm.findPrev() });
+	cm.btnNext.addEventListener('click', function() { cm.findNext() });
+	cm.btnReplace.addEventListener('click', function() { cm.doReplace() });
+	cm.replaceInput.addEventListener('input', () => {
+		cm.btnReplace.disabled = cm.replaceInput.value === ''
+	});
+
+	let debounceTimer = null;
+
+	// CodeMirrorのイベントをバインド
+	cm.on('undo', updateToolbarState);
+	cm.on('redo', updateToolbarState);
+	cm.on("renderLine", dispNewLine);
+	cm.on('change', function(cm, changeObj) {
+		// 1. すでに動いているタイマーがあればキャンセル（イベントの間引き）
+		if (debounceTimer) {
+			clearTimeout(debounceTimer);
+		}
+
+		// 2. ユーザーの入力が止まってから「150ミリ秒後」に doFind を実行
+		// ※ 体感で遅れを感じず、かつ負荷を下げられる 150ms 〜 200ms あたりが最適です
+		debounceTimer = setTimeout(function() {
+			updateToolbarState(cm);
+			// if (changeObj.origin === "setValue") cm.searchInput.value = ""; // 💡 setValue が実行されたときだけ検索ワードをクリアしたい場合はこれを有効に
+			if (!cm.searchbar.classList.contains('hidden')) cm.doFind(false);
+		}, 150);
+	});
+
+	return cm;
 }
 
 // DOM読込完了時の初期設定
@@ -1062,12 +1713,10 @@ window.addEventListener('DOMContentLoaded', async function() {
 		}
 	})();
 
-	const theme = getCurrentTheme() === 'dark' ? 'darcula' : 'eclipse';
-
 	// SQLキーワードがテーブル名より先に表示されるように、標準のヒント関数をオーバーライド
 	const originalSqlHint = CodeMirror.hint.sql;
-	CodeMirror.hint.sql = function(editor, options) {
-		const result = originalSqlHint(editor, options);
+	CodeMirror.hint.sql = function(sqlEditor, options) {
+		const result = originalSqlHint(sqlEditor, options);
 		if (result) {
 			const keywords = [];
 			const tables = [];
@@ -1123,37 +1772,46 @@ window.addEventListener('DOMContentLoaded', async function() {
 		};
 	});
 
-	// CodeMirrorの初期化
-	editor = CodeMirror.fromTextArea(document.getElementById('sqlInput'), {
+	// SQLエディタの初期化
+	const sqlOptions = {}
+	sqlOptions['customOptions'] = {
 		mode: 'text/x-sql',
-		theme: theme,		
-		styleActiveLine: true,
-		lineNumbers: true,
-		lineWrapping: true,
-		tabSize: 2,
-		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
-		extraKeys: {"Ctrl-Space": "autocomplete"}, // "autocomplete" は CodeMirror.hint.sql を呼び出す
 		hintOptions: { tables: tablesForHint },
-		autofocus: true,
-		// 可視化したい全角文字を定義
-		specialChars: /[　（）；]/, // 全角スペース、全角括弧、全角セミコロンを対象にする
-		specialCharPlaceholder: function(char) {
-			// 上記 specialChars で定義した文字にマッチした場合に呼び出される
-			const span = document.createElement('span');
-
-			// 常にマッチした文字自身を表示し、スタイルを適用する
-			span.textContent = char;
-			span.className = 'cm-visible-zenkaku';
-
-			// 念のため、他の文字が来た場合のフォールバックは不要になりますが、
-			// もし特定の文字だけ除外したい場合は if 文で分岐させます。
-			return span;
-		},
-		matchBrackets: true
-	});
+		autofocus: true
+	};
+	sqlOptions['keyMaps'] = { "Ctrl-Space": "autocomplete" }; // "autocomplete" は CodeMirror.hint.sql を呼び出す
+	sqlOptions['toolbar'] = {
+		top: `
+			<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" class="hidden">
+			<svg class="icon" onclick="openFileSQL()">
+				<title>SQL/ZIPファイル読込</title>
+				<use href="icons.svg#folder-open"></use>
+			</svg>
+			<svg class="icon save disabled" onclick="saveSQLFile()">
+				<title>SQLファイルを上書き保存</title>
+				<use href="icons.svg#save"></use>
+			</svg>
+			<svg class="icon saveAs disabled" onclick="saveSQLFile(false)">
+				<title>SQLファイルを名前を付けて保存</title>
+				<use href="icons.svg#save-as"></use>
+			</svg>
+		`,
+		end : `
+			<svg class="icon exec disabled" onclick="dispatchSQLExecution()">
+				<title>クエリー実行</title>
+				<use href="icons.svg#database-search"></use>
+			</svg>
+			<svg id="autoSaved" class="icon hidden" onclick="loadAutoSavedSQL()">
+				<title>自動保存SQL読込</title>
+				<use href="icons.svg#library"></use>
+			</svg>
+			<span id="toolbar_text"></span>
+		`
+	};
+	sqlEditor = setupEditor('sqlInput', 'sql_editor', sqlOptions);
 
 	// SQLエディタで {$変数} をハイライトするオーバーレイ定義
-	editor.addOverlay({
+	sqlEditor.addOverlay({
 		token: function(stream) {
 			if (stream.match(/^\{\$[a-zA-Z0-9_]+\}/)) {
 				return "variable-3";
@@ -1167,39 +1825,9 @@ window.addEventListener('DOMContentLoaded', async function() {
 		}
 	});
 
-	// 改行文字を表示するための処理
-	editor.on("renderLine", function(cm, line, element) {
-		// 最終行には表示しない
-		if (line.lineNo() === cm.lastLine()) return;
-
-		const newlineChar = document.createElement('div');
-		newlineChar.textContent = '↲';
-		newlineChar.className = 'cm-newline-char';
-		element.appendChild(newlineChar);
-	});
-
-	// 変数エディタの初期化
-	varEditor = CodeMirror.fromTextArea(document.getElementById('varInput'), {
-		mode: 'varMode',
-		theme: theme,
-		styleActiveLine: true,
-		lineNumbers: true,
-		lineWrapping: true,
-		tabSize: 2,
-		indentWithTabs: true, // スペースではなくタブ文字を使用する場合
-		matchBrackets: true
-	});
-	varEditor.on("renderLine", function(cm, line, element) {
-		if (line.lineNo() === cm.lastLine()) return;
-		const newlineChar = document.createElement('div');
-		newlineChar.textContent = '↲';
-		newlineChar.className = 'cm-newline-char';
-		element.appendChild(newlineChar);
-	});
-
-	editor.on("focus", () => clearToolbarText());
+	sqlEditor.on("focus", () => clearToolbarText());
 	// 文字入力時に自動で補完候補を表示する
-	editor.on("inputRead", function(cm, change) {
+	sqlEditor.on("inputRead", function(cm, change) {
 		// 入力が1文字の英数字または'.'の場合に補完をトリガー
 		if (/[\w.]/.test(change.text[0])) {
 			// completeSingle: false は、候補が1つの場合に自動で補完しないようにする設定
@@ -1207,8 +1835,28 @@ window.addEventListener('DOMContentLoaded', async function() {
 		}
 	});
 
+	// 変数エディタの初期化
+	const varOptions = {};
+	varOptions['customOptions'] = { mode: 'varMode' };
+	varOptions['toolbar'] = { top: `
+		<input type="file" id="fileInputVar" accept=".var" class="hidden">
+		<svg class="icon" onclick="openFileVar()">
+			<title>変数ファイル読込</title>
+			<use href="icons.svg#folder-open"></use>
+		</svg>
+		<svg class="icon save disabled" onclick="saveVarFile()">
+			<title>変数ファイルを上書き保存</title>
+			<use href="icons.svg#save"></use>
+		</svg>
+		<svg class="icon saveAs disabled" onclick="saveVarFile(false)">
+			<title>変数ファイルを名前を付けて保存</title>
+			<use href="icons.svg#save-as"></use>
+		</svg>
+	`};
+	varEditor = setupEditor('varInput', 'var_editor', varOptions);
+
 	// sql, var をクリアする(firefox 対策)
-	editor.setValue('');
+	sqlEditor.setValue('');
 	varEditor.setValue('');
 
 	// ドロップダウンの変更イベントを監視
@@ -1220,13 +1868,42 @@ window.addEventListener('DOMContentLoaded', async function() {
 	const topToggler = document.getElementById('topToggler');
 	if (topToggler) topToggler.title = 'SQLエディタを開閉';
 
+	// フォールバック用inputが変更された時の処理（Firefox/Safari用）
+	const fallbackSQL = document.getElementById('fileInputSQL');
+	fallbackSQL.addEventListener('change', (e) => {
+		readFile(e.target.files[0]);
+		fallbackSQL.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
+	});
+	const fallbackVar = document.getElementById('fileInputVar');
+	fallbackVar.addEventListener('change', (e) => {
+		readFile(e.target.files[0]);
+		fallbackVar.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
+	});
+
+	// ドラッグ＆ドロップのイベントリスナーを設定
+	const sql_editor = document.getElementById('sql_editor');
+	sql_editor.addEventListener('dragover', (event) => {
+		event.preventDefault(); // Allow drop
+	});
+	sql_editor.addEventListener('drop', handleDrop);
+	const var_editor = document.getElementById('var_editor');
+	var_editor.addEventListener('dragover', (event) => {
+		event.preventDefault(); // Allow drop
+	});
+	var_editor.addEventListener('drop', handleDrop);
+
+	// sqlText がある場合は autoSaved ボタン可視化
+	if (localStorage.getItem('sqlText')) document.getElementById('autoSaved')?.classList.remove('hidden');
+
 	// ファイルツリーを生成
 	setupFileTree();
 
-	// unload 前に sql を localStorage に保存
-	window.addEventListener('beforeunload', function() {
-		localStorage.setItem('sqlText', editor.getValue());
-	});
+});
+
+// unload 前に sql を localStorage に保存
+window.addEventListener('beforeunload', function() {
+	if (!sqlEditor.isEdited) return;
+	localStorage.setItem('sqlText', sqlEditor.getValue());
 });
 </script>
 </head>
@@ -1269,60 +1946,9 @@ window.addEventListener('DOMContentLoaded', async function() {
 		<div id="resultPane">
 			<div id="resultTop">
 				<div id="sql_editor"><!-- SQLエディタ部 -->
-					<div id="sql_toolbar" class="toolbar"><!-- SQLツールバー配置 -->
-						<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" onchange="loadLocalFile(event)" class="hidden">
-						<svg class="icon" onclick="loadAutoSavedSQL()">
-							<title>自動保存SQL読込</title>
-							<use href="icons.svg#library"></use>
-						</svg>
-						<label for="fileInputSQL">
-							<svg class="icon">
-								<title>SQL/ZIPファイル読込</title>
-								<use href="icons.svg#folder-open"></use>
-							</svg>
-						</label>
-						<svg class="icon" onclick="saveSQLFile()">
-							<title>SQLファイル保存</title>
-							<use href="icons.svg#floppy-disk"></use>
-						</svg>
-						<svg class="icon" onclick="clearText('sqlInput')">
-							<title>テキスト消去</title>
-							<use href="icons.svg#text-clear"></use>
-						</svg>
-						<svg class="icon" onclick="toggleVarEditor()">
-							<title>変数エディタ開閉</title>
-							<use href="icons.svg#source-code"></use>
-						</svg>
-						<svg class="icon" onclick="dispatchSQLExecution()">
-							<title>クエリー実行</title>
-							<use href="icons.svg#database-search"></use>
-						</svg>
-						<span class="toolbar_text"></span>
-					</div>
 					<textarea id="sqlInput"></textarea><!--	SQL エディタ -->
 				</div>
 				<div id="var_editor" class="closed"><!-- 変数エディタ部 -->
-					<div id="var_toolbar" class="toolbar"><!-- 変数ツールバー配置 -->
-						<input type="file" id="fileInputVar" accept=".var" onchange="loadLocalFile(event)" class="hidden">
-						<label for="fileInputVar">
-							<svg class="icon">
-								<title>変数ファイル読込</title>
-								<use href="icons.svg#folder-open"></use>
-							</svg>
-						</label>
-						<svg class="icon" onclick="saveVarFile()">
-							<title>変数ファイル保存</title>
-							<use href="icons.svg#floppy-disk"></use>
-						</svg>
-						<svg class="icon" onclick="clearText('varInput')">
-							<title>テキスト消去</title>
-							<use href="icons.svg#text-clear"></use>
-						</svg>
-						<svg class="icon" onclick="toggleVarEditor()">
-							<title>変数エディタ開閉</title>
-							<use href="icons.svg#source-code"></use>
-						</svg>
-					</div>
 					<textarea id="varInput"></textarea><!--	変数エディタ -->
 				</div>
 			</div>

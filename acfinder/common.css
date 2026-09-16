@@ -388,7 +388,7 @@ dialog {
 	height: 28px;
 }
 
-.inputbar select { width: 4rem; }
+.inputbar select { width: 46px; }
 
 .selector {
 	flex-shrink: 0;
@@ -399,6 +399,12 @@ dialog {
 
 .selector select {
 	margin-top: 7px;
+}
+
+svg.disabled {
+	pointer-events: none;
+	cursor: not-allowed;
+	opacity: 0.3;
 }
 
 .icon {
