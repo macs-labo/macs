@@ -657,33 +657,99 @@ function getFilename(target, command, ext = '.sql') {
 	return filename;
 }
 
-function saveTextFile(filename, content) {
+function saveTextFileUrl(filename, content) {
 	const blob = new Blob([content], { type: "text/plain" });
-	const a = document.createElement("a");
-	a.href = URL.createObjectURL(blob);
-	a.download = filename;
-	a.click();
-	URL.revokeObjectURL(a.href);
+	saveAs(blob, filename);
+	//isDirty = false;
+	alert(
+		`「${filename}」をダウンロードしました。\n\n` +
+		"【便利なヒント】\n" +
+		"Google Chrome や Microsoft Edge などのブラウザでお使いいただくと、" +
+		"同じファイルへの「上書き保存」や「名前を付けて保存」ができるようになり、ファイルがたまらず便利です！"
+	);
 }
 
-function saveSQLFile() {
+async function saveTextFileApi(filename, content, overwrite) {
+	const isSql = filename.split('.').pop().toLowerCase() === 'sql';
+	const currentFileHandle = isSql ? currentSqlFileHandel : currentVarFileHandle;
+	// overwrite = true でファイルハンドルがある場合は「上書き」
+	if (overwrite && currentFileHandle) {
+		console.log('fileHandel: ', currentFileHandle);
+		try {
+			const writable = await currentFileHandle.createWritable();
+			await writable.write(content);
+			await writable.close();
+			//isDirty = false;
+			alert('ファイルを上書き保存しました。');
+			return;
+		} catch (err) {
+			console.error('上書き失敗（新規保存に切り替えます）:', err);
+		}
+	}
+
+	// overwrite = false またはハンドルがない、または上書きに失敗した場合は「名前を付けて保存」
+	try {
+		let fileType;
+			fileType = { description: 'SQL Files', accept: { 'text/plain': ['.sql'] } };
+		if (isSql) {
+		} else {
+			fileType = { description: 'Var Files', accept: { 'text/plain': ['.var'] } };
+		}
+
+		const fileHandle = await window.showSaveFilePicker({
+			suggestedName: filename,
+			types: [fileType]
+		});
+		
+		
+		const writable = await fileHandle.createWritable();
+		await writable.write(content);
+		await writable.close();
+
+		if (isSql) {
+			currentSqlFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
+			currentSqlFilename = fileHandle.name;
+		} else {
+			currentVarFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
+			currentVarFilename = fileHandle.name;
+		}
+		//isDirty = false;
+		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		
+	} catch (err) {
+		if (err.name !== 'AbortError') {
+			alert('ファイルの保存に失敗しました。');
+		}
+	}
+
+}
+
+function saveSQLFile(overwrite = true) {
 	const sqlText = sqlEditor.getValue();
 	if (!sqlText) {
 		setToolbarText('<span class="caution">保存する SQL がありません</span>', 3000);
 		return;
 	}
-	const downloadFilename = getFilename(sqlText, 'filename') || 'query.sql';
-	saveTextFile(downloadFilename, sqlText);
+	const filename = getFilename(sqlText, 'filename') || 'query.sql';
+	if (isFileSystemAccessSupported) {
+		saveTextFileApi(filename, sqlText, overwrite);
+	} else {
+		saveTextFileUrl(filename, sqlText);
+	}
 }
 
-function saveVarFile() {
+function saveVarFile(overwrite = true) {
 	const varText = varEditor.getValue();
 	if (!varText) {
 		setToolbarText('<span class="caution">保存する変数定義がありません</span>', 3000);
 		return;
 	}
-	const downloadFilename = getFilename(varText, 'filename', '.var') || 'define.var';
-	saveTextFile(downloadFilename, varText);
+	const filename = getFilename(varText, 'filename', '.var') || 'define.var';
+	if (isFileSystemAccessSupported) {
+		saveTextFileApi(filename, varText, overwrite);
+	} else {
+		saveTextFileUrl(filename, varText);
+	}
 }
 
 function setToolbarText(msg, autoClose = 0) {
