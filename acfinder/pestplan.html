@@ -185,9 +185,6 @@ select option:checked {
 	margin: 10px 0 5px;
 	font-weight: bold;
 }
-#planContainer > div {
-	overflow-x: auto;
-}
 #planContainer table {
 	margin-top: 0;
 }
@@ -1486,6 +1483,18 @@ function convPlanToJson() {
 
 // planTable の内容を JSON 形式で保存する関数
 async function savePlanAsJson(overwrite = true) {
+	// 登録日の古い旧データ行(olddata)が残っている場合は、保存前に確認する
+	const planTableBodyForCheck = document.querySelector('#planTable tbody');
+	const hasOldDataRowsForSave = planTableBodyForCheck
+		? Array.from(planTableBodyForCheck.rows).some(row => row.hasAttribute('hidden'))
+		: false;
+	if (hasOldDataRowsForSave) {
+		const proceedWithSave = confirm(
+			'登録日の古いデータ行が残っています。保存すると現在開いているDBの登録更新日が保存されますので、古いデータ行を削除してから保存することをおすすめします。このまま保存する場合は、次回読み込み時に古いデータ行が残った状態で表示されることをご承知ください。'
+		);
+		if (!proceedWithSave) return;
+	}
+
 	const saveData = convPlanToJson();
 
 	// デフォルトファイル名
