@@ -671,10 +671,10 @@ function saveTextFileUrl(filename, content) {
 
 async function saveTextFileApi(filename, content, overwrite) {
 	const isSql = filename.split('.').pop().toLowerCase() === 'sql';
-	const currentFileHandle = isSql ? currentSqlFileHandel : currentVarFileHandle;
-	// overwrite = true でファイルハンドルがある場合は「上書き」
-	if (overwrite && currentFileHandle) {
-		console.log('fileHandel: ', currentFileHandle);
+	const currentFileHandle = isSql ? currentSqlFileHandle : currentVarFileHandle;
+	const currentFilename = isSql ? currentSqlFilename : currentVarFilename;
+	// overwrite = true でファイルハンドルがあり、currentFilename === filename の場合は「上書き」
+	if (overwrite && currentFileHandle && currentFilename === filename) {
 		try {
 			const writable = await currentFileHandle.createWritable();
 			await writable.write(content);
