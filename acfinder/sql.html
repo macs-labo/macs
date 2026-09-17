@@ -1645,7 +1645,7 @@ function setupEditor(editorID, containerID, options = {}) {
 	cm.btnPrev.addEventListener('click', function() { cm.findPrev() });
 	cm.btnNext.addEventListener('click', function() { cm.findNext() });
 	cm.btnReplace.addEventListener('click', function() { cm.doReplace() });
-	cm.btnSelAll.addEventListener('click', function() { cm.selectAllMacthes() });
+	cm.btnSelAll.addEventListener('click', function() { cm.selectAllMatches() });
 	cm.replaceInput.addEventListener('input', () => {
 		cm.btnReplace.disabled = cm.replaceInput.value === ''
 	});
