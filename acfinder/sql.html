@@ -406,10 +406,12 @@ CodeMirror.prototype.updateSearchbar = function() {
 		this.searchCounter.textContent = "0/0";
 		this.btnPrev.disabled = true;
 		this.btnNext.disabled = true;
+		this.btnSelAll.disabled = true;
 	} else {
 		this.searchCounter.textContent = (this.currentIndex + 1) + "/" + this.matches.length;
 		this.btnPrev.disabled = false;
 		this.btnNext.disabled = false;
+		this.btnSelAll.disabled = false;
 	}
 }
 
@@ -464,6 +466,25 @@ CodeMirror.prototype.clearSearchHighlights = function() {
 	this.currentIndex = -1;
 	this.updateSearchbar(); 
 };
+
+// 13. 検索結果をマルチカーソルで全選択
+CodeMirror.prototype.selectAll = function() {
+	if (this.matches.length === 0) return;
+
+	// CodeMirrorが受け付ける複数選択オブジェクトの配列に変換
+	const selections = this.matches.map(match => {
+		return {
+			anchor: match.from, // 選択の開始位置
+			head: match.to     // 選択の終了位置
+		};
+	});
+
+	// 💡 第1引数に配列を渡し、第2引数で最初(0番目)のマッチを「主カーソル」に設定
+	this.setSelections(selections, 0);
+
+	// （オプション）ユーザーが手動で解除しやすいように、エディタにフォーカスを当てる
+	this.focus();
+}
 
 // CodeMirror既存メソッドのオーバーライド
 // 1. オリジナルのメソッドを変数に退避
@@ -1602,7 +1623,8 @@ function setupEditor(editorID, containerID, options = {}) {
 		<span class="search-counter">0/0</span>
 		<button class="btn-prev" title="前の一致項目" disabled>↑</button>
 		<button class="btn-next" title="次の一致項目" disabled>↓</button>
-		<button class="btn-replace" title="逐次置換" disabled>置換</button>
+		<button class="btn-replace" title="カーソル位置一致項目置換" disabled>置換</button>
+		<button class="btn-selall" title="一致項目全選択" disabled>全選択</button>
 	`;
 	toolbar.insertAdjacentElement('afterend', searchbar);
 
@@ -1615,6 +1637,7 @@ function setupEditor(editorID, containerID, options = {}) {
 	cm.btnPrev = searchbar.querySelector(".btn-prev");
 	cm.btnNext = searchbar.querySelector(".btn-next");
 	cm.btnReplace = searchbar.querySelector(".btn-replace");
+	cm.btnSelAll = searchbar.querySelector(".btn-selall");
 
 	// サーチバーUIパーツのイベントハンドラをバインド
 	cm.searchInput.addEventListener('input', function() { cm.doFind() });
