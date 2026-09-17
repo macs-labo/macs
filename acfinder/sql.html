@@ -468,7 +468,7 @@ CodeMirror.prototype.clearSearchHighlights = function() {
 };
 
 // 13. 検索結果をマルチカーソルで全選択
-CodeMirror.prototype.selectAll = function() {
+CodeMirror.prototype.selectAllMatches = function() {
 	if (this.matches.length === 0) return;
 
 	// CodeMirrorが受け付ける複数選択オブジェクトの配列に変換
@@ -1645,6 +1645,7 @@ function setupEditor(editorID, containerID, options = {}) {
 	cm.btnPrev.addEventListener('click', function() { cm.findPrev() });
 	cm.btnNext.addEventListener('click', function() { cm.findNext() });
 	cm.btnReplace.addEventListener('click', function() { cm.doReplace() });
+	cm.btnSelAll.addEventListener('click', function() { cm.selectAllMaches() });
 	cm.replaceInput.addEventListener('input', () => {
 		cm.btnReplace.disabled = cm.replaceInput.value === ''
 	});
