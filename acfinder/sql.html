@@ -493,11 +493,12 @@ CodeMirror.prototype.selectAllMatches = function() {
 		};
 	});
 
+	// （オプション）ユーザーが手動で解除しやすいように、エディタにフォーカスを当てる
+	this.focus();
+
 	// 💡 第1引数に配列を渡し、第2引数で最初(0番目)のマッチを「主カーソル」に設定
 	this.setSelections(selections, 0);
 
-	// （オプション）ユーザーが手動で解除しやすいように、エディタにフォーカスを当てる
-	this.focus();
 }
 
 // CodeMirror既存メソッドのオーバーライド
