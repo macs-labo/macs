@@ -230,7 +230,7 @@ div.handsontable-like {
 .handsontable-like th,
 .handsontable-like td {
 	white-space: nowrap; /* セル内のテキストを改行させない */
-	border: 1px solid var(--border-color-strong); /* CSS変数を使用 */
+	border: 1px solid var(--border-color-ht-common); /* CSS変数を使用 */
 	padding: 2px;
 	text-align: left;
 }
@@ -260,7 +260,7 @@ div.handsontable-like {
 /* 旧データ行であることが視覚的にわかるよう、背景色を付けて区別する */
 .olddata,
 .olddata select  {
-	color: var(--border-color);
+	color: var(--border-color-strong);
 	background-color: rgb(from var(--border-color-ht-common) r g b / 0.5);
 }
 
