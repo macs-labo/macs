@@ -248,12 +248,12 @@ div.handsontable-like {
 
 /* refreshPlan で現在の作物条件では登録が見つからなかった薬剤の行 */
 #planTable tr.row-not-found {
-	color: rgb(255, 0, 0, 0.7);
+	text-decoration: line-through;
 }
 
 /* refreshPlan で最新レコードと値が異なっていた旧行のカラム（セル全体、または病害虫名セル内の個別項目） */
 #planTable .cell-changed {
-	color: rgb(255, 0, 0, 0.7);
+	text-decoration: line-through;
 }
 
 /* refreshPlan で hidden 属性を付けた旧データ行：hidden属性は識別用マーカーとして使うため、表示自体は維持する */
@@ -262,7 +262,7 @@ div.handsontable-like {
 }
 
 /* 旧データ行であることが視覚的にわかるよう、背景色を付けて区別する */
-.olddata,
+.olddata td,
 .olddata select  {
 	color: var(--border-color-strong);
 	background-color: rgb(from var(--border-color-ht-common) r g b / 0.5);
@@ -959,13 +959,14 @@ async function refreshPlan() {
 			if (byochuCell) {
 				byochuCell.innerHTML = parseByochuList(byochuCell.innerHTML).join('<br>');
 			}
+/*
 			// 前回「失効」表示にした使用回数セルが残っていれば、元の値に戻す
 			const kaisuCell = row.cells[fieldToCellIndex.kaisu];
 			if (kaisuCell && kaisuCell.dataset.originalKaisu !== undefined) {
 				kaisuCell.textContent = kaisuCell.dataset.originalKaisu;
 				delete kaisuCell.dataset.originalKaisu;
 			}
-
+*/
 			let candidates;
 			if (candidateCache.has(yakuzaiName)) {
 				candidates = candidateCache.get(yakuzaiName);
@@ -979,10 +980,12 @@ async function refreshPlan() {
 				row.classList.add('row-not-found'); // 現在の作物条件で登録が見つからない行を赤字表示
 				row.setAttribute('hidden', ''); // 変更候補行と同様に、旧データ行としてマークする
 				row.classList.add('olddata');
+/*
 				if (kaisuCell) {
 					kaisuCell.dataset.originalKaisu = kaisuCell.textContent; // 元の値を保持しておき、再実行時に復元できるようにする
 					kaisuCell.innerHTML = '<em>[登録削除]</em>'; // 使用回数カラムに「登録削除」表示
 				}
+*/
 				continue;
 			}
 
@@ -1949,11 +1952,10 @@ function addYakuzaiToPlanRow(row, yakuzaiName, data) {
 	const actionCell = row.insertCell(0);
 	actionCell.classList.add('actions');
 
-	actionCell.innerHTML = `
-		<svg class="svg_button" onclick="deleteRow(this)"><title>削除</title><use href="icons.svg?v=3#trash-x"></use></svg>
-		<svg class="svg_button" onclick="moveRow(this, 'up')"><title>上へ移動</title><use href="icons.svg?v=3#arrow-up"></use></svg>
-		<svg class="svg_button" onclick="moveRow(this, 'down')"><title>下へ移動</title><use href="icons.svg?v=3#arrow-down"></use></svg>
-	`;
+	actionCell.innerHTML = 
+		`<svg class="svg_button" onclick="deleteRow(this)"><title>削除</title><use href="icons.svg?v=3#trash-x"></use></svg>` +
+		`<svg class="svg_button" onclick="moveRow(this, 'up')"><title>上へ移動</title><use href="icons.svg?v=3#arrow-up"></use></svg>` +
+		`<svg class="svg_button" onclick="moveRow(this, 'down')"><title>下へ移動</title><use href="icons.svg?v=3#arrow-down"></use></svg>`;
 
 	// No, 薬剤名, ... 他の空セル
 	row.insertCell(1); // No

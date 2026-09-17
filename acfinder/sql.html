@@ -1557,6 +1557,19 @@ function setupEditor(editorID, containerID, options = {}) {
 			// 念のため、他の文字が来た場合のフォールバックは不要になりますが、
 			// もし特定の文字だけ除外したい場合は if 文で分岐させます。
 			return span;
+		},
+		configureMouse: function(cm, repeat, event) {
+			// Windows/LinuxでCtrl、MacでCmdが押されている場合
+			if ((event.ctrlKey && !/Mac/.test(navigator.platform)) || event.metaKey) {
+				return {
+					// "add": 押した場所をマルチカーソルに追加、すでに選択されている場所なら「解除」するモード
+					unit: "word", // クリック時に単語単位で選択/解除（"char"にすれば1文字単位）
+					extend: false,
+					addNew: true
+				};
+			}
+			// 通常のクリックはデフォルトの挙動のまま
+			return {};
 		}
 	};
 	const customOptions = options.customOptions || {};
