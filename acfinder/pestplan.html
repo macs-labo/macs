@@ -243,13 +243,13 @@ div.handsontable-like {
 .handsontable-like tfoot td { font-weight: bold; }
 
 /* refreshPlan で現在の作物条件では登録が見つからなかった薬剤の行 */
-#planTable tr.row-not-found td {
-	color: red;
+#planTable tr.row-not-found {
+	color: rgb(255, 0, 0, 0.7);
 }
 
 /* refreshPlan で最新レコードと値が異なっていた旧行のカラム（セル全体、または病害虫名セル内の個別項目） */
 #planTable .cell-changed {
-	color: red;
+	color: rgb(255, 0, 0, 0.7);
 }
 
 /* refreshPlan で hidden 属性を付けた旧データ行：hidden属性は識別用マーカーとして使うため、表示自体は維持する */
@@ -260,8 +260,8 @@ div.handsontable-like {
 /* 旧データ行であることが視覚的にわかるよう、背景色を付けて区別する */
 .olddata,
 .olddata select  {
-	color: var(--text-color-light);
-	background-color: rgb(from var(--border-color) r g b / 0.5);
+	color: var(--border-color);
+	background-color: rgb(from var(--border-color-ht-common) r g b / 0.5);
 }
 
 .captionLabel {
@@ -977,7 +977,7 @@ async function refreshPlan() {
 				row.classList.add('olddata');
 				if (kaisuCell) {
 					kaisuCell.dataset.originalKaisu = kaisuCell.textContent; // 元の値を保持しておき、再実行時に復元できるようにする
-					kaisuCell.innerHTML = '<em>[失効]</em>'; // 使用回数カラムに失効表示
+					kaisuCell.innerHTML = '<em>[登録削除]</em>'; // 使用回数カラムに「登録削除」表示
 				}
 				continue;
 			}
