@@ -279,6 +279,12 @@ CodeMirror.prototype.isEmpty = function() {
 	return this.lineCount() === 1 && this.getLine(0).length === 0;
 };
 
+// 4. 現在マルチカーソル状態かどうか
+CodeMirror.prototype.isMultiCursor = function() {
+	// 配列の長さが 2 以上 ＝ マルチカーソル状態
+	return this.listSelections().length >= 2;
+}
+
 // 4. ツールバー UI 更新
 /*
 CodeMirror.prototype.updateToolbarState = function() {
@@ -421,6 +427,14 @@ CodeMirror.prototype.doReplace = function() {
 	const replaceText = this.replaceInput.value; // 置換後の文字列
 	if (!query) return;
 
+	// マルチカーソル状態なら一括置換
+	if (this.isMultiCursor()) {
+		this.replaceSelection(replaceText);
+		this.doFind();
+		return;
+	}
+
+	// シングルカーソル状態なら逐次置換
 	// 1. 現在の選択位置（start）を起点に SearchCursor を生成
 	const searchOptions = { caseFold: !this.searchCase.checked };
 	const cursor = this.getSearchCursor(query, this.getCursor("start"), searchOptions);
