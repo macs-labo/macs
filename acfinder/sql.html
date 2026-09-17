@@ -1560,16 +1560,64 @@ function setupEditor(editorID, containerID, options = {}) {
 			return span;
 		},
 		configureMouse: function(cm, repeat, event) {
-			// Windows/LinuxでCtrl、MacでCmdが押されている場合
-			if ((event.ctrlKey && !/Mac/.test(navigator.platform)) || event.metaKey) {
+			// Windows/LinuxはCtrl、MacはCmdが押されている場合のみ特殊処理を走らせる
+			const isModifierPressed = (event.ctrlKey && !/Mac/.test(navigator.platform)) || event.metaKey;
+			
+			if (isModifierPressed) {
+				// 1. クリックされた正確なテキスト位置 {line, ch} を取得
+				const clickPos = cm.coordsChar({ left: event.clientX, top: event.clientY });
+				
+				// 2. 現在存在しているすべてのマルチカーソル（選択範囲）を取得
+				const currentSelections = cm.listSelections();
+				
+				let foundMatchIndex = -1;
+
+				// 3. クリックした位置が、すでに選択されている範囲に含まれているか検証
+				for (let i = 0; i < currentSelections.length; i++) {
+					const sel = currentSelections[i];
+					// anchor と head の若い方を from、後ろの方を to にする
+					const from = sel.from();
+					const to = sel.to();
+
+					// 行のまたぎを考慮して、クリック位置が選択範囲内に入っているか比較
+					const isAfterFrom = (clickPos.line > from.line || (clickPos.line === from.line && clickPos.ch >= from.ch));
+					const isBeforeTo = (clickPos.line < to.line || (clickPos.line === to.line && clickPos.ch <= to.ch));
+
+					if (isAfterFrom && isBeforeTo) {
+						foundMatchIndex = i;
+						break;
+					}
+				}
+
+				// 4. 【解除処理】すでに選択されている場所をクリックした場合
+				if (foundMatchIndex !== -1) {
+					// 全選択後に1つだけ残ったカーソルを消そうとして、カーソルが「0個」になるのを防ぐガード
+					if (currentSelections.length > 1) {
+						// クリックされた選択範囲を配列から削除
+						currentSelections.splice(foundMatchIndex, 1);
+						
+						// 残りの選択範囲をエディタに再セット（これでクリックした場所だけが消える）
+						// ※そのままイベントが動くと選択がバグるため、setTimeoutで1ミリ秒ずらして適用します
+						setTimeout(() => {
+							cm.setSelections(currentSelections);
+						}, 0);
+					}
+					
+					// CodeMirror標準のマウス選択処理（範囲追加など）をこれ以上走らせないようにブロックする
+					return {
+						unit: function() { return { from: clickPos, to: clickPos }; },
+						preventDefault: true
+					};
+				}
+
+				// 5. 【追加処理】まだ選択されていない場所をクリックした場合は、標準の「単語追加」として動かす
 				return {
-					// "add": 押した場所をマルチカーソルに追加、すでに選択されている場所なら「解除」するモード
-					unit: "word", // クリック時に単語単位で選択/解除（"char"にすれば1文字単位）
-					extend: false,
-					addNew: true
+					unit: "word", // 単語単位で追加選択
+					addNew: true  // 既存のマルチカーソルを維持したまま追加
 				};
 			}
-			// 通常のクリックはデフォルトの挙動のまま
+
+			// Ctrl/Cmd が押されていない通常の左クリックは、デフォルトの挙動のまま
 			return {};
 		}
 	};
