@@ -443,6 +443,7 @@ CodeMirror.prototype.getProcessedReplaceText = function(originalText) {
 };
 
 // 選択文字列置換
+/*
 CodeMirror.prototype.doReplace = function() {
 	const query = this.searchInput.value;
 	const replaceText = this.replaceInput.value; // 置換後の文字列
@@ -458,7 +459,7 @@ CodeMirror.prototype.doReplace = function() {
 			const toPos = sel.to();
 			
 			// 元の文字を取得して共通関数に渡し、パターン展開して置換
-			const originalText = this.doc.getRange(fromPos, toPos);
+			const originalText = this.getRange(fromPos, toPos);
 			const processedText = this.getProcessedReplaceText(originalText);
 			
 			this.replaceRange(processedText, fromPos, toPos);
@@ -482,7 +483,7 @@ CodeMirror.prototype.doReplace = function() {
 		const toPos = cursor.to();
 
 		// A. パターン置換
-		const originalText = this.doc.getRange(fromPos, toPos);
+		const originalText = this.getRange(fromPos, toPos);
 		const processedText = this.getProcessedReplaceText(originalText);
 		this.replaceRange(processedText, fromPos, toPos);
 
@@ -510,6 +511,95 @@ CodeMirror.prototype.doReplace = function() {
 		this.doFind(); 
 	}
 }
+*/
+CodeMirror.prototype.doReplace = function() {
+  const queryText = this.searchInput.value;
+  const replaceText = this.replaceInput.value;
+  if (!queryText || this.matches.length === 0) return;
+
+  const isCaseSensitive = this.searchCase.checked;
+  const regExpFlags = isCaseSensitive ? "g" : "gi";
+  let queryRegExp;
+  try {
+    queryRegExp = new RegExp(queryText, regExpFlags);
+  } catch (e) {
+    return; // 正規表現が壊れている場合は安全にスルー
+  }
+
+  // 💡 元のテキスト（マッチした文字）をベースに、$1 展開後のテキストを作る共通関数
+  function getProcessedText(originalStr) {
+    return originalStr.replace(queryRegExp, replaceText);
+  }
+
+  // ==========================================
+  // 1. 【マルチカーソル（間引き一括置換）時】
+  // ==========================================
+  // ※ this.listSelections 自体が未定義エラーになるのを防ぐ安全ガードも含めています
+  if (this.listSelections && this.listSelections().length >= 2) {
+    this.operation(() => {
+      // 位置ズレを防ぐため、slice() でコピーを作ってから下（後ろ）から順にループ処理
+      const selections = this.listSelections().slice().reverse();
+      
+      selections.forEach(sel => {
+        const fromPos = sel.from();
+        
+        // 💡 ユーザーが間引いた後の各カーソルの開始位置（fromPos）が、
+        // 最初に全スキャンして保持している this.matches のどこに一致するかを探す
+        const foundMatch = this.matches.find(match => 
+          match.from.line === fromPos.line && match.from.ch === fromPos.ch
+        );
+
+        if (foundMatch) {
+          // 大文字小文字が混在している可能性（select や SELECT など）を考慮し、
+          // 実際にその場所でヒットしていた元のキーワードを this.matches を辿って特定する
+          // ※ 通常時（文字列そのもの）であれば queryText のままでOKです
+          const originalText = queryText; 
+          const processedText = getProcessedText(originalText);
+          
+          // 💡 ここで確実に各マルチカーソルの範囲を置換します
+          this.replaceRange(processedText, sel.from(), sel.to());
+        }
+      });
+    });
+
+    this.doFind(); // 置換後の状態にハイライトとカウンタをリフレッシュ
+  } 
+  // ==========================================
+  // 2. 【シングルカーソル（逐次置換）時】
+  // ==========================================
+  else {
+    // 現在選択中（ハイライト中）のインデックス（currentIndex）から位置を取得
+    if (this.currentIndex !== -1 && this.matches[this.currentIndex]) {
+      const currentMatch = this.matches[this.currentIndex];
+      const fromPos = currentMatch.from;
+      const toPos = currentMatch.to;
+
+      // 検索窓のキーワードをベースに $1 などを展開
+      const processedText = getProcessedText(queryText);
+
+      // 💡 ご指摘の通り、単純に this.replaceRange で安全に置換できます
+      this.replaceRange(processedText, fromPos, toPos);
+
+      // 置換後の位置を計算（展開後の文字数に合わせる）
+      const nextStartPos = {
+        line: fromPos.line,
+        ch: fromPos.ch + processedText.length
+      };
+
+      // 次のマッチ箇所を自動で探して選択（ハイライト）する
+      const searchOptions = { caseFold: !isCaseSensitive };
+      const nextCursor = this.getSearchCursor(queryRegExp, nextStartPos, searchOptions);
+      
+      if (nextCursor.findNext()) {
+        this.setSelection(nextCursor.from(), nextCursor.to());
+      } else {
+        this.setCursor(nextStartPos);
+      }
+      
+      this.doFind(); // テキストが変わったので再検索・カウンタUI更新
+    }
+  }
+};
 
 // 検索結果のハイライトだけをクリアするメソッド
 CodeMirror.prototype.clearSearchHighlights = function() {
