@@ -961,7 +961,7 @@ function parseVariables(varText) {
 
 	// 変数定義をパース: $name = {value}
 	// gフラグで全体検索、mフラグで複数行モード（^と$が各行の始端/終端にマッチ）
-	const varRegex = /^\s*(\$\{[^}]+\})\s*=\s*\{([^}]+)\}.*$/gm;
+	const varRegex = /^\s*(\$\{[^}]+\})\s*=\s*\{([^}]*)\}.*$/gm;
 	let match;
 	while ((match = varRegex.exec(varText)) !== null) {
 		const varName = match[1];
@@ -1035,17 +1035,17 @@ async function dispatchSQLExecution() {
 			currentVal += '\n';
 		}
 		missingVars.forEach(varName => {
-			currentVal += `$${varName} = {}\n`;
+			currentVal += `${varName} = {}\n`;
 		});
 		varEditor.setValue(currentVal);
 		toggleVarEditor(false);
-		alert(`$${missingVars.join(', $')} を定義してください`);
+		alert(`${missingVars.join(', ')} を定義してください`);
 		return;
 	}
 
 	if (emptyVars.length > 0) {
 		toggleVarEditor(false);
-		alert(`$${emptyVars.join(', $')} の値を定義してください`);
+		alert(`${emptyVars.join(', ')} の値を定義してください`);
 		return;
 	}
 
@@ -1915,10 +1915,10 @@ window.addEventListener('DOMContentLoaded', async function() {
 			if (stream.match(/^\$\{[^}]+\}/)) {
 				return "variable-3";
 			}
-			if (stream.peek() === '{') {
+			if (stream.peek() === '$') {
 				stream.next();
 			} else {
-				stream.skipTo('{') || stream.skipToEnd();
+				stream.skipTo('$') || stream.skipToEnd();
 			}
 			return null;
 		}
