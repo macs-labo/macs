@@ -965,7 +965,7 @@ function parseVariables(varText) {
 	let match;
 	while ((match = varRegex.exec(varText)) !== null) {
 		const varName = match[1];
-		const varValue = match[2].replace(/\s+/g, '');
+		const varValue = match[2].trim().replace(/[\r\n]+/g, ' ');
 		variables.set(varName, varValue);
 	}
 	return variables;
