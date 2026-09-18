@@ -452,16 +452,16 @@ CodeMirror.prototype.doReplace = function() {
 	if (this.isMultiCursor()) {
 		// A. パターン置換
 		// 置換による文字数変化での位置ズレを防ぐため、1回の「操作（Transaction）」にまとめて、下から順にループ処理
-    const selections = editor.listSelections();
+    const selections = this.listSelections();
 		selections.reverse().forEach(function(sel) {
 			const fromPos = sel.from();
 			const toPos = sel.to();
 			
 			// 元の文字を取得して共通関数に渡し、パターン展開して置換
-			const originalText = editor.getRange(fromPos, toPos);
-			const processedText = editor.getProcessedReplaceText(originalText);
+			const originalText = this.getRange(fromPos, toPos);
+			const processedText = this.getProcessedReplaceText(originalText);
 			
-			editor.replaceRange(processedText, fromPos, toPos);
+			this.replaceRange(processedText, fromPos, toPos);
 		});
 
 		// B. 単純置換
