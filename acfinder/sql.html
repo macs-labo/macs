@@ -258,7 +258,7 @@ span.cm-variable-3 { font-weight: bold;  }
 
 let sqlEditor; // CodeMirror instance for sql
 let varEditor; // CodeMirror instance for variables
-let currentSqlFileHandel = null;
+let currentSqlFileHandle = null;
 let currentVarFileHandle = null;
 let currentSqlFilename = '';
 let currentVarFilename = '';
@@ -961,7 +961,7 @@ function parseVariables(varText) {
 
 	// 変数定義をパース: $name = {value}
 	// gフラグで全体検索、mフラグで複数行モード（^と$が各行の始端/終端にマッチ）
-	const varRegex = /^\s*(\$\{[^}]+\})\s*=\s*\{([^}]*)\}.*$/gm;
+	const varRegex = /^\s*(\$\{[^${}]+\})\s*=\s*\{([^}]*)\}.*$/gm;
 	let match;
 	while ((match = varRegex.exec(varText)) !== null) {
 		const varName = match[1];
@@ -974,7 +974,7 @@ function parseVariables(varText) {
 function replaceSqlVariables(sql, variables) {
 	if (variables.size === 0) return sql;
 
-	return sql.replace(/\$\{[^}]+\}/g, (match, varName) => {
+	return sql.replace(/\$\{[^${}]+\}/g, (match, varName) => {
 		if (variables.has(varName)) {
 			return variables.get(varName);
 		}
@@ -994,7 +994,7 @@ async function dispatchSQLExecution() {
 
 	// 使用変数のチェック
 	const usedVars = new Set();
-	const varRegex = /\$\{[^}]+\}/g;
+	const varRegex = /\$\{[^${}]+\}/g;
 	let match;
 	while ((match = varRegex.exec(sql)) !== null) {
 		usedVars.add(match[1]);
@@ -1028,6 +1028,9 @@ async function dispatchSQLExecution() {
 			emptyVars.push(varName);
 		}
 	}
+	console.log('変数: ', variables);
+	console.log('未定義変数: ', missingVars);
+	console.log('空値変数: ', missingVars);
 
 	if (missingVars.length > 0) {
 		let currentVal = varEditor.getValue();
@@ -1853,7 +1856,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 					state.inBlockComment = true;
 					return "comment";
 				}
-				if (stream.match(/^\$\{[^}]+\}/)) {
+				if (stream.match(/^\$\{[^${}]+\}/)) {
 					return "variable-3";
 				}
 				if (stream.match(/^"([^"\\]|\\.)*"/)) {
@@ -1912,7 +1915,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	// SQLエディタで {$変数} をハイライトするオーバーレイ定義
 	sqlEditor.addOverlay({
 		token: function(stream) {
-			if (stream.match(/^\$\{[^}]+\}/)) {
+			if (stream.match(/^\$\{[^${}]+\}/)) {
 				return "variable-3";
 			}
 			if (stream.peek() === '$') {
