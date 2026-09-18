@@ -974,7 +974,7 @@ function parseVariables(varText) {
 function replaceSqlVariables(sql, variables) {
 	if (variables.size === 0) return sql;
 
-	return sql.replace(/\($\{[^${}]+\})/g, (match, varName) => {
+	return sql.replace(/(\$\{[^${}]+\})/g, (match, varName) => {
 		if (variables.has(varName)) {
 			return variables.get(varName);
 		}
