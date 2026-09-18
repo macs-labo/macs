@@ -346,6 +346,7 @@ CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	while (cursor.findNext()) {
 		const fromPos = cursor.from();
 		const toPos = cursor.to();
+		console.log('match: ', cursor.match);
 		const matchedText = cursor.match ? cursor.match[0] : query;
 		this.matches.push({ from: fromPos, to: toPos, text: matchedText });
 
@@ -550,7 +551,8 @@ CodeMirror.prototype.doReplace = function() {
 
       // 検索窓のキーワードをベースに $1 などを展開
       const processedText = currentMatch.text.replace(queryRegExp, replaceText);
-
+			console.log('matchedText: ', currentMatch.text);
+			console.log('processedText: ', processedText);
       // 💡 ご指摘の通り、単純に this.replaceRange で安全に置換できます
       this.replaceRange(processedText, fromPos, toPos);
 
