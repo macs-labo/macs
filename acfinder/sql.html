@@ -994,7 +994,7 @@ async function dispatchSQLExecution() {
 
 	// 使用変数のチェック
 	const usedVars = new Set();
-	const varRegex = /\$\{[^${}]+\}/g;
+	const varRegex = /(\$\{[^${}]+\})/g;
 	let match;
 	while ((match = varRegex.exec(sql)) !== null) {
 		usedVars.add(match[1]);
