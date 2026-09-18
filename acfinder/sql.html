@@ -346,7 +346,7 @@ CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	while (cursor.findNext()) {
 		const fromPos = cursor.from();
 		const toPos = cursor.to();
-		const matchedText = cursor.match ? cursor.match[0] : queryText;
+		const matchedText = cursor.match ? cursor.match[0] : query;
 		this.matches.push({ from: fromPos, to: toPos, text: matchedText });
 
 		// 全てのマッチ箇所にハイライト用のクラスを付与
