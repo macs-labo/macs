@@ -975,6 +975,8 @@ function replaceSqlVariables(sql, variables) {
 	if (variables.size === 0) return sql;
 
 	return sql.replace(/(\$\{[^${}]+\})/g, (match, varName) => {
+		console.log('match: ', match);
+		console.log('varName: ', varName);
 		if (variables.has(varName)) {
 			return variables.get(varName);
 		}
@@ -1028,11 +1030,6 @@ async function dispatchSQLExecution() {
 			emptyVars.push(varName);
 		}
 	}
-
-	console.log('使用変数: ', usedVars);
-	console.log('定義済変数: ', variables);
-	console.log('未定義変数: ', missingVars);
-	console.log('空値変数: ', missingVars);
 
 	if (missingVars.length > 0) {
 		let currentVal = varEditor.getValue();
