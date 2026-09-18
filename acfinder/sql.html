@@ -458,7 +458,7 @@ CodeMirror.prototype.doReplace = function() {
 			const toPos = sel.to();
 			
 			// 元の文字を取得して共通関数に渡し、パターン展開して置換
-			const originalText = this.getRange(fromPos, toPos);
+			const originalText = this.getDoc().getRange(fromPos, toPos);
 			const processedText = this.getProcessedReplaceText(originalText);
 			
 			this.replaceRange(processedText, fromPos, toPos);
@@ -482,7 +482,7 @@ CodeMirror.prototype.doReplace = function() {
 		const toPos = cursor.to();
 
 		// A. パターン置換
-		const originalText = this.getRange(fromPos, toPos);
+		const originalText = this.getDoc().getRange(fromPos, toPos);
 		const processedText = this.getProcessedReplaceText(originalText);
 		this.replaceRange(processedText, fromPos, toPos);
 
