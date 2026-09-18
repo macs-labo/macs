@@ -346,8 +346,8 @@ CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	while (cursor.findNext()) {
 		const fromPos = cursor.from();
 		const toPos = cursor.to();
-		
-		this.matches.push({ from: fromPos, to: toPos });
+		const matchedText = cursor.match ? cursor.match[0] : queryText;
+		this.matches.push({ from: fromPos, to: toPos, text: matchedText });
 
 		// 全てのマッチ箇所にハイライト用のクラスを付与
 		const marker = this.markText(fromPos, toPos, {
@@ -420,27 +420,6 @@ CodeMirror.prototype.updateSearchbar = function() {
 		this.btnSelAll.disabled = false;
 	}
 }
-
-// 現在の検索クエリと設定を元に、パターン参照置換文字列を生成する共通関数
-CodeMirror.prototype.getProcessedReplaceText = function(originalText) {
-	const queryText = this.searchInput.value;
-	const replaceText = this.replaceInput.value;
-
-	if (!queryText) return replaceText;
-
-	const isCaseSensitive = this.searchCase.checked;
-	// 💡 文字列全体の置換を安全に行うため、ここでも必ず "g" フラグを含めます
-	const regExpFlags = isCaseSensitive ? "g" : "gi";
-
-	try {
-		const queryRegExp = new RegExp(queryText, regExpFlags);
-		// JavaScript標準のreplaceメソッドにより、$1, $2, $& 等が自動的に展開されます
-		return originalText.replace(queryRegExp, replaceText);
-	} catch (e) {
-		// 万が一正規表現が壊れている場合は、入力された置換文字列をそのまま返す
-		return replaceText;
-	}
-};
 
 // 選択文字列置換
 /*
@@ -526,11 +505,6 @@ CodeMirror.prototype.doReplace = function() {
     return; // 正規表現が壊れている場合は安全にスルー
   }
 
-  // 💡 元のテキスト（マッチした文字）をベースに、$1 展開後のテキストを作る共通関数
-  function getProcessedText(originalStr) {
-    return originalStr.replace(queryRegExp, replaceText);
-  }
-
   // ==========================================
   // 1. 【マルチカーソル（間引き一括置換）時】
   // ==========================================
@@ -553,8 +527,8 @@ CodeMirror.prototype.doReplace = function() {
           // 大文字小文字が混在している可能性（select や SELECT など）を考慮し、
           // 実際にその場所でヒットしていた元のキーワードを this.matches を辿って特定する
           // ※ 通常時（文字列そのもの）であれば queryText のままでOKです
-          const originalText = queryText; 
-          const processedText = getProcessedText(originalText);
+          const processedText =sel.text.replace(queryRegExp, replaceText);
+					console.log('processedText: ', processedText);
           
           // 💡 ここで確実に各マルチカーソルの範囲を置換します
           this.replaceRange(processedText, sel.from(), sel.to());
@@ -575,7 +549,7 @@ CodeMirror.prototype.doReplace = function() {
       const toPos = currentMatch.to;
 
       // 検索窓のキーワードをベースに $1 などを展開
-      const processedText = getProcessedText(queryText);
+      const processedText = currentMatch.text.replace(queryRegExp, replaceText);
 
       // 💡 ご指摘の通り、単純に this.replaceRange で安全に置換できます
       this.replaceRange(processedText, fromPos, toPos);
