@@ -309,6 +309,17 @@ CodeMirror.prototype.clearText = function() {
 	//this.updateToolbarState();
 };
 
+// 改行文字表示
+CodeMirror.prototype.dispNewLine = function(line, element) {
+	const currentLineNo = this.getLineNumber(line);
+	if (currentLineNo === this.lastLine()) return; // 最終行には表示しない
+
+	const newlineChar = document.createElement('div');
+	newlineChar.textContent = '↲';
+	newlineChar.className = 'cm-newline-char';
+	element.appendChild(newlineChar);
+}
+
 // テキスト検索
 CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	const query = this.searchInput.value;
@@ -345,11 +356,8 @@ CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	const cursor = this.getSearchCursor(queryRegExp);
 	while (cursor.findNext()) {
 		const fromPos = cursor.from();
-		const toPos = cursor.to();
 		console.log('cursor: ', cursor);
 		this.matches.push({ from: fromPos, to: toPos });
-		//const matchedText = cursor.match ? cursor.match[0] : query;
-		//this.matches.push({ from: fromPos, to: toPos, text: matchedText });
 
 		// 全てのマッチ箇所にハイライト用のクラスを付与
 		const marker = this.markText(fromPos, toPos, {
@@ -424,166 +432,97 @@ CodeMirror.prototype.updateSearchbar = function() {
 }
 
 // 選択文字列置換
-/*
 CodeMirror.prototype.doReplace = function() {
-	const query = this.searchInput.value;
-	const replaceText = this.replaceInput.value; // 置換後の文字列
-	if (!query) return;
+	const queryText = this.searchInput.value;
+	const replaceText = this.replaceInput.value;
+	if (!queryText || this.matches.length === 0) return;
 
-	// マルチカーソル状態なら一括置換
-	if (this.isMultiCursor()) {
-		// A. パターン置換
-		// 置換による文字数変化での位置ズレを防ぐため、1回の「操作（Transaction）」にまとめて、下から順にループ処理
-    const selections = this.listSelections();
-		selections.reverse().forEach(function(sel) {
-			const fromPos = sel.from();
-			const toPos = sel.to();
-			
-			// 元の文字を取得して共通関数に渡し、パターン展開して置換
-			const originalText = this.getRange(fromPos, toPos);
-			const processedText = this.getProcessedReplaceText(originalText);
-			
-			this.replaceRange(processedText, fromPos, toPos);
-		});
-
-		// B. 単純置換
-		//this.replaceSelection(replaceText);
-
-		this.doFind();
-		return;
+	const isCaseSensitive = this.searchCase.checked;
+	const regExpFlags = isCaseSensitive ? "g" : "gi";
+	let queryRegExp;
+	try {
+		queryRegExp = new RegExp(queryText, regExpFlags);
+	} catch (e) {
+		return; // 正規表現が壊れている場合は安全にスルー
 	}
-
-	// シングルカーソル状態なら逐次置換
-	// 1. 現在の選択位置（start）を起点に SearchCursor を生成
-	const searchOptions = { caseFold: !this.searchCase.checked };
-	const cursor = this.getSearchCursor(query, this.getCursor("start"), searchOptions);
-
-	// 2. 起点から数えて「最初のマッチ」を探す
-	if (cursor.findNext()) {
-		const fromPos = cursor.from();
-		const toPos = cursor.to();
-
-		// A. パターン置換
-		const originalText = this.getRange(fromPos, toPos);
-		const processedText = this.getProcessedReplaceText(originalText);
-		this.replaceRange(processedText, fromPos, toPos);
-
-		// B. 単純置換
-		//this.replaceRange(replaceText, fromPos, toPos);
-		
-		// 3. 置換した直後のカーソル位置（行と文字位置）を計算
-		// 置換後の文字数によって位置が変わるため、再計算します
-		const nextStartPos = {
-			line: fromPos.line,
-			ch: fromPos.ch + processedText.length
-			// ch: fromPos.ch + replaceText.length // B. 単純置換
-		};
-		
-		// 4. 次のマッチ箇所を自動で探して選択（ハイライト）する
-		const nextCursor = this.getSearchCursor(query, nextStartPos);
-		if (nextCursor.findNext()) {
-			this.setSelection(nextCursor.from(), nextCursor.to());
-		} else {
-			// 次がなければ、置換した文字の直後にカーソルを移動
-			this.setCursor(nextStartPos);
-		}
-		
-		// 5. 文字列が変わったので、全体のスキャン（件数カウントなど）を再実行
-		this.doFind(); 
-	}
-}
-*/
-CodeMirror.prototype.doReplace = function() {
-  const queryText = this.searchInput.value;
-  const replaceText = this.replaceInput.value;
-  if (!queryText || this.matches.length === 0) return;
-
-  const isCaseSensitive = this.searchCase.checked;
-  const regExpFlags = isCaseSensitive ? "g" : "gi";
-  let queryRegExp;
-  try {
-    queryRegExp = new RegExp(queryText, regExpFlags);
-  } catch (e) {
-    return; // 正規表現が壊れている場合は安全にスルー
-  }
 
 	const getProcessedText = (fromPos, toPos) => {
-    // CodeMirrorのコアプロトタイプから getRange メソッドを直接借りて実行します。
-    // これにより、マルチエディタ環境下のどのインスタンスからでも100%安全に文字が取得できます。
-    const originalText = CodeMirror.prototype.getRange.call(this, fromPos, toPos);
-    return originalText.replace(queryRegExp, replaceText);
-  };
+		// CodeMirrorのコアプロトタイプから getRange メソッドを直接借りて実行します。
+		// これにより、マルチエディタ環境下のどのインスタンスからでも100%安全に文字が取得できます。
+		const originalText = CodeMirror.prototype.getRange.call(this, fromPos, toPos);
+		return originalText.replace(queryRegExp, replaceText);
+	};
 
-  // ==========================================
-  // 1. 【マルチカーソル（間引き一括置換）時】
-  // ==========================================
-  // ※ this.listSelections 自体が未定義エラーになるのを防ぐ安全ガードも含めています
-  if (this.listSelections && this.listSelections().length >= 2) {
-    this.operation(() => {
-      // 位置ズレを防ぐため、slice() でコピーを作ってから下（後ろ）から順にループ処理
-      const selections = this.listSelections().slice().reverse();
-      
-      selections.forEach(sel => {
-        const fromPos = sel.from();
-        const toPos = sel.to();
-        
-        // 💡 ユーザーが間引いた後の各カーソルの開始位置（fromPos）が、
-        // 最初に全スキャンして保持している this.matches のどこに一致するかを探す
-        const foundMatch = this.matches.find(match => 
-          match.from.line === fromPos.line && match.from.ch === fromPos.ch
-        );
+	// ==========================================
+	// 1. 【マルチカーソル（間引き一括置換）時】
+	// ==========================================
+	// ※ this.listSelections 自体が未定義エラーになるのを防ぐ安全ガードも含めています
+	if (this.listSelections && this.listSelections().length >= 2) {
+		this.operation(() => {
+			// 位置ズレを防ぐため、slice() でコピーを作ってから下（後ろ）から順にループ処理
+			const selections = this.listSelections().slice().reverse();
+			
+			selections.forEach(sel => {
+				const fromPos = sel.from();
+				const toPos = sel.to();
+				
+				// 💡 ユーザーが間引いた後の各カーソルの開始位置（fromPos）が、
+				// 最初に全スキャンして保持している this.matches のどこに一致するかを探す
+				const foundMatch = this.matches.find(match => 
+					match.from.line === fromPos.line && match.from.ch === fromPos.ch
+				);
 
-        if (foundMatch) {
-          // 大文字小文字が混在している可能性（select や SELECT など）を考慮し、
-          // 実際にその場所でヒットしていた元のキーワードを this.matches を辿って特定する
-          // ※ 通常時（文字列そのもの）であれば queryText のままでOKです
-          const processedText = getProcessedText(fromPos, toPos);
+				if (foundMatch) {
+					// 大文字小文字が混在している可能性（select や SELECT など）を考慮し、
+					// 実際にその場所でヒットしていた元のキーワードを this.matches を辿って特定する
+					// ※ 通常時（文字列そのもの）であれば queryText のままでOKです
+					const processedText = getProcessedText(fromPos, toPos);
 					console.log('processedText: ', processedText);
-          
-          // 💡 ここで確実に各マルチカーソルの範囲を置換します
-          this.replaceRange(processedText, fromPos, toPos);
-        }
-      });
-    });
+					
+					// 💡 ここで確実に各マルチカーソルの範囲を置換します
+					this.replaceRange(processedText, fromPos, toPos);
+				}
+			});
+		});
 
-    this.doFind(); // 置換後の状態にハイライトとカウンタをリフレッシュ
-  } 
-  // ==========================================
-  // 2. 【シングルカーソル（逐次置換）時】
-  // ==========================================
-  else {
-    // 現在選択中（ハイライト中）のインデックス（currentIndex）から位置を取得
-    if (this.currentIndex !== -1 && this.matches[this.currentIndex]) {
-      const currentMatch = this.matches[this.currentIndex];
-      const fromPos = currentMatch.from;
-      const toPos = currentMatch.to;
+		this.doFind(); // 置換後の状態にハイライトとカウンタをリフレッシュ
+	} 
+	// ==========================================
+	// 2. 【シングルカーソル（逐次置換）時】
+	// ==========================================
+	else {
+		// 現在選択中（ハイライト中）のインデックス（currentIndex）から位置を取得
+		if (this.currentIndex !== -1 && this.matches[this.currentIndex]) {
+			const currentMatch = this.matches[this.currentIndex];
+			const fromPos = currentMatch.from;
+			const toPos = currentMatch.to;
 
-      // 検索窓のキーワードをベースに $1 などを展開
-      const processedText = getProcessedText(fromPos, toPos);
+			// 検索窓のキーワードをベースに $1 などを展開
+			const processedText = getProcessedText(fromPos, toPos);
 			console.log('matchedText: ', currentMatch.text);
 			console.log('processedText: ', processedText);
-      // 💡 ご指摘の通り、単純に this.replaceRange で安全に置換できます
-      this.replaceRange(processedText, fromPos, toPos);
+			// 💡 ご指摘の通り、単純に this.replaceRange で安全に置換できます
+			this.replaceRange(processedText, fromPos, toPos);
 
-      // 置換後の位置を計算（展開後の文字数に合わせる）
-      const nextStartPos = {
-        line: fromPos.line,
-        ch: fromPos.ch + processedText.length
-      };
+			// 置換後の位置を計算（展開後の文字数に合わせる）
+			const nextStartPos = {
+				line: fromPos.line,
+				ch: fromPos.ch + processedText.length
+			};
 
-      // 次のマッチ箇所を自動で探して選択（ハイライト）する
-      const searchOptions = { caseFold: !isCaseSensitive };
-      const nextCursor = this.getSearchCursor(queryRegExp, nextStartPos, searchOptions);
-      
-      if (nextCursor.findNext()) {
-        this.setSelection(nextCursor.from(), nextCursor.to());
-      } else {
-        this.setCursor(nextStartPos);
-      }
-      
-      this.doFind(); // テキストが変わったので再検索・カウンタUI更新
-    }
-  }
+			// 次のマッチ箇所を自動で探して選択（ハイライト）する
+			const searchOptions = { caseFold: !isCaseSensitive };
+			const nextCursor = this.getSearchCursor(queryRegExp, nextStartPos, searchOptions);
+			
+			if (nextCursor.findNext()) {
+				this.setSelection(nextCursor.from(), nextCursor.to());
+			} else {
+				this.setCursor(nextStartPos);
+			}
+			
+			this.doFind(); // テキストが変わったので再検索・カウンタUI更新
+		}
+	}
 };
 
 // 検索結果のハイライトだけをクリアするメソッド
@@ -1851,7 +1790,8 @@ function setupEditor(editorID, containerID, options = {}) {
 	// CodeMirrorのイベントをバインド
 	cm.on('undo', updateToolbarState);
 	cm.on('redo', updateToolbarState);
-	cm.on("renderLine", dispNewLine);
+	//cm.on("renderLine", dispNewLine);
+	cm.on("renderLine", function(cm, line, element) { cm.dispNewLine(line, element) });
 	cm.on('change', function(cm, changeObj) {
 		// 1. すでに動いているタイマーがあればキャンセル（イベントの間引き）
 		if (debounceTimer) {
@@ -2112,6 +2052,11 @@ window.addEventListener('DOMContentLoaded', async function() {
 		event.preventDefault(); // Allow drop
 	});
 	var_editor.addEventListener('drop', handleDrop);
+	const file_tree = document.getElementById('fileTree');
+	file_tree.addEventListener('dragover', (event) => {
+		event.preventDefault(); // Allow drop
+	});
+	file_tree.addEventListener('drop', handleDrop);
 
 	// sqlText がある場合は autoSaved ボタン可視化
 	if (localStorage.getItem('sqlText')) document.getElementById('autoSaved')?.classList.remove('hidden');
