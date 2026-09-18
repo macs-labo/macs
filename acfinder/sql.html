@@ -973,6 +973,7 @@ function parseVariables(varText) {
 
 function replaceSqlVariables(sql, variables) {
 	if (variables.size === 0) return sql;
+	console.log('変数定義: ', variables);
 
 	return sql.replace(/\$\{[^${}]+\}/g, (match, varName) => {
 		if (variables.has(varName)) {
