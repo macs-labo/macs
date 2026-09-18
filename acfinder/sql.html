@@ -959,7 +959,7 @@ function parseVariables(varText) {
 		return variables;
 	}
 
-	// 変数定義をパース: $name = {value}
+	// 変数定義をパース: ${name} = {value}
 	// gフラグで全体検索、mフラグで複数行モード（^と$が各行の始端/終端にマッチ）
 	const varRegex = /^\s*(\$\{[^${}]+\})\s*=\s*\{([^}]*)\}.*$/gm;
 	let match;
@@ -1028,7 +1028,9 @@ async function dispatchSQLExecution() {
 			emptyVars.push(varName);
 		}
 	}
-	console.log('変数: ', variables);
+
+	console.log('使用変数: ', usedVars);
+	console.log('定義済変数: ', variables);
 	console.log('未定義変数: ', missingVars);
 	console.log('空値変数: ', missingVars);
 
