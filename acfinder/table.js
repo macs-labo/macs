@@ -857,18 +857,15 @@ function outputTable(selector, result, option = {}) {
 
 	// caption に YYYYMMDD-hhmmss にフォーマットした現在時刻を付加したファイル名を作成
 	function makeFileName() {
-		const caption = (option.caption || 'export') + '_';
+		let format = { year: 'numeric', month: '2-digit', day: '2-digit' };
+		let caption = option.caption || '';
+		if (!caption) {
+			format = {...format, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
+			caption = 'export'
+		}
 		const now = new Date();
-		const formattedDate = now.toLocaleString('ja-JP', {
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: false
-		});
-		return caption + formattedDate.replace(/[\/:]/g, '').replace(' ', '-');
+		const formattedDate = now.toLocaleString('ja-JP', format).replace(/[\/:]/g, '').replace(' ', '-');
+		return caption + '_' + formattedDate;
 	}
 
 	function dispStatus(msg, autoClose = 0) {
@@ -890,7 +887,6 @@ function outputTable(selector, result, option = {}) {
 			});
 		});
 	}
-
 
 	function isEmpty() {
 		const result = table.countRows() === 0;
