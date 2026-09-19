@@ -1095,9 +1095,9 @@ async function refreshPlan() {
 		updateRowNumbers(); // 行番号・使用回数集計等を更新
 
 		// 更新候補・見つからなかった薬剤のいずれも無く、変更が全く無かった場合は
-		// 「作成時DB登録日」の表示も不要になるためクリアする
+		// 「作成時DB登録日」を「更新時DB登録日」に変更
 		if (updatedCount === 0 && notFoundYakuzai.size === 0) {
-			document.getElementById('datasetInfo')?.classList.add('hidden');
+			setDatasetInfo('更新時DB登録日: ' + getCurrentDbUpdate());
 		}
 
 		let msg = updatedCount > 0
@@ -1365,6 +1365,20 @@ function createPlanTable() {
 	`;
 }
 
+// #db-update の表示テキストから登録更新日情報を取得する（先頭の「最新DB:」「⚠️過去参照: 」は除いて保存する）
+function getCurrentDbUpdate() {
+	const dbUpdateText = document.getElementById('db-update')?.textContent || '';
+	return dbUpdateText.trim().replace(/^((最新|保存)DB:|⚠️過去参照:)\s*/, '');
+}
+
+// 現在のデータセットのDB更新日を表示する
+function setDatasetInfo(dbUpdate) {
+	const datasetInfoEl = document.getElementById('datasetInfo');
+	if (!datasetInfoEl) return;
+	datasetInfoEl.textContent = dbUpdate;
+	datasetInfoEl.classList.toggle('hidden', !dbUpdate);
+}
+
 // 現在時刻を YYYYMMDD-hhmmss にフォーマット
 function formatDateTime(opt = '') {
 	const now = new Date();
@@ -1456,11 +1470,7 @@ function convPlanToJson() {
 	if (!table) return '';
 
 	const planData = [];
-
-	// #db-update の表示テキストから登録更新日情報を取得する（先頭の「最新DB:」「⚠️過去参照: 」は除いて保存する）
-	const dbUpdateText = (document.getElementById('db-update')?.textContent || '')
-		.trim()
-		.replace(/^((最新|保存)DB:|⚠️過去参照:)\s*/, '');
+	const dbUpdateText = getCurrentDbUpdate();
 
 	const saveData = {
 		dataset: dbUpdateText, // 保存時点の農薬登録情報DBの登録更新日
@@ -1715,16 +1725,8 @@ async function loadPlanFromJson(jsonText, msg) {
 		isDirty = false;
 
 		// 保存時点の農薬登録情報DB登録更新日(dataset)を表示する
-		const datasetInfoEl = document.getElementById('datasetInfo');
-		if (datasetInfoEl) {
-			if (loadedData.dataset) {
-				datasetInfoEl.textContent = `作成時DB登録日: ${loadedData.dataset}`;
-				datasetInfoEl.classList.remove('hidden');
-			} else {
-				datasetInfoEl.textContent = '';
-				datasetInfoEl.classList.add('hidden');
-			}
-		}
+		const dataset = loadedData.dataset ? `作成時DB登録日: ${loadedData.dataset}` : '';
+		setDatasetInfo(dataset);
 
 		// jsonファイルを読み込んだので、登録内容更新（refresh）アイコンを有効化する
 		document.getElementById('btnRefreshPlan')?.classList.remove('disabled');
@@ -2221,11 +2223,11 @@ function updateRowNumbers() {
 	document.getElementById('btnDeleteOldRows')?.classList.toggle('hidden', !hasOldDataRows);
 
 	// 旧データ行(olddata)が発生したことがある状態から、すべて削除されて0件になったら、
-	// 「作成時DB登録日」の表示を消す（読み込み直後、一度も旧データ行が出ていない状態では消さない）
+	// 「作成時DB登録日」の表示を「更新時DB登録日」に変更
 	if (hasOldDataRows) {
 		hasHadOldDataRows = true;
 	} else if (hasHadOldDataRows) {
-		document.getElementById('datasetInfo')?.classList.add('hidden');
+		setDatasetInfo('更新時DB登録日: ' + getCurrentDbUpdate());
 		hasHadOldDataRows = false;
 	}
 }
@@ -2433,7 +2435,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	});
 
 	// ドラッグ＆ドロップのイベントリスナーを設定
-	const planContainer = document.getElementById('planContainer');
+	const planContainer = document.getElementById('resultPane');
 	planContainer.addEventListener('dragover', (event) => {
 		event.preventDefault(); // Allow drop
 	});

@@ -1555,15 +1555,6 @@ function updateToolbarState(cm) {
 	}
 };
 
-// 改行文字を表示
-function dispNewLine(cm, line, element) {
-	if (line.lineNo() === cm.lastLine()) return; // 最終行には表示しない
-	const newlineChar = document.createElement('div');
-	newlineChar.textContent = '↲';
-	newlineChar.className = 'cm-newline-char';
-	element.appendChild(newlineChar);
-};
-
 function doSearch(cm) {
 	const selection = cm.getSelection();
 	if (!selection) return;
@@ -1791,7 +1782,7 @@ function setupEditor(editorID, containerID, options = {}) {
 	cm.on('undo', updateToolbarState);
 	cm.on('redo', updateToolbarState);
 	//cm.on("renderLine", dispNewLine);
-	cm.on("renderLine", function(cm, line, element) { cm.dispNewLine(line, element) });
+	cm.on("renderLine", (_, line, element) => cm.dispNewLine(line, element));
 	cm.on('change', function(cm, changeObj) {
 		// 1. すでに動いているタイマーがあればキャンセル（イベントの間引き）
 		if (debounceTimer) {
