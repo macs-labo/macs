@@ -751,12 +751,11 @@ function getFilename(target, command, ext = '.sql') {
 		}
 		if (filename) {
 			if (command === 'filename') {
-				// filename コマンドの場合はパス区切り文字'/'を不許可
-				filename = filename.replace(/[\\/:*?"<>|]/g, '');
-			} else {
-				// filename コマンド以外の場合はパス区切り文字'/'を許可
-				filename = filename.replace(/[\\:*?"<>|]/g, '');
+				// filename コマンドの場合は最後のパス区切り文字'/'より後ろを取得
+				filename = filename.split('/').pop();
 			}
+			// ファイル名に使用できない文字を削除
+			filename = filename.replace(/[\\:*?"<>|]/g, '');
 			if (!filename.endsWith(ext)) filename += ext;
 		}
 	}
@@ -1506,20 +1505,20 @@ function loadAutoSavedSQL() {
 }
 
 function handleDrop(event) {
-	event.preventDefault();
+	const files = event.dataTransfer.files;
+	if (!files || files.length === 0) return; // ファイルじゃなければ何もしない
 
-	// firefox, Safari の場合
-	if (!isFileSystemAccessSupported) {
-		readFile(event.dataTransfer.files[0]);
+	event.preventDefault(); // デフォルト動作防止
+	const allowedTypes = ['text/plain', 'text/html', 'application/zip', 'application/pdf'];
+	if (!allowedTypes.includes(files[0].type)) {
+		alert(`対応していないファイル形式です (${mimeType || '不明な形式'})`);
 		return;
 	}
 
-	// Chrome, Edge の場合
-	const item = event.dataTransfer.items[0];
-	if (item && item.kind === 'file') {
-		openFileSQL(item);
+	if (isFileSystemAccessSupported) {
+		openFileSQL(event.dataTransfer.items[0]); // Chrome, Edge の場合
 	} else {
-		alert('対応していないファイル形式です。');
+		readFile(files[0]); // firefox, Safari の場合
 	}
 }
 
