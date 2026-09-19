@@ -1504,16 +1504,14 @@ function loadAutoSavedSQL() {
 	}
 }
 
-function handleDrop(event) {
+function handleDrop(event, exts = ['sql', 'var', 'zip', 'html', 'htm', 'zip', 'pdf', 'url']) {
 	event.preventDefault(); // デフォルト動作防止
 	const files = event.dataTransfer.files;
 	if (!files || files.length === 0) return; // ファイルじゃなければ何もしない
 
-	const allowedTypes = ['text/plain', 'text/html', 'application/zip', 'application/pdf'];
-	const mimeType = files[0].type;
-	console.log(mimeType);
-	if (!allowedTypes.includes(mimeType)) {
-		alert(`対応していないファイル形式です (${mimeType || '不明な形式'})`);
+	const fileExt = files[0].name.split('.').pop();
+	if (!exts.includes(fileExt)) {
+		alert(`対応していないファイル形式です (${fileExt || '不明な形式'})`);
 		return;
 	}
 
@@ -2292,20 +2290,14 @@ window.addEventListener('DOMContentLoaded', async function() {
 
 	// ドラッグ＆ドロップのイベントリスナーを設定
 	const sql_editor = document.getElementById('sql_editor');
-	sql_editor.addEventListener('dragover', (event) => {
-		event.preventDefault(); // Allow drop
-	});
-	sql_editor.addEventListener('drop', handleDrop);
+	sql_editor.addEventListener('dragover', (e) => e.preventDefault()); 
+	sql_editor.addEventListener('drop', (e) => handleDrop(e)); // Allow drop
 	const var_editor = document.getElementById('var_editor');
-	var_editor.addEventListener('dragover', (event) => {
-		event.preventDefault(); // Allow drop
-	});
-	var_editor.addEventListener('drop', handleDrop);
+	var_editor.addEventListener('dragover', (e) => e.preventDefault()); // Allow drop
+	var_editor.addEventListener('drop', (e) => handleDrop(e, ['var']));
 	const file_tree = document.getElementById('fileTree');
-	file_tree.addEventListener('dragover', (event) => {
-		event.preventDefault(); // Allow drop
-	});
-	file_tree.addEventListener('drop', handleDrop);
+	file_tree.addEventListener('dragover', (e) => e.preventDefault()); // Allow drop
+	file_tree.addEventListener('drop', (e) => handleDrop(e, ['zip']));
 
 	// sqlText がある場合は autoSaved ボタン可視化
 	if (localStorage.getItem('sqlText')) document.getElementById('autoSaved')?.classList.remove('hidden');
