@@ -356,6 +356,7 @@ CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	const cursor = this.getSearchCursor(queryRegExp);
 	while (cursor.findNext()) {
 		const fromPos = cursor.from();
+		const toPos = cursor.to();
 		console.log('cursor: ', cursor);
 		this.matches.push({ from: fromPos, to: toPos });
 
