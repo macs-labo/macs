@@ -450,7 +450,7 @@ CodeMirror.prototype.doReplace = function() {
     // CodeMirrorのコアプロトタイプから getRange メソッドを直接借りて実行します。
     // これにより、マルチエディタ環境下のどのインスタンスからでも100%安全に文字が取得できます。
     const originalText = CodeMirror.prototype.getRange.call(this, fromPos, toPos);
-		consol.log('originalText: ', originalText);
+		console.log('originalText: ', originalText);
     return originalText.replace(queryRegExp, replaceText);
   };
 
