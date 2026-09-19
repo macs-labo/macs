@@ -1510,7 +1510,9 @@ function handleDrop(event) {
 	if (!files || files.length === 0) return; // ファイルじゃなければ何もしない
 
 	const allowedTypes = ['text/plain', 'text/html', 'application/zip', 'application/pdf'];
-	if (!allowedTypes.includes(files[0].type)) {
+	const mimeType = files[0].type;
+	console.log(mimeType);
+	if (!allowedTypes.includes(mimeType)) {
 		alert(`対応していないファイル形式です (${mimeType || '不明な形式'})`);
 		return;
 	}
