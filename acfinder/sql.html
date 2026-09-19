@@ -1505,10 +1505,10 @@ function loadAutoSavedSQL() {
 }
 
 function handleDrop(event) {
+	event.preventDefault(); // デフォルト動作防止
 	const files = event.dataTransfer.files;
 	if (!files || files.length === 0) return; // ファイルじゃなければ何もしない
 
-	event.preventDefault(); // デフォルト動作防止
 	const allowedTypes = ['text/plain', 'text/html', 'application/zip', 'application/pdf'];
 	if (!allowedTypes.includes(files[0].type)) {
 		alert(`対応していないファイル形式です (${mimeType || '不明な形式'})`);
