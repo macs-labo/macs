@@ -450,6 +450,7 @@ CodeMirror.prototype.doReplace = function() {
     // CodeMirrorのコアプロトタイプから getRange メソッドを直接借りて実行します。
     // これにより、マルチエディタ環境下のどのインスタンスからでも100%安全に文字が取得できます。
     const originalText = CodeMirror.prototype.getRange.call(this, fromPos, toPos);
+		consol.log('originalText: ', originalText);
     return originalText.replace(queryRegExp, replaceText);
   };
 
@@ -2042,6 +2043,11 @@ window.addEventListener('DOMContentLoaded', async function() {
 		event.preventDefault(); // Allow drop
 	});
 	var_editor.addEventListener('drop', handleDrop);
+	const file_tree = document.getElementById('fileTree');
+	file_tree.addEventListener('dragover', (event) => {
+		event.preventDefault(); // Allow drop
+	});
+	file_tree.addEventListener('drop', handleDrop);
 
 	// sqlText がある場合は autoSaved ボタン可視化
 	if (localStorage.getItem('sqlText')) document.getElementById('autoSaved')?.classList.remove('hidden');
