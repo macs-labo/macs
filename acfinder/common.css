@@ -358,6 +358,7 @@ dialog {
 	width: 100%;
 	margin-bottom: 2px;
 	overflow: hidden;
+	gap: 2px;
 	/*font-size: 13px;*/
 }
 

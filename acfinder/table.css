@@ -53,6 +53,7 @@ h4 {
 	width: 100%;
 	font-size: 12px;
 	overflow: hidden;
+	gap: 2px;
 }
 
 .table_footer select {
