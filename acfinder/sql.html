@@ -154,6 +154,8 @@ textarea#varInput {
 .cm-s-darcula span.cm-variable-3 { color: #b362df; }
 span.cm-variable-3 { font-weight: bold;  }
 .CodeMirror-hints { z-index: 9999 !important; }
+/* 補完候補の右側に表示するテーブル名・型など */
+.cm-hint-meta { margin-left: 1.5em; font-size: 0.85em; opacity: 0.6; }
 
 /* 全角スペース等を可視化するためのスタイル */
 .cm-visible-zenkaku {
@@ -1797,41 +1799,313 @@ function setupEditor(editorID, containerID, options = {}) {
 	return cm;
 }
 
+// ============================================================
+// SQL 入力補完（テーブル名・カラム名を SQLite から動的に取得）
+//  - from / join / into / update の直後 … テーブル名（＋attach 済みスキーマ名）
+//  - 上記以外 … 文中(from/join…)で参照されているテーブルのカラム名 + キーワード + テーブル名
+//  - "テーブル名." "別名." "スキーマ名.テーブル名." の直後 … そのテーブルのカラム名
+//  補完のたびに DB へ問い合わせるので、テンポラリテーブルや後から作ったテーブルにも追従する
+// ============================================================
+const SQL_IDC = "\\w$\\u3040-\\u30FF\\u3400-\\u9FFF\\uFF10-\\uFF19\\uFF21-\\uFF3A\\uFF41-\\uFF5A\\uFF66-\\uFF9F"; // 英数字_$・ひらがな・カタカナ・漢字・全角英数・半角カナ
+const SQL_ID = "(?:\"(?:[^\"\\n]|\"\")*\"|`[^`\\n]*`|\\[[^\\]\\n]*\\]|[" + SQL_IDC + "]+)"; // 識別子（"..." `...` [...] も可）
+const SQL_ID_RE = new RegExp("^" + SQL_ID + "$");
+const SQL_PLAIN_ID_RE = new RegExp("^(?![0-9\\uFF10-\\uFF19])[" + SQL_IDC + "]+$"); // 引用符が不要な識別子
+const SQL_WORD_RE = new RegExp("(?:(?:(" + SQL_ID + ")\\.)?(" + SQL_ID + ")\\.)?([\"`\\[]?[" + SQL_IDC + "]*)$");
+const SQL_NOT_ALIAS = new Set("where join inner left right full cross natural outer on using group order limit offset union intersect except having window set values select from into returning indexed not as and or by".split(" "));
+const SQL_CLAUSE_KW = new Set("select from where join on group order having limit offset set values into update using union intersect except returning".split(" "));
+
+// コメント・文字列・${変数} を、文字数を変えずに潰す（識別子の "..." `...` はそのまま残す）
+function maskSql(text) {
+	return text.replace(/--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|'(?:[^']|'')*(?:'|$)|"(?:[^"\n]|"")*"|`[^`\n]*`|\$\{[^${}]*\}/g, m => {
+		const c = m[0];
+		if (c === '"' || c === '`') return m;
+		if (c === '$') return "_".repeat(m.length);
+		return m.replace(/[^\n]/g, " ");
+	});
+}
+
+function unquoteSqlId(t) {
+	const c = t[0];
+	if (c === '"') return t.slice(1, -1).replace(/""/g, '"');
+	if (c === '`' || c === '[') return t.slice(1, -1);
+	return t;
+}
+
+function tokenizeSql(s) {
+	const re = new RegExp(SQL_ID + "|[.,()]|\\S", "g");
+	const toks = [];
+	let m;
+	while ((m = re.exec(s))) toks.push({ text: m[0], start: m.index, end: m.index + m[0].length });
+	return toks;
+}
+
+// FROM / JOIN / UPDATE / INTO の後ろにあるテーブル参照（[スキーマ.]テーブル [AS] [別名]）を集める
+function parseSqlTableRefs(toks) {
+	const refs = [];
+	const isId = t => !!t && SQL_ID_RE.test(t.text);
+	const low = t => t.text.toLowerCase();
+	for (let i = 0; i < toks.length; i++) {
+		const kw = low(toks[i]);
+		if (kw !== "from" && kw !== "join" && kw !== "update" && kw !== "into") continue;
+		let j = i + 1;
+		while (j < toks.length) {
+			if (!isId(toks[j]) || SQL_NOT_ALIAS.has(low(toks[j]))) break;
+			let schema = null;
+			let table = unquoteSqlId(toks[j].text);
+			let k = j + 1;
+			if (toks[k] && toks[k].text === "." && isId(toks[k + 1])) {
+				schema = table;
+				table = unquoteSqlId(toks[k + 1].text);
+				k += 2;
+			}
+			let alias = null;
+			if (toks[k] && low(toks[k]) === "as" && isId(toks[k + 1])) {
+				alias = unquoteSqlId(toks[k + 1].text);
+				k += 2;
+			} else if (isId(toks[k]) && !SQL_NOT_ALIAS.has(low(toks[k]))) {
+				alias = unquoteSqlId(toks[k].text);
+				k += 1;
+			}
+			refs.push({ schema, table, alias });
+			j = k;
+			if (kw === "from" && toks[j] && toks[j].text === ",") { j++; continue; } // from a, b, c
+			break;
+		}
+	}
+	return refs;
+}
+
+// 直近（同じ括弧の深さ）の句キーワードを返す
+function findSqlClause(tokens) {
+	let depth = 0;
+	for (let i = tokens.length - 1; i >= 0; i--) {
+		const t = tokens[i].text;
+		if (t === ")") depth++;
+		else if (t === "(") { if (depth > 0) depth--; }
+		else if (depth === 0 && SQL_CLAUSE_KW.has(t.toLowerCase())) return t.toLowerCase();
+	}
+	return null;
+}
+
+// カーソル位置(idx)の文脈を解析する。補完不要な位置（文字列・コメント内など）は null
+function analyzeSqlContext(text, idx) {
+	const masked = maskSql(text);
+	if (idx > 0 && masked[idx - 1] !== text[idx - 1]) return null;
+	const start = idx > 0 ? masked.lastIndexOf(";", idx - 1) + 1 : 0; // カーソルがある文（; 区切り）
+	let end = masked.indexOf(";", idx);
+	if (end < 0) end = masked.length;
+	const stmt = masked.slice(start, end);
+	const c = idx - start;
+
+	const m = SQL_WORD_RE.exec(stmt.slice(Math.max(0, c - 300), c));
+	const schemaQ = m[1] ? unquoteSqlId(m[1]) : null;
+	const qualifier = m[2] ? unquoteSqlId(m[2]) : null;
+	const word = m[3] || "";
+	const quote = /^["`\[]/.test(word) ? word[0] : null;
+	const prefix = quote ? word.slice(1) : word;
+	const wordStart = c - word.length;
+
+	const tokens = tokenizeSql(stmt);
+	const refs = parseSqlTableRefs(tokens); // カーソルより後ろの from も対象（select 句で補完するため）
+
+	let kind = "column";
+	if (qualifier !== null) {
+		kind = "qualified";
+	} else {
+		const before = tokens.filter(t => t.end <= wordStart);
+		const prev = before.length ? before[before.length - 1].text.toLowerCase() : "";
+		const prev2 = before.length > 1 ? before[before.length - 2].text.toLowerCase() : "";
+		if (prev === "from" || prev === "join" || prev === "into" || prev === "update"
+			|| (prev === "table" && (prev2 === "alter" || prev2 === "drop"))
+			|| (prev === "," && findSqlClause(before) === "from")) {
+			kind = "table";
+		}
+	}
+	return { kind, schema: schemaQ, qualifier, word, prefix, quote, refs };
+}
+
+// ---- DB 問い合わせ ----
+function sqlRows(sql, params) {
+	const stmt = db.prepare(sql);
+	try {
+		if (params) stmt.bind(params);
+		const rows = [];
+		while (stmt.step()) rows.push(stmt.get());
+		return rows;
+	} finally {
+		stmt.free();
+	}
+}
+
+// スキーマ一覧（名前解決の優先順: temp → main → attach 済み）とテーブル・ビュー一覧を取得
+function sqlSnapshot() {
+	const names = ["temp", "main"];
+	try {
+		sqlRows("PRAGMA database_list").forEach(r => {
+			if (!names.some(n => n.toLowerCase() === String(r[1]).toLowerCase())) names.push(r[1]);
+		});
+	} catch (e) { console.warn("database_list failed:", e); }
+	const objs = [];
+	names.forEach(schema => {
+		const master = schema.toLowerCase() === "temp" ? "sqlite_temp_master" : '"' + schema.replace(/"/g, '""') + '".sqlite_master';
+		try {
+			sqlRows("SELECT name, type FROM " + master + " WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name")
+				.forEach(r => objs.push({ schema, name: r[0], type: r[1] }));
+		} catch (e) { console.warn("schema " + schema + " not readable:", e); }
+	});
+	return { schemas: names, objs };
+}
+
+// 指定テーブルのカラム名を取得（pragma_table_info にスキーマも渡す）
+function sqlGetColumns(schema, table) {
+	try {
+		return sqlRows("SELECT name, type, pk FROM pragma_table_info(?, ?)", [table, schema])
+			.map(r => ({ name: r[0], type: r[1], pk: r[2] }));
+	} catch (e) {
+		console.warn("pragma_table_info failed for " + schema + "." + table + ":", e);
+		return [];
+	}
+}
+
+function sqlFindObject(objs, schema, name) {
+	const n = name.toLowerCase();
+	const s = schema ? schema.toLowerCase() : null;
+	return objs.find(o => o.name.toLowerCase() === n && (!s || o.schema.toLowerCase() === s)) || null;
+}
+
+// 必要なら "..." で囲んで挿入用の識別子にする
+function sqlFormatId(name, quote) {
+	if (quote === '"') return '"' + name.replace(/"/g, '""') + '"';
+	if (quote === "`") return "`" + name + "`";
+	if (quote === "[") return "[" + name + "]";
+	return SQL_PLAIN_ID_RE.test(name) ? name : '"' + name.replace(/"/g, '""') + '"';
+}
+
+// 文脈から補完候補リストを作る
+function buildSqlHintList(ctx, keywords) {
+	const lp = ctx.prefix.toLowerCase();
+	const ok = s => s.toLowerCase().startsWith(lp);
+	const fmt = name => sqlFormatId(name, ctx.quote);
+	const { schemas, objs } = sqlSnapshot();
+
+	const tableItems = schemaFilter => {
+		const seen = new Set();
+		const items = [];
+		objs.forEach(o => {
+			if (schemaFilter && o.schema.toLowerCase() !== schemaFilter.toLowerCase()) return;
+			const k = o.name.toLowerCase();
+			if (seen.has(k)) return; // 同名は優先順位の高いスキーマだけ（他は spec. のように修飾して入力）
+			seen.add(k);
+			if (!ok(o.name)) return;
+			items.push({
+				text: fmt(o.name), displayText: o.name,
+				meta: (o.schema === "main" ? "" : o.schema + " ") + o.type,
+				className: "CodeMirror-hint-table"
+			});
+		});
+		return items.sort((a, b) => a.displayText.localeCompare(b.displayText));
+	};
+
+	const columnItems = obj => sqlGetColumns(obj.schema, obj.name)
+		.filter(col => ok(col.name))
+		.map(col => ({
+			text: fmt(col.name), displayText: col.name,
+			meta: obj.name + (col.type ? "  " + col.type : "") + (col.pk ? "  PK" : ""),
+			className: "CodeMirror-hint-column"
+		}));
+
+	// テーブル名の位置 … テーブル名と、attach 済みスキーマ名だけ
+	if (ctx.kind === "table") {
+		const items = tableItems(null);
+		schemas.forEach(s => {
+			if (/^(main|temp)$/i.test(s) || !ok(s)) return;
+			items.push({ text: fmt(s), displayText: s, meta: "schema", className: "CodeMirror-hint-table" });
+		});
+		return items;
+	}
+
+	// "xxx." の直後
+	if (ctx.kind === "qualified") {
+		let target = null;
+		if (ctx.schema) {
+			target = sqlFindObject(objs, ctx.schema, ctx.qualifier);
+		} else {
+			const q = ctx.qualifier.toLowerCase();
+			const ref = ctx.refs.find(r => r.alias && r.alias.toLowerCase() === q)
+				|| ctx.refs.find(r => !r.alias && r.table.toLowerCase() === q);
+			if (ref) target = sqlFindObject(objs, ref.schema, ref.table);
+			if (!target) target = sqlFindObject(objs, null, ctx.qualifier);
+			if (!target && schemas.some(s => s.toLowerCase() === q)) return tableItems(ctx.qualifier); // from spec. → spec のテーブル一覧
+		}
+		return target ? columnItems(target) : [];
+	}
+
+	// それ以外 … 文中のテーブルのカラム → キーワード → テーブル名
+	const cols = new Map();
+	ctx.refs.forEach(r => {
+		const obj = sqlFindObject(objs, r.schema, r.table);
+		if (!obj) return;
+		sqlGetColumns(obj.schema, obj.name).forEach(col => {
+			const key = col.name.toLowerCase();
+			if (!ok(col.name)) return;
+			const label = r.alias || obj.name;
+			if (cols.has(key)) {
+				const e = cols.get(key);
+				if (!e.labels.includes(label)) e.labels.push(label);
+			} else {
+				cols.set(key, { name: col.name, type: col.type, pk: col.pk, labels: [label] });
+			}
+		});
+	});
+	const items = [];
+	cols.forEach(e => items.push({
+		text: fmt(e.name), displayText: e.name,
+		meta: e.labels.join(", ") + (e.type ? "  " + e.type : "") + (e.pk ? "  PK" : ""),
+		className: "CodeMirror-hint-column"
+	}));
+	if (!ctx.quote) {
+		keywords.filter(ok).sort().forEach(k => items.push({
+			text: k.toUpperCase(), displayText: k.toUpperCase(), className: "CodeMirror-hint-keyword"
+		}));
+	}
+	return items.concat(tableItems(null));
+}
+
+// 補完候補の表示（右側に「テーブル名 型」等を薄く表示）
+function renderSqlHint(el, data, cur) {
+	const name = document.createElement("span");
+	name.textContent = cur.displayText;
+	el.appendChild(name);
+	if (cur.meta) {
+		const meta = document.createElement("span");
+		meta.className = "cm-hint-meta";
+		meta.textContent = cur.meta;
+		el.appendChild(meta);
+	}
+}
+
+// CodeMirror.hint.sql として使う補完関数
+function sqlSmartHint(cm, options, fallbackHint) {
+	try {
+		const cur = cm.getCursor();
+		const empty = { list: [], from: cur, to: cur };
+		const ctx = analyzeSqlContext(cm.getValue(), cm.indexFromPos(cur));
+		if (!ctx || typeof db === "undefined" || db === null) return empty;
+		const keywords = Object.keys(CodeMirror.resolveMode("text/x-sql").keywords || {});
+		const list = buildSqlHintList(ctx, keywords);
+		if (list.length === 1 && list[0].displayText.toLowerCase() === ctx.prefix.toLowerCase()) return empty; // 既に入力済み
+		list.forEach(item => { if (item.meta) item.render = renderSqlHint; });
+		return { list, from: CodeMirror.Pos(cur.line, cur.ch - ctx.word.length), to: cur };
+	} catch (e) {
+		console.warn("SQL hint failed:", e);
+		return fallbackHint ? fallbackHint(cm, options) : null;
+	}
+}
+
 // DOM読込完了時の初期設定
 window.addEventListener('DOMContentLoaded', async function() {
 	//データベース読込
 	if (db === null) await fetchDB();
-
-	// コード補完のためのテーブル・ビュー情報を取得
-	const tablesForHint = {};
-	try {
-		const allTablesQuery = `
-			SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'
-			UNION
-			SELECT if(name == 'info', 'spec.info', name) as name FROM spec.sqlite_master WHERE type IN ('table', 'view')
-			UNION
-			SELECT name FROM sqlite_temp_master WHERE type IN ('table', 'view')
-			ORDER BY name
-		`;
-		const result = db.exec(allTablesQuery);
-		if (result.length > 0) {
-			result[0].values.forEach(row => {
-				const tableName = row[0];
-				if (tableName.includes('.')) return; // スキーマ付きテーブル名はスキップ
-				if (!tablesForHint[tableName]) {
-					tablesForHint[tableName] = [];
-					try {
-						const columnsResult = db.exec(`PRAGMA table_info(${tableName})`);
-						if (columnsResult.length > 0) {
-							columnsResult[0].values.forEach(colRow => {
-								tablesForHint[tableName].push(colRow[1]); // カラム名
-							});
-						}
-					} catch (e) { console.warn(`Could not get columns for table ${tableName}:`, e); }
-				}
-			});
-		}
-	} catch (e) { console.error(`Failed to get table list for hint:`, e); }
 
 	// CodeMirrorのSQLモードにキーワードを追加
 	(function() {
@@ -1861,24 +2135,12 @@ window.addEventListener('DOMContentLoaded', async function() {
 		}
 	})();
 
-	// SQLキーワードがテーブル名より先に表示されるように、標準のヒント関数をオーバーライド
+	// 補完候補を SQLite から動的に取得する関数に差し替える（失敗時は標準の sql-hint にフォールバック）
+	// ・from/join の直後 … テーブル名  ・それ以外 … 文中のテーブルのカラム名 → キーワード → テーブル名
+	// ・"テーブル名." "別名." の直後 … そのテーブルのカラム名
 	const originalSqlHint = CodeMirror.hint.sql;
-	CodeMirror.hint.sql = function(sqlEditor, options) {
-		const result = originalSqlHint(sqlEditor, options);
-		if (result) {
-			const keywords = [];
-			const tables = [];
-			result.list.forEach(item => {
-				// className でキーワードかテーブル/カラムかを判別
-				if (item.className === 'CodeMirror-hint-keyword') {
-					keywords.push(item);
-				} else {
-					tables.push(item);
-				}
-			});
-			result.list = keywords.concat(tables); // キーワードを先に結合
-		}
-		return result;
+	CodeMirror.hint.sql = function(cm, options) {
+		return sqlSmartHint(cm, options, originalSqlHint);
 	};
 
 	// 変数エディタ用モード定義
@@ -1924,7 +2186,6 @@ window.addEventListener('DOMContentLoaded', async function() {
 	const sqlOptions = {}
 	sqlOptions['customOptions'] = {
 		mode: 'text/x-sql',
-		hintOptions: { tables: tablesForHint },
 		autofocus: true
 	};
 	sqlOptions['keyMaps'] = { "Ctrl-Space": "autocomplete" }; // "autocomplete" は CodeMirror.hint.sql を呼び出す
@@ -1976,8 +2237,8 @@ window.addEventListener('DOMContentLoaded', async function() {
 	sqlEditor.on("focus", () => clearToolbarText());
 	// 文字入力時に自動で補完候補を表示する
 	sqlEditor.on("inputRead", function(cm, change) {
-		// 入力が1文字の英数字または'.'の場合に補完をトリガー
-		if (/[\w.]/.test(change.text[0])) {
+		// 入力が1文字の英数字・日本語または'.'の場合に補完をトリガー
+		if (/[\w.\u3040-\u30FF\u3400-\u9FFF]/.test(change.text[0])) {
 			// completeSingle: false は、候補が1つの場合に自動で補完しないようにする設定
 			cm.showHint({ completeSingle: false });
 		}
