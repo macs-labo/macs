@@ -123,6 +123,7 @@ function getScrollbarWidth() {
 	outer.style.overflow = 'scroll'; // スクロールバーを表示させる
 	outer.style.width = '100px'; // 任意の固定幅を設定
 	outer.style.height = '100px'; // 任意の固定高さを設定
+	outer.style.scrollbarWidth = 'thin'; // スクロールバーの太さを設定可能な場合は thin に固定
 	outer.style.position = 'absolute'; // レイアウトへの影響を最小限に
 	document.body.appendChild(outer);
 
@@ -766,7 +767,9 @@ function outputTable(selector, result, option = {}) {
 		let options = {};
 		if (hasScrollbarY && overlayScrollbarWidth > 0) {
 			const cloneTop = tableContainer.querySelector('.ht_clone_top').style;
+			const cloneCorner = tableContainer.querySelector('.ht_clone_top_left_corner').style;
 			cloneTop.marginRight = `${overlayScrollbarWidth}px;`;
+			cloneCorner.marginRight = `${overlayScrollbarWidth}px;`;
 		} else {
 			if (pagination && (tableWidth + scrollbarWidth < wtHolderWidth)) {
 				options['width'] = tableWidth + scrollbarWidth; // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
