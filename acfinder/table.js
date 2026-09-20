@@ -128,6 +128,7 @@ function getScrollbarWidth() {
 
 	// 非オーバーレイスクロールバーの幅
 	const scrollbarOffset = outer.offsetWidth - outer.clientWidth;
+	document.body.removeChild(outer);
 	if (scrollbarOffset > 2) {
 		scrollbarWidth = scrollbarOffset;
 		return;
@@ -136,10 +137,10 @@ function getScrollbarWidth() {
 	// オーバーレイ環境でも強制的にスクロールバー領域を確保させる
 	outer.style.overflowY = 'scroll';
 	outer.style.scrollbarGutter = 'stable';
+	document.body.appendChild(outer);
 	overlayScrollbarWidth = outer.offsetWidth - outer.clientWidth;
-
-	// 要素を削除
 	document.body.removeChild(outer);
+
 }
 
 /**
