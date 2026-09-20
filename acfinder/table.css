@@ -258,11 +258,6 @@ span.separator {
 	--ht-scrollbar-thumb-color: var(--scrollbar-thumb-color);
 }
 
-/* スクロールバーがオーバーレイであっても、その分の表示領域（溝）を常に確保する */
-.table_container {
-	scrollbar-gutter: stable;
-}
-
 /* td の color, background-color は変数上書きしても効果がないので、こちらで対応 16.2.0 でも必要 */
 .handsontable .htCore td.htDimmed {
 	color: var(--ht-foreground-color) !important;

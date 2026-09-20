@@ -114,6 +114,42 @@ function translateColumnName(originalName) {
 	return columnMappings[originalName] || originalName;
 }
 
+// 非オーバーレイスクロールバーの太さ取得
+function getExactScrollbarWidth() {
+	// 1. 一時的な要素（div）を作成
+	const outer = document.createElement('div');
+	
+	// 2. すべてのブラウザを1つの計算式にハメるためのスタイル
+	// Webkit（Safari/Chrome）は疑似要素があるとオーバーレイを強制解除して指定幅（16px等）になります。
+	// Firefoxや非オーバーレイ環境は、単純に overflow-y: scroll によってネイティブの幅（8px〜17px等）を維持します。
+	outer.innerHTML = `
+		<style>
+			.__sb_test_container {
+				position: absolute; visibility: hidden; width: 100px; height: 100px; overflow-y: scroll;
+			}
+			/* Webkit系（Safari/Chrome等）のオーバーレイを解除して幅を強制露出させる */
+			.__sb_test_container::-webkit-scrollbar {
+				-webkit-appearance: none;
+				width: 16px; /* ※Safari等のシステム既定の想定サイズ */
+			}
+		</style>
+	`;
+	
+	const testEl = document.createElement('div');
+	testEl.className = '__sb_test_container';
+	
+	outer.appendChild(testEl);
+	document.body.appendChild(outer);
+
+	// 3. どのブラウザでも、この1本の引き算だけで「その環境のスクロール幅」が正確に取れます
+	const scrollbarWidth = testEl.offsetWidth - testEl.clientWidth;
+
+	// 4. 後片付け
+	document.body.removeChild(outer);
+
+	return scrollbarWidth;
+}
+
 // スクロールバーの太さ取得
 function getScrollbarWidth() {
 	// 一時的な要素を作成
@@ -131,15 +167,9 @@ function getScrollbarWidth() {
 	document.body.removeChild(outer);
 	if (scrollbarOffset > 2) {
 		scrollbarWidth = scrollbarOffset;
-		return;
+	} else {
+		overlayScrollbarWidth = getExactScrollbarWidth();
 	}
-
-	// オーバーレイ環境でも強制的にスクロールバー領域を確保させる
-	outer.style.overflowY = 'scroll';
-	outer.style.scrollbarGutter = 'stable';
-	document.body.appendChild(outer);
-	overlayScrollbarWidth = outer.offsetWidth - outer.clientWidth;
-	document.body.removeChild(outer);
 
 }
 
@@ -575,8 +605,8 @@ function outputTable(selector, result, option = {}) {
 		afterInit: function() {
 			resetContainerWidth(this);
 			updatePagination(this);
-			updateContainerRect(this);
 			updateRowsSelect(this);
+			updateContainerRect(this);
 			updatePageSize(this);
 			updateFooter(this);
 		},
@@ -584,8 +614,8 @@ function outputTable(selector, result, option = {}) {
 			hideEmptyColumns(this);
 			resetContainerWidth(this);
 			updatePagination(this);
-			updateContainerRect(this);
 			updateRowsSelect(this);
+			updateContainerRect(this);
 			updatePageSize(this);
 		},
 		afterPageSizeChange: function() {
