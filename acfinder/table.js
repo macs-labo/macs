@@ -1322,6 +1322,8 @@ window.addEventListener('DOMContentLoaded', () => {
 	const resultPane = document.querySelector('#resultPane');
 	if (!resultPane) return;
 	getScrollbarWidth(); // スクロールバーの太さ設定
+	console.log('scrollbarWidth: ', scrollbarWidth);
+	console.log('overlayScrollbarWidth: ', overlayScrollbarWidth);
 	let resizeTimer;
 	let currentWidth = resultPane.getBoundingClientRect().width;
 	const observer = new ResizeObserver((entries) => {
