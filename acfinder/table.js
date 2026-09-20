@@ -790,6 +790,7 @@ function outputTable(selector, result, option = {}) {
 		const sbarHeight = wtHiderWidth > wtHolderWidth ? scrollbarWidth : 0; // 水平スクロールバーがある場合はスクロールバーの高さを設定
 		options['height'] = tableHeight + paginationHeight + sbarHeight // ページネーション、水平スクロールバーの高さをテーブル高に加算
 		hot.updateSettings(options);
+		hot.render();
 	}
 
 	function updateFooter(hot) {
