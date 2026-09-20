@@ -770,10 +770,11 @@ function outputTable(selector, result, option = {}) {
 			const cloneTop = tableContainer.querySelector('.ht_clone_top');
 			const wtHolder = cloneTop.querySelector('.wtHolder');
 			const width = parseFloat(wtHolder.style.width);
-			console.log('clone_top_width: ', width);
 			const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
-			wtHolder.style.setProperty('width', `${width - sbarWidth}px`, 'important');
+			console.log('clone_top_width: ', width);
+			console.log('sbarWidth: ', sbarWidth);
 			cloneTop.style.setProperty('width', `${width - sbarWidth}px`, 'important');
+			wtHolder.style.setProperty('width', `${width - sbarWidth}px`, 'important');
 			// 非オーバーレイスクロールバー専用: ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
 			if(scrollbarWidth > 0 && pagination && (tableWidth + scrollbarWidth < wtHolderWidth)) {
 				options['width'] = tableWidth + scrollbarWidth;
@@ -1328,8 +1329,6 @@ window.addEventListener('DOMContentLoaded', () => {
 	const resultPane = document.querySelector('#resultPane');
 	if (!resultPane) return;
 	getScrollbarWidth(); // スクロールバーの太さ設定
-	console.log('scrollbarWidth: ', scrollbarWidth);
-	console.log('overlayScrollbarWidth: ', overlayScrollbarWidth);
 	let resizeTimer;
 	let currentWidth = resultPane.getBoundingClientRect().width;
 	const observer = new ResizeObserver((entries) => {
