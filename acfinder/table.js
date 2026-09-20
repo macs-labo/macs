@@ -596,6 +596,9 @@ function outputTable(selector, result, option = {}) {
 		afterRender: function() {
 			adjustHeaderWidth(this);
 		},
+		afterScroolHolizontary: function() {
+			adjustHeaderWidth(this);
+		},
 		afterDropdownMenuShow: function(dropdownMenu) {
 			adjustDropdownPos(dropdownMenu);
 		},
@@ -725,8 +728,8 @@ function outputTable(selector, result, option = {}) {
 		const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
 		console.log('sbarWidth: ', sbarWidth);
 		//cloneTop.style.setProperty('width', `${width - sbarWidth}px`, 'important');
-		//wtHolder.style.setProperty('width', `${width - sbarWidth}px`, 'important');
-		cloneHolder.style.width = `${width - sbarWidth}px`;
+		cloneHolder.style.setProperty('width', `${width - sbarWidth}px`, 'important');
+		//cloneHolder.style.width = `${width - sbarWidth}px`;
 		const widthAfter = parseFloat(cloneHolder.style.width);
 		console.log('cloneHolder_width: ', widthAfter);
 	}
