@@ -593,15 +593,15 @@ function outputTable(selector, result, option = {}) {
 				currentHideColumns = destinationHideConfig;
 				resetContainerWidth(this);
 				updateContainerRect(this);
-			adjustHeaderWidth(this);
+				adjustHeaderWidth(this);
 				//this.render();
 			}
 		},
 		afterRender: function() {
-			//adjustHeaderWidth(this);
+			adjustHeaderWidth(this);
 		},
 		afterScroll: function() {
-			//adjustHeaderWidth(this);
+			adjustHeaderWidth(this);
 		},
 		afterDropdownMenuShow: function(dropdownMenu) {
 			adjustDropdownPos(dropdownMenu);
