@@ -258,6 +258,11 @@ span.separator {
 	--ht-scrollbar-thumb-color: var(--scrollbar-thumb-color);
 }
 
+/* scrollbar-width 対応ブラウザでのスクロールバー幅は thin に固定 */
+.handsontable .wtHolder {
+	scrollbar-width: thin !important;
+}
+
 /* td の color, background-color は変数上書きしても効果がないので、こちらで対応 16.2.0 でも必要 */
 .handsontable .htCore td.htDimmed {
 	color: var(--ht-foreground-color) !important;
