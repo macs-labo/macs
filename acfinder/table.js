@@ -133,7 +133,7 @@ function getScrollbarWidth() {
 	if (scrollbarOffset > 2) {
 		scrollbarWidth = scrollbarOffset;
 	} else {
-		overlayScrollbarWidth =  window.navigator.userAgent.toLowerCase().includes('firefox') ? 10 : 16;
+		overlayScrollbarWidth =  window.navigator.userAgent.toLowerCase().includes('firefox') ? 12 : 16;
 	}
 }
 
@@ -727,14 +727,10 @@ function outputTable(selector, result, option = {}) {
 		if (wtHiderHeight <= wtHolderHeight) return; // 垂直スクロールバーがない場合は何もしない
 		const cloneTop = tableContainer.querySelector('.ht_clone_top');
 		const cloneHolder = cloneTop.querySelector('.wtHolder');
-		//const width = parseFloat(tableContainer.querySelector('.wtHolder')?.style.width);
 		const width = parseFloat(cloneHolder.style.width);
-		console.log('wtHolder_width: ', width);
 		cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
 		cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
 		//cloneHolder.style.width = `${width - overlayScrollbarWidth}px`;
-		const widthAfter = parseFloat(cloneHolder.style.width);
-		console.log('cloneHolder_width: ', widthAfter);
 	}
 
 	function updatePagination(hot) {
