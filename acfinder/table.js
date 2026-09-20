@@ -573,6 +573,7 @@ function outputTable(selector, result, option = {}) {
 			updateContainerRect(this);
 			updatePageSize(this);
 			updateFooter(this);
+			adjustHeaderWidth(this);
 		},
 		afterFilter: function() {
 			hideEmptyColumns(this);
@@ -581,23 +582,26 @@ function outputTable(selector, result, option = {}) {
 			updateRowsSelect(this);
 			updateContainerRect(this);
 			updatePageSize(this);
+			adjustHeaderWidth(this);
 		},
 		afterPageSizeChange: function() {
 			updatePageSize(this);
+			adjustHeaderWidth(this);
 		},
 		afterHideColumns: function(currentHideConfig, destinationHideConfig, actionPossible, stateChanged) {
 			if (stateChanged) {
 				currentHideColumns = destinationHideConfig;
 				resetContainerWidth(this);
 				updateContainerRect(this);
+			adjustHeaderWidth(this);
 				//this.render();
 			}
 		},
 		afterRender: function() {
-			adjustHeaderWidth(this);
+			//adjustHeaderWidth(this);
 		},
 		afterScroll: function() {
-			adjustHeaderWidth(this);
+			//adjustHeaderWidth(this);
 		},
 		afterDropdownMenuShow: function(dropdownMenu) {
 			adjustDropdownPos(dropdownMenu);
