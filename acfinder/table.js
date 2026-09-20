@@ -604,7 +604,7 @@ function outputTable(selector, result, option = {}) {
 			//adjustHeaderWidth(this);
 		},
 		afterScroll: function() {
-			adjustHeaderWidth(this);
+			//adjustHeaderWidth(this);
 		},
 		afterDropdownMenuShow: function(dropdownMenu) {
 			adjustDropdownPos(dropdownMenu);
@@ -731,10 +731,10 @@ function outputTable(selector, result, option = {}) {
 		const width = parseFloat(tableContainer.querySelector('.wtHolder')?.style.width);
 		const cloneTop = tableContainer.querySelector('.ht_clone_top');
 		const cloneHolder = cloneTop.querySelector('.wtHolder');
-		cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
-		cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
-		//cloneTop.style.width = `${width - overlayScrollbarWidth}px`;
-		//cloneHolder.style.width = `${width - overlayScrollbarWidth}px`;
+		//cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
+		//cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
+		cloneTop.style.width = `${width - overlayScrollbarWidth}px`;
+		cloneHolder.style.width = `${width - overlayScrollbarWidth}px`;
 	}
 
 	function updatePagination(hot) {
