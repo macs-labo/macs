@@ -728,9 +728,7 @@ function outputTable(selector, result, option = {}) {
 		console.log('wtHolder_width: ', width);
 		const cloneTop = tableContainer.querySelector('.ht_clone_top');
 		const cloneHolder = cloneTop.querySelector('.wtHolder');
-		const width = parseFloat(cloneHolder?.style.width);
-		const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
-		console.log('sbarWidth: ', sbarWidth);
+		const width = parseFloat(cloneHolder.style.width);
 		cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
 		cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
 		//cloneHolder.style.width = `${width - overlayScrollbarWidth}px`;
