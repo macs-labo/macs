@@ -133,7 +133,7 @@ function getScrollbarWidth() {
 	if (scrollbarOffset > 2) {
 		scrollbarWidth = scrollbarOffset;
 	} else {
-		overlayScrollbarWidth = CSS.supports('scrollbar-width', 'thin') ? 8 : 16;
+		overlayScrollbarWidth =  window.navigator.userAgent.toLowerCase().includes('firefox') ? 10 : 16;
 	}
 }
 
@@ -721,19 +721,19 @@ function outputTable(selector, result, option = {}) {
 	}
 
 	function adjustHeaderWidth(hot) {
+		if (scrollbarWidth > 0) return; // 非オーバーレイスクロールバーでは何もしない
 		const wtHolderHeight = parseFloat(tableContainer.querySelector('.wtHolder')?.style.height);
 		const wtHiderHeight = parseFloat(tableContainer.querySelector('.wtHider')?.style.height);
-		const hasScrollbarY = wtHiderHeight > wtHolderHeight; // 垂直スクロールバーがあるか？
-		if (!hasScrollbarY) return; // 垂直スクロールバーがない場合は何もしない
-		const width = parseFloat(tableContainer.querySelector('.wtHolder')?.style.width);
+		if (wtHiderHeight <= wtHolderHeight) return; // 垂直スクロールバーがない場合は何もしない
 		console.log('wtHolder_width: ', width);
 		const cloneTop = tableContainer.querySelector('.ht_clone_top');
 		const cloneHolder = cloneTop.querySelector('.wtHolder');
+		const width = parseFloat(cloneHolder?.style.width);
 		const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
 		console.log('sbarWidth: ', sbarWidth);
-		cloneTop.style.setProperty('width', `${width - sbarWidth}px`, 'important');
-		cloneHolder.style.setProperty('width', `${width - sbarWidth}px`, 'important');
-		//cloneHolder.style.width = `${width - sbarWidth}px`;
+		cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
+		cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
+		//cloneHolder.style.width = `${width - overlayScrollbarWidth}px`;
 		const widthAfter = parseFloat(cloneHolder.style.width);
 		console.log('cloneHolder_width: ', widthAfter);
 	}
