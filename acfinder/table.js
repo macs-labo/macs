@@ -1134,6 +1134,14 @@ function outputTable(selector, result, option = {}) {
 		}
 	});
 
+	window.addEventListener('mouseup', () => {
+		// マウスが離されたら、一瞬のディレイ（10ms〜30ms程度）を入れて
+		// Handsontable の内部描画が落ち着いた直後にヘッダ幅を確実に削る
+		setTimeout(() => {
+			adjustHeaderWidth(table);
+		}, 20);
+	}, { passive: true });
+
 	tabExecuted = !nores;
 	return table;
 }
