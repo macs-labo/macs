@@ -259,7 +259,7 @@ span.separator {
 }
 
 /* スクロールバーがオーバーレイであっても、その分の表示領域（溝）を常に確保する */
-.handsontable {
+.handsontable .wtHolder {
 	scrollbar-gutter: stable;
 }
 
