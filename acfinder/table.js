@@ -729,8 +729,8 @@ function outputTable(selector, result, option = {}) {
 		const cloneHolder = cloneTop.querySelector('.wtHolder');
 		const width = parseFloat(cloneHolder.style.width);
 		//cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
-		//cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
-		cloneHolder.style.width = `${width - overlayScrollbarWidth}px`;
+		cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
+		//cloneHolder.style.width = `${width - overlayScrollbarWidth}px`;
 	}
 
 	function updatePagination(hot) {
