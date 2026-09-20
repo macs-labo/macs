@@ -582,19 +582,15 @@ function outputTable(selector, result, option = {}) {
 			updateRowsSelect(this);
 			updateContainerRect(this);
 			updatePageSize(this);
-			//adjustHeaderWidth(this);
 		},
 		afterPageSizeChange: function() {
 			updatePageSize(this);
-			//adjustHeaderWidth(this);
 		},
 		afterHideColumns: function(currentHideConfig, destinationHideConfig, actionPossible, stateChanged) {
 			if (stateChanged) {
 				currentHideColumns = destinationHideConfig;
 				resetContainerWidth(this);
 				updateContainerRect(this);
-				//adjustHeaderWidth(this);
-				//this.render();
 			}
 		},
 		afterRender: function() {
@@ -604,7 +600,7 @@ function outputTable(selector, result, option = {}) {
 			//adjustHeaderWidth(this);
 		},
 		afterScroll: function() {
-			//adjustHeaderWidth(this);
+			adjustHeaderWidth(this);
 		},
 		afterDropdownMenuShow: function(dropdownMenu) {
 			adjustDropdownPos(dropdownMenu);
@@ -731,10 +727,8 @@ function outputTable(selector, result, option = {}) {
 		const width = parseFloat(tableContainer.querySelector('.wtHolder')?.style.width);
 		const cloneTop = tableContainer.querySelector('.ht_clone_top');
 		const cloneHolder = cloneTop.querySelector('.wtHolder');
-		//cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
-		//cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
-		cloneTop.style.width = `${width - overlayScrollbarWidth}px`;
-		cloneHolder.style.width = `${width - overlayScrollbarWidth}px`;
+		cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
+		cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
 	}
 
 	function updatePagination(hot) {
