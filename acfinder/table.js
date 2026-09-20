@@ -1175,14 +1175,14 @@ function outputTable(selector, result, option = {}) {
 				cloneTop.style.setProperty('width', `${currentWidth - overlayScrollbarWidth}px`, 'important');
 				wtHolderTop.style.setProperty('width', `${currentWidth - overlayScrollbarWidth}px`, 'important');
 			}
-		}/* else {
+		} else {
 			// --- 枠内だけど、スクロールバー以外の場所にマウスがある時（ヘッダを100%に戻す） ---
-			if (cloneTop.classList.contains('sb-shrunk')) {
-				cloneTop.classList.remove('sb-shrunk');
+			//if (cloneTop.classList.contains('sb-shrunk')) {
+				//cloneTop.classList.remove('sb-shrunk');
 				cloneTop.style.removeProperty('width');
 				wtHolderTop.style.removeProperty('width');
-			}
-		}*/
+			//}
+		}
 	}, { passive: true });
 /*
 	// テーブルコンテナから完全にマウスが離れた時（ヘッダを100%に戻す）
