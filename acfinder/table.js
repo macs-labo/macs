@@ -601,7 +601,7 @@ function outputTable(selector, result, option = {}) {
 			adjustHeaderWidth(this);
 		},
 		afterViewRender: function() {
-			adjustHeaderWidth(this);
+			//adjustHeaderWidth(this);
 		},
 		afterScroll: function() {
 			adjustHeaderWidth(this);
