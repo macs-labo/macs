@@ -1134,7 +1134,7 @@ function outputTable(selector, result, option = {}) {
 		}
 	});
 
-	const cloneHolder = tableContainer.querySelector('.ht_colne_top .wtHolder');
+	const cloneHolder = tableContainer.querySelector('.ht_clone_top .wtHolder');
 	cloneHolder.addEventListener('mouseup', () => {
 		// マウスが離されたら、一瞬のディレイ（10ms〜30ms程度）を入れて
 		// Handsontable の内部描画が落ち着いた直後にヘッダ幅を確実に削る
