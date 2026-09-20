@@ -1163,17 +1163,17 @@ function outputTable(selector, result, option = {}) {
 		const rect = tableContainer.getBoundingClientRect();
 		// マウスのX座標が、右端からスクロールバー幅（overlayScrollbarWidth）のエリア内にあるかチェック
 		const isHoveringScrollbar = (e.clientX >= rect.right - overlayScrollbarWidth && e.clientX <= rect.right);
+		const masterWidth = parseFloat(masterHolder.style.width);
 
 		if (isHoveringScrollbar) {
 			// --- 💡 スクロールバーの上にマウスがある時（ヘッダを引っ込めて🔼ボタンを露出） ---
 			const currentWidth = parseFloat(wtHolderTop.style.width) || cloneTop.offsetWidth;
-			const masterWidth = parseFloat(masterHolder.style.width);
 			// 既に削られていない場合のみ実行（多重実行防止）
 			//if (!cloneTop.classList.contains('sb-shrunk')) {
 			if (currentWidth === masterWidth) {
 				//cloneTop.classList.add('sb-shrunk');
-				cloneTop.style.setProperty('width', `${currentWidth - overlayScrollbarWidth}px`, 'important');
-				wtHolderTop.style.setProperty('width', `${currentWidth - overlayScrollbarWidth}px`, 'important');
+				cloneTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
+				wtHolderTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
 			}
 		} else {
 			// --- 枠内だけど、スクロールバー以外の場所にマウスがある時（ヘッダを100%に戻す） ---
@@ -1181,6 +1181,8 @@ function outputTable(selector, result, option = {}) {
 				//cloneTop.classList.remove('sb-shrunk');
 				cloneTop.style.removeProperty('width');
 				wtHolderTop.style.removeProperty('width');
+				cloneTop.style.width = `${masterWidth}px`;
+				wtHolderTop.style.width = `${masterWidth}px`;
 			//}
 		}
 	}, { passive: true });
