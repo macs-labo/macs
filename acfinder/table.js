@@ -767,10 +767,13 @@ function outputTable(selector, result, option = {}) {
 		let options = {};
 		if (hasScrollbarY) {
 			// 垂直スクロールバーがある場合は、ヘッダ幅を調整
-			const cloneTopHolder = tableContainer.querySelector('.ht_clone_top .wtHolder').style;
-			const width = parseFloat(cloneTopHolder.width);
+			const cloneTop = tableContainer.querySelector('.ht_clone_top');
+			const wtHolder = cloneTop.querySelector('.wtHolder');
+			const width = parseFloat(wtHolder.style.width);
+			console.log('clone_top_width: ', width);
 			const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
-			cloneTopHolder.setProperty('width', `${width - sbarWidth}px`, 'important');
+			wtHolder.style.setProperty('width', `${width - sbarWidth}px`, 'important');
+			cloneTop.style.setProperty('width', `${width - sbarWidth}px`, 'important');
 			// 非オーバーレイスクロールバー専用: ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
 			if(scrollbarWidth > 0 && pagination && (tableWidth + scrollbarWidth < wtHolderWidth)) {
 				options['width'] = tableWidth + scrollbarWidth;
