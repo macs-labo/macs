@@ -593,83 +593,11 @@ function outputTable(selector, result, option = {}) {
 				//this.render();
 			}
 		},
+		afterRender: function() {
+			adjustHeaderWidth(this);
+		},
 		afterDropdownMenuShow: function(dropdownMenu) {
-			const tableContainer = this.rootElement.closest('.table_container');
-			if (tableContainer) {
-				// コンテナの高さとビューポート高のいずれか小さい方を上限とする
-				const maxMenuHeight = Math.min(tableContainer.clientHeight, window.innerHeight);
-				const menuContainer = dropdownMenu.menu.container;
-				
-				if (menuContainer) {
-					// 1. 一旦スタイルをリセットして、中身に応じた自然な高さを取得できるようにする
-					menuContainer.style.height = '';
-					const multipleSelect = menuContainer.querySelector('.htUIMultipleSelectHot');
-					if (multipleSelect) {
-						multipleSelect.style.height = '';
-						multipleSelect.style.maxHeight = '';
-					}
-
-					// 2. 枠（リスト以外）の高さを計算
-					const renderedMenuHeight = menuContainer.offsetHeight;
-
-					if (multipleSelect) {
-						const renderedListHeight = multipleSelect.offsetHeight;
-						const frameHeight = renderedMenuHeight - renderedListHeight;
-
-						// 3. リストの本来の高さを取得 (scrollHeight)
-						const listContentHeight = multipleSelect.querySelector('.wtHider')?.scrollHeight || multipleSelect.scrollHeight;
-						
-						// 4. CSSから min-height, max-height を取得
-						const style = window.getComputedStyle(multipleSelect);
-						const minListHeight = parseFloat(style.minHeight) || 0;
-						const maxListHeight = style.maxHeight === 'none' ? Number.MAX_SAFE_INTEGER : parseFloat(style.maxHeight);
-
-						// 5. リストの高さの目標値を決定
-						let targetListHeight = listContentHeight;
-
-						// CSS の max-height で制限
-						if (targetListHeight > maxListHeight) targetListHeight = maxListHeight;
-
-						// コンテナの高さによる制限
-						const availableListHeight = maxMenuHeight - frameHeight;
-						if (targetListHeight > availableListHeight) targetListHeight = availableListHeight;
-
-						// CSS の min-height で制限 (最優先)
-						if (targetListHeight < minListHeight) targetListHeight = minListHeight;
-
-						// 6. メニュー全体の高さを計算
-						const targetMenuHeight = frameHeight + targetListHeight;
-
-						// 7. 高さを固定値で設定
-						multipleSelect.style.setProperty('height', targetListHeight + 'px', 'important');
-						menuContainer.style.setProperty('height', targetMenuHeight + 'px', 'important');
-
-					} else {
-						// リストがない場合（ソートメニューなど）
-						if (renderedMenuHeight > maxMenuHeight) {
-							menuContainer.style.setProperty('height', maxMenuHeight + 'px', 'important');
-						} else {
-							// 影の表示崩れを防ぐため、現在の高さを固定値として設定
-							menuContainer.style.setProperty('height', renderedMenuHeight + 'px', 'important');
-						}
-					}
-				}
-				// === 縦位置調整：メニューが画面下端を越える場合は上へずらす ===
-				requestAnimationFrame(() => {
-					const menuHeight = menuContainer.offsetHeight;
-					if (menuHeight > 0) {
-						const menuRect = menuContainer.getBoundingClientRect();
-						const viewportH = window.innerHeight;
-						const overflowBottom = menuRect.bottom - viewportH;
-						if (overflowBottom > 0) {
-							const currentTop = parseFloat(menuContainer.style.top) || menuRect.top;
-							const newTop = currentTop - overflowBottom;
-							const clampedTop = Math.max(newTop, 0);
-							menuContainer.style.setProperty('top', clampedTop + 'px', 'important');
-						}
-					}
-				});
-			}
+			adjustDropdownPos(dropdownMenu);
 		},
 		licenseKey: 'non-commercial-and-evaluation',
 	});
@@ -704,6 +632,107 @@ function outputTable(selector, result, option = {}) {
 		resetContainerWidth(table);
 		updateContainerRect(table);
 		table.render();
+	}
+
+	function adjustDropdownPos(dropdownMenu) {
+		//const tableContainer = this.rootElement.closest('.table_container');
+		if (tableContainer) {
+			// コンテナの高さとビューポート高のいずれか小さい方を上限とする
+			const maxMenuHeight = Math.min(tableContainer.clientHeight, window.innerHeight);
+			const menuContainer = dropdownMenu.menu.container;
+			
+			if (menuContainer) {
+				// 1. 一旦スタイルをリセットして、中身に応じた自然な高さを取得できるようにする
+				menuContainer.style.height = '';
+				const multipleSelect = menuContainer.querySelector('.htUIMultipleSelectHot');
+				if (multipleSelect) {
+					multipleSelect.style.height = '';
+					multipleSelect.style.maxHeight = '';
+				}
+
+				// 2. 枠（リスト以外）の高さを計算
+				const renderedMenuHeight = menuContainer.offsetHeight;
+
+				if (multipleSelect) {
+					const renderedListHeight = multipleSelect.offsetHeight;
+					const frameHeight = renderedMenuHeight - renderedListHeight;
+
+					// 3. リストの本来の高さを取得 (scrollHeight)
+					const listContentHeight = multipleSelect.querySelector('.wtHider')?.scrollHeight || multipleSelect.scrollHeight;
+					
+					// 4. CSSから min-height, max-height を取得
+					const style = window.getComputedStyle(multipleSelect);
+					const minListHeight = parseFloat(style.minHeight) || 0;
+					const maxListHeight = style.maxHeight === 'none' ? Number.MAX_SAFE_INTEGER : parseFloat(style.maxHeight);
+
+					// 5. リストの高さの目標値を決定
+					let targetListHeight = listContentHeight;
+
+					// CSS の max-height で制限
+					if (targetListHeight > maxListHeight) targetListHeight = maxListHeight;
+
+					// コンテナの高さによる制限
+					const availableListHeight = maxMenuHeight - frameHeight;
+					if (targetListHeight > availableListHeight) targetListHeight = availableListHeight;
+
+					// CSS の min-height で制限 (最優先)
+					if (targetListHeight < minListHeight) targetListHeight = minListHeight;
+
+					// 6. メニュー全体の高さを計算
+					const targetMenuHeight = frameHeight + targetListHeight;
+
+					// 7. 高さを固定値で設定
+					multipleSelect.style.setProperty('height', targetListHeight + 'px', 'important');
+					menuContainer.style.setProperty('height', targetMenuHeight + 'px', 'important');
+
+				} else {
+					// リストがない場合（ソートメニューなど）
+					if (renderedMenuHeight > maxMenuHeight) {
+						menuContainer.style.setProperty('height', maxMenuHeight + 'px', 'important');
+					} else {
+						// 影の表示崩れを防ぐため、現在の高さを固定値として設定
+						menuContainer.style.setProperty('height', renderedMenuHeight + 'px', 'important');
+					}
+				}
+			}
+			// === 縦位置調整：メニューが画面下端を越える場合は上へずらす ===
+			requestAnimationFrame(() => {
+				const menuHeight = menuContainer.offsetHeight;
+				if (menuHeight > 0) {
+					const menuRect = menuContainer.getBoundingClientRect();
+					const viewportH = window.innerHeight;
+					const overflowBottom = menuRect.bottom - viewportH;
+					if (overflowBottom > 0) {
+						const currentTop = parseFloat(menuContainer.style.top) || menuRect.top;
+						const newTop = currentTop - overflowBottom;
+						const clampedTop = Math.max(newTop, 0);
+						menuContainer.style.setProperty('top', clampedTop + 'px', 'important');
+					}
+				}
+			});
+		}
+	}
+
+	function adjustHeaderWidth(hot) {
+		const wtHolder = tableContainer.querySelector('.wtHolder').style;
+		const wtHider = tableContainer.querySelector('.wtHider').style;
+		const wtHolderHeight = parseFloat(wtHolder.height);
+		const wtHiderHeight = parseFloat(wtHider.height);
+		const hasScrollbarY = wtHiderHeight > wtHolderHeight; // 垂直スクロールバーがあるか？
+		if (hasScrollbarY) {
+			// 垂直スクロールバーがある場合は、ヘッダ幅を調整
+			const cloneTop = tableContainer.querySelector('.ht_clone_top');
+			const wtHolder = cloneTop.querySelector('.wtHolder');
+			const width = parseFloat(wtHolder.style.width);
+			console.log('clone_top_width: ', width);
+			const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
+			console.log('sbarWidth: ', sbarWidth);
+			//cloneTop.style.setProperty('width', `${width - sbarWidth}px`, 'important');
+			//wtHolder.style.setProperty('width', `${width - sbarWidth}px`, 'important');
+			wtHolder.style.width = `${width - sbarWidth}px`;
+			const widthAfter = parseFloat(wtHolder.style.width);
+			console.log('clone_top_width after: ', widthAfter);
+		}
 	}
 
 	function updatePagination(hot) {
@@ -763,24 +792,10 @@ function outputTable(selector, result, option = {}) {
 		const tableWidth = (wtHiderWidth < wtHolderWidth) ? wtHiderWidth : wtHolderWidth;
 		const wtHolderHeight = parseFloat(wtHolder.height);
 		const wtHiderHeight = parseFloat(wtHider.height);
-		const hasScrollbarY = wtHiderHeight > wtHolderHeight; // 垂直スクロールバーがあるか？
+		const sbarWidth = wtHiderHeight > wtHolderHeight ? scrollbarWidth : 0; // 垂直スクロールバーがある場合はスクロールバーの幅を設定
 		let options = {};
-		if (hasScrollbarY) {
-			// 垂直スクロールバーがある場合は、ヘッダ幅を調整
-			const cloneTop = tableContainer.querySelector('.ht_clone_top');
-			const wtHolder = cloneTop.querySelector('.wtHolder');
-			const width = parseFloat(wtHolder.style.width);
-			console.log('clone_top_width: ', width);
-			const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
-			console.log('sbarWidth: ', sbarWidth);
-			cloneTop.style.setProperty('width', `${width - sbarWidth}px`, 'important');
-			wtHolder.style.setProperty('width', `${width - sbarWidth}px`, 'important');
-			const widthAfter = parseFloat(wtHolder.style.width);
-			console.log('clone_top_width after: ', widthAfter);
-			// 非オーバーレイスクロールバー専用: ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
-			if(scrollbarWidth > 0 && pagination && (tableWidth + scrollbarWidth < wtHolderWidth)) {
-				options['width'] = tableWidth + scrollbarWidth;
-			}
+		if (sbarWidth > 0 && pagination && (tableWidth + sbarWidth < wtHolderWidth)) {
+			options['width'] = tableWidth + sbarWidth; // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
 		}
 		const paginationHeight = pagination ? defPaginHeight : 0;
 		let rows = hot.countRows();
@@ -790,7 +805,6 @@ function outputTable(selector, result, option = {}) {
 		const sbarHeight = wtHiderWidth > wtHolderWidth ? scrollbarWidth : 0; // 水平スクロールバーがある場合はスクロールバーの高さを設定
 		options['height'] = tableHeight + paginationHeight + sbarHeight // ページネーション、水平スクロールバーの高さをテーブル高に加算
 		hot.updateSettings(options);
-		hot.render();
 	}
 
 	function updateFooter(hot) {
