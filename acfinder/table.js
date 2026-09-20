@@ -765,14 +765,15 @@ function outputTable(selector, result, option = {}) {
 		const wtHiderHeight = parseFloat(wtHider.height);
 		const hasScrollbarY = wtHiderHeight > wtHolderHeight; // 垂直スクロールバーがあるか？
 		let options = {};
-		if (hasScrollbarY && overlayScrollbarWidth > 0) {
-			const cloneTop = tableContainer.querySelector('.ht_clone_top').style;
-			const cloneCorner = tableContainer.querySelector('.ht_clone_top_left_corner').style;
-			cloneTop.marginRight = `${overlayScrollbarWidth}px;`;
-			cloneCorner.marginRight = `${overlayScrollbarWidth}px;`;
-		} else {
-			if (pagination && (tableWidth + scrollbarWidth < wtHolderWidth)) {
-				options['width'] = tableWidth + scrollbarWidth; // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
+		if (hasScrollbarY) {
+			// 垂直スクロールバーがある場合は、ヘッダ幅を調整
+			const cloneTopHolder = tableContainer.querySelector('.ht_clone_top .wtHolder').style;
+			const width = parseFloat(cloneTopHolder.width);
+			const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
+			cloneTopHolder.wdth = `${width - sbarWidth}px;`;
+			// 非オーバーレイスクロールバー専用: ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
+			if(scrollbarWidth > 0 && pagination && (tableWidth + scrollbarWidth < wtHolderWidth)) {
+				options['width'] = tableWidth + scrollbarWidth;
 			}
 		}
 		const paginationHeight = pagination ? defPaginHeight : 0;
