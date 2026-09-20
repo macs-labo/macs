@@ -1183,6 +1183,7 @@ function outputTable(selector, result, option = {}) {
 		}
 	}, { passive: true });
 
+/*
 	// テーブルコンテナから完全にマウスが離れた時（ヘッダを100%に戻す）
 	tableContainer.addEventListener('mouseleave', () => {
 		if (cloneTop.classList.contains('sb-shrunk')) {
@@ -1191,6 +1192,7 @@ function outputTable(selector, result, option = {}) {
 			wtHolderTop.style.removeProperty('width');
 		}
 	}, { passive: true });
+*/
 
 	tabExecuted = !nores;
 	return table;
