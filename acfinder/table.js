@@ -596,7 +596,7 @@ function outputTable(selector, result, option = {}) {
 		afterRender: function() {
 			adjustHeaderWidth(this);
 		},
-		aftafterScrollHorizontally: function() {
+		aftafterScrollVertically: function() {
 			adjustHeaderWidth(this);
 		},
 		afterDropdownMenuShow: function(dropdownMenu) {
