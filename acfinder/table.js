@@ -573,7 +573,6 @@ function outputTable(selector, result, option = {}) {
 			updateContainerRect(this);
 			updatePageSize(this);
 			updateFooter(this);
-			//adjustHeaderWidth(this);
 		},
 		afterFilter: function() {
 			hideEmptyColumns(this);
@@ -594,10 +593,8 @@ function outputTable(selector, result, option = {}) {
 			}
 		},
 		afterRender: function() {
-			//adjustHeaderWidth(this);
 		},
 		afterScroll: function() {
-			//adjustHeaderWidth(this);
 		},
 		afterDropdownMenuShow: function(dropdownMenu) {
 			adjustDropdownPos(dropdownMenu);
@@ -714,18 +711,6 @@ function outputTable(selector, result, option = {}) {
 				}
 			});
 		}
-	}
-
-	function adjustHeaderWidth(hot) {
-		if (scrollbarWidth > 0) return; // 非オーバーレイスクロールバーでは何もしない
-		const wtHolderHeight = parseFloat(tableContainer.querySelector('.wtHolder')?.style.height);
-		const wtHiderHeight = parseFloat(tableContainer.querySelector('.wtHider')?.style.height);
-		if (wtHiderHeight <= wtHolderHeight) return; // 垂直スクロールバーがない場合は何もしない
-		const width = parseFloat(tableContainer.querySelector('.wtHolder')?.style.width);
-		const cloneTop = tableContainer.querySelector('.ht_clone_top');
-		const cloneHolder = cloneTop.querySelector('.wtHolder');
-		cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
-		cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
 	}
 
 	function updatePagination(hot) {
@@ -1131,71 +1116,42 @@ function outputTable(selector, result, option = {}) {
 		}
 	});
 
-/*
-	//const cloneHolder = tableContainer.querySelector('.ht_clone_top .wtHolder');
-	//cloneHolder.addEventListener('mouseup', () => {
-	tableContainer.addEventListener('mouseup', () => {
-		// マウスが離されたら、一瞬のディレイ（10ms〜30ms程度）を入れて
-		// Handsontable の内部描画が落ち着いた直後にヘッダ幅を確実に削る
-		setTimeout(() => {
-			adjustHeaderWidth(table);
-		}, 20);
-	}, { passive: true });
-*/
-
-	const masterHolder = tableContainer.querySelector('.ht_master .wtHolder');
-	const cloneTop = tableContainer.querySelector('.ht_clone_top');
-	const wtHolderTop = cloneTop.querySelector('.wtHolder');
-
-	// マウスが動いた時に、スクロールバー領域にいるかを判定
+	// オーバーレイスクロールバーの🔼ボタンが消える対策
 	tableContainer.addEventListener('mousemove', (e) => {
 		// 非オーバーレイスクロールバーなら何もしない
 		if (scrollbarWidth > 0) return;
 
-		if (!masterHolder || !cloneTop) return;
-		if (!wtHolderTop) return;
+		// 必要なコンテナが取得できない場合は何もしない
+		const masterHolder = tableContainer.querySelector('.ht_master .wtHolder');
+		const cloneTop = tableContainer.querySelector('.ht_clone_top');
+		const wtHolderTop = cloneTop.querySelector('.wtHolder');
+		if (!masterHolder || !cloneTop || !wtHolderTop) return;
 
 		// 垂直スクロールバーが出ていない時は何もしない
-		const hasScrollbarY = masterHolder.scrollHeight > masterHolder.clientHeight;
-		if (!hasScrollbarY) return;
+		if (masterHolder.scrollHeight <= masterHolder.clientHeight) return;
 
 		// コンテナの右端の座標を取得
 		const rect = tableContainer.getBoundingClientRect();
 		// マウスのX座標が、右端からスクロールバー幅（overlayScrollbarWidth）のエリア内にあるかチェック
 		const isHoveringScrollbar = (e.clientX >= rect.right - overlayScrollbarWidth && e.clientX <= rect.right);
-		const masterWidth = parseFloat(masterHolder.style.width);
+		const masterWidth = masterHolder.offsetWidth;
 
 		if (isHoveringScrollbar) {
 			// --- 💡 スクロールバーの上にマウスがある時（ヘッダを引っ込めて🔼ボタンを露出） ---
-			const currentWidth = parseFloat(wtHolderTop.style.width) || cloneTop.offsetWidth;
 			// 既に削られていない場合のみ実行（多重実行防止）
-			//if (!cloneTop.classList.contains('sb-shrunk')) {
-			if (currentWidth === masterWidth) {
-				//cloneTop.classList.add('sb-shrunk');
+			if (wtHolderTop.offsetWidth === masterWidth) {
 				cloneTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
 				wtHolderTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
 			}
 		} else {
 			// --- 枠内だけど、スクロールバー以外の場所にマウスがある時（ヘッダを100%に戻す） ---
-			//if (cloneTop.classList.contains('sb-shrunk')) {
-				//cloneTop.classList.remove('sb-shrunk');
-				cloneTop.style.removeProperty('width');
-				wtHolderTop.style.removeProperty('width');
-				cloneTop.style.width = `${masterWidth}px`;
-				wtHolderTop.style.width = `${masterWidth}px`;
-			//}
-		}
-	}, { passive: true });
-/*
-	// テーブルコンテナから完全にマウスが離れた時（ヘッダを100%に戻す）
-	tableContainer.addEventListener('mouseleave', () => {
-		if (cloneTop.classList.contains('sb-shrunk')) {
-			cloneTop.classList.remove('sb-shrunk');
 			cloneTop.style.removeProperty('width');
 			wtHolderTop.style.removeProperty('width');
+			cloneTop.style.width = `${masterWidth}px`;
+			wtHolderTop.style.width = `${masterWidth}px`;
 		}
 	}, { passive: true });
-*/
+
 	tabExecuted = !nores;
 	return table;
 }
