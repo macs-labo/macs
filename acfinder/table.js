@@ -725,11 +725,11 @@ function outputTable(selector, result, option = {}) {
 		const wtHolderHeight = parseFloat(tableContainer.querySelector('.wtHolder')?.style.height);
 		const wtHiderHeight = parseFloat(tableContainer.querySelector('.wtHider')?.style.height);
 		if (wtHiderHeight <= wtHolderHeight) return; // 垂直スクロールバーがない場合は何もしない
-		console.log('wtHolder_width: ', width);
 		const cloneTop = tableContainer.querySelector('.ht_clone_top');
 		const cloneHolder = cloneTop.querySelector('.wtHolder');
 		//const width = parseFloat(tableContainer.querySelector('.wtHolder')?.style.width);
 		const width = parseFloat(cloneHolder.style.width);
+		console.log('wtHolder_width: ', width);
 		cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
 		cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
 		//cloneHolder.style.width = `${width - overlayScrollbarWidth}px`;
