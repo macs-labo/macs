@@ -133,7 +133,7 @@ function getScrollbarWidth() {
 	if (scrollbarOffset > 2) {
 		scrollbarWidth = scrollbarOffset;
 	} else {
-		overlayScrollbarWidth =  window.navigator.userAgent.toLowerCase().includes('firefox') ? 12 : 16;
+		overlayScrollbarWidth =  CSS.supports('-moz-appearance', 'none') ? 12 : 16;
 	}
 }
 
@@ -573,7 +573,7 @@ function outputTable(selector, result, option = {}) {
 			updateContainerRect(this);
 			updatePageSize(this);
 			updateFooter(this);
-			adjustHeaderWidth(this);
+			//adjustHeaderWidth(this);
 		},
 		afterFilter: function() {
 			hideEmptyColumns(this);
@@ -582,18 +582,18 @@ function outputTable(selector, result, option = {}) {
 			updateRowsSelect(this);
 			updateContainerRect(this);
 			updatePageSize(this);
-			adjustHeaderWidth(this);
+			//adjustHeaderWidth(this);
 		},
 		afterPageSizeChange: function() {
 			updatePageSize(this);
-			adjustHeaderWidth(this);
+			//adjustHeaderWidth(this);
 		},
 		afterHideColumns: function(currentHideConfig, destinationHideConfig, actionPossible, stateChanged) {
 			if (stateChanged) {
 				currentHideColumns = destinationHideConfig;
 				resetContainerWidth(this);
 				updateContainerRect(this);
-				adjustHeaderWidth(this);
+				//adjustHeaderWidth(this);
 				//this.render();
 			}
 		},
@@ -1313,8 +1313,8 @@ async function updateTableWidth(hot, containerWidth) {
 	if (!hot) return;
 	//const containerWidth = document.querySelector('#resultPane').getBoundingClientRect().width - 30;
 	const tableWidth = hot.getTableWidth();
-	const tableContainer = hot.rootElement;
-	const wtHolder = tableContainer.querySelector('.wtHolder').style;
+	//const tableContainer = hot.rootElement;
+	//const wtHolder = tableContainer.querySelector('.wtHolder').style;
 	const wtHider = tableContainer.querySelector('.wtHider').style;
 	const wtHiderWidth = parseFloat(wtHider.width);
 	const singleCol = hot.countCols() === 1;
