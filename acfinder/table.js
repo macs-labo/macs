@@ -1116,42 +1116,102 @@ function outputTable(selector, result, option = {}) {
 		}
 	});
 
-	// オーバーレイスクロールバーの🔼ボタンが消える対策
-	tableContainer.addEventListener('mousemove', (e) => {
-		// 非オーバーレイスクロールバーなら何もしない
+	// オーバーレイスクロールバーで🔼がヘッダの下に消えてしまう症状の対策
+	function initScrollbarStateFix() {
+		// 非オーバーレイカーソルでは何もしない
 		if (scrollbarWidth > 0) return;
-
-		// 必要なコンテナが取得できない場合は何もしない
 		const masterHolder = tableContainer.querySelector('.ht_master .wtHolder');
 		const cloneTop = tableContainer.querySelector('.ht_clone_top');
+		if (!masterHolder || !cloneTop) return;
 		const wtHolderTop = cloneTop.querySelector('.wtHolder');
-		if (!masterHolder || !cloneTop || !wtHolderTop) return;
+		if (!wtHolderTop) return;
 
-		// 垂直スクロールバーが出ていない時は何もしない
-		if (masterHolder.scrollHeight <= masterHolder.clientHeight) return;
+		// スクロールバーを操作中（ドラッグ中・クリック中）かどうかのフラグ
+		let isScrollingActive = false;
 
-		// コンテナの右端の座標を取得
-		const rect = tableContainer.getBoundingClientRect();
-		// マウスのX座標が、右端からスクロールバー幅（overlayScrollbarWidth）のエリア内にあるかチェック
-		const isHoveringScrollbar = (e.clientX >= rect.right - overlayScrollbarWidth && e.clientX <= rect.right);
-		const masterWidth = masterHolder.offsetWidth;
+		// ヘッダを削る（避ける）共通処理
+		function shrinkHeader() {
+			const masterWidth = masterHolder.offsetWidth;
+			cloneTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
+			wtHolderTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
+		}
 
-		if (isHoveringScrollbar) {
-			// --- 💡 スクロールバーの上にマウスがある時（ヘッダを引っ込めて🔼ボタンを露出） ---
-			// 既に削られていない場合のみ実行（多重実行防止）
-			if (wtHolderTop.offsetWidth === masterWidth) {
-				cloneTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
-				wtHolderTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
-			}
-		} else {
-			// --- 枠内だけど、スクロールバー以外の場所にマウスがある時（ヘッダを100%に戻す） ---
+		// ヘッダを100%に戻す共通処理
+		function resetHeader() {
+			const masterWidth = masterHolder.offsetWidth;
 			cloneTop.style.removeProperty('width');
 			wtHolderTop.style.removeProperty('width');
 			cloneTop.style.width = `${masterWidth}px`;
 			wtHolderTop.style.width = `${masterWidth}px`;
 		}
-	}, { passive: true });
 
+		// 1. マウスが押された瞬間の判定
+		tableContainer.addEventListener('mousedown', (e) => {
+			if (scrollbarWidth > 0) return;
+			const hasScrollbarY = masterHolder.scrollHeight > masterHolder.clientHeight;
+			if (!hasScrollbarY) return;
+
+			const rect = tableContainer.getBoundingClientRect();
+			// 右端のスクロールバー領域でクリックされたか判定
+			const isTargetingScrollbar = (e.clientX >= rect.right - overlayScrollbarWidth && e.clientX <= rect.right);
+
+			if (isTargetingScrollbar) {
+				isScrollingActive = true; // 操作中フラグをON
+				shrinkHeader(); // 即座にヘッダを避ける
+			}
+		});
+
+		// 2. マウスが動いている時の判定
+		tableContainer.addEventListener('mousemove', (e) => {
+			if (scrollbarWidth > 0) return;
+			
+			// ⭐️ドラッグ・クリック操作中なら、マウスがどこに動こうが「常にヘッダを避けた状態」を維持（Handsontableの復帰をブロック）
+			if (isScrollingActive) {
+				shrinkHeader();
+				return;
+			}
+
+			const hasScrollbarY = masterHolder.scrollHeight > masterHolder.clientHeight;
+			if (!hasScrollbarY) return;
+
+			const rect = tableContainer.getBoundingClientRect();
+			const isHoveringScrollbar = (e.clientX >= rect.right - overlayScrollbarWidth && e.clientX <= rect.right);
+
+			if (isHoveringScrollbar) {
+				if (wtHolderTop.offsetWidth === masterHolder.offsetWidth) {
+					shrinkHeader();
+				}
+			} else {
+				resetHeader();
+			}
+		}, { passive: true });
+
+		// 3. マウスが離された瞬間の判定
+		// ⚠️つまみドラッグ中にマウスがテーブル外へはみ出すことを考慮し、ここだけは「window」でキャッチします
+		window.addEventListener('mouseup', () => {
+			if (isScrollingActive) {
+				isScrollingActive = false; // 操作中フラグをOFF
+				
+				// 離した直後に一瞬遅らせて、マウスの現在位置に応じてヘッダを戻すか判定
+				setTimeout(() => {
+					// まだマウスがコンテナの右端（スクロールバー上）にいるなら避けたまま、外に出ているなら戻す
+					const rect = tableContainer.getBoundingClientRect();
+					// 最新のマウス座標を取得するための簡易なチェック、または安全に一度リセットする
+					resetHeader();
+				}, 20);
+			}
+		}, { passive: true });
+
+		// 4. マウスがコンテナから完全に離れた時
+		tableContainer.addEventListener('mouseleave', () => {
+			// 操作中（ドラッグ中）でなければ、即座に戻してOK
+			if (!isScrollingActive) {
+				resetHeader();
+			}
+		}, { passive: true });
+	}
+
+	initScrollbarStateFix();
 	tabExecuted = !nores;
 	return table;
 }
