@@ -105,6 +105,7 @@ const defPaginHeight = 44 + 1; // ページネーションの高さ
 const rowHeight = 24; // 1行の高さ
 const headerHeight = 25; // ヘッダーの高さ
 let scrollbarWidth = 0;
+let overlayScrollbarWidth = 0;
 
 // カラム名を日本語に変換する関数
 function translateColumnName(originalName) {
@@ -113,7 +114,7 @@ function translateColumnName(originalName) {
 	return columnMappings[originalName] || originalName;
 }
 
-// 非オーバーレイスクロールバーの太さ取得
+// スクロールバーの太さ取得
 function getScrollbarWidth() {
 	// 一時的な要素を作成
 	const outer = document.createElement('div');
@@ -123,18 +124,22 @@ function getScrollbarWidth() {
 	outer.style.width = '100px'; // 任意の固定幅を設定
 	outer.style.height = '100px'; // 任意の固定高さを設定
 	outer.style.position = 'absolute'; // レイアウトへの影響を最小限に
-
-	// DOMに追加
 	document.body.appendChild(outer);
 
-	// outerの全幅 (offsetWidth) からコンテンツ領域の幅 (clientWidth) を引く
-	// この差がスクロールバーの幅となる
-	const scrollbarWidth = outer.offsetWidth - outer.clientWidth;
+	// 非オーバーレイスクロールバーの幅
+	const scrollbarOffset = outer.offsetWidth - outer.clientWidth;
+	if (scrollbarOffset > 2) {
+		scrollbarWidth = scrollbarOffset;
+		return;
+	}
+
+	// オーバーレイ環境でも強制的にスクロールバー領域を確保させる
+	outer.style.overflowY = 'scroll';
+	outer.style.scrollbarGutter = 'stable';
+	overlayScrollbarWidth = outer.offsetWidth - outer.clientWidth;
 
 	// 要素を削除
 	document.body.removeChild(outer);
-
-	return scrollbarWidth > 2 ? scrollbarWidth : 0;
 }
 
 /**
@@ -1316,7 +1321,7 @@ async function updateTableWidth(hot, containerWidth) {
 window.addEventListener('DOMContentLoaded', () => {
 	const resultPane = document.querySelector('#resultPane');
 	if (!resultPane) return;
-	scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ設定
+	getScrollbarWidth(); // スクロールバーの太さ設定
 	let resizeTimer;
 	let currentWidth = resultPane.getBoundingClientRect().width;
 	const observer = new ResizeObserver((entries) => {
