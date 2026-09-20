@@ -719,7 +719,7 @@ function outputTable(selector, result, option = {}) {
 		const wtHolderHeight = parseFloat(wtHolder.height);
 		const wtHiderHeight = parseFloat(wtHider.height);
 		const hasScrollbarY = wtHiderHeight > wtHolderHeight; // 垂直スクロールバーがあるか？
-		if (hasScrollbarY) {
+		if (hasScrollbarY && overlayScrollbarWidth > 0) {
 			// 垂直スクロールバーがある場合は、ヘッダ幅を調整
 			const cloneTop = tableContainer.querySelector('.ht_clone_top');
 			const wtHolder = cloneTop.querySelector('.wtHolder');
