@@ -582,11 +582,11 @@ function outputTable(selector, result, option = {}) {
 			updateRowsSelect(this);
 			updateContainerRect(this);
 			updatePageSize(this);
-			adjustHeaderWidth(this);
+			//adjustHeaderWidth(this);
 		},
 		afterPageSizeChange: function() {
 			updatePageSize(this);
-			adjustHeaderWidth(this);
+			//adjustHeaderWidth(this);
 		},
 		afterHideColumns: function(currentHideConfig, destinationHideConfig, actionPossible, stateChanged) {
 			if (stateChanged) {
