@@ -593,7 +593,7 @@ function outputTable(selector, result, option = {}) {
 				currentHideColumns = destinationHideConfig;
 				resetContainerWidth(this);
 				updateContainerRect(this);
-				adjustHeaderWidth(this);
+				//adjustHeaderWidth(this);
 				//this.render();
 			}
 		},
@@ -728,9 +728,9 @@ function outputTable(selector, result, option = {}) {
 		const wtHolderHeight = parseFloat(tableContainer.querySelector('.wtHolder')?.style.height);
 		const wtHiderHeight = parseFloat(tableContainer.querySelector('.wtHider')?.style.height);
 		if (wtHiderHeight <= wtHolderHeight) return; // 垂直スクロールバーがない場合は何もしない
+		const width = parseFloat(tableContainer.querySelector('.wtHolder')?.style.width);
 		const cloneTop = tableContainer.querySelector('.ht_clone_top');
 		const cloneHolder = cloneTop.querySelector('.wtHolder');
-		const width = parseFloat(cloneHolder.style.width);
 		cloneTop.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
 		cloneHolder.style.setProperty('width', `${width - overlayScrollbarWidth}px`, 'important');
 		//cloneTop.style.width = `${width - overlayScrollbarWidth}px`;
