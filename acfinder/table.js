@@ -770,7 +770,7 @@ function outputTable(selector, result, option = {}) {
 			const cloneTopHolder = tableContainer.querySelector('.ht_clone_top .wtHolder').style;
 			const width = parseFloat(cloneTopHolder.width);
 			const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
-			cloneTopHolder.wdth = `${width - sbarWidth}px;`;
+			cloneTopHolder.width = `${width - sbarWidth}px;`;
 			// 非オーバーレイスクロールバー専用: ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
 			if(scrollbarWidth > 0 && pagination && (tableWidth + scrollbarWidth < wtHolderWidth)) {
 				options['width'] = tableWidth + scrollbarWidth;
