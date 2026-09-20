@@ -714,25 +714,21 @@ function outputTable(selector, result, option = {}) {
 	}
 
 	function adjustHeaderWidth(hot) {
-		const wtHolder = tableContainer.querySelector('.wtHolder').style;
-		const wtHider = tableContainer.querySelector('.wtHider').style;
-		const wtHolderHeight = parseFloat(wtHolder.height);
-		const wtHiderHeight = parseFloat(wtHider.height);
+		const wtHolderHeight = parseFloat(tableContainer.querySelector('.wtHolder')?.style.height);
+		const wtHiderHeight = parseFloat(tableContainer.querySelector('.wtHider')?.style.height);
 		const hasScrollbarY = wtHiderHeight > wtHolderHeight; // 垂直スクロールバーがあるか？
-		if (hasScrollbarY && overlayScrollbarWidth > 0) {
-			// 垂直スクロールバーがある場合は、ヘッダ幅を調整
-			const cloneTop = tableContainer.querySelector('.ht_clone_top');
-			const wtHolder = cloneTop.querySelector('.wtHolder');
-			const width = parseFloat(wtHolder.style.width);
-			console.log('clone_top_width: ', width);
-			const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
-			console.log('sbarWidth: ', sbarWidth);
-			//cloneTop.style.setProperty('width', `${width - sbarWidth}px`, 'important');
-			//wtHolder.style.setProperty('width', `${width - sbarWidth}px`, 'important');
-			wtHolder.style.width = `${width - sbarWidth}px`;
-			const widthAfter = parseFloat(wtHolder.style.width);
-			console.log('clone_top_width after: ', widthAfter);
-		}
+		if (!hasScrollbarY) return; // 垂直スクロールバーがない場合は何もしない
+		const width = parseFloat(tableContainer.querySelector('.wtHolder')?.style.width);
+		console.log('wtHolder_width: ', width);
+		const cloneTop = tableContainer.querySelector('.ht_clone_top');
+		const cloneHolder = cloneTop.querySelector('.wtHolder');
+		const sbarWidth = overlayScrollbarWidth > 0 ? overlayScrollbarWidth : scrollbarWidth;
+		console.log('sbarWidth: ', sbarWidth);
+		//cloneTop.style.setProperty('width', `${width - sbarWidth}px`, 'important');
+		//wtHolder.style.setProperty('width', `${width - sbarWidth}px`, 'important');
+		cloneHolder.style.width = `${width - sbarWidth}px`;
+		const widthAfter = parseFloat(cloneHolder.style.width);
+		console.log('cloneHolder_width: ', widthAfter);
 	}
 
 	function updatePagination(hot) {
