@@ -1162,7 +1162,7 @@ async function saveFile(content, ext, caption = '') {
 	if (ext === '.xlsx') {
 		mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 	} else {
-		mimeType = 'text/csv;charset=utf-8';
+		mimeType = 'text/csv';
 	}
 
 	let format = { year: 'numeric', month: '2-digit', day: '2-digit' };
