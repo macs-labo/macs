@@ -1183,7 +1183,7 @@ async function saveFile(content, ext, caption = '') {
 
 	// ファイルシステム API 保存
 	const description = ext === '.xlsx' ? 'Excel Files' : 'CSV Files';
-	const fileType = { description: description, accept: { mimeType: [ext] } };
+	const fileType = { description: description, accept: { [mimeType]: [ext] } };
 	const fileHandle = await window.showSaveFilePicker({
 		suggestedName: filename,
 		types: [fileType]
