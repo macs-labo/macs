@@ -994,7 +994,7 @@ function outputTable(selector, result, option = {}) {
 			const csvData = convertCsv('csv', makeCaption(), headers, data); // BOM 付き CSV 形式で生成 // 2025.10.10 修正
 
 			await dispStatus('CSV ファイル生成中');
-			await saveFile(csvData, '.csv', option.caption);
+			saveFile(csvData, '.csv', option.caption);
 
 			await dispStatus(`表示中の ${table.countRows()} 件のデータを CSV ファイルとして保存しました`, 3000);
 		} catch (err) {
@@ -1033,17 +1033,15 @@ function outputTable(selector, result, option = {}) {
 
 			// すべてのセルにフォントスタイルを適用する
 			const fontExcel = localStorage.getItem('fontExcel') || '游ゴシック';
-//			if (fontExcel !== 'Segoe UI') {
-				worksheet.eachRow({ includeEmpty: true }, function(row, rowNumber) {
-					row.eachCell({ includeEmpty: true }, function(cell, colNumber) {
-						cell.font = { name: fontExcel, size: 10 };
-					});
+			worksheet.eachRow({ includeEmpty: true }, function(row, rowNumber) {
+				row.eachCell({ includeEmpty: true }, function(cell, colNumber) {
+					cell.font = { name: fontExcel, size: 10 };
 				});
-//			}
+			});
 
 			// Excel ファイルを生成してダウンロード
 			await dispStatus('Excel ファイル生成中');
-			await workbook.xlsx.writeBuffer().then(buffer => {
+			workbook.xlsx.writeBuffer().then(buffer => {
 				saveFile(buffer, '.xlsx', option.caption);
 				//const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 				//saveAs(blob, `${makeFileName()}.xlsx`);
