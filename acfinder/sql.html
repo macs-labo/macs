@@ -959,7 +959,8 @@ async function sequentialExecSQL(sql) {
 				searchTime += performance.now();
 
 				// 結果を表示
-				const option = { query: query, caption: `${caption} ${index + 1}`, searchTime: searchTime, hideFooterU20: false };
+				const indexedCaption = queries.length === 1 ? caption : `${caption} ${index + 1}`;
+				const option = { query: query, caption: indexedCaption, searchTime: searchTime, hideFooterU20: false };
 				const table = outputTable('#result', result, option);
 				// テーブルインスタンスを保存
 				if (table) tables.push(table);
