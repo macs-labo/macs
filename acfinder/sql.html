@@ -153,7 +153,7 @@ textarea#varInput {
 .cm-s-eclipse span.cm-variable-3 { color: #d1235d;}
 .cm-s-darcula span.cm-variable-3 { color: #b362df; }
 span.cm-variable-3 { font-weight: bold;  }
-.CodeMirror-hints { z-index: 9999 !important; }
+.CodeMirror-hints { z-index: 500 !important; }
 /* 補完候補の右側に表示するテーブル名・型など */
 .cm-hint-meta { margin-left: 1.5em; font-size: 0.85em; opacity: 0.6; }
 
@@ -904,6 +904,15 @@ async function loadFileFromZip(path) {
 	}
 }
 
+function getCaption() {
+	const varText = varEditer.getValue();
+	const ownersql = getFilename(varText, 'ownersql') || '';
+	const varFile = getFilename(varText, 'filename', '.var') || '';
+	const sqlFile = getFilename(sqlEditor.getValue(), 'filename') || '';
+	if (varFile) return sqlFile === ownersql ? varFile : sqlFile;
+	return sqlFile ? sqlFile : '';
+}
+
 async function sequentialExecSQL(sql) {
 	// コメント削除
 	sql = sql.replace(/--.*?$/gm, '');
@@ -937,11 +946,12 @@ async function sequentialExecSQL(sql) {
 	// テーブルインスタンスをクリア
 	tables = resetTables(tables);
 
+	const caption = getCaption() || 'クエリー';
 	try {
 		// クエリを逐次実行
 		for (const [index, query] of queries.entries()) {
 			// ローディング画面を表示して描画完了を待機
-			await waiting(true, `クエリ ${index + 1}/${queries.length} 実行中`);
+			await waiting(true, `クエリ－ ${index + 1}/${queries.length} 実行中`);
 
 			try {
 				let searchTime = -performance.now();
@@ -949,7 +959,7 @@ async function sequentialExecSQL(sql) {
 				searchTime += performance.now();
 
 				// 結果を表示
-				const option = { query: query, searchTime: searchTime, hideFooterU20: false };
+				const option = { query: query, caption: `${caption} ${index + 1}`, searchTime: searchTime, hideFooterU20: false };
 				const table = outputTable('#result', result, option);
 				// テーブルインスタンスを保存
 				if (table) tables.push(table);
@@ -987,12 +997,13 @@ async function batchExecSQL(sql) {
 		searchTime += performance.now();
 
 		let message = `<span class="success">一括実行成功</span>`;
+		const caption = getCaption() || '結果';
 
 		if (results.length > 0) {
 			// 複数の結果セットをそれぞれテーブルとして表示
 			results.forEach((result, index) => {
 				const option = {
-					caption: `結果 ${index + 1}`,
+					caption: `${caption} ${index + 1}`,
 					// 最後の結果セットにのみ合計実行時間を表示
 					searchTime: (index === results.length - 1) ? searchTime : undefined,
 					hideFooterU20: false
