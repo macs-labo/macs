@@ -994,8 +994,7 @@ function outputTable(selector, result, option = {}) {
 			const csvData = convertCsv('csv', makeCaption(), headers, data); // BOM 付き CSV 形式で生成 // 2025.10.10 修正
 
 			await dispStatus('CSV ファイル生成中');
-			const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8' });
-			saveAs(blob, `${makeFileName()}.csv`);
+			await saveFile(csvData, '.csv');
 
 			await dispStatus(`表示中の ${table.countRows()} 件のデータを CSV ファイルとして保存しました`, 3000);
 		} catch (err) {
@@ -1044,9 +1043,10 @@ function outputTable(selector, result, option = {}) {
 
 			// Excel ファイルを生成してダウンロード
 			await dispStatus('Excel ファイル生成中');
-			workbook.xlsx.writeBuffer().then(buffer => {
-				const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-				saveAs(blob, `${makeFileName()}.xlsx`);
+			await workbook.xlsx.writeBuffer().then(buffer => {
+				saveFile(buffer, '.xlsx');
+				//const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+				//saveAs(blob, `${makeFileName()}.xlsx`);
 			});
 			await dispStatus(`表示中の ${table.countRows()} 件のデータを Excel ファイルとして保存しました。`, 3000);
 		} catch(err) {
@@ -1116,104 +1116,74 @@ function outputTable(selector, result, option = {}) {
 		}
 	});
 
-	// オーバーレイスクロールバーで🔼がヘッダの下に消えてしまう症状の対策
-	function initScrollbarStateFix() {
-		// 非オーバーレイカーソルでは何もしない
+	// オーバーレイスクロールバーの🔼ボタンが消える対策
+	tableContainer.addEventListener('mousemove', (e) => {
+		// 非オーバーレイスクロールバーなら何もしない
 		if (scrollbarWidth > 0) return;
+
+		// 必要なコンテナが取得できない場合は何もしない
 		const masterHolder = tableContainer.querySelector('.ht_master .wtHolder');
 		const cloneTop = tableContainer.querySelector('.ht_clone_top');
-		if (!masterHolder || !cloneTop) return;
 		const wtHolderTop = cloneTop.querySelector('.wtHolder');
-		if (!wtHolderTop) return;
+		if (!masterHolder || !cloneTop || !wtHolderTop) return;
 
-		// スクロールバーを操作中（ドラッグ中・クリック中）かどうかのフラグ
-		let isScrollingActive = false;
+		// 垂直スクロールバーが出ていない時は何もしない
+		if (masterHolder.scrollHeight <= masterHolder.clientHeight) return;
 
-		// ヘッダを削る（避ける）共通処理
-		function shrinkHeader() {
-			const masterWidth = masterHolder.offsetWidth;
-			cloneTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
-			wtHolderTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
-		}
+		// コンテナの右端の座標を取得
+		const rect = tableContainer.getBoundingClientRect();
+		// マウスのX座標が、右端からスクロールバー幅（overlayScrollbarWidth）のエリア内にあるかチェック
+		const isHoveringScrollbar = (e.clientX >= rect.right - overlayScrollbarWidth && e.clientX <= rect.right);
+		const masterWidth = masterHolder.offsetWidth;
 
-		// ヘッダを100%に戻す共通処理
-		function resetHeader() {
-			const masterWidth = masterHolder.offsetWidth;
+		if (isHoveringScrollbar) {
+			// --- 💡 スクロールバーの上にマウスがある時（ヘッダを引っ込めて🔼ボタンを露出） ---
+			// 既に削られていない場合のみ実行（多重実行防止）
+			if (wtHolderTop.offsetWidth === masterWidth) {
+				cloneTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
+				wtHolderTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
+			}
+		} else {
+			// --- 枠内だけど、スクロールバー以外の場所にマウスがある時（ヘッダを100%に戻す） ---
 			cloneTop.style.removeProperty('width');
 			wtHolderTop.style.removeProperty('width');
 			cloneTop.style.width = `${masterWidth}px`;
 			wtHolderTop.style.width = `${masterWidth}px`;
 		}
+	}, { passive: true });
 
-		// 1. マウスが押された瞬間の判定
-		tableContainer.addEventListener('mousedown', (e) => {
-			if (scrollbarWidth > 0) return;
-			const hasScrollbarY = masterHolder.scrollHeight > masterHolder.clientHeight;
-			if (!hasScrollbarY) return;
-
-			const rect = tableContainer.getBoundingClientRect();
-			// 右端のスクロールバー領域でクリックされたか判定
-			const isTargetingScrollbar = (e.clientX >= rect.right - overlayScrollbarWidth && e.clientX <= rect.right);
-
-			if (isTargetingScrollbar) {
-				isScrollingActive = true; // 操作中フラグをON
-				shrinkHeader(); // 即座にヘッダを避ける
-			}
-		});
-
-		// 2. マウスが動いている時の判定
-		tableContainer.addEventListener('mousemove', (e) => {
-			if (scrollbarWidth > 0) return;
-			
-			// ⭐️ドラッグ・クリック操作中なら、マウスがどこに動こうが「常にヘッダを避けた状態」を維持（Handsontableの復帰をブロック）
-			if (isScrollingActive) {
-				shrinkHeader();
-				return;
-			}
-
-			const hasScrollbarY = masterHolder.scrollHeight > masterHolder.clientHeight;
-			if (!hasScrollbarY) return;
-
-			const rect = tableContainer.getBoundingClientRect();
-			const isHoveringScrollbar = (e.clientX >= rect.right - overlayScrollbarWidth && e.clientX <= rect.right);
-
-			if (isHoveringScrollbar) {
-				if (wtHolderTop.offsetWidth === masterHolder.offsetWidth) {
-					shrinkHeader();
-				}
-			} else {
-				resetHeader();
-			}
-		}, { passive: true });
-
-		// 3. マウスが離された瞬間の判定
-		// ⚠️つまみドラッグ中にマウスがテーブル外へはみ出すことを考慮し、ここだけは「window」でキャッチします
-		window.addEventListener('mouseup', () => {
-			if (isScrollingActive) {
-				isScrollingActive = false; // 操作中フラグをOFF
-				
-				// 離した直後に一瞬遅らせて、マウスの現在位置に応じてヘッダを戻すか判定
-				setTimeout(() => {
-					// まだマウスがコンテナの右端（スクロールバー上）にいるなら避けたまま、外に出ているなら戻す
-					const rect = tableContainer.getBoundingClientRect();
-					// 最新のマウス座標を取得するための簡易なチェック、または安全に一度リセットする
-					resetHeader();
-				}, 20);
-			}
-		}, { passive: true });
-
-		// 4. マウスがコンテナから完全に離れた時
-		tableContainer.addEventListener('mouseleave', () => {
-			// 操作中（ドラッグ中）でなければ、即座に戻してOK
-			if (!isScrollingActive) {
-				resetHeader();
-			}
-		}, { passive: true });
-	}
-
-	initScrollbarStateFix();
 	tabExecuted = !nores;
 	return table;
+}
+
+async function saveFile(content, ext) {
+	ext = ext.toLowerCase();
+	let mimeType;
+	if (ext === '.xlsx') {
+		mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+	} else {
+		mimeType = 'text/csv;charset=utf-8';
+	}
+	const filename = `${makeFileName()}${ext}`;
+
+	// ファイルシステム API 非対応ブラウザ用ダウンロード型保存
+	if (!isFileSystemAccessSupported) {
+		const blob = new Blob([content], { type: mimeType });
+		saveAs(blob, filename);
+		return;
+	}
+
+	// ファイルシステム API 保存
+	const description = ext === '.xlsx' ? 'Excel Files' : 'CSV Files';
+	const fileType = { description: description, accept: { mimeType: [ext] } };
+	const fileHandle = await window.showSaveFilePicker({
+		suggestedName: filename,
+		types: [fileType]
+	});
+	const writable = await fileHandle.createWritable();
+	await writable.write(content);
+	await writable.close();
+
 }
 
 function resetTables(tables, selector = '#result') {
@@ -1441,34 +1411,3 @@ window.addEventListener('DOMContentLoaded', () => {
 	observer.observe(resultPane);
 
 });
-//*/
-/* AnimationFrame 版
-// リサイズ時のシングルカラムテーブルの表示の乱れ(スクロールバーの点滅)が激しい
-// edge で最初のリサイズにすごく時間がかかる
-window.addEventListener('DOMContentLoaded', () => {
-	scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ設定
-
-	const resultPane = document.querySelector('#resultPane');
-	let resizeTimer;
-	let currentWidth = resultPane.getBoundingClientRect().width;
-	let rafId = null;
-	const observer = new ResizeObserver((entries) => {
-		const containerWidth =  resultPane.getBoundingClientRect().width;
-		if (currentWidth === containerWidth) return;
-		currentWidth = containerWidth;
-		// すでに実行待ちのフレームがあればキャンセルして最新のフレームに置き換える
-		if (rafId) cancelAnimationFrame(rafId);
-		rafId = requestAnimationFrame(() => {
-			if (!Array.isArray(tables)) {
-				updateTableWidth(tables, containerWidth - 30);
-			} else {
-				tables.forEach(table => {
-					updateTableWidth(table, containerWidth - 30);
-				});
-			}
-		});
-	});
-	observer.observe(resultPane);
-
-});
-*/

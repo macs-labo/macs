@@ -795,8 +795,8 @@ async function saveTextFileApi(filename, content, overwrite) {
 	// overwrite = false またはハンドルがない、または上書きに失敗した場合は「名前を付けて保存」
 	try {
 		let fileType;
-			fileType = { description: 'SQL Files', accept: { 'text/plain': ['.sql'] } };
 		if (isSql) {
+			fileType = { description: 'SQL Files', accept: { 'text/plain': ['.sql'] } };
 		} else {
 			fileType = { description: 'Var Files', accept: { 'text/plain': ['.var'] } };
 		}
