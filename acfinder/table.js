@@ -1154,6 +1154,44 @@ function outputTable(selector, result, option = {}) {
 	return table;
 }
 
+async function saveFile(content, ext, caption = '') {
+	ext = ext.toLowerCase();
+	let mimeType;
+	if (ext === '.xlsx') {
+		mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+	} else {
+		mimeType = 'text/csv;charset=utf-8';
+	}
+
+	let format = { year: 'numeric', month: '2-digit', day: '2-digit' };
+	if (!caption) {
+		format = {...format, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+		caption = 'export';
+	}
+	const now = new Date();
+	const formattedDate = now.toLocaleString('ja-JP', format).replace(/[\/:]/g, '').replace(' ', '-');
+	const filename = caption + '_' + formattedDate + ext;
+
+	// ファイルシステム API 非対応ブラウザ用ダウンロード型保存
+	if (!isFileSystemAccessSupported) {
+		const blob = new Blob([content], { type: mimeType });
+		saveAs(blob, filename);
+		return;
+	}
+
+	// ファイルシステム API 保存
+	const description = ext === '.xlsx' ? 'Excel Files' : 'CSV Files';
+	const fileType = { description: description, accept: { mimeType: [ext] } };
+	const fileHandle = await window.showSaveFilePicker({
+		suggestedName: filename,
+		types: [fileType]
+	});
+	const writable = await fileHandle.createWritable();
+	await writable.write(content);
+	await writable.close();
+
+}
+
 function resetTables(tables, selector = '#result') {
 	const isArray = Array.isArray(tables);
 	if (!isArray) tables = [tables];
