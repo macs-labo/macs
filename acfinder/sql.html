@@ -906,9 +906,9 @@ async function loadFileFromZip(path) {
 
 function getCaption() {
 	const varText = varEditor.getValue();
-	const ownersql = getFilename(varText, 'ownersql') || '';
-	const varFile = getFilename(varText, 'filename', '.var') || '';
-	const sqlFile = getFilename(sqlEditor.getValue(), 'filename') || '';
+	const ownersql = getFilename(varText, 'ownersql').split('/').pop().replace(/\\.sql$/i, '') || '';
+	const varFile = getFilename(varText, 'filename', '.var').replace(/\\.var$/i, '') || '';
+	const sqlFile = getFilename(sqlEditor.getValue(), 'filename').replace(/\\.sql$/i, '') || '';
 	if (varFile) return sqlFile === ownersql ? varFile : sqlFile;
 	return sqlFile ? sqlFile : '';
 }
@@ -1000,10 +1000,12 @@ async function batchExecSQL(sql) {
 		const caption = getCaption() || '結果表';
 
 		if (results.length > 0) {
+			const isSingleTable = results.length === 1;
 			// 複数の結果セットをそれぞれテーブルとして表示
 			results.forEach((result, index) => {
+				const indexedCaption = isSingleTable ? caption : `${caption} ${index + 1}`;
 				const option = {
-					caption: `${caption} ${index + 1}`,
+					caption: indexedCaption,
 					// 最後の結果セットにのみ合計実行時間を表示
 					searchTime: (index === results.length - 1) ? searchTime : undefined,
 					hideFooterU20: false
