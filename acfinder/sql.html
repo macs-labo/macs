@@ -905,7 +905,7 @@ async function loadFileFromZip(path) {
 }
 
 function getCaption() {
-	const varText = varEditer.getValue();
+	const varText = varEditor.getValue();
 	const ownersql = getFilename(varText, 'ownersql') || '';
 	const varFile = getFilename(varText, 'filename', '.var') || '';
 	const sqlFile = getFilename(sqlEditor.getValue(), 'filename') || '';
@@ -997,7 +997,7 @@ async function batchExecSQL(sql) {
 		searchTime += performance.now();
 
 		let message = `<span class="success">一括実行成功</span>`;
-		const caption = getCaption() || '結果';
+		const caption = getCaption() || '結果表';
 
 		if (results.length > 0) {
 			// 複数の結果セットをそれぞれテーブルとして表示
