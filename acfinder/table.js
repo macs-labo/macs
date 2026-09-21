@@ -994,7 +994,7 @@ function outputTable(selector, result, option = {}) {
 			const csvData = convertCsv('csv', makeCaption(), headers, data); // BOM 付き CSV 形式で生成 // 2025.10.10 修正
 
 			await dispStatus('CSV ファイル生成中');
-			await saveFile(csvData, '.csv');
+			await saveFile(csvData, '.csv', option.caption);
 
 			await dispStatus(`表示中の ${table.countRows()} 件のデータを CSV ファイルとして保存しました`, 3000);
 		} catch (err) {
@@ -1044,7 +1044,7 @@ function outputTable(selector, result, option = {}) {
 			// Excel ファイルを生成してダウンロード
 			await dispStatus('Excel ファイル生成中');
 			await workbook.xlsx.writeBuffer().then(buffer => {
-				saveFile(buffer, '.xlsx');
+				saveFile(buffer, '.xlsx', option.caption);
 				//const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
 				//saveAs(blob, `${makeFileName()}.xlsx`);
 			});
@@ -1156,7 +1156,7 @@ function outputTable(selector, result, option = {}) {
 	return table;
 }
 
-async function saveFile(content, ext) {
+async function saveFile(content, ext, caption = '') {
 	ext = ext.toLowerCase();
 	let mimeType;
 	if (ext === '.xlsx') {
@@ -1164,7 +1164,16 @@ async function saveFile(content, ext) {
 	} else {
 		mimeType = 'text/csv;charset=utf-8';
 	}
-	const filename = `${makeFileName()}${ext}`;
+
+	let format = { year: 'numeric', month: '2-digit', day: '2-digit' };
+	let caption = option.caption || '';
+	if (!caption) {
+		format = {...format, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
+		caption = 'export'
+	}
+	const now = new Date();
+	const formattedDate = now.toLocaleString('ja-JP', format).replace(/[\/:]/g, '').replace(' ', '-');
+	const filename = caption + '_' + formattedDate + ext;
 
 	// ファイルシステム API 非対応ブラウザ用ダウンロード型保存
 	if (!isFileSystemAccessSupported) {
