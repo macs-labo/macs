@@ -959,7 +959,7 @@ async function sequentialExecSQL(sql) {
 				searchTime += performance.now();
 
 				// 結果を表示
-				const indexedCaption = queries.length === 1 ? caption : `${caption} ${index + 1}`;
+				const indexedCaption = queries.length === 1 ? caption : `${caption}-${index + 1}`;
 				const option = { query: query, caption: indexedCaption, searchTime: searchTime, hideFooterU20: false };
 				const table = outputTable('#result', result, option);
 				// テーブルインスタンスを保存
@@ -1004,7 +1004,7 @@ async function batchExecSQL(sql) {
 			const isSingleTable = results.length === 1;
 			// 複数の結果セットをそれぞれテーブルとして表示
 			results.forEach((result, index) => {
-				const indexedCaption = isSingleTable ? caption : `${caption} ${index + 1}`;
+				const indexedCaption = isSingleTable ? caption : `${caption}-${index + 1}`;
 				const option = {
 					caption: indexedCaption,
 					// 最後の結果セットにのみ合計実行時間を表示
