@@ -1166,8 +1166,8 @@ async function saveFile(content, ext, caption = '') {
 	let format = { year: 'numeric', month: '2-digit', day: '2-digit' };
 	let caption = option.caption || '';
 	if (!caption) {
-		format = {...format, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
-		caption = 'export'
+		format = {...format, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+		caption = 'export';
 	}
 	const now = new Date();
 	const formattedDate = now.toLocaleString('ja-JP', format).replace(/[\/:]/g, '').replace(' ', '-');
