@@ -994,8 +994,9 @@ function outputTable(selector, result, option = {}) {
 			const csvData = convertCsv('csv', makeCaption(), headers, data); // BOM 付き CSV 形式で生成 // 2025.10.10 修正
 
 			await dispStatus('CSV ファイル生成中');
-			const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8' });
-			saveAs(blob, `${makeFileName()}.csv`);
+			//const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8' });
+			//saveAs(blob, `${makeFileName()}.csv`);
+			saveFile(csvData, '.csv', option.caption);
 
 			await dispStatus(`表示中の ${table.countRows()} 件のデータを CSV ファイルとして保存しました`, 3000);
 		} catch (err) {
@@ -1043,8 +1044,9 @@ function outputTable(selector, result, option = {}) {
 			// Excel ファイルを生成してダウンロード
 			await dispStatus('Excel ファイル生成中');
 			workbook.xlsx.writeBuffer().then(buffer => {
-				const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-				saveAs(blob, `${makeFileName()}.xlsx`);
+				//const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+				//saveAs(blob, `${makeFileName()}.xlsx`);
+				saveFile(buffer, '.xlsx', option.caption)
 			});
 			await dispStatus(`表示中の ${table.countRows()} 件のデータを Excel ファイルとして保存しました。`, 3000);
 		} catch(err) {
