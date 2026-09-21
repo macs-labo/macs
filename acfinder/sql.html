@@ -946,7 +946,7 @@ async function sequentialExecSQL(sql) {
 	// テーブルインスタンスをクリア
 	tables = resetTables(tables);
 
-	const caption = getCaption() || 'クエリー';
+	const caption = getCaption();
 	try {
 		// クエリを逐次実行
 		for (const [index, query] of queries.entries()) {
@@ -959,8 +959,8 @@ async function sequentialExecSQL(sql) {
 				searchTime += performance.now();
 
 				// 結果を表示
-				const indexedCaption = queries.length === 1 ? caption : `${caption}-${index + 1}`;
-				const option = { query: query, caption: indexedCaption, searchTime: searchTime, hideFooterU20: false };
+				const option = { query: query, searchTime: searchTime, hideFooterU20: false };
+				if (caption) option['caption'] = queries.length === 1 ? caption : `${caption}-${index + 1}`;
 				const table = outputTable('#result', result, option);
 				// テーブルインスタンスを保存
 				if (table) tables.push(table);
@@ -998,19 +998,17 @@ async function batchExecSQL(sql) {
 		searchTime += performance.now();
 
 		let message = `<span class="success">一括実行成功</span>`;
-		const caption = getCaption() || '結果表';
+		const caption = getCaption();
 
 		if (results.length > 0) {
-			const isSingleTable = results.length === 1;
 			// 複数の結果セットをそれぞれテーブルとして表示
 			results.forEach((result, index) => {
-				const indexedCaption = isSingleTable ? caption : `${caption}-${index + 1}`;
 				const option = {
-					caption: indexedCaption,
 					// 最後の結果セットにのみ合計実行時間を表示
 					searchTime: (index === results.length - 1) ? searchTime : undefined,
 					hideFooterU20: false
 				};
+				if (caption) option['caption'] = results.length === 1 ? caption : `${caption}-${index + 1}`;
 				const table = outputTable('#result', [result], option);
 				if (table) tables.push(table);
 			});
