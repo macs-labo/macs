@@ -1126,7 +1126,7 @@ async function dispatchSQLExecution() {
 	}
 	clearToolbarText(); // ツールバーメッセージクリア
 
-	let sql = sqlEditor.getValue();
+	let sql = convTemplate(sqlEditor.getValue());
 
 	// 使用変数のチェック
 	const usedVars = new Set();

@@ -1340,10 +1340,10 @@ function createPlanTable() {
 				<use href="icons.svg#file-xls"></use>
 			</svg>
 			<svg id="btnSavePlan" class="icon disabled" onclick="savePlanFile()">
-				<title>防除計画/防除記録を${isFileSystemAccessSupported ? '上書き' : ''}保存</title>
+				<title>防除計画/防除記録を${isFileSystemAccessSupported && isDesktop ? '上書き' : ''}保存</title>
 				<use href="icons.svg#save"></use>
 			</svg>
-			<svg id="btnSavePlanAs" class="icon disabled${isFileSystemAccessSupported ? '' : ' hidden'}" onclick="savePlanFile(false)">
+			<svg id="btnSavePlanAs" class="icon disabled${isFileSystemAccessSupported && isDesktop ? '' : ' hidden'}" onclick="savePlanFile(false)">
 				<title>防除計画/防除記録を名前を付けて保存</title>
 				<use href="icons.svg#save-as"></use>
 			</svg>
@@ -1571,7 +1571,7 @@ async function savePlanFile(overwrite = true) {
 		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
 		currentFilename = fileHandle.name;
 		isDirty = false;
-		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		if (isDesktopChromium) alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
 	} catch (err) {
 		if (err.name !== 'AbortError') {

@@ -437,7 +437,7 @@ async function saveRecFile(overwrite) {
 
 		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
 		currentFilename = fileHandle.name;
-		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		if (isDesktop) alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
 	} catch (err) {
 		if (err.name !== 'AbortError') {
@@ -696,7 +696,7 @@ async function setPlanRecord() {
 		waiting(false);
 	}
 
-	if (!isFileSystemAccessSupported) {
+	if (!isFileSystemAccessSupported || !isDesktop) {
 		document.querySelector('#btnSaveRec title').textContent = '防除記録を保存';
 		document.querySelector('#btnSaveRecAs')?.classList.add('hidden');
 	}

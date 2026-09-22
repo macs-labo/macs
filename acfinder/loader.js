@@ -18,6 +18,22 @@ const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
 const isElectron = typeof window.electronAPI !== 'undefined';
 const isFileSystemAccessSupported = 'showOpenFilePicker' in window; // File System Access API サポート判定
+const isDesktop = isDesktopSecure();
+
+function isDesktopSecure() {
+	// 1. 「デスクトップ環境」であることの確定検出
+	// マウス等の精密なポインタがあり、かつ「ホバー（カーソルを合わせる）」が可能なデバイス特性
+	const isDesktopFormFactor = window.matchMedia("(pointer: fine)").matches && window.matchMedia("(hover: hover)").matches;
+
+	// 2. Android / iOS / macOS ではない（Windows や Linux 等のファイルシステム挙動）の検出
+	// Android専用の "virtualKeyboard" が「存在しない」ことを確認
+	const isNotAndroid = !("virtualKeyboard" in navigator);
+	// iOS専用のタッチ特性やスタンドアロン特性が無いことを確認
+	const isNotIOS = !("standalone" in window.navigator);
+
+	// すべてを満たせば「Windows または Linux 版の Chromium」と確定
+	return isDesktopFormFactor && isNotAndroid && isNotIOS;
+}
 
 // 公開用の自動ログキャンセル
 if (!debug) {
