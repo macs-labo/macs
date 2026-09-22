@@ -132,7 +132,10 @@ td .svg_button {
 .row-data-table .even-row, .std-data-table .even-row {
 	background-color: var(--bg-color-even-row);
 }
-.clickable { cursor: pointer; }
+tr.row-not-found {
+	text-decoration: line-through;
+}
+clickable { cursor: pointer; }
 
 /* 作物ツリーロック */
 #planCropTree.locked {
@@ -163,11 +166,11 @@ td .svg_button {
 				<div class="step-fixed">
 					<div class="filebar">
 						<h3>防除計画／防除記録読込</h3>
-						<svg class="icon" onclick="openPlanFile()">
-							<title>JSONファイル読込</title>
+						<svg class="icon" onclick="openFileApi()">
+							<title>防除計画/防除記録ファイル読込</title>
 							<use href="icons.svg?v=3#folder-open"></use>
 						</svg>
-						<input type="file" id="fallbackInput" accept=".json" class="hidden" onclick="readFile(event)">
+						<input type="file" id="fallbackInput" accept=".json" class="hidden" onchange="openFileInput(event)">
 					</div>
 					<div id="planCropTree" class="flex-wrapper"></div>
 				</div>
@@ -187,9 +190,13 @@ td .svg_button {
 				<div class="step-scrollable">
 					<div class="filebar">
 						<h3>防除記録保存</h3>
-						<svg class="icon" onclick="savePlanAsJson()">
-							<title>JSON形式で保存</title>
-							<use href="icons.svg?v=3#floppy-disk"></use>
+						<svg id="btnSaveRec" class="icon" onclick="savePlanAsJson()">
+							<title>防除記録を上書き保存</title>
+							<use href="icons.svg?v=3#save"></use>
+						</svg>
+						<svg id="btnSaveRecAs" class="icon" onclick="savePlanAsJson(false)">
+							<title>防除記録を名前を付けて保存</title>
+							<use href="icons.svg?v=3#save-as"></use>
 						</svg>
 					</div>
 					<div id="planRecordWrapper" class="flex-wrapper"></div>
@@ -300,7 +307,8 @@ async function setupPlanChem(moveThis = true) {
 			drop view if exists tv_tsushoTekiyo2;
 			create temp view tv_tsushoTekiyo2 as
 			select distinct
-				tsusho, shurui, zaikei, seizaidokusei, sakumotsu, byochu, mokuteki, baisu, ekiryo, jiki, kaisu, hoho,
+				tsusho, shurui, zaikei, seizaidokusei, sakumotsu, byochu, mokuteki, baisu, ekiryo,
+				ifnull(jiki, '-') as jiki, ifnull(kaisu, '-') as kaisu, ifnull(hoho, '-') as hoho,
 				iif(basho = '-', null, basho) as basho, iif(jikan = '-', null, jikan) as jikan, iif(ondo ='-', null, ondo) as ondo,
 				iif(dojo = '-', null, dojo) as dojo, iif(chitai ='-', null, chitai) as chitai, tekiyaku,
 				seibun1, yuko1, kaisu1, mid1, keito1, rem1, risk1,
@@ -314,7 +322,7 @@ async function setupPlanChem(moveThis = true) {
 			drop table if exists t_planTekiyo;
 			create temp table t_planTekiyo as select * from tv_tsushoTekiyo2 where sakumotsu in (${makeCropCondition(crops)});
 			with t_tekiyo1 as (select tsusho, ruby, sakumotsu,
-				gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
+				gn_concat(',', iif(jiki='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(kaisu='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(hoho='-','方法無指定',hoho)) as hoho,
 				n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
 				from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu
 			),
@@ -425,7 +433,7 @@ function movePlanRow(index, direction) {
 	setPlanRecord();
 }
 
-async function openPlanFile() {
+async function openFileApi() {
 	if (planList.length > 0 && !confirm('現在の防除計画/記録をクリアして、新しいファイルを読み込みますか？？')) {
 		return;
 	}
@@ -436,31 +444,27 @@ async function openPlanFile() {
 	}
 
 	try {
-		let fileHandle = null;
-		if (item) {
-			fileHandle = await item.getAsFileSystemHandle();
-		} else {
-			[fileHandle] = await window.showOpenFilePicker({
-				types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
-				multiple: false
-			});
-		}
+		//let fileHandle = null;
+		const [fileHandle] = await window.showOpenFilePicker({
+			types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
+			multiple: false
+		});
 		const file = await fileHandle.getFile();
 		currentFileHandle = fileHandle; // ハンドルを記憶
-		currentFilename = fileHandle.name; // ファイル名を保存
 		loadPlanFromJson(file); // データ読み込み共通関数へ
 	} catch (err) {
+		console.error(err);
 		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
 	}
 
 }
 
-// fallbackFileInput の場合の読込
-function readFile(event) {
+// fallbackInput の場合の読込
+function openFileInput(event) {
 	const file = event.target.files[0];
 	event.target.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
+	if (!file) return;
 	currentFileHandle = null;
-	currentFileName = file.name;
 	loadPlanFromJson(file);
 }
 
@@ -468,6 +472,8 @@ function readFile(event) {
 function loadPlanFromJson(file) {
 	if (!file) return;
 
+	currentFileName = file.name; // ファイル名を保存
+	console.log('filename: ', currentFileName);
 	const reader = new FileReader();
 	reader.onload = async function(e) {
 		try {
@@ -498,10 +504,11 @@ function loadPlanFromJson(file) {
 		} catch (err) {
 			console.error(err);
 			alert('ファイルの読み込みに失敗しました。有効なJSONファイルを選択してください。');
+			currentFileHandle = null;
+			currentFileName = '';
 		}
 	};
 	reader.readAsText(file);
-	event.target.value = '';
 }
 
 // 防除記録タブ step.3: 使用予定薬剤及び使用回数集計表示
@@ -604,7 +611,7 @@ async function setPlanRecord() {
 					`</td>`;
 			}
 
-			html += `<tr class="${i % 2 === 0 ? '' : 'even-row'}">` +
+			html += `<tr class="${i % 2 === 0 ? '' : 'even-row'}${tsushoLimit[chemName] ? '' : ' row-not-found'}">` +
 				`<td><div class="actions">` +
 				`<svg class="svg_button" onclick="deletePlanRow(${i})"><use href="icons.svg?v=3#trash-x"></use></svg>` +
 				`<svg class="svg_button ${isFirst ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'up')"><use href="icons.svg?v=3#arrow-up"></use></svg>` +
@@ -624,7 +631,7 @@ async function setPlanRecord() {
 
 		const yakuzaiRows = Object.entries(yakuzaiCounts)
 			.sort(([a], [b]) => a.localeCompare(b, 'ja'))
-			.map(([name, count]) => `<tr><td>${name}</td><td>${count}</td><td>${tsushoLimit[name] || '-'}</td></tr>`)
+			.map(([name, count]) => `<tr class="${tsushoLimit[name] ? '': 'row-not-found'}"><td>${name}</td><td>${count}</td><td>${tsushoLimit[name] || '×'}</td></tr>`)
 			.join('');
 
 		if (yakuzaiRows) {
@@ -653,6 +660,10 @@ async function setPlanRecord() {
 		waiting(false);
 	}
 
+	if (!isFileSystemAccessSupported) {
+		document.querySelector('#btnSaveRec title')?.textContent = '防除記録を保存';
+		document.querySelector('#btnSaveRecAs')?.classList.add('hidden');
+	}
 	const planSwiper = document.querySelector('.plan-swiper').swiper;
 	if (planSwiper.activeIndex !== 2) planSwiper.slideTo(2);
 
