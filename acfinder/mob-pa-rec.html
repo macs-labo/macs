@@ -163,11 +163,11 @@ td .svg_button {
 				<div class="step-fixed">
 					<div class="filebar">
 						<h3>防除計画／防除記録読込</h3>
-						<svg class="icon" onclick="document.getElementById('planJsonInput').click()">
+						<svg class="icon" onclick="openPlanFile()">
 							<title>JSONファイル読込</title>
 							<use href="icons.svg?v=3#folder-open"></use>
 						</svg>
-						<input type="file" id="planJsonInput" accept=".json" class="hidden" onchange="loadPlanFromJson(event)">
+						<input type="file" id="fallbackInput" accept=".json" class="hidden" onclick="readFile(event)">
 					</div>
 					<div id="planCropTree" class="flex-wrapper"></div>
 				</div>
@@ -210,7 +210,9 @@ td .svg_button {
 <script>
 var planCropManager, planChemManager;
 var planList = [];
-var currentLoadedFileName = '';
+// 読み込んだ、または一度保存したファイルハンドル及びファイル名を保持する変数
+var currentFileName = '';
+var currentFileHandle = null;
 
 function initPaRec() {
 	// 薬剤マネージャ初期化
@@ -383,10 +385,10 @@ async function savePlanAsJson() {
 	const blob = new Blob([jsonString], { type: 'application/json' });
 
 	let filename;
-	if (currentLoadedFileName && currentLoadedFileName.includes('防除記録')) {
-		filename = currentLoadedFileName;
-	} else if (currentLoadedFileName && currentLoadedFileName.includes('防除計画')) {
-		filename = currentLoadedFileName.replace('防除計画', '防除記録');
+	if (currentFileName && currentFileName.includes('防除記録')) {
+		filename = currentFileName;
+	} else if (currentFileName && currentFileName.includes('防除計画')) {
+		filename = currentFileName.replace('防除計画', '防除記録');
 	} else {
 		const prefix = getFilenamePrefix();
 		filename = `${prefix}防除記録_${formatDateTime()}.json`;
@@ -423,9 +425,47 @@ function movePlanRow(index, direction) {
 	setPlanRecord();
 }
 
-// JSONファイルを読み込んで計画を復元
-function loadPlanFromJson(event) {
+async function openPlanFile() {
+	if (planList.length > 0 && !confirm('現在の防除計画/記録をクリアして、新しいファイルを読み込みますか？？')) {
+		return;
+	}
+
+	if (!isFileSystemAccessSupported) {
+		document.getElementById('fallbackFileInput')?.click();
+		return;
+	}
+
+	try {
+		let fileHandle = null;
+		if (item) {
+			fileHandle = await item.getAsFileSystemHandle();
+		} else {
+			[fileHandle] = await window.showOpenFilePicker({
+				types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }],
+				multiple: false
+			});
+		}
+		const file = await fileHandle.getFile();
+		currentFileHandle = fileHandle; // ハンドルを記憶
+		currentFilename = fileHandle.name; // ファイル名を保存
+		loadPlanFromJson(file); // データ読み込み共通関数へ
+	} catch (err) {
+		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
+	}
+
+}
+
+// fallbackFileInput の場合の読込
+function readFile(event) {
 	const file = event.target.files[0];
+	event.target.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
+	currentFileHandle = null;
+	currentFileName = file.name;
+	loadPlanFromJson(file);
+}
+
+// JSONファイルを読み込んで計画を復元
+function loadPlanFromJson(file) {
 	if (!file) return;
 
 	const reader = new FileReader();
@@ -435,12 +475,6 @@ function loadPlanFromJson(event) {
 			const loadedPlan = data.plan || data.planList;
 			if (!loadedPlan) throw new Error('Invalid format');
 
-			if (planList.length > 0 && !confirm('現在の計画をクリアして読み込みますか？')) {
-				event.target.value = '';
-				return;
-			}
-
-			currentLoadedFileName = file.name;
 
 			// 選択作物の初期化と再設定
 			//planCropManager.checkedCrops = [];

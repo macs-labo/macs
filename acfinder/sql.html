@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -904,6 +905,11 @@ async function loadFileFromZip(path) {
 	}
 }
 
+// var_editor に @filename が指定されていれば、拡張子なしのファイル名を返す（@caption の接頭辞として使用）
+function getVarFilenamePrefix() {
+	return getFilename(varEditor.getValue(), 'filename', '.var').replace(/\.var$/i, '');
+}
+
 function getCaption() {
 	const varText = varEditor.getValue();
 	const ownersql = getFilename(varText, 'ownersql').split('/').pop().replace(/\.sql$/i, '') || '';
@@ -913,7 +919,54 @@ function getCaption() {
 	return sqlFile ? sqlFile : '';
 }
 
+// SQL 中の @caption: ['キャプション1', 'キャプション2'] を配列で取得する
+// （-- コメント・/* */ コメントのどちらでも可。複数ある場合は最後のものを優先。無ければ空配列）
+function getCaptionList(text = sqlEditor.getValue()) {
+	const re = /@caption:\s*\[/g;
+	let list = [];
+	let m;
+	while ((m = re.exec(text)) !== null) {
+		const parsed = parseCaptionArray(text, re.lastIndex);
+		if (parsed) list = parsed;
+	}
+	return list;
+}
+
+// '...' / "..." の要素をカンマ区切りで読み、閉じ括弧 ] までを配列にする（不正な記述は null）
+function parseCaptionArray(text, i) {
+	const items = [];
+	while (i < text.length) {
+		const c = text[i];
+		if (c === ']') return items;
+		if (c === ',' || c === ' ' || c === '\t' || c === '\r' || c === '\n') {
+			i++;
+		} else if (c === "'" || c === '"') {
+			let str = '';
+			i++;
+			while (i < text.length && text[i] !== c && text[i] !== '\n') {
+				if (text[i] === '\\' && i + 1 < text.length) i++; // \' \" \\ のエスケープ
+				str += text[i++];
+			}
+			if (text[i] !== c) return null; // 閉じ忘れ
+			items.push(str);
+			i++;
+		} else {
+			// 引用符なしの要素（数字など）は , か ] まで
+			let str = '';
+			while (i < text.length && !',]\n'.includes(text[i])) str += text[i++];
+			if (str.includes('*/')) return null; // コメントが閉じてしまっている
+			items.push(str.trim());
+		}
+	}
+	return null;
+}
+
 async function sequentialExecSQL(sql) {
+	// 最初に生 sql から @caption を取得
+	const caption = getCaption();
+	const captionList = getCaptionList(sql); // @caption 指定（テーブルが作られるたびに先頭から shift して使う）
+	const captionPrefix = getVarFilenamePrefix(); // var_editor 側の @filename（@caption の接頭辞用）
+
 	// コメント削除
 	sql = sql.replace(/--.*?$/gm, '');
 	sql = sql.replace(/\/\*.*?\*\//gs, '');
@@ -945,8 +998,6 @@ async function sequentialExecSQL(sql) {
 
 	// テーブルインスタンスをクリア
 	tables = resetTables(tables);
-
-	const caption = getCaption();
 	try {
 		// クエリを逐次実行
 		for (const [index, query] of queries.entries()) {
@@ -960,10 +1011,15 @@ async function sequentialExecSQL(sql) {
 
 				// 結果を表示
 				const option = { query: query, searchTime: searchTime, hideFooterU20: false };
-				if (caption) option['caption'] = queries.length === 1 ? caption : `${caption}-${index + 1}`;
+				const custom = captionList.length ? captionList[0] : '';
+				if (custom) option['caption'] = captionPrefix ? `${captionPrefix}-${custom}` : custom;
+				else if (caption) option['caption'] = queries.length === 1 ? caption : `${caption}-${index + 1}`;
 				const table = outputTable('#result', result, option);
 				// テーブルインスタンスを保存
-				if (table) tables.push(table);
+				if (table) {
+					tables.push(table);
+					captionList.shift(); // テーブルが作られたので @caption を 1 つ消費
+				}
 			} catch (error) {
 				// クエリごとのエラーをキャッチして外側の catch へ飛ばす
 				throw new Error(`クエリ${index + 1}: ${error.message}`);
@@ -986,6 +1042,11 @@ async function sequentialExecSQL(sql) {
 }
 
 async function batchExecSQL(sql) {
+	// 最初に生 sql から @caption を取得
+	const caption = getCaption();
+	const captionList = getCaptionList(sql); // @caption 指定（テーブルが作られるたびに先頭から shift して使う）
+	const captionPrefix = getVarFilenamePrefix(); // var_editor 側の @filename（@caption の接頭辞用）
+
 	// テーブルインスタンスをクリア
 	tables = resetTables(tables);
 
@@ -998,7 +1059,6 @@ async function batchExecSQL(sql) {
 		searchTime += performance.now();
 
 		let message = `<span class="success">一括実行成功</span>`;
-		const caption = getCaption();
 
 		if (results.length > 0) {
 			// 複数の結果セットをそれぞれテーブルとして表示
@@ -1008,9 +1068,14 @@ async function batchExecSQL(sql) {
 					searchTime: (index === results.length - 1) ? searchTime : undefined,
 					hideFooterU20: false
 				};
-				if (caption) option['caption'] = results.length === 1 ? caption : `${caption}-${index + 1}`;
+				const custom = captionList.length ? captionList[0] : '';
+				if (custom) option['caption'] = captionPrefix ? `${captionPrefix}-${custom}` : custom;
+				else if (caption) option['caption'] = results.length === 1 ? caption : `${caption}-${index + 1}`;
 				const table = outputTable('#result', [result], option);
-				if (table) tables.push(table);
+				if (table) {
+					tables.push(table);
+					captionList.shift(); // テーブルが作られたので @caption を 1 つ消費
+				}
 			});
 			message += ` (${results.length}個の結果)`;
 		} else {
@@ -1978,6 +2043,40 @@ function sqlGetColumns(schema, table) {
 	}
 }
 
+// pragma function_list から関数の一覧を取得（同名でも引数の数が違うものは別候補。narg が負の値は可変長）
+function sqlGetFunctions() {
+	const map = new Map();
+	try {
+		sqlRows("PRAGMA function_list").forEach(r => {
+			const name = r[0], type = r[2], narg = r[4];
+			const key = name.toLowerCase() + "\0" + narg;
+			if (!map.has(key)) map.set(key, { name, narg, types: new Set() }); // 文字コード違いの重複を除く
+			map.get(key).types.add(type);
+		});
+	} catch (e) { console.warn("function_list failed:", e); }
+	return Array.from(map.values()).sort((a, b) =>
+		a.name.localeCompare(b.name) || (a.narg < 0 ? 1 : 0) - (b.narg < 0 ? 1 : 0) || a.narg - b.narg);
+}
+
+// 関数の補完候補（選択すると name(,,) の形で引数の数だけカンマを入れ、カーソルを最初の引数の位置に置く）
+function sqlFunctionItem(f) {
+	const commas = ",".repeat(Math.max(f.narg - 1, 0));
+	const call = f.name + "(" + commas + ")";
+	const kind = (f.types.has("a") ? " 集約" : "") + (f.types.has("w") ? " ウィンドウ可" : "");
+	return {
+		text: call, displayText: call,
+		meta: (f.narg < 0 ? "可変引数" : f.narg + "引数") + kind,
+		className: "CodeMirror-hint-function",
+		hint: function(cm, data, completion) {
+			const to = data.to;
+			const hasParen = cm.getRange(to, CodeMirror.Pos(to.line, to.ch + 1)) === "("; // 既に ( がある場合は名前だけ
+			cm.replaceRange(hasParen ? f.name : call, data.from, to, "complete");
+			// 引数があれば最初の引数の位置（( の直後）、引数なしなら ) の後ろにカーソルを置く
+			cm.setCursor(CodeMirror.Pos(data.from.line, data.from.ch + f.name.length + (f.narg === 0 ? 2 : 1)));
+		}
+	};
+}
+
 function sqlFindObject(objs, schema, name) {
 	const n = name.toLowerCase();
 	const s = schema ? schema.toLowerCase() : null;
@@ -2075,7 +2174,10 @@ function buildSqlHintList(ctx, keywords) {
 		className: "CodeMirror-hint-column"
 	}));
 	if (!ctx.quote) {
-		keywords.filter(ok).sort().forEach(k => items.push({
+		const funcs = sqlGetFunctions();
+		const funcNames = new Set(funcs.map(f => f.name.toLowerCase()));
+		funcs.filter(f => ok(f.name)).forEach(f => items.push(sqlFunctionItem(f)));
+		keywords.filter(k => ok(k) && !funcNames.has(k.toLowerCase())).sort().forEach(k => items.push({ // 関数と重複するキーワードは関数側だけ表示
 			text: k.toUpperCase(), displayText: k.toUpperCase(), className: "CodeMirror-hint-keyword"
 		}));
 	}
