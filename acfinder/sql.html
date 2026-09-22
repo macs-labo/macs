@@ -1101,7 +1101,19 @@ function parseVariables(varText) {
 	let match;
 	while ((match = varRegex.exec(varText)) !== null) {
 		const varName = match[1];
-		const varValue = match[2].trim().replace(/\s+/g, ' ');
+		// 改行・連続空白は半角スペース 1 個にまとめるが、
+		// 「;(セミコロン) の直後の改行」と「--(行コメント) の直後の改行」だけは改行のまま残す
+		const varValue = match[2]
+			.replace(/\r\n?/g, '\n') // CRLF / CR を LF に統一
+			.trim()
+			.replace(
+				/--[^\n]*(?:\n[^\S\n]*)+|;[^\S\n]*(?:\n[^\S\n]*)+|\s+/g,
+				m => m.startsWith('--')
+					? m.slice(0, m.indexOf('\n')).trimEnd() + '\n' // 行コメント：本文は原文維持＋直後の改行を保持
+					: m.startsWith(';')
+						? ';\n' // セミコロン：直後の改行を保持
+						: ' ' // それ以外の空白・改行は半角スペース 1 個に
+			);
 		variables.set(varName, varValue);
 	}
 	return variables;
