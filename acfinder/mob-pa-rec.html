@@ -609,8 +609,10 @@ async function openFileApi() {
 		currentFileHandle = fileHandle; // ハンドルを記憶
 		loadPlanFile(file); // データ読み込み共通関数へ
 	} catch (err) {
-		console.error(err);
-		if (err.name !== 'AbortError') showToast('ファイルの読み込みに失敗しました。');
+		if (err.name !== 'AbortError') {
+			console.error(err);
+			showToast('ファイルの読み込みに失敗しました。');
+		}
 	}
 
 }
