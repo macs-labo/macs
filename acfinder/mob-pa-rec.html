@@ -133,11 +133,11 @@ td .svg_button {
 .row-data-table .even-row, .std-data-table .even-row {
 	background-color: var(--bg-color-even-row);
 }
-tr.row-not-found {
+tr.missing-row {
 	text-decoration: line-through;
 	background-color: rgb(from var(--border-color-ht-common) r g b / 0.5);
 }
-.row-not-found td {
+.missing-row td {
 	color: var(--border-color-strong);
 }
 clickable { cursor: pointer; }
@@ -199,6 +199,10 @@ clickable { cursor: pointer; }
 				<div class="step-scrollable">
 					<div class="filebar">
 						<h3>防除記録保存</h3>
+						<svg id="btnRowDelete" class="icon hidden" onclick="deleteMissingRows()">
+							<title>登録が見つからない薬剤を一括削除</title>
+							<use href="icons.svg?v=3#row-delete"></use>
+						</svg>
 						<svg id="btnSaveRec" class="icon" onclick="saveRecFile()">
 							<title>防除記録を上書き保存</title>
 							<use href="icons.svg?v=3#save"></use>
@@ -234,6 +238,11 @@ var currentFileHandle = null;
 var planSwiperInstance = null;
 // step.1 作物ツリーの初期化完了 Promise（復元時の待ち合わせに使う）
 var planCropReady = Promise.resolve();
+// 使用予定薬剤表で .missing-row になった行の planList インデックス
+var missingPlanIndexes = [];
+// 集計（tsushoLimit）が取得できたか。未取得（SQL失敗・作物未選択など）の場合は全行が missing 扱いに
+// なるため、削除ボタンは有効化しない（誤って全件削除するのを防ぐ）
+var hasTsushoLimitResult = false;
 
 function initPaRec() {
 	// 薬剤マネージャ初期化
@@ -374,12 +383,6 @@ async function setupPlanChem(moveThis = true) {
 	if (planSwiper.maxReachedStep < 1) updateStepBar(planSwiper, 1);
 	if (moveThis) planSwiper.slideTo(1);
 
-}
-
-// #db-update の表示テキストから登録更新日情報を取得する（先頭の「最新DB:」「⚠️過去参照: 」は除いて保存する）
-function getCurrentDbUpdate() {
-	const dbUpdateText = document.getElementById('db-update')?.textContent || '';
-	return dbUpdateText.trim().replace(/^((最新|保存)DB:|⚠️過去参照:)\s*/, '');
 }
 
 // 現在時刻を YYYYMMDD-hhmmss にフォーマット
@@ -545,9 +548,30 @@ async function saveRecFile(overwrite) {
 }
 
 // 防除記録 行操作関数
-function deletePlanRow(index) {
+// 使用予定薬剤表に .missing-row があり、かつ集計結果が取得できている場合のみ #btnRowDelete を有効化
+function updateRowDeleteButton() {
+	const hasMissingRows = !!document.querySelector('#planRecordWrapper tr.missing-row');
+	document.getElementById('btnRowDelete')?.classList.toggle('hidden', !(hasTsushoLimitResult && hasMissingRows));
+	if (!hasMissingRows) dbUpdateText = currentDbUpdate; // tr.missing-row がなくなったら、現在の DB 登録更新日を設定
+}
+
+// 使用予定薬剤表の .missing-row（現在の農薬登録情報で登録が見つからない薬剤）を計画から一括削除
+async function deleteMissingRows() {
+	if (!hasTsushoLimitResult) return; // 集計が取得できていない場合は削除しない（安全弁）
+	if (missingPlanIndexes.length === 0) return;
+	if (!confirm(`現在の農薬登録情報で登録が見つからない薬剤を ${missingPlanIndexes.length} 件削除します。よろしいですか？`)) return;
+
+	// インデックスの大きい方から削除して位置ズレを防ぐ
+	[...missingPlanIndexes].sort((a, b) => b - a).forEach(i => planList.splice(i, 1));
+	missingPlanIndexes = [];
+	await setPlanRecord(); // 表・薬剤別使用回数・キャッシュ・保存内容すべてに反映される
+	updateRowDeleteButton();
+}
+
+async function deletePlanRow(index) {
 	planList.splice(index, 1);
-	setPlanRecord();
+	await setPlanRecord();
+	updateRowDeleteButton(); // 削除で .missing-row が無くなった場合は無効化する
 }
 
 function updatePlanDate(index, date) {
@@ -670,6 +694,7 @@ async function setPlanRecord() {
 		saveRecDataToCache();
 	} else {
 		discardRecCache(); // 計画が空になったので復元候補も破棄する
+		updateRowDeleteButton(); // 表が無いので削除ボタンも無効化する
 		const planSwiper = document.querySelector('.plan-swiper').swiper;
 		//planSwiper.maxReachedStep = 1; // Step 2 まで解放
 		updateStepBar(planSwiper, 1);
@@ -704,8 +729,11 @@ async function setPlanRecord() {
 			res = db.exec(sql);
 		}
 
+		// 集計結果が取得できたか（未取得時は全行 missing 扱いになるので削除ボタンの安全弁にする）
+		hasTsushoLimitResult = !!res?.[0];
 		const ingredientInfo = {};
 		const tsushoLimit = {};
+		missingPlanIndexes = []; // 描画ごとに再計算
 		if (res?.[0]) {
 			res[0].values.forEach(row => {
 				const [seibun, seibunkaisu, rac, kaisu, tsusho] = row;
@@ -735,7 +763,6 @@ async function setPlanRecord() {
 		}
 		tableHeaders += `<th>薬剤名</th>`;
 
-		//let html = `<div class="row-title">使用予定薬剤</div><table class="std-data-table"><thead><tr>${tableHeaders}</tr></thead><tbody>`;
 		let html = `<h3>使用予定薬剤</h3><table class="std-data-table"><thead><tr>${tableHeaders}</tr></thead><tbody>`;
 		planList.forEach((chem, i) => {
 			const isFirst = i === 0;
@@ -759,7 +786,11 @@ async function setPlanRecord() {
 					`</td>`;
 			}
 
-			html += `<tr class="${i % 2 === 0 ? '' : 'even-row'}${tsushoLimit[chemName] ? '' : ' row-not-found'}">` +
+			// 現在の農薬登録情報で登録が見つからない薬剤（.missing-row と同じ条件でインデックスを収集）
+			const isMissing = !tsushoLimit[chemName];
+			if (isMissing) missingPlanIndexes.push(i);
+
+			html += `<tr class="${i % 2 === 0 ? '' : 'even-row'}${isMissing ? ' missing-row' : ''}">` +
 				`<td><div class="actions">` +
 				`<svg class="svg_button" onclick="deletePlanRow(${i})"><use href="icons.svg?v=3#trash-x"></use></svg>` +
 				`<svg class="svg_button ${isFirst ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'up')"><use href="icons.svg?v=3#arrow-up"></use></svg>` +
@@ -779,7 +810,7 @@ async function setPlanRecord() {
 
 		const yakuzaiRows = Object.entries(yakuzaiCounts)
 			.sort(([a], [b]) => a.localeCompare(b, 'ja'))
-			.map(([name, count]) => `<tr class="${tsushoLimit[name] ? '': 'row-not-found'}"><td>${name}</td><td>${count}</td><td>${tsushoLimit[name] || '×'}</td></tr>`)
+			.map(([name, count]) => `<tr class="${tsushoLimit[name] ? '': 'missing-row'}"><td>${name}</td><td>${count}</td><td>${tsushoLimit[name] || '×'}</td></tr>`)
 			.join('');
 
 		if (yakuzaiRows) {
@@ -807,6 +838,9 @@ async function setPlanRecord() {
 	} finally {
 		waiting(false);
 	}
+
+	// 表の再描画に合わせて削除ボタンの有効/無効を更新
+	updateRowDeleteButton();
 
 	if (!isFileSystemAccessSupported || !isDesktop) {
 		document.querySelector('#btnSaveRec title').textContent = '防除記録を保存';

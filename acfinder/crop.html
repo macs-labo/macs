@@ -122,7 +122,7 @@ async function searchCrop(skipPestUpdate = false) {
 	title.innerHTML = titleHtml;
 	title.classList.remove('hidden');
 
-	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join('.');
+	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(',');
 	const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
 	const excluder = excludeCondition.replace(/^and/i, 'where');
 	const cropMethodFlags = normalizeColName(crops.join(searchMethod));
