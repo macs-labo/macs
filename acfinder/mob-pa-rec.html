@@ -431,7 +431,6 @@ function saveRecDataToCache() {
 	};
 	localStorage.setItem('pestRecData', JSON.stringify(appData));
 	showRestoreButton(); // 編集/保存でキャッシュを更新したので復元ボタンを復活させる
-	console.log('cache: ', appData);
 }
 
 // 復元ボタンの表示/非表示
@@ -489,7 +488,7 @@ async function restoreRecData() {
 async function saveRecFile(overwrite) {
 	if (planList.length === 0) return;
 
-	const saveData = convRecToJason();
+	const saveData = convRecToJson();
 
 	let filename;
 	if (currentFileName && currentFileName.includes('防除記録')) {
