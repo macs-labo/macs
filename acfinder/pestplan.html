@@ -1097,7 +1097,8 @@ async function refreshPlan() {
 		// 更新候補・見つからなかった薬剤のいずれも無く、変更が全く無かった場合は
 		// 「作成時DB登録日」を「更新時DB登録日」に変更
 		if (updatedCount === 0 && notFoundYakuzai.size === 0) {
-			setDatasetInfo('更新時DB登録日: ' + getCurrentDbUpdate());
+			// setDatasetInfo('更新時DB登録日: ' + getCurrentDbUpdate());
+			setDatasetInfo('更新時DB登録日: ' + currentDbUpdate);
 		}
 
 		let msg = updatedCount > 0
@@ -1470,10 +1471,10 @@ function convPlanToJson() {
 	if (!table) return '';
 
 	const planData = [];
-	const dbUpdateText = getCurrentDbUpdate();
+	//const dbUpdateText = getCurrentDbUpdate();
 
 	const saveData = {
-		dataset: dbUpdateText, // 保存時点の農薬登録情報DBの登録更新日
+		dataset: currentDbUpdate, // 保存時点の農薬登録情報DBの登録更新日
 		sakumotsu: currentSakumotsu, // 作物条件のSQL文字列
 		crops: checkedCrops, // 選択作物オブジェクトの配列(モバイル版互換用)
 		titleText: document.getElementById('title').textContent, // #title のテキスト内容
@@ -2226,7 +2227,8 @@ function updateRowNumbers() {
 	if (hasOldDataRows) {
 		hasHadOldDataRows = true;
 	} else if (hasHadOldDataRows) {
-		setDatasetInfo('更新時DB登録日: ' + getCurrentDbUpdate());
+		//setDatasetInfo('更新時DB登録日: ' + getCurrentDbUpdate());
+		setDatasetInfo('更新時DB登録日: ' + currentDbUpdate);
 		hasHadOldDataRows = false;
 	}
 }

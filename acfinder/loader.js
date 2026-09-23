@@ -8,6 +8,7 @@ const debug = !window.location.href.includes('/acfinder/') || window.location.hr
 var db = null;
 var tables = []; // テーブルインスタンスを保持する配列
 var lastUpdate = '';
+var currentDbUpdate = '';
 var dbStatusCached = false;
 
 const isCloud = window.location.hostname.match(/\.(vercel\.app|pages\.dev|github\.io)$/); // クラウドホスティング判定: ドメイン名が vercel.app, pages.dev, github.io
@@ -925,6 +926,7 @@ function initDB() {
 	db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成
 	console.log("Database initialized.");
 	lastUpdate = db.exec("select * from info where item = 'LastUpdate'")[0].values[0][1];
+	currentDbUpdate = lastUpdate;
 
 	const dbUpdateElement = document.querySelector('#db-update');
 
@@ -1291,7 +1293,8 @@ async function loadHistoricalDB(tag, releaseName) {
 		const dbUpdateElement = document.querySelector('#db-update');
 		if (dbUpdateElement) {
 			dbUpdateElement.classList.add('historical-mode');
-			dbUpdateElement.innerHTML = `⚠️過去参照: ${releaseName.replace('Release ', '').replace(/分$/, '')}`;
+			currentDbUpdate = releaseName.replace('Release ', '').replace(/分$/, '')
+			dbUpdateElement.innerHTML = `⚠️過去参照: ${currentDbUpdate}`;
 		}
 
 		initDB();
@@ -1337,6 +1340,7 @@ async function loadLatestFromCache() {
 		if (dbUpdateElement) {
 			dbUpdateElement.classList.remove('historical-mode');
 		}
+		currentDbUpdate = lastUpdate;
 
 		initDB();
 

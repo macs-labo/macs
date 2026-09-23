@@ -176,6 +176,10 @@ clickable { cursor: pointer; }
 							<use href="icons.svg?v=3#folder-open"></use>
 						</svg>
 						<input type="file" id="fallbackInput" accept=".json" class="hidden" onchange="openFileInput(event)">
+						<svg id="btnRestoreRec" class="icon hidden" onclick="restoreRecData()">
+							<title>前回の未保存データを復元</title>
+							<use href="icons.svg?v=3#library"></use>
+						</svg>
 					</div>
 					<div id="planCropTree" class="flex-wrapper"></div>
 				</div>
@@ -222,9 +226,14 @@ clickable { cursor: pointer; }
 <script>
 var planCropManager, planChemManager;
 var planList = [];
+var dbUpdateText = '';
 // 読み込んだ、または一度保存したファイルハンドル及びファイル名を保持する変数
 var currentFileName = '';
 var currentFileHandle = null;
+// 防除記録タブの Swiper（初期化前に要素の .swiper を参照しないよう保持する）
+var planSwiperInstance = null;
+// step.1 作物ツリーの初期化完了 Promise（復元時の待ち合わせに使う）
+var planCropReady = Promise.resolve();
 
 function initPaRec() {
 	// 薬剤マネージャ初期化
@@ -257,11 +266,16 @@ function initPaRec() {
 	// 防除記録タブ step.1 作成
 	setupPlanCrop();
 
-	// 内部Swiperの初期化と返却
-	const planSwiperInstance = createZoomableSwiper('.plan-swiper', mainSwiper, function() {
+	// 内部Swiperの初期化
+	planSwiperInstance = createZoomableSwiper('.plan-swiper', mainSwiper, function() {
 		updateStepBar(this);
 	});
-	return planSwiperInstance; // Swiperインスタンスを返す
+
+	// 前回の未保存データがあれば復元ボタンを表示（自動復元はしない）
+	if (localStorage.getItem('pestRecData')) showRestoreButton();
+
+	// Swiperインスタンスを返す
+	return planSwiperInstance;
 }
 
 // Helper function to format YYYY-MM-DD to YY-MM-DD
@@ -279,9 +293,12 @@ function setupPlanCrop() {
 			from m_sakumotsu where sakumotsu not like '%除く%';
 		`;
 		planCropManager = new CropTreeManager('#planCropTree', onCheckPlanCrop, false);
-		planCropManager.init(cropTreeSql, { showSearchMethod: false });
+		// init の完了 Promise を保持（復元時にチェック状態を復元するための待ち合わせに使う）
+		planCropReady = planCropManager.init(cropTreeSql, { showSearchMethod: false }) || Promise.resolve();
+		return planCropReady;
 	} catch (e) {
 		console.error("作物ツリーの生成に失敗しました:", e);
+		planCropReady = Promise.resolve();
 	}
 }
 
@@ -359,6 +376,12 @@ async function setupPlanChem(moveThis = true) {
 
 }
 
+// #db-update の表示テキストから登録更新日情報を取得する（先頭の「最新DB:」「⚠️過去参照: 」は除いて保存する）
+function getCurrentDbUpdate() {
+	const dbUpdateText = document.getElementById('db-update')?.textContent || '';
+	return dbUpdateText.trim().replace(/^((最新|保存)DB:|⚠️過去参照:)\s*/, '');
+}
+
 // 現在時刻を YYYYMMDD-hhmmss にフォーマット
 function formatDateTime(opt = '') {
 	const now = new Date();
@@ -381,18 +404,89 @@ function getFilenamePrefix(id = 'planHead2') {
 	return '';
 }
 
-// 防除記録をJSON形式で保存
-async function saveRecFile(overwrite) {
-	if (planList.length === 0) return;
+// 防除記録をJSON形式に変換
+function convRecToJson() {
+	if (planList.length === 0) return '';
 	const crops = planCropManager.checkedCrops.map(item => item.sakumotsu);
+
 	const recData = {
+		dataset: dbUpdateText,
 		sakumotsu: makeCropCondition(crops),
 		crops: planCropManager.checkedCrops,
 		plan: planList,
 		titleText: document.getElementById('planHead2').textContent
 	};
 
-	const saveData = JSON.stringify(recData, null, 2);
+	return JSON.stringify(recData, null, 2);
+}
+
+// 防除記録を localStorage に保存（システムダウン対策のキャッシュ＝復元候補）
+function saveRecDataToCache() {
+	const appData = {
+		planData: convRecToJson(),
+		fileName: currentFileName
+	};
+	localStorage.setItem('pestRecData', JSON.stringify(appData));
+	showRestoreButton(); // 編集/保存でキャッシュを更新したので復元ボタンを復活させる
+	console.log('cache: ', appData);
+}
+
+// 復元ボタンの表示/非表示
+function showRestoreButton() {
+	document.getElementById('btnRestoreRec')?.classList.remove('hidden');
+}
+
+function hideRestoreButton() {
+	document.getElementById('btnRestoreRec')?.classList.add('hidden');
+}
+
+// 復元候補（キャッシュ）を破棄する
+function discardRecCache() {
+	localStorage.removeItem('pestRecData');
+	hideRestoreButton();
+}
+
+// 前回の未保存データを復元（自動復元はせず、ユーザ操作でのみ実行する）
+async function restoreRecData() {
+	const savedString = localStorage.getItem('pestRecData');
+	if (!savedString) {
+		showToast('復元できるデータがありません。');
+		return;
+	}
+	if (planList.length > 0 && !confirm('現在の防除計画/記録をクリアして、前回の未保存データを復元しますか？')) return;
+
+	// キャッシュが壊れている場合は復元候補として残しても意味がないので破棄する
+	let appData;
+	try {
+		appData = JSON.parse(savedString);
+	} catch (err) {
+		console.error('復元データの解析に失敗しました:', err);
+		showToast('前回の未保存データが壊れているため復元できません。');
+		discardRecCache();
+		return;
+	}
+
+	try {
+		// planData は JSON 文字列で保存されている（読込系は JSON.parse 済みオブジェクトを渡す仕様のため、ここで parse する）
+		const planData = typeof appData.planData === 'string' ? JSON.parse(appData.planData) : appData.planData;
+		currentFileName = appData.fileName || '';
+		// 作物ツリーの構築完了を待つ（チェック状態の見た目を復元するため）
+		await planCropReady;
+		// タブを開いた直後に押された場合に備えてレイアウトを再計算
+		planSwiperInstance?.update();
+		await loadPlanFromJson(planData);
+		// キャッシュは復元後も残す（システムダウン対策として有効なまま。ボタンも表示継続）
+	} catch (err) {
+		console.error('データの復元に失敗しました:', err);
+		showToast('前回の未保存データの復元に失敗しました。');
+	}
+}
+
+// 防除記録をJSON形式で保存
+async function saveRecFile(overwrite) {
+	if (planList.length === 0) return;
+
+	const saveData = convRecToJason();
 
 	let filename;
 	if (currentFileName && currentFileName.includes('防除記録')) {
@@ -407,16 +501,18 @@ async function saveRecFile(overwrite) {
 	if (!isFileSystemAccessSupported) {
 		const blob = new Blob([saveData], { type: 'application/json' });
 		saveAs(blob, filename);
+		saveRecDataToCache();
 		return;
 	}
 
 	// overwrite = true でファイルハンドルがあり、filename が一致している場合は「上書き」
-	if (overwrite && currentFileHandle && currentFilename === filename) {
+	if (overwrite && currentFileHandle && currentFileName === filename) {
 		try {
 			const writable = await currentFileHandle.createWritable();
 			await writable.write(saveData);
 			await writable.close();
-			alert('ファイルを上書き保存しました。');
+			showToast('ファイルを上書き保存しました。');
+			saveRecDataToCache();
 			return;
 		} catch (err) {
 			console.error('上書き失敗（新規保存に切り替えます）:', err);
@@ -436,12 +532,13 @@ async function saveRecFile(overwrite) {
 		await writable.close();
 
 		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
-		currentFilename = fileHandle.name;
+		currentFileName = fileHandle.name;
+		saveRecDataToCache();
 		if (isDesktop) alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
 	} catch (err) {
 		if (err.name !== 'AbortError') {
-			alert('ファイルの保存に失敗しました。');
+			showToast('ファイルの保存に失敗しました。');
 		}
 	}
 
@@ -487,10 +584,10 @@ async function openFileApi() {
 		});
 		const file = await fileHandle.getFile();
 		currentFileHandle = fileHandle; // ハンドルを記憶
-		loadPlanFromJson(file); // データ読み込み共通関数へ
+		loadPlanFile(file); // データ読み込み共通関数へ
 	} catch (err) {
 		console.error(err);
-		if (err.name !== 'AbortError') alert('ファイルの読み込みに失敗しました。');
+		if (err.name !== 'AbortError') showToast('ファイルの読み込みに失敗しました。');
 	}
 
 }
@@ -501,50 +598,62 @@ function openFileInput(event) {
 	event.target.value = ''; // 連続で同じファイルを選んでもイベントが走るように値をリセット
 	if (!file) return;
 	currentFileHandle = null;
-	loadPlanFromJson(file);
+	loadPlanFile(file);
 }
 
-// JSONファイルを読み込んで計画を復元
-function loadPlanFromJson(file) {
+function loadPlanFile(file) {
 	if (!file) return;
-
 	currentFileName = file.name; // ファイル名を保存
 	console.log('filename: ', currentFileName);
 	const reader = new FileReader();
 	reader.onload = async function(e) {
 		try {
 			const data = JSON.parse(e.target.result);
-			const loadedPlan = data.plan || data.planList;
-			if (!loadedPlan) throw new Error('Invalid format');
-
-
-			// 選択作物の初期化と再設定
-			//planCropManager.checkedCrops = [];
-			planCropManager.checkedCrops = data.crops || [];
-			planList = loadedPlan;
-
-			// 作物ツリーのチェック状態を視覚的に復元
-			if (typeof planCropManager.syncCheckState === 'function') {
-				planCropManager.syncCheckState();
-			}
-			// step.2 のリストを現在の作物に合わせて更新
-			await setupPlanChem(false);
-			// step.3 を作成
-			await setPlanRecord();
-			alert('防除計画を読み込みました。');
-
-			const planSwiper = document.querySelector('.plan-swiper').swiper;
-			// step.3 を開放して移動
-			updateStepBar(planSwiper, 2);
-			planSwiper.slideTo(2); 
+			loadPlanFromJson(data);
 		} catch (err) {
 			console.error(err);
-			alert('ファイルの読み込みに失敗しました。有効なJSONファイルを選択してください。');
+			showToast('ファイルの読み込みに失敗しました。有効なJSONファイルを選択してください。');
 			currentFileHandle = null;
 			currentFileName = '';
 		}
 	};
 	reader.readAsText(file);
+}
+
+// JSONファイルを読み込んで計画を復元
+async function loadPlanFromJson(data) {
+	try {
+		const loadedPlan = data.plan || data.planList;
+		if (!loadedPlan) throw new Error('Invalid format');
+
+		// 前回のDB登録更新日取得
+		dbUpdateText = data.dataset;
+		// 選択作物の初期化と再設定
+		planCropManager.checkedCrops = data.crops || [];
+		planList = loadedPlan;
+
+		// 作物ツリーのチェック状態を視覚的に復元
+		if (typeof planCropManager.syncCheckState === 'function') {
+			planCropManager.syncCheckState();
+		}
+		// step.2 のリストを現在の作物に合わせて更新
+		await setupPlanChem(false);
+		// step.3 を作成
+		await setPlanRecord();
+		//saveRecDataToCache();
+		const fileType = currentFileName.includes('防除記録') ? '防除記録' : '防除計画';
+		showToast(fileType + 'を読み込みました。');
+
+		const planSwiper = document.querySelector('.plan-swiper').swiper;
+		// step.3 を開放して移動
+		updateStepBar(planSwiper, 2);
+		planSwiper.slideTo(2); 
+	} catch (err) {
+		console.error(err);
+		showToast('ファイルの読み込みに失敗しました。有効なJSONファイルを選択してください。');
+		currentFileHandle = null;
+		currentFileName = '';
+	}
 }
 
 // 防除記録タブ step.3: 使用予定薬剤及び使用回数集計表示
@@ -557,7 +666,10 @@ async function setPlanRecord() {
 
 	document.querySelector('#planCropTree')?.classList.toggle('locked', planList.length > 0);
 
-	if (planList.length === 0) {
+	if (planList.length > 0) {
+		saveRecDataToCache();
+	} else {
+		discardRecCache(); // 計画が空になったので復元候補も破棄する
 		const planSwiper = document.querySelector('.plan-swiper').swiper;
 		//planSwiper.maxReachedStep = 1; // Step 2 まで解放
 		updateStepBar(planSwiper, 1);
