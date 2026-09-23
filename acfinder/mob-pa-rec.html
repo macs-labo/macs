@@ -176,7 +176,7 @@ clickable { cursor: pointer; }
 							<use href="icons.svg?v=3#folder-open"></use>
 						</svg>
 						<input type="file" id="fallbackInput" accept=".json" class="hidden" onchange="openFileInput(event)">
-						<svg id="btnRestoreRec" class="icon hidden" onclick="restoreRecData()">
+						<svg id="btnRestoreRec" class="icon disabled" onclick="restoreRecData()">
 							<title>前回の未保存データを復元</title>
 							<use href="icons.svg?v=3#library"></use>
 						</svg>
@@ -199,7 +199,7 @@ clickable { cursor: pointer; }
 				<div class="step-scrollable">
 					<div class="filebar">
 						<h3>防除記録保存</h3>
-						<svg id="btnRowDelete" class="icon hidden" onclick="deleteMissingRows()">
+						<svg id="btnRowDelete" class="icon disabled" onclick="deleteMissingRows()">
 							<title>登録が見つからない薬剤を一括削除</title>
 							<use href="icons.svg?v=3#row-delete"></use>
 						</svg>
@@ -435,11 +435,11 @@ function saveRecDataToCache() {
 
 // 復元ボタンの表示/非表示
 function showRestoreButton() {
-	document.getElementById('btnRestoreRec')?.classList.remove('hidden');
+	document.getElementById('btnRestoreRec')?.classList.remove('disabled');
 }
 
 function hideRestoreButton() {
-	document.getElementById('btnRestoreRec')?.classList.add('hidden');
+	document.getElementById('btnRestoreRec')?.classList.add('disabled');
 }
 
 // 復元候補（キャッシュ）を破棄する
@@ -550,7 +550,7 @@ async function saveRecFile(overwrite) {
 // 使用予定薬剤表に .missing-row があり、かつ集計結果が取得できている場合のみ #btnRowDelete を有効化
 function updateRowDeleteButton() {
 	const hasMissingRows = !!document.querySelector('#planRecordWrapper tr.missing-row');
-	document.getElementById('btnRowDelete')?.classList.toggle('hidden', !(hasTsushoLimitResult && hasMissingRows));
+	document.getElementById('btnRowDelete')?.classList.toggle('disabled', !(hasTsushoLimitResult && hasMissingRows));
 	if (!hasMissingRows) dbUpdateText = currentDbUpdate; // tr.missing-row がなくなったら、現在の DB 登録更新日を設定
 }
 
@@ -841,8 +841,8 @@ async function setPlanRecord() {
 	// 表の再描画に合わせて削除ボタンの有効/無効を更新
 	updateRowDeleteButton();
 
-	//if (!isFileSystemAccessSupported || !isDesktop) {
-	if (!isFileSystemAccessSupported) {
+	//if (!isFileSystemAccessSupported) {
+	if (!isFileSystemAccessSupported || !isDesktop) {
 		document.querySelector('#btnSaveRec title').textContent = '防除記録を保存';
 		document.querySelector('#btnSaveRecAs')?.classList.add('hidden');
 	}

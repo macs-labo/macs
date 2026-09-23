@@ -190,6 +190,15 @@
 		<path d="m 18.929543,22.420118 v -6 l 3,6 v -6"/>
 		<path d="M 5.524333,14.027486 8.1167491,7.9010637 A 0.94030329,0.83341355 0 0 1 8.996873,7.3601783 h 11.572312 a 0.94030329,0.83341355 0 0 1 0.927139,0.9700934 l -0.936542,4.3429173 a 1.8806066,1.6668271 0 0 1 -1.846755,1.354297 H 5.524333 A 1.8806066,1.6668271 0 0 1 3.6437264,12.360659 V 3.1931106 A 1.8806066,1.6668271 0 0 1 5.524333,1.5262834 h 3.7612131 l 2.8209099,2.5002407 h 6.582123 a 1.8806066,1.6668271 0 0 1 1.880606,1.6668271 v 1.6668271"/>
 	</symbol>
+	<symbol id="resume" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+		<path fill="none" stroke="currentColor" stroke-width="1.75" d="M1 20h5V4H1zm10-1l11-7l-11-7z" />
+	</symbol>
+	<symbol id="restore" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M4 6a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2H6a2 2 0 0 1 -2 -2Z" />
+		<path d="M7 19h10" />
+		<path d="M12 7v6" />
+		<path d="M9.5 10.5 12 13l2.5 -2.5" />
+	</symbol>
 	<symbol id="library" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-library">
 		<path stroke="none" d="M0 0h24v24H0z" fill="none"/><path d="M7 3m0 2.667a2.667 2.667 0 0 1 2.667 -2.667h8.666a2.667 2.667 0 0 1 2.667 2.667v8.666a2.667 2.667 0 0 1 -2.667 2.667h-8.666a2.667 2.667 0 0 1 -2.667 -2.667z" />
 		<path d="M4.012 7.26a2.005 2.005 0 0 0 -1.012 1.737v10c0 1.1 .9 2 2 2h10c.75 0 1.158 -.385 1.5 -1" />
@@ -203,11 +212,11 @@
 		<path d="M10 9l2 -2l-2 -2" />
 	</symbol>
 	<symbol id="row-delete" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-		<path d="M2 8a2 2 0 0 1 2 -2h16a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2H4a2 2 0 0 1 -2 -2Z" />
+		<path d="M2 6a2 2 0 0 1 2 -2h16a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2H4a2 2 0 0 1 -2 -2Z" />
 		<path d="M2 12h20" />
-		<path d="M5 9h8" />
-		<path d="m16 7 4 4" />
-		<path d="m20 7 -4 4" />
+		<path d="M5 8h8" />
+		<path d="m15 6 4 4" />
+		<path d="m19 6 -4 4" />
 	</symbol>
 	<symbol id="text-clear" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" class="icon-tabler icons-tabler-outline icon-tabler-input-x">
 		<path stroke="none" d="M0 0h24v24H0z" fill="none"/>
