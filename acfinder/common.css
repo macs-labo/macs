@@ -358,6 +358,7 @@ dialog {
 	width: 100%;
 	margin-bottom: 2px;
 	overflow: hidden;
+	gap: 2px;
 	/*font-size: 13px;*/
 }
 
@@ -408,8 +409,8 @@ svg.disabled {
 }
 
 .icon {
-	width: 32px;
-	height: 32px;
+	width: 28px;
+	height: 28px;
 	margin: 0 0.3rem;
 	cursor: pointer;
 	color: var(--icon-color);

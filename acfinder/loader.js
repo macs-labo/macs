@@ -8,6 +8,7 @@ const debug = !window.location.href.includes('/acfinder/') || window.location.hr
 var db = null;
 var tables = []; // テーブルインスタンスを保持する配列
 var lastUpdate = '';
+var currentDbUpdate = '';
 var dbStatusCached = false;
 
 const isCloud = window.location.hostname.match(/\.(vercel\.app|pages\.dev|github\.io)$/); // クラウドホスティング判定: ドメイン名が vercel.app, pages.dev, github.io
@@ -18,6 +19,22 @@ const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
 const isElectron = typeof window.electronAPI !== 'undefined';
 const isFileSystemAccessSupported = 'showOpenFilePicker' in window; // File System Access API サポート判定
+const isDesktop = isDesktopSecure();
+
+function isDesktopSecure() {
+	// 1. 「デスクトップ環境」であることの確定検出
+	// マウス等の精密なポインタがあり、かつ「ホバー（カーソルを合わせる）」が可能なデバイス特性
+	const isDesktopFormFactor = window.matchMedia("(pointer: fine)").matches && window.matchMedia("(hover: hover)").matches;
+
+	// 2. Android / iOS / macOS ではない（Windows や Linux 等のファイルシステム挙動）の検出
+	// Android専用の "virtualKeyboard" が「存在しない」ことを確認
+	const isNotAndroid = !("virtualKeyboard" in navigator);
+	// iOS専用のタッチ特性やスタンドアロン特性が無いことを確認
+	const isNotIOS = !("standalone" in window.navigator);
+
+	// すべてを満たせば「Windows または Linux 版の Chromium」と確定
+	return isDesktopFormFactor && isNotAndroid && isNotIOS;
+}
 
 // 公開用の自動ログキャンセル
 if (!debug) {
@@ -909,6 +926,7 @@ function initDB() {
 	db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成
 	console.log("Database initialized.");
 	lastUpdate = db.exec("select * from info where item = 'LastUpdate'")[0].values[0][1];
+	currentDbUpdate = lastUpdate;
 
 	const dbUpdateElement = document.querySelector('#db-update');
 
@@ -1275,7 +1293,8 @@ async function loadHistoricalDB(tag, releaseName) {
 		const dbUpdateElement = document.querySelector('#db-update');
 		if (dbUpdateElement) {
 			dbUpdateElement.classList.add('historical-mode');
-			dbUpdateElement.innerHTML = `⚠️過去参照: ${releaseName.replace('Release ', '').replace(/分$/, '')}`;
+			currentDbUpdate = releaseName.replace('Release ', '').replace(/分$/, '')
+			dbUpdateElement.innerHTML = `⚠️過去参照: ${currentDbUpdate}`;
 		}
 
 		initDB();
@@ -1321,6 +1340,7 @@ async function loadLatestFromCache() {
 		if (dbUpdateElement) {
 			dbUpdateElement.classList.remove('historical-mode');
 		}
+		currentDbUpdate = lastUpdate;
 
 		initDB();
 

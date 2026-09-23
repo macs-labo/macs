@@ -98,7 +98,7 @@ const urlParams = new URLSearchParams(window.location.search);
 	})();
 
 	// 公開ディレクトリの場合ここで終了
-	if (window.location.href.includes('/acfinder/')) return;
+	if (window.location.href.includes('/acfinder/') && !window.location.href.includes('-dev-')) return;
 	// 開発版はデバッガーを画面の真ん中に巨大なログ画面を出す（タッチスクロール可能）
 	// 既存のデバッガーがあれば消す
 	document.getElementById('pwa-logger-v2')?.remove();

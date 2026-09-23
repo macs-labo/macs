@@ -105,6 +105,7 @@ const defPaginHeight = 44 + 1; // ページネーションの高さ
 const rowHeight = 24; // 1行の高さ
 const headerHeight = 25; // ヘッダーの高さ
 let scrollbarWidth = 0;
+let overlayScrollbarWidth = 0;
 
 // カラム名を日本語に変換する関数
 function translateColumnName(originalName) {
@@ -113,7 +114,7 @@ function translateColumnName(originalName) {
 	return columnMappings[originalName] || originalName;
 }
 
-// 非オーバーレイスクロールバーの太さ取得
+// スクロールバーの太さ取得
 function getScrollbarWidth() {
 	// 一時的な要素を作成
 	const outer = document.createElement('div');
@@ -122,19 +123,18 @@ function getScrollbarWidth() {
 	outer.style.overflow = 'scroll'; // スクロールバーを表示させる
 	outer.style.width = '100px'; // 任意の固定幅を設定
 	outer.style.height = '100px'; // 任意の固定高さを設定
+	outer.style.scrollbarWidth = 'thin'; // スクロールバーの太さを設定可能な場合は thin に固定
 	outer.style.position = 'absolute'; // レイアウトへの影響を最小限に
-
-	// DOMに追加
 	document.body.appendChild(outer);
 
-	// outerの全幅 (offsetWidth) からコンテンツ領域の幅 (clientWidth) を引く
-	// この差がスクロールバーの幅となる
-	const scrollbarWidth = outer.offsetWidth - outer.clientWidth;
-
-	// 要素を削除
+	// 非オーバーレイスクロールバーの幅
+	const scrollbarOffset = outer.offsetWidth - outer.clientWidth;
 	document.body.removeChild(outer);
-
-	return scrollbarWidth > 2 ? scrollbarWidth : 0;
+	if (scrollbarOffset > 2) {
+		scrollbarWidth = scrollbarOffset;
+	} else {
+		overlayScrollbarWidth =  CSS.supports('-moz-appearance', 'none') ? 12 : 16;
+	}
 }
 
 /**
@@ -378,8 +378,8 @@ function outputTable(selector, result, option = {}) {
 					hideEmptyColumns(this);
 					resetContainerWidth(this);
 					updatePagination(this);
-					updateContainerRect(this);
 					updateRowsSelect(this);
+					updateContainerRect(this);
 					updatePageSize(this);
 				}
 			},
@@ -569,8 +569,8 @@ function outputTable(selector, result, option = {}) {
 		afterInit: function() {
 			resetContainerWidth(this);
 			updatePagination(this);
-			updateContainerRect(this);
 			updateRowsSelect(this);
+			updateContainerRect(this);
 			updatePageSize(this);
 			updateFooter(this);
 		},
@@ -578,8 +578,8 @@ function outputTable(selector, result, option = {}) {
 			hideEmptyColumns(this);
 			resetContainerWidth(this);
 			updatePagination(this);
-			updateContainerRect(this);
 			updateRowsSelect(this);
+			updateContainerRect(this);
 			updatePageSize(this);
 		},
 		afterPageSizeChange: function() {
@@ -590,86 +590,14 @@ function outputTable(selector, result, option = {}) {
 				currentHideColumns = destinationHideConfig;
 				resetContainerWidth(this);
 				updateContainerRect(this);
-				//this.render();
 			}
 		},
+		afterRender: function() {
+		},
+		afterScroll: function() {
+		},
 		afterDropdownMenuShow: function(dropdownMenu) {
-			const tableContainer = this.rootElement.closest('.table_container');
-			if (tableContainer) {
-				// コンテナの高さとビューポート高のいずれか小さい方を上限とする
-				const maxMenuHeight = Math.min(tableContainer.clientHeight, window.innerHeight);
-				const menuContainer = dropdownMenu.menu.container;
-				
-				if (menuContainer) {
-					// 1. 一旦スタイルをリセットして、中身に応じた自然な高さを取得できるようにする
-					menuContainer.style.height = '';
-					const multipleSelect = menuContainer.querySelector('.htUIMultipleSelectHot');
-					if (multipleSelect) {
-						multipleSelect.style.height = '';
-						multipleSelect.style.maxHeight = '';
-					}
-
-					// 2. 枠（リスト以外）の高さを計算
-					const renderedMenuHeight = menuContainer.offsetHeight;
-
-					if (multipleSelect) {
-						const renderedListHeight = multipleSelect.offsetHeight;
-						const frameHeight = renderedMenuHeight - renderedListHeight;
-
-						// 3. リストの本来の高さを取得 (scrollHeight)
-						const listContentHeight = multipleSelect.querySelector('.wtHider')?.scrollHeight || multipleSelect.scrollHeight;
-						
-						// 4. CSSから min-height, max-height を取得
-						const style = window.getComputedStyle(multipleSelect);
-						const minListHeight = parseFloat(style.minHeight) || 0;
-						const maxListHeight = style.maxHeight === 'none' ? Number.MAX_SAFE_INTEGER : parseFloat(style.maxHeight);
-
-						// 5. リストの高さの目標値を決定
-						let targetListHeight = listContentHeight;
-
-						// CSS の max-height で制限
-						if (targetListHeight > maxListHeight) targetListHeight = maxListHeight;
-
-						// コンテナの高さによる制限
-						const availableListHeight = maxMenuHeight - frameHeight;
-						if (targetListHeight > availableListHeight) targetListHeight = availableListHeight;
-
-						// CSS の min-height で制限 (最優先)
-						if (targetListHeight < minListHeight) targetListHeight = minListHeight;
-
-						// 6. メニュー全体の高さを計算
-						const targetMenuHeight = frameHeight + targetListHeight;
-
-						// 7. 高さを固定値で設定
-						multipleSelect.style.setProperty('height', targetListHeight + 'px', 'important');
-						menuContainer.style.setProperty('height', targetMenuHeight + 'px', 'important');
-
-					} else {
-						// リストがない場合（ソートメニューなど）
-						if (renderedMenuHeight > maxMenuHeight) {
-							menuContainer.style.setProperty('height', maxMenuHeight + 'px', 'important');
-						} else {
-							// 影の表示崩れを防ぐため、現在の高さを固定値として設定
-							menuContainer.style.setProperty('height', renderedMenuHeight + 'px', 'important');
-						}
-					}
-				}
-				// === 縦位置調整：メニューが画面下端を越える場合は上へずらす ===
-				requestAnimationFrame(() => {
-					const menuHeight = menuContainer.offsetHeight;
-					if (menuHeight > 0) {
-						const menuRect = menuContainer.getBoundingClientRect();
-						const viewportH = window.innerHeight;
-						const overflowBottom = menuRect.bottom - viewportH;
-						if (overflowBottom > 0) {
-							const currentTop = parseFloat(menuContainer.style.top) || menuRect.top;
-							const newTop = currentTop - overflowBottom;
-							const clampedTop = Math.max(newTop, 0);
-							menuContainer.style.setProperty('top', clampedTop + 'px', 'important');
-						}
-					}
-				});
-			}
+			adjustDropdownPos(dropdownMenu);
 		},
 		licenseKey: 'non-commercial-and-evaluation',
 	});
@@ -704,6 +632,85 @@ function outputTable(selector, result, option = {}) {
 		resetContainerWidth(table);
 		updateContainerRect(table);
 		table.render();
+	}
+
+	function adjustDropdownPos(dropdownMenu) {
+		//const tableContainer = this.rootElement.closest('.table_container');
+		if (tableContainer) {
+			// コンテナの高さとビューポート高のいずれか小さい方を上限とする
+			const maxMenuHeight = Math.min(tableContainer.clientHeight, window.innerHeight);
+			const menuContainer = dropdownMenu.menu.container;
+			
+			if (menuContainer) {
+				// 1. 一旦スタイルをリセットして、中身に応じた自然な高さを取得できるようにする
+				menuContainer.style.height = '';
+				const multipleSelect = menuContainer.querySelector('.htUIMultipleSelectHot');
+				if (multipleSelect) {
+					multipleSelect.style.height = '';
+					multipleSelect.style.maxHeight = '';
+				}
+
+				// 2. 枠（リスト以外）の高さを計算
+				const renderedMenuHeight = menuContainer.offsetHeight;
+
+				if (multipleSelect) {
+					const renderedListHeight = multipleSelect.offsetHeight;
+					const frameHeight = renderedMenuHeight - renderedListHeight;
+
+					// 3. リストの本来の高さを取得 (scrollHeight)
+					const listContentHeight = multipleSelect.querySelector('.wtHider')?.scrollHeight || multipleSelect.scrollHeight;
+					
+					// 4. CSSから min-height, max-height を取得
+					const style = window.getComputedStyle(multipleSelect);
+					const minListHeight = parseFloat(style.minHeight) || 0;
+					const maxListHeight = style.maxHeight === 'none' ? Number.MAX_SAFE_INTEGER : parseFloat(style.maxHeight);
+
+					// 5. リストの高さの目標値を決定
+					let targetListHeight = listContentHeight;
+
+					// CSS の max-height で制限
+					if (targetListHeight > maxListHeight) targetListHeight = maxListHeight;
+
+					// コンテナの高さによる制限
+					const availableListHeight = maxMenuHeight - frameHeight;
+					if (targetListHeight > availableListHeight) targetListHeight = availableListHeight;
+
+					// CSS の min-height で制限 (最優先)
+					if (targetListHeight < minListHeight) targetListHeight = minListHeight;
+
+					// 6. メニュー全体の高さを計算
+					const targetMenuHeight = frameHeight + targetListHeight;
+
+					// 7. 高さを固定値で設定
+					multipleSelect.style.setProperty('height', targetListHeight + 'px', 'important');
+					menuContainer.style.setProperty('height', targetMenuHeight + 'px', 'important');
+
+				} else {
+					// リストがない場合（ソートメニューなど）
+					if (renderedMenuHeight > maxMenuHeight) {
+						menuContainer.style.setProperty('height', maxMenuHeight + 'px', 'important');
+					} else {
+						// 影の表示崩れを防ぐため、現在の高さを固定値として設定
+						menuContainer.style.setProperty('height', renderedMenuHeight + 'px', 'important');
+					}
+				}
+			}
+			// === 縦位置調整：メニューが画面下端を越える場合は上へずらす ===
+			requestAnimationFrame(() => {
+				const menuHeight = menuContainer.offsetHeight;
+				if (menuHeight > 0) {
+					const menuRect = menuContainer.getBoundingClientRect();
+					const viewportH = window.innerHeight;
+					const overflowBottom = menuRect.bottom - viewportH;
+					if (overflowBottom > 0) {
+						const currentTop = parseFloat(menuContainer.style.top) || menuRect.top;
+						const newTop = currentTop - overflowBottom;
+						const clampedTop = Math.max(newTop, 0);
+						menuContainer.style.setProperty('top', clampedTop + 'px', 'important');
+					}
+				}
+			});
+		}
 	}
 
 	function updatePagination(hot) {
@@ -765,7 +772,7 @@ function outputTable(selector, result, option = {}) {
 		const wtHiderHeight = parseFloat(wtHider.height);
 		const sbarWidth = wtHiderHeight > wtHolderHeight ? scrollbarWidth : 0; // 垂直スクロールバーがある場合はスクロールバーの幅を設定
 		let options = {};
-		if (pagination && (tableWidth + sbarWidth < wtHolderWidth)) {
+		if (sbarWidth > 0 && pagination && (tableWidth + sbarWidth < wtHolderWidth)) {
 			options['width'] = tableWidth + sbarWidth; // ビューポートより幅が狭いテーブルは、テーブル右わきにスクロールバーが出るようテーブル幅を設定
 		}
 		const paginationHeight = pagination ? defPaginHeight : 0;
@@ -857,18 +864,15 @@ function outputTable(selector, result, option = {}) {
 
 	// caption に YYYYMMDD-hhmmss にフォーマットした現在時刻を付加したファイル名を作成
 	function makeFileName() {
-		const caption = (option.caption || 'export') + '_';
+		let format = { year: 'numeric', month: '2-digit', day: '2-digit' };
+		let caption = option.caption || '';
+		if (!caption) {
+			format = {...format, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }
+			caption = 'export'
+		}
 		const now = new Date();
-		const formattedDate = now.toLocaleString('ja-JP', {
-			year: 'numeric',
-			month: '2-digit',
-			day: '2-digit',
-			hour: '2-digit',
-			minute: '2-digit',
-			second: '2-digit',
-			hour12: false
-		});
-		return caption + formattedDate.replace(/[\/:]/g, '').replace(' ', '-');
+		const formattedDate = now.toLocaleString('ja-JP', format).replace(/[\/:]/g, '').replace(' ', '-');
+		return caption + '_' + formattedDate;
 	}
 
 	function dispStatus(msg, autoClose = 0) {
@@ -890,7 +894,6 @@ function outputTable(selector, result, option = {}) {
 			});
 		});
 	}
-
 
 	function isEmpty() {
 		const result = table.countRows() === 0;
@@ -955,8 +958,8 @@ function outputTable(selector, result, option = {}) {
 		//showAllColumns();
 		resetContainerWidth(table);
 		table.render();
-		updateContainerRect(table);
 		updateRowsSelect(table);
+		updateContainerRect(table);
 		updatePageSize(table);
 	});
 
@@ -991,8 +994,9 @@ function outputTable(selector, result, option = {}) {
 			const csvData = convertCsv('csv', makeCaption(), headers, data); // BOM 付き CSV 形式で生成 // 2025.10.10 修正
 
 			await dispStatus('CSV ファイル生成中');
-			const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8' });
-			saveAs(blob, `${makeFileName()}.csv`);
+			//const blob = new Blob([csvData], { type: 'text/csv;charset=utf-8' });
+			//saveAs(blob, `${makeFileName()}.csv`);
+			saveFile(csvData, '.csv', option.caption);
 
 			await dispStatus(`表示中の ${table.countRows()} 件のデータを CSV ファイルとして保存しました`, 3000);
 		} catch (err) {
@@ -1031,19 +1035,18 @@ function outputTable(selector, result, option = {}) {
 
 			// すべてのセルにフォントスタイルを適用する
 			const fontExcel = localStorage.getItem('fontExcel') || '游ゴシック';
-//			if (fontExcel !== 'Segoe UI') {
-				worksheet.eachRow({ includeEmpty: true }, function(row, rowNumber) {
-					row.eachCell({ includeEmpty: true }, function(cell, colNumber) {
-						cell.font = { name: fontExcel, size: 10 };
-					});
+			worksheet.eachRow({ includeEmpty: true }, function(row, rowNumber) {
+				row.eachCell({ includeEmpty: true }, function(cell, colNumber) {
+					cell.font = { name: fontExcel, size: 10 };
 				});
-//			}
+			});
 
 			// Excel ファイルを生成してダウンロード
 			await dispStatus('Excel ファイル生成中');
 			workbook.xlsx.writeBuffer().then(buffer => {
-				const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
-				saveAs(blob, `${makeFileName()}.xlsx`);
+				//const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+				//saveAs(blob, `${makeFileName()}.xlsx`);
+				saveFile(buffer, '.xlsx', option.caption)
 			});
 			await dispStatus(`表示中の ${table.countRows()} 件のデータを Excel ファイルとして保存しました。`, 3000);
 		} catch(err) {
@@ -1113,8 +1116,82 @@ function outputTable(selector, result, option = {}) {
 		}
 	});
 
+	// オーバーレイスクロールバーの🔼ボタンが消える対策
+	tableContainer.addEventListener('mousemove', (e) => {
+		// 非オーバーレイスクロールバーなら何もしない
+		if (scrollbarWidth > 0) return;
+
+		// 必要なコンテナが取得できない場合は何もしない
+		const masterHolder = tableContainer.querySelector('.ht_master .wtHolder');
+		const cloneTop = tableContainer.querySelector('.ht_clone_top');
+		const wtHolderTop = cloneTop.querySelector('.wtHolder');
+		if (!masterHolder || !cloneTop || !wtHolderTop) return;
+
+		// 垂直スクロールバーが出ていない時は何もしない
+		if (masterHolder.scrollHeight <= masterHolder.clientHeight) return;
+
+		// コンテナの右端の座標を取得
+		const rect = tableContainer.getBoundingClientRect();
+		// マウスのX座標が、右端からスクロールバー幅（overlayScrollbarWidth）のエリア内にあるかチェック
+		const isHoveringScrollbar = (e.clientX >= rect.right - overlayScrollbarWidth && e.clientX <= rect.right);
+		const masterWidth = masterHolder.offsetWidth;
+
+		if (isHoveringScrollbar) {
+			// --- 💡 スクロールバーの上にマウスがある時（ヘッダを引っ込めて🔼ボタンを露出） ---
+			// 既に削られていない場合のみ実行（多重実行防止）
+			if (wtHolderTop.offsetWidth === masterWidth) {
+				cloneTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
+				wtHolderTop.style.setProperty('width', `${masterWidth - overlayScrollbarWidth}px`, 'important');
+			}
+		} else {
+			// --- 枠内だけど、スクロールバー以外の場所にマウスがある時（ヘッダを100%に戻す） ---
+			cloneTop.style.removeProperty('width');
+			wtHolderTop.style.removeProperty('width');
+			cloneTop.style.width = `${masterWidth}px`;
+			wtHolderTop.style.width = `${masterWidth}px`;
+		}
+	}, { passive: true });
+
 	tabExecuted = !nores;
 	return table;
+}
+
+async function saveFile(content, ext, caption = '') {
+	ext = ext.toLowerCase();
+	let mimeType;
+	if (ext === '.xlsx') {
+		mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+	} else {
+		mimeType = 'text/csv';
+	}
+
+	let format = { year: 'numeric', month: '2-digit', day: '2-digit' };
+	if (!caption) {
+		format = {...format, hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false };
+		caption = 'export';
+	}
+	const now = new Date();
+	const formattedDate = now.toLocaleString('ja-JP', format).replace(/[\/:]/g, '').replace(' ', '-');
+	const filename = caption + '_' + formattedDate + ext;
+
+	// ファイルシステム API 非対応ブラウザ用ダウンロード型保存
+	if (!isFileSystemAccessSupported) {
+		const blob = new Blob([content], { type: mimeType });
+		saveAs(blob, filename);
+		return;
+	}
+
+	// ファイルシステム API 保存
+	const description = ext === '.xlsx' ? 'Excel Files' : 'CSV Files';
+	const fileType = { description: description, accept: { [mimeType]: [ext] } };
+	const fileHandle = await window.showSaveFilePicker({
+		suggestedName: filename,
+		types: [fileType]
+	});
+	const writable = await fileHandle.createWritable();
+	await writable.write(content);
+	await writable.close();
+
 }
 
 function resetTables(tables, selector = '#result') {
@@ -1290,8 +1367,8 @@ async function updateTableWidth(hot, containerWidth) {
 	if (!hot) return;
 	//const containerWidth = document.querySelector('#resultPane').getBoundingClientRect().width - 30;
 	const tableWidth = hot.getTableWidth();
-	const tableContainer = hot.rootElement;
-	const wtHolder = tableContainer.querySelector('.wtHolder').style;
+	//const tableContainer = hot.rootElement;
+	//const wtHolder = tableContainer.querySelector('.wtHolder').style;
 	const wtHider = tableContainer.querySelector('.wtHider').style;
 	const wtHiderWidth = parseFloat(wtHider.width);
 	const singleCol = hot.countCols() === 1;
@@ -1320,7 +1397,7 @@ async function updateTableWidth(hot, containerWidth) {
 window.addEventListener('DOMContentLoaded', () => {
 	const resultPane = document.querySelector('#resultPane');
 	if (!resultPane) return;
-	scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ設定
+	getScrollbarWidth(); // スクロールバーの太さ設定
 	let resizeTimer;
 	let currentWidth = resultPane.getBoundingClientRect().width;
 	const observer = new ResizeObserver((entries) => {
@@ -1342,34 +1419,3 @@ window.addEventListener('DOMContentLoaded', () => {
 	observer.observe(resultPane);
 
 });
-//*/
-/* AnimationFrame 版
-// リサイズ時のシングルカラムテーブルの表示の乱れ(スクロールバーの点滅)が激しい
-// edge で最初のリサイズにすごく時間がかかる
-window.addEventListener('DOMContentLoaded', () => {
-	scrollbarWidth = getScrollbarWidth(); // スクロールバーの太さ設定
-
-	const resultPane = document.querySelector('#resultPane');
-	let resizeTimer;
-	let currentWidth = resultPane.getBoundingClientRect().width;
-	let rafId = null;
-	const observer = new ResizeObserver((entries) => {
-		const containerWidth =  resultPane.getBoundingClientRect().width;
-		if (currentWidth === containerWidth) return;
-		currentWidth = containerWidth;
-		// すでに実行待ちのフレームがあればキャンセルして最新のフレームに置き換える
-		if (rafId) cancelAnimationFrame(rafId);
-		rafId = requestAnimationFrame(() => {
-			if (!Array.isArray(tables)) {
-				updateTableWidth(tables, containerWidth - 30);
-			} else {
-				tables.forEach(table => {
-					updateTableWidth(table, containerWidth - 30);
-				});
-			}
-		});
-	});
-	observer.observe(resultPane);
-
-});
-*/

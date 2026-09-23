@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -153,6 +154,9 @@ textarea#varInput {
 .cm-s-eclipse span.cm-variable-3 { color: #d1235d;}
 .cm-s-darcula span.cm-variable-3 { color: #b362df; }
 span.cm-variable-3 { font-weight: bold;  }
+.CodeMirror-hints { z-index: 500 !important; }
+/* 補完候補の右側に表示するテーブル名・型など */
+.cm-hint-meta { margin-left: 1.5em; font-size: 0.85em; opacity: 0.6; }
 
 /* 全角スペース等を可視化するためのスタイル */
 .cm-visible-zenkaku {
@@ -258,28 +262,34 @@ span.cm-variable-3 { font-weight: bold;  }
 
 let sqlEditor; // CodeMirror instance for sql
 let varEditor; // CodeMirror instance for variables
-let currentSqlFileHandel = null;
+let currentSqlFileHandle = null;
 let currentVarFileHandle = null;
 let currentSqlFilename = '';
 let currentVarFilename = '';
 
 // CodeMirrorのプロトタイプにカスタムメソッドを追加
-// 1. 編集されたか（Undoできるか）
+// 編集されたか（Undoできるか）
 CodeMirror.prototype.isEdited = function() {
 	return this.historySize().undo > 0;
 };
 
-// 2. やり直せるか（Redoできるか）
+// やり直せるか（Redoできるか）
 CodeMirror.prototype.canRedo = function() {
 	return this.historySize().redo > 0;
 };
 
-// 3. 空かどうか
+// 空かどうか
 CodeMirror.prototype.isEmpty = function() {
 	return this.lineCount() === 1 && this.getLine(0).length === 0;
 };
 
-// 4. ツールバー UI 更新
+// 現在マルチカーソル状態かどうか
+CodeMirror.prototype.isMultiCursor = function() {
+	// 配列の長さが 2 以上 ＝ マルチカーソル状態
+	return this.listSelections().length >= 2;
+}
+
+// ツールバー UI 更新
 /*
 CodeMirror.prototype.updateToolbarState = function() {
 	// 共通ボタンの設定
@@ -295,7 +305,7 @@ CodeMirror.prototype.updateToolbarState = function() {
 };
 */
 
-// 5. テキストクリア
+// テキストクリア
 CodeMirror.prototype.clearText = function() {
 	this.searchbar.classList.add('hidden');
 	this.setValue('');
@@ -303,7 +313,18 @@ CodeMirror.prototype.clearText = function() {
 	//this.updateToolbarState();
 };
 
-// 6. テキスト検索
+// 改行文字表示
+CodeMirror.prototype.dispNewLine = function(line, element) {
+	const currentLineNo = this.getLineNumber(line);
+	if (currentLineNo === this.lastLine()) return; // 最終行には表示しない
+
+	const newlineChar = document.createElement('div');
+	newlineChar.textContent = '↲';
+	newlineChar.className = 'cm-newline-char';
+	element.appendChild(newlineChar);
+}
+
+// テキスト検索
 CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	const query = this.searchInput.value;
 	this.matches = [];
@@ -340,7 +361,6 @@ CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	while (cursor.findNext()) {
 		const fromPos = cursor.from();
 		const toPos = cursor.to();
-		
 		this.matches.push({ from: fromPos, to: toPos });
 
 		// 全てのマッチ箇所にハイライト用のクラスを付与
@@ -377,7 +397,7 @@ CodeMirror.prototype.doFind = function(shouldSelect = true) {
 	this.updateSearchbar();
 };
 
-// 7. テキスト検索(次へ)
+// テキスト検索(次へ)
 CodeMirror.prototype.findNext = function() {
 	if (this.matches.length === 0) return;
 	this.currentIndex = (this.currentIndex + 1) % this.matches.length; // ループ移動
@@ -385,7 +405,7 @@ CodeMirror.prototype.findNext = function() {
 	this.updateSearchbar();
 }
 
-// 8. テキスト検索(前へ)
+// テキスト検索(前へ)
 CodeMirror.prototype.findPrev = function() {
 	if (this.matches.length === 0) return;
 	this.currentIndex = (this.currentIndex - 1 + this.matches.length) % this.matches.length; // ループ移動
@@ -393,64 +413,121 @@ CodeMirror.prototype.findPrev = function() {
 	this.updateSearchbar();
 }
 
-// 9. 現在のマッチ箇所を選択して画面内にスクロール移動
+// 現在のマッチ箇所を選択して画面内にスクロール移動
 CodeMirror.prototype.selectCurrentMatch = function() {
 	if (this.currentIndex < 0 || this.currentIndex >= this.matches.length) return;
 	const match = this.matches[this.currentIndex];
 	this.setSelection(match.from, match.to);
 }
 
-// 10. サーチバーUI更新
+// サーチバーUI更新
 CodeMirror.prototype.updateSearchbar = function() {
 	if (this.matches.length === 0) {
 		this.searchCounter.textContent = "0/0";
 		this.btnPrev.disabled = true;
 		this.btnNext.disabled = true;
+		this.btnReplace.disabled = true;
+		this.btnSelAll.disabled = true;
 	} else {
 		this.searchCounter.textContent = (this.currentIndex + 1) + "/" + this.matches.length;
 		this.btnPrev.disabled = false;
 		this.btnNext.disabled = false;
+		this.btnSelAll.disabled = false;
 	}
 }
 
-// 11. 選択文字列置換
+// 選択文字列置換
 CodeMirror.prototype.doReplace = function() {
-	const query = this.searchInput.value;
-	const replaceText = this.replaceInput.value; // 置換後の文字列
-	if (!query) return;
+	const queryText = this.searchInput.value;
+	const replaceText = this.replaceInput.value;
+	if (!queryText || this.matches.length === 0) return;
 
-	// 1. 現在の選択位置（start）を起点に SearchCursor を生成
-	const searchOptions = { caseFold: !this.searchCase.checked };
-	const cursor = this.getSearchCursor(query, this.getCursor("start"), searchOptions);
-
-	// 2. 起点から数えて「最初のマッチ」を探す
-	if (cursor.findNext()) {
-		const fromPos = cursor.from();
-		const toPos = cursor.to();
-		this.replaceRange(replaceText, fromPos, toPos);
-		
-		// 3. 置換した直後のカーソル位置（行と文字位置）を計算
-		// 置換後の文字数によって位置が変わるため、再計算します
-		const nextStartPos = {
-			line: fromPos.line,
-			ch: fromPos.ch + replaceText.length
-		};
-		
-		// 4. 次のマッチ箇所を自動で探して選択（ハイライト）する
-		const nextCursor = this.getSearchCursor(query, nextStartPos);
-		if (nextCursor.findNext()) {
-			this.setSelection(nextCursor.from(), nextCursor.to());
-		} else {
-			// 次がなければ、置換した文字の直後にカーソルを移動
-			this.setCursor(nextStartPos);
-		}
-		
-		// 5. 文字列が変わったので、全体のスキャン（件数カウントなど）を再実行
-		this.doFind(); 
+	const isCaseSensitive = this.searchCase.checked;
+	const regExpFlags = isCaseSensitive ? "g" : "gi";
+	let queryRegExp;
+	try {
+		queryRegExp = new RegExp(queryText, regExpFlags);
+	} catch (e) {
+		return; // 正規表現が壊れている場合は安全にスルー
 	}
-}
 
-// 12. 検索結果のハイライトだけをクリアするメソッド
+	const getProcessedText = (fromPos, toPos) => {
+		// CodeMirrorのコアプロトタイプから getRange メソッドを直接借りて実行します。
+		// これにより、マルチエディタ環境下のどのインスタンスからでも100%安全に文字が取得できます。
+		const originalText = CodeMirror.prototype.getRange.call(this, fromPos, toPos);
+		return originalText.replace(queryRegExp, replaceText);
+	};
+
+	// ==========================================
+	// 1. 【マルチカーソル（間引き一括置換）時】
+	// ==========================================
+	// ※ this.listSelections 自体が未定義エラーになるのを防ぐ安全ガードも含めています
+	if (this.listSelections && this.listSelections().length >= 2) {
+		this.operation(() => {
+			// 位置ズレを防ぐため、slice() でコピーを作ってから下（後ろ）から順にループ処理
+			const selections = this.listSelections().slice().reverse();
+			
+			selections.forEach(sel => {
+				const fromPos = sel.from();
+				const toPos = sel.to();
+				
+				// 💡 ユーザーが間引いた後の各カーソルの開始位置（fromPos）が、
+				// 最初に全スキャンして保持している this.matches のどこに一致するかを探す
+				const foundMatch = this.matches.find(match => 
+					match.from.line === fromPos.line && match.from.ch === fromPos.ch
+				);
+
+				if (foundMatch) {
+					// 大文字小文字が混在している可能性（select や SELECT など）を考慮し、
+					// 実際にその場所でヒットしていた元のキーワードを this.matches を辿って特定する
+					// ※ 通常時（文字列そのもの）であれば queryText のままでOKです
+					const processedText = getProcessedText(fromPos, toPos);
+					
+					// 💡 ここで確実に各マルチカーソルの範囲を置換します
+					this.replaceRange(processedText, fromPos, toPos);
+				}
+			});
+		});
+
+		this.doFind(); // 置換後の状態にハイライトとカウンタをリフレッシュ
+	} 
+	// ==========================================
+	// 2. 【シングルカーソル（逐次置換）時】
+	// ==========================================
+	else {
+		// 現在選択中（ハイライト中）のインデックス（currentIndex）から位置を取得
+		if (this.currentIndex !== -1 && this.matches[this.currentIndex]) {
+			const currentMatch = this.matches[this.currentIndex];
+			const fromPos = currentMatch.from;
+			const toPos = currentMatch.to;
+
+			// 検索窓のキーワードをベースに $1 などを展開
+			const processedText = getProcessedText(fromPos, toPos);
+			// 💡 ご指摘の通り、単純に this.replaceRange で安全に置換できます
+			this.replaceRange(processedText, fromPos, toPos);
+
+			// 置換後の位置を計算（展開後の文字数に合わせる）
+			const nextStartPos = {
+				line: fromPos.line,
+				ch: fromPos.ch + processedText.length
+			};
+
+			// 次のマッチ箇所を自動で探して選択（ハイライト）する
+			const searchOptions = { caseFold: !isCaseSensitive };
+			const nextCursor = this.getSearchCursor(queryRegExp, nextStartPos, searchOptions);
+			
+			if (nextCursor.findNext()) {
+				this.setSelection(nextCursor.from(), nextCursor.to());
+			} else {
+				this.setCursor(nextStartPos);
+			}
+			
+			this.doFind(); // テキストが変わったので再検索・カウンタUI更新
+		}
+	}
+};
+
+// 検索結果のハイライトだけをクリアするメソッド
 CodeMirror.prototype.clearSearchHighlights = function() {
 	// 1. 画面上に表示されているハイライト（マーカー）をすべて消去
 	if (this.searchMarkers) {
@@ -464,6 +541,26 @@ CodeMirror.prototype.clearSearchHighlights = function() {
 	this.currentIndex = -1;
 	this.updateSearchbar(); 
 };
+
+// 検索結果をマルチカーソルで全選択
+CodeMirror.prototype.selectAllMatches = function() {
+	if (this.matches.length === 0) return;
+
+	// CodeMirrorが受け付ける複数選択オブジェクトの配列に変換
+	const selections = this.matches.map(match => {
+		return {
+			anchor: match.from, // 選択の開始位置
+			head: match.to     // 選択の終了位置
+		};
+	});
+
+	// （オプション）ユーザーが手動で解除しやすいように、エディタにフォーカスを当てる
+	this.focus();
+
+	// 💡 第1引数に配列を渡し、第2引数で最初(0番目)のマッチを「主カーソル」に設定
+	this.setSelections(selections, 0);
+
+}
 
 // CodeMirror既存メソッドのオーバーライド
 // 1. オリジナルのメソッドを変数に退避
@@ -655,12 +752,11 @@ function getFilename(target, command, ext = '.sql') {
 		}
 		if (filename) {
 			if (command === 'filename') {
-				// filename コマンドの場合はパス区切り文字'/'を不許可
-				filename = filename.replace(/[\\/:*?"<>|]/g, '');
-			} else {
-				// filename コマンド以外の場合はパス区切り文字'/'を許可
-				filename = filename.replace(/[\\:*?"<>|]/g, '');
+				// filename コマンドの場合は最後のパス区切り文字'/'より後ろを取得
+				filename = filename.split('/').pop();
 			}
+			// ファイル名に使用できない文字を削除
+			filename = filename.replace(/[\\:*?"<>|]/g, '');
 			if (!filename.endsWith(ext)) filename += ext;
 		}
 	}
@@ -700,8 +796,8 @@ async function saveTextFileApi(filename, content, overwrite) {
 	// overwrite = false またはハンドルがない、または上書きに失敗した場合は「名前を付けて保存」
 	try {
 		let fileType;
-			fileType = { description: 'SQL Files', accept: { 'text/plain': ['.sql'] } };
 		if (isSql) {
+			fileType = { description: 'SQL Files', accept: { 'text/plain': ['.sql'] } };
 		} else {
 			fileType = { description: 'Var Files', accept: { 'text/plain': ['.var'] } };
 		}
@@ -809,7 +905,68 @@ async function loadFileFromZip(path) {
 	}
 }
 
+// var_editor に @filename が指定されていれば、拡張子なしのファイル名を返す（@caption の接頭辞として使用）
+function getVarFilenamePrefix() {
+	return getFilename(varEditor.getValue(), 'filename', '.var').replace(/\.var$/i, '');
+}
+
+function getCaption() {
+	const varText = varEditor.getValue();
+	const ownersql = getFilename(varText, 'ownersql').split('/').pop().replace(/\.sql$/i, '') || '';
+	const varFile = getFilename(varText, 'filename', '.var').replace(/\.var$/i, '') || '';
+	const sqlFile = getFilename(sqlEditor.getValue(), 'filename').replace(/\.sql$/i, '') || '';
+	if (varFile) return sqlFile === ownersql ? varFile : sqlFile;
+	return sqlFile ? sqlFile : '';
+}
+
+// SQL 中の @caption: ['キャプション1', 'キャプション2'] を配列で取得する
+// （-- コメント・/* */ コメントのどちらでも可。複数ある場合は最後のものを優先。無ければ空配列）
+function getCaptionList(text = sqlEditor.getValue()) {
+	const re = /@caption:\s*\[/g;
+	let list = [];
+	let m;
+	while ((m = re.exec(text)) !== null) {
+		const parsed = parseCaptionArray(text, re.lastIndex);
+		if (parsed) list = parsed;
+	}
+	return list;
+}
+
+// '...' / "..." の要素をカンマ区切りで読み、閉じ括弧 ] までを配列にする（不正な記述は null）
+function parseCaptionArray(text, i) {
+	const items = [];
+	while (i < text.length) {
+		const c = text[i];
+		if (c === ']') return items;
+		if (c === ',' || c === ' ' || c === '\t' || c === '\r' || c === '\n') {
+			i++;
+		} else if (c === "'" || c === '"') {
+			let str = '';
+			i++;
+			while (i < text.length && text[i] !== c && text[i] !== '\n') {
+				if (text[i] === '\\' && i + 1 < text.length) i++; // \' \" \\ のエスケープ
+				str += text[i++];
+			}
+			if (text[i] !== c) return null; // 閉じ忘れ
+			items.push(str);
+			i++;
+		} else {
+			// 引用符なしの要素（数字など）は , か ] まで
+			let str = '';
+			while (i < text.length && !',]\n'.includes(text[i])) str += text[i++];
+			if (str.includes('*/')) return null; // コメントが閉じてしまっている
+			items.push(str.trim());
+		}
+	}
+	return null;
+}
+
 async function sequentialExecSQL(sql) {
+	// 最初に生 sql から @caption を取得
+	const caption = getCaption();
+	const captionList = getCaptionList(sql); // @caption 指定（テーブルが作られるたびに先頭から shift して使う）
+	const captionPrefix = getVarFilenamePrefix(); // var_editor 側の @filename（@caption の接頭辞用）
+
 	// コメント削除
 	sql = sql.replace(/--.*?$/gm, '');
 	sql = sql.replace(/\/\*.*?\*\//gs, '');
@@ -841,12 +998,11 @@ async function sequentialExecSQL(sql) {
 
 	// テーブルインスタンスをクリア
 	tables = resetTables(tables);
-
 	try {
 		// クエリを逐次実行
 		for (const [index, query] of queries.entries()) {
 			// ローディング画面を表示して描画完了を待機
-			await waiting(true, `クエリ ${index + 1}/${queries.length} 実行中`);
+			await waiting(true, `クエリ－ ${index + 1}/${queries.length} 実行中`);
 
 			try {
 				let searchTime = -performance.now();
@@ -855,9 +1011,15 @@ async function sequentialExecSQL(sql) {
 
 				// 結果を表示
 				const option = { query: query, searchTime: searchTime, hideFooterU20: false };
+				const custom = captionList.length ? captionList[0] : '';
+				if (custom) option['caption'] = captionPrefix ? `${captionPrefix}-${custom}` : custom;
+				else if (caption) option['caption'] = queries.length === 1 ? caption : `${caption}-${index + 1}`;
 				const table = outputTable('#result', result, option);
 				// テーブルインスタンスを保存
-				if (table) tables.push(table);
+				if (table) {
+					tables.push(table);
+					captionList.shift(); // テーブルが作られたので @caption を 1 つ消費
+				}
 			} catch (error) {
 				// クエリごとのエラーをキャッチして外側の catch へ飛ばす
 				throw new Error(`クエリ${index + 1}: ${error.message}`);
@@ -880,6 +1042,11 @@ async function sequentialExecSQL(sql) {
 }
 
 async function batchExecSQL(sql) {
+	// 最初に生 sql から @caption を取得
+	const caption = getCaption();
+	const captionList = getCaptionList(sql); // @caption 指定（テーブルが作られるたびに先頭から shift して使う）
+	const captionPrefix = getVarFilenamePrefix(); // var_editor 側の @filename（@caption の接頭辞用）
+
 	// テーブルインスタンスをクリア
 	tables = resetTables(tables);
 
@@ -897,13 +1064,18 @@ async function batchExecSQL(sql) {
 			// 複数の結果セットをそれぞれテーブルとして表示
 			results.forEach((result, index) => {
 				const option = {
-					caption: `結果 ${index + 1}`,
 					// 最後の結果セットにのみ合計実行時間を表示
 					searchTime: (index === results.length - 1) ? searchTime : undefined,
 					hideFooterU20: false
 				};
+				const custom = captionList.length ? captionList[0] : '';
+				if (custom) option['caption'] = captionPrefix ? `${captionPrefix}-${custom}` : custom;
+				else if (caption) option['caption'] = results.length === 1 ? caption : `${caption}-${index + 1}`;
 				const table = outputTable('#result', [result], option);
-				if (table) tables.push(table);
+				if (table) {
+					tables.push(table);
+					captionList.shift(); // テーブルが作られたので @caption を 1 つ消費
+				}
 			});
 			message += ` (${results.length}個の結果)`;
 		} else {
@@ -923,24 +1095,34 @@ function parseVariables(varText) {
 		return variables;
 	}
 
-	// 変数定義をパース: $name = {value}
+	// 変数定義をパース: ${name} = {value}
 	// gフラグで全体検索、mフラグで複数行モード（^と$が各行の始端/終端にマッチ）
-	const varRegex = /^\s*\$([a-zA-Z0-9_]+)\s*=\s*\{([\s\S]*?)\}\s*$/gm;
+	const varRegex = /^\s*(\$\{[^${}]+\})\s*=\s*\{([^}]*)\}.*$/gm;
 	let match;
 	while ((match = varRegex.exec(varText)) !== null) {
 		const varName = match[1];
-		const varValue = match[2];
+		// 改行・連続空白は半角スペース 1 個にまとめるが、
+		// 「;(セミコロン) の直後の改行」と「--(行コメント) の直後の改行」だけは改行のまま残す
+		const varValue = match[2]
+			.replace(/\r\n?/g, '\n') // CRLF / CR を LF に統一
+			.trim()
+			.replace(
+				/--[^\n]*(?:\n[^\S\n]*)+|;[^\S\n]*(?:\n[^\S\n]*)+|\s+/g,
+				m => m.startsWith('--')
+					? m.slice(0, m.indexOf('\n')).trimEnd() + '\n' // 行コメント：本文は原文維持＋直後の改行を保持
+					: m.startsWith(';')
+						? ';\n' // セミコロン：直後の改行を保持
+						: ' ' // それ以外の空白・改行は半角スペース 1 個に
+			);
 		variables.set(varName, varValue);
 	}
 	return variables;
 }
 
 function replaceSqlVariables(sql, variables) {
-	if (variables.size === 0) {
-		return sql;
-	}
+	if (variables.size === 0) return sql;
 
-	return sql.replace(/\{\$([a-zA-Z0-9_]+)\}/g, (match, varName) => {
+	return sql.replace(/(\$\{[^${}]+\})/g, (match, varName) => {
 		if (variables.has(varName)) {
 			return variables.get(varName);
 		}
@@ -956,11 +1138,11 @@ async function dispatchSQLExecution() {
 	}
 	clearToolbarText(); // ツールバーメッセージクリア
 
-	let sql = sqlEditor.getValue();
+	let sql = convTemplate(sqlEditor.getValue());
 
 	// 使用変数のチェック
 	const usedVars = new Set();
-	const varRegex = /\{\$([a-zA-Z0-9_]+)\}/g;
+	const varRegex = /(\$\{[^${}]+\})/g;
 	let match;
 	while ((match = varRegex.exec(sql)) !== null) {
 		usedVars.add(match[1]);
@@ -1001,17 +1183,17 @@ async function dispatchSQLExecution() {
 			currentVal += '\n';
 		}
 		missingVars.forEach(varName => {
-			currentVal += `$${varName} = {}\n`;
+			currentVal += `${varName} = {}\n`;
 		});
 		varEditor.setValue(currentVal);
 		toggleVarEditor(false);
-		alert(`$${missingVars.join(', $')} を定義してください`);
+		alert(`${missingVars.join(', ')} を定義してください`);
 		return;
 	}
 
 	if (emptyVars.length > 0) {
 		toggleVarEditor(false);
-		alert(`$${emptyVars.join(', $')} の値を定義してください`);
+		alert(`${emptyVars.join(', ')} の値を定義してください`);
 		return;
 	}
 
@@ -1411,21 +1593,21 @@ function loadAutoSavedSQL() {
 	}
 }
 
-function handleDrop(event) {
-	event.preventDefault();
+function handleDrop(event, exts = ['sql', 'var', 'zip', 'html', 'htm', 'zip', 'pdf', 'url']) {
+	event.preventDefault(); // デフォルト動作防止
+	const files = event.dataTransfer.files;
+	if (!files || files.length === 0) return; // ファイルじゃなければ何もしない
 
-	// firefox, Safari の場合
-	if (!isFileSystemAccessSupported) {
-		readFile(event.dataTransfer.files[0]);
+	const fileExt = files[0].name.split('.').pop();
+	if (!exts.includes(fileExt)) {
+		alert(`対応していないファイル形式です (${fileExt || '不明な形式'})`);
 		return;
 	}
 
-	// Chrome, Edge の場合
-	const item = event.dataTransfer.items[0];
-	if (item && item.kind === 'file') {
-		openFileSQL(item);
+	if (isFileSystemAccessSupported) {
+		openFileSQL(event.dataTransfer.items[0]); // Chrome, Edge の場合
 	} else {
-		alert('対応していないファイル形式です。');
+		readFile(files[0]); // firefox, Safari の場合
 	}
 }
 
@@ -1458,15 +1640,6 @@ function updateToolbarState(cm) {
 			autoSaved.classList.add('hidden');
 		}
 	}
-};
-
-// 改行文字を表示
-function dispNewLine(cm, line, element) {
-	if (line.lineNo() === cm.lastLine()) return; // 最終行には表示しない
-	const newlineChar = document.createElement('div');
-	newlineChar.textContent = '↲';
-	newlineChar.className = 'cm-newline-char';
-	element.appendChild(newlineChar);
 };
 
 function doSearch(cm) {
@@ -1522,6 +1695,67 @@ function setupEditor(editorID, containerID, options = {}) {
 			// 念のため、他の文字が来た場合のフォールバックは不要になりますが、
 			// もし特定の文字だけ除外したい場合は if 文で分岐させます。
 			return span;
+		},
+		configureMouse: function(cm, repeat, event) {
+			// Windows/LinuxはCtrl、MacはCmdが押されている場合のみ特殊処理を走らせる
+			const isModifierPressed = (event.ctrlKey && !/Mac/.test(navigator.platform)) || event.metaKey;
+			
+			if (isModifierPressed) {
+				// 1. クリックされた正確なテキスト位置 {line, ch} を取得
+				const clickPos = cm.coordsChar({ left: event.clientX, top: event.clientY });
+				
+				// 2. 現在存在しているすべてのマルチカーソル（選択範囲）を取得
+				const currentSelections = cm.listSelections();
+				
+				let foundMatchIndex = -1;
+
+				// 3. クリックした位置が、すでに選択されている範囲に含まれているか検証
+				for (let i = 0; i < currentSelections.length; i++) {
+					const sel = currentSelections[i];
+					// anchor と head の若い方を from、後ろの方を to にする
+					const from = sel.from();
+					const to = sel.to();
+
+					// 行のまたぎを考慮して、クリック位置が選択範囲内に入っているか比較
+					const isAfterFrom = (clickPos.line > from.line || (clickPos.line === from.line && clickPos.ch >= from.ch));
+					const isBeforeTo = (clickPos.line < to.line || (clickPos.line === to.line && clickPos.ch <= to.ch));
+
+					if (isAfterFrom && isBeforeTo) {
+						foundMatchIndex = i;
+						break;
+					}
+				}
+
+				// 4. 【解除処理】すでに選択されている場所をクリックした場合
+				if (foundMatchIndex !== -1) {
+					// 全選択後に1つだけ残ったカーソルを消そうとして、カーソルが「0個」になるのを防ぐガード
+					if (currentSelections.length > 1) {
+						// クリックされた選択範囲を配列から削除
+						currentSelections.splice(foundMatchIndex, 1);
+						
+						// 残りの選択範囲をエディタに再セット（これでクリックした場所だけが消える）
+						// ※そのままイベントが動くと選択がバグるため、setTimeoutで1ミリ秒ずらして適用します
+						setTimeout(() => {
+							cm.setSelections(currentSelections);
+						}, 0);
+					}
+					
+					// CodeMirror標準のマウス選択処理（範囲追加など）をこれ以上走らせないようにブロックする
+					return {
+						unit: function() { return { from: clickPos, to: clickPos }; },
+						preventDefault: true
+					};
+				}
+
+				// 5. 【追加処理】まだ選択されていない場所をクリックした場合は、標準の「単語追加」として動かす
+				return {
+					unit: "word", // 単語単位で追加選択
+					addNew: true  // 既存のマルチカーソルを維持したまま追加
+				};
+			}
+
+			// Ctrl/Cmd が押されていない通常の左クリックは、デフォルトの挙動のまま
+			return {};
 		}
 	};
 	const customOptions = options.customOptions || {};
@@ -1602,7 +1836,8 @@ function setupEditor(editorID, containerID, options = {}) {
 		<span class="search-counter">0/0</span>
 		<button class="btn-prev" title="前の一致項目" disabled>↑</button>
 		<button class="btn-next" title="次の一致項目" disabled>↓</button>
-		<button class="btn-replace" title="逐次置換" disabled>置換</button>
+		<button class="btn-replace" title="カーソル位置一致項目置換" disabled>置換</button>
+		<button class="btn-selall" title="一致項目全選択" disabled>全選択</button>
 	`;
 	toolbar.insertAdjacentElement('afterend', searchbar);
 
@@ -1615,6 +1850,7 @@ function setupEditor(editorID, containerID, options = {}) {
 	cm.btnPrev = searchbar.querySelector(".btn-prev");
 	cm.btnNext = searchbar.querySelector(".btn-next");
 	cm.btnReplace = searchbar.querySelector(".btn-replace");
+	cm.btnSelAll = searchbar.querySelector(".btn-selall");
 
 	// サーチバーUIパーツのイベントハンドラをバインド
 	cm.searchInput.addEventListener('input', function() { cm.doFind() });
@@ -1622,8 +1858,9 @@ function setupEditor(editorID, containerID, options = {}) {
 	cm.btnPrev.addEventListener('click', function() { cm.findPrev() });
 	cm.btnNext.addEventListener('click', function() { cm.findNext() });
 	cm.btnReplace.addEventListener('click', function() { cm.doReplace() });
+	cm.btnSelAll.addEventListener('click', function() { cm.selectAllMatches() });
 	cm.replaceInput.addEventListener('input', () => {
-		cm.btnReplace.disabled = cm.replaceInput.value === ''
+		cm.btnReplace.disabled = cm.replaceInput.value === '' || cm.matches.length === 0
 	});
 
 	let debounceTimer = null;
@@ -1631,7 +1868,7 @@ function setupEditor(editorID, containerID, options = {}) {
 	// CodeMirrorのイベントをバインド
 	cm.on('undo', updateToolbarState);
 	cm.on('redo', updateToolbarState);
-	cm.on("renderLine", dispNewLine);
+	cm.on("renderLine", (_, line, element) => cm.dispNewLine(line, element));
 	cm.on('change', function(cm, changeObj) {
 		// 1. すでに動いているタイマーがあればキャンセル（イベントの間引き）
 		if (debounceTimer) {
@@ -1650,41 +1887,350 @@ function setupEditor(editorID, containerID, options = {}) {
 	return cm;
 }
 
+// ============================================================
+// SQL 入力補完（テーブル名・カラム名を SQLite から動的に取得）
+//  - from / join / into / update の直後 … テーブル名（＋attach 済みスキーマ名）
+//  - 上記以外 … 文中(from/join…)で参照されているテーブルのカラム名 + キーワード + テーブル名
+//  - "テーブル名." "別名." "スキーマ名.テーブル名." の直後 … そのテーブルのカラム名
+//  補完のたびに DB へ問い合わせるので、テンポラリテーブルや後から作ったテーブルにも追従する
+// ============================================================
+const SQL_IDC = "\\w$\\u3040-\\u30FF\\u3400-\\u9FFF\\uFF10-\\uFF19\\uFF21-\\uFF3A\\uFF41-\\uFF5A\\uFF66-\\uFF9F"; // 英数字_$・ひらがな・カタカナ・漢字・全角英数・半角カナ
+const SQL_ID = "(?:\"(?:[^\"\\n]|\"\")*\"|`[^`\\n]*`|\\[[^\\]\\n]*\\]|[" + SQL_IDC + "]+)"; // 識別子（"..." `...` [...] も可）
+const SQL_ID_RE = new RegExp("^" + SQL_ID + "$");
+const SQL_PLAIN_ID_RE = new RegExp("^(?![0-9\\uFF10-\\uFF19])[" + SQL_IDC + "]+$"); // 引用符が不要な識別子
+const SQL_WORD_RE = new RegExp("(?:(?:(" + SQL_ID + ")\\.)?(" + SQL_ID + ")\\.)?([\"`\\[]?[" + SQL_IDC + "]*)$");
+const SQL_NOT_ALIAS = new Set("where join inner left right full cross natural outer on using group order limit offset union intersect except having window set values select from into returning indexed not as and or by".split(" "));
+const SQL_CLAUSE_KW = new Set("select from where join on group order having limit offset set values into update using union intersect except returning".split(" "));
+
+// コメント・文字列・${変数} を、文字数を変えずに潰す（識別子の "..." `...` はそのまま残す）
+function maskSql(text) {
+	return text.replace(/--[^\n]*|\/\*[\s\S]*?(?:\*\/|$)|'(?:[^']|'')*(?:'|$)|"(?:[^"\n]|"")*"|`[^`\n]*`|\$\{[^${}]*\}/g, m => {
+		const c = m[0];
+		if (c === '"' || c === '`') return m;
+		if (c === '$') return "_".repeat(m.length);
+		return m.replace(/[^\n]/g, " ");
+	});
+}
+
+function unquoteSqlId(t) {
+	const c = t[0];
+	if (c === '"') return t.slice(1, -1).replace(/""/g, '"');
+	if (c === '`' || c === '[') return t.slice(1, -1);
+	return t;
+}
+
+function tokenizeSql(s) {
+	const re = new RegExp(SQL_ID + "|[.,()]|\\S", "g");
+	const toks = [];
+	let m;
+	while ((m = re.exec(s))) toks.push({ text: m[0], start: m.index, end: m.index + m[0].length });
+	return toks;
+}
+
+// FROM / JOIN / UPDATE / INTO の後ろにあるテーブル参照（[スキーマ.]テーブル [AS] [別名]）を集める
+function parseSqlTableRefs(toks) {
+	const refs = [];
+	const isId = t => !!t && SQL_ID_RE.test(t.text);
+	const low = t => t.text.toLowerCase();
+	for (let i = 0; i < toks.length; i++) {
+		const kw = low(toks[i]);
+		if (kw !== "from" && kw !== "join" && kw !== "update" && kw !== "into") continue;
+		let j = i + 1;
+		while (j < toks.length) {
+			if (!isId(toks[j]) || SQL_NOT_ALIAS.has(low(toks[j]))) break;
+			let schema = null;
+			let table = unquoteSqlId(toks[j].text);
+			let k = j + 1;
+			if (toks[k] && toks[k].text === "." && isId(toks[k + 1])) {
+				schema = table;
+				table = unquoteSqlId(toks[k + 1].text);
+				k += 2;
+			}
+			let alias = null;
+			if (toks[k] && low(toks[k]) === "as" && isId(toks[k + 1])) {
+				alias = unquoteSqlId(toks[k + 1].text);
+				k += 2;
+			} else if (isId(toks[k]) && !SQL_NOT_ALIAS.has(low(toks[k]))) {
+				alias = unquoteSqlId(toks[k].text);
+				k += 1;
+			}
+			refs.push({ schema, table, alias });
+			j = k;
+			if (kw === "from" && toks[j] && toks[j].text === ",") { j++; continue; } // from a, b, c
+			break;
+		}
+	}
+	return refs;
+}
+
+// 直近（同じ括弧の深さ）の句キーワードを返す
+function findSqlClause(tokens) {
+	let depth = 0;
+	for (let i = tokens.length - 1; i >= 0; i--) {
+		const t = tokens[i].text;
+		if (t === ")") depth++;
+		else if (t === "(") { if (depth > 0) depth--; }
+		else if (depth === 0 && SQL_CLAUSE_KW.has(t.toLowerCase())) return t.toLowerCase();
+	}
+	return null;
+}
+
+// カーソル位置(idx)の文脈を解析する。補完不要な位置（文字列・コメント内など）は null
+function analyzeSqlContext(text, idx) {
+	const masked = maskSql(text);
+	if (idx > 0 && masked[idx - 1] !== text[idx - 1]) return null;
+	const start = idx > 0 ? masked.lastIndexOf(";", idx - 1) + 1 : 0; // カーソルがある文（; 区切り）
+	let end = masked.indexOf(";", idx);
+	if (end < 0) end = masked.length;
+	const stmt = masked.slice(start, end);
+	const c = idx - start;
+
+	const m = SQL_WORD_RE.exec(stmt.slice(Math.max(0, c - 300), c));
+	const schemaQ = m[1] ? unquoteSqlId(m[1]) : null;
+	const qualifier = m[2] ? unquoteSqlId(m[2]) : null;
+	const word = m[3] || "";
+	const quote = /^["`\[]/.test(word) ? word[0] : null;
+	const prefix = quote ? word.slice(1) : word;
+	const wordStart = c - word.length;
+
+	const tokens = tokenizeSql(stmt);
+	const refs = parseSqlTableRefs(tokens); // カーソルより後ろの from も対象（select 句で補完するため）
+
+	let kind = "column";
+	if (qualifier !== null) {
+		kind = "qualified";
+	} else {
+		const before = tokens.filter(t => t.end <= wordStart);
+		const prev = before.length ? before[before.length - 1].text.toLowerCase() : "";
+		const prev2 = before.length > 1 ? before[before.length - 2].text.toLowerCase() : "";
+		if (prev === "from" || prev === "join" || prev === "into" || prev === "update"
+			|| (prev === "table" && (prev2 === "alter" || prev2 === "drop"))
+			|| (prev === "," && findSqlClause(before) === "from")) {
+			kind = "table";
+		}
+	}
+	return { kind, schema: schemaQ, qualifier, word, prefix, quote, refs };
+}
+
+// ---- DB 問い合わせ ----
+function sqlRows(sql, params) {
+	const stmt = db.prepare(sql);
+	try {
+		if (params) stmt.bind(params);
+		const rows = [];
+		while (stmt.step()) rows.push(stmt.get());
+		return rows;
+	} finally {
+		stmt.free();
+	}
+}
+
+// スキーマ一覧（名前解決の優先順: temp → main → attach 済み）とテーブル・ビュー一覧を取得
+function sqlSnapshot() {
+	const names = ["temp", "main"];
+	try {
+		sqlRows("PRAGMA database_list").forEach(r => {
+			if (!names.some(n => n.toLowerCase() === String(r[1]).toLowerCase())) names.push(r[1]);
+		});
+	} catch (e) { console.warn("database_list failed:", e); }
+	const objs = [];
+	names.forEach(schema => {
+		const master = schema.toLowerCase() === "temp" ? "sqlite_temp_master" : '"' + schema.replace(/"/g, '""') + '".sqlite_master';
+		try {
+			sqlRows("SELECT name, type FROM " + master + " WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name")
+				.forEach(r => objs.push({ schema, name: r[0], type: r[1] }));
+		} catch (e) { console.warn("schema " + schema + " not readable:", e); }
+	});
+	return { schemas: names, objs };
+}
+
+// 指定テーブルのカラム名を取得（pragma_table_info にスキーマも渡す）
+function sqlGetColumns(schema, table) {
+	try {
+		return sqlRows("SELECT name, type, pk FROM pragma_table_info(?, ?)", [table, schema])
+			.map(r => ({ name: r[0], type: r[1], pk: r[2] }));
+	} catch (e) {
+		console.warn("pragma_table_info failed for " + schema + "." + table + ":", e);
+		return [];
+	}
+}
+
+// pragma function_list から関数の一覧を取得（同名でも引数の数が違うものは別候補。narg が負の値は可変長）
+function sqlGetFunctions() {
+	const map = new Map();
+	try {
+		sqlRows("PRAGMA function_list").forEach(r => {
+			const name = r[0], type = r[2], narg = r[4];
+			const key = name.toLowerCase() + "\0" + narg;
+			if (!map.has(key)) map.set(key, { name, narg, types: new Set() }); // 文字コード違いの重複を除く
+			map.get(key).types.add(type);
+		});
+	} catch (e) { console.warn("function_list failed:", e); }
+	return Array.from(map.values()).sort((a, b) =>
+		a.name.localeCompare(b.name) || (a.narg < 0 ? 1 : 0) - (b.narg < 0 ? 1 : 0) || a.narg - b.narg);
+}
+
+// 関数の補完候補（選択すると name(,,) の形で引数の数だけカンマを入れ、カーソルを最初の引数の位置に置く）
+function sqlFunctionItem(f) {
+	const commas = ",".repeat(Math.max(f.narg - 1, 0));
+	const call = f.name + "(" + commas + ")";
+	const kind = (f.types.has("a") ? " 集約" : "") + (f.types.has("w") ? " ウィンドウ可" : "");
+	return {
+		text: call, displayText: call,
+		meta: (f.narg < 0 ? "可変引数" : f.narg + "引数") + kind,
+		className: "CodeMirror-hint-function",
+		hint: function(cm, data, completion) {
+			const to = data.to;
+			const hasParen = cm.getRange(to, CodeMirror.Pos(to.line, to.ch + 1)) === "("; // 既に ( がある場合は名前だけ
+			cm.replaceRange(hasParen ? f.name : call, data.from, to, "complete");
+			// 引数があれば最初の引数の位置（( の直後）、引数なしなら ) の後ろにカーソルを置く
+			cm.setCursor(CodeMirror.Pos(data.from.line, data.from.ch + f.name.length + (f.narg === 0 ? 2 : 1)));
+		}
+	};
+}
+
+function sqlFindObject(objs, schema, name) {
+	const n = name.toLowerCase();
+	const s = schema ? schema.toLowerCase() : null;
+	return objs.find(o => o.name.toLowerCase() === n && (!s || o.schema.toLowerCase() === s)) || null;
+}
+
+// 必要なら "..." で囲んで挿入用の識別子にする
+function sqlFormatId(name, quote) {
+	if (quote === '"') return '"' + name.replace(/"/g, '""') + '"';
+	if (quote === "`") return "`" + name + "`";
+	if (quote === "[") return "[" + name + "]";
+	return SQL_PLAIN_ID_RE.test(name) ? name : '"' + name.replace(/"/g, '""') + '"';
+}
+
+// 文脈から補完候補リストを作る
+function buildSqlHintList(ctx, keywords) {
+	const lp = ctx.prefix.toLowerCase();
+	const ok = s => s.toLowerCase().startsWith(lp);
+	const fmt = name => sqlFormatId(name, ctx.quote);
+	const { schemas, objs } = sqlSnapshot();
+
+	const tableItems = schemaFilter => {
+		const seen = new Set();
+		const items = [];
+		objs.forEach(o => {
+			if (schemaFilter && o.schema.toLowerCase() !== schemaFilter.toLowerCase()) return;
+			const k = o.name.toLowerCase();
+			if (seen.has(k)) return; // 同名は優先順位の高いスキーマだけ（他は spec. のように修飾して入力）
+			seen.add(k);
+			if (!ok(o.name)) return;
+			items.push({
+				text: fmt(o.name), displayText: o.name,
+				meta: (o.schema === "main" ? "" : o.schema + " ") + o.type,
+				className: "CodeMirror-hint-table"
+			});
+		});
+		return items.sort((a, b) => a.displayText.localeCompare(b.displayText));
+	};
+
+	const columnItems = obj => sqlGetColumns(obj.schema, obj.name)
+		.filter(col => ok(col.name))
+		.map(col => ({
+			text: fmt(col.name), displayText: col.name,
+			meta: obj.name + (col.type ? "  " + col.type : "") + (col.pk ? "  PK" : ""),
+			className: "CodeMirror-hint-column"
+		}));
+
+	// テーブル名の位置 … テーブル名と、attach 済みスキーマ名だけ
+	if (ctx.kind === "table") {
+		const items = tableItems(null);
+		schemas.forEach(s => {
+			if (/^(main|temp)$/i.test(s) || !ok(s)) return;
+			items.push({ text: fmt(s), displayText: s, meta: "schema", className: "CodeMirror-hint-table" });
+		});
+		return items;
+	}
+
+	// "xxx." の直後
+	if (ctx.kind === "qualified") {
+		let target = null;
+		if (ctx.schema) {
+			target = sqlFindObject(objs, ctx.schema, ctx.qualifier);
+		} else {
+			const q = ctx.qualifier.toLowerCase();
+			const ref = ctx.refs.find(r => r.alias && r.alias.toLowerCase() === q)
+				|| ctx.refs.find(r => !r.alias && r.table.toLowerCase() === q);
+			if (ref) target = sqlFindObject(objs, ref.schema, ref.table);
+			if (!target) target = sqlFindObject(objs, null, ctx.qualifier);
+			if (!target && schemas.some(s => s.toLowerCase() === q)) return tableItems(ctx.qualifier); // from spec. → spec のテーブル一覧
+		}
+		return target ? columnItems(target) : [];
+	}
+
+	// それ以外 … 文中のテーブルのカラム → キーワード → テーブル名
+	const cols = new Map();
+	ctx.refs.forEach(r => {
+		const obj = sqlFindObject(objs, r.schema, r.table);
+		if (!obj) return;
+		sqlGetColumns(obj.schema, obj.name).forEach(col => {
+			const key = col.name.toLowerCase();
+			if (!ok(col.name)) return;
+			const label = r.alias || obj.name;
+			if (cols.has(key)) {
+				const e = cols.get(key);
+				if (!e.labels.includes(label)) e.labels.push(label);
+			} else {
+				cols.set(key, { name: col.name, type: col.type, pk: col.pk, labels: [label] });
+			}
+		});
+	});
+	const items = [];
+	cols.forEach(e => items.push({
+		text: fmt(e.name), displayText: e.name,
+		meta: e.labels.join(", ") + (e.type ? "  " + e.type : "") + (e.pk ? "  PK" : ""),
+		className: "CodeMirror-hint-column"
+	}));
+	if (!ctx.quote) {
+		const funcs = sqlGetFunctions();
+		const funcNames = new Set(funcs.map(f => f.name.toLowerCase()));
+		funcs.filter(f => ok(f.name)).forEach(f => items.push(sqlFunctionItem(f)));
+		keywords.filter(k => ok(k) && !funcNames.has(k.toLowerCase())).sort().forEach(k => items.push({ // 関数と重複するキーワードは関数側だけ表示
+			text: k.toUpperCase(), displayText: k.toUpperCase(), className: "CodeMirror-hint-keyword"
+		}));
+	}
+	return items.concat(tableItems(null));
+}
+
+// 補完候補の表示（右側に「テーブル名 型」等を薄く表示）
+function renderSqlHint(el, data, cur) {
+	const name = document.createElement("span");
+	name.textContent = cur.displayText;
+	el.appendChild(name);
+	if (cur.meta) {
+		const meta = document.createElement("span");
+		meta.className = "cm-hint-meta";
+		meta.textContent = cur.meta;
+		el.appendChild(meta);
+	}
+}
+
+// CodeMirror.hint.sql として使う補完関数
+function sqlSmartHint(cm, options, fallbackHint) {
+	try {
+		const cur = cm.getCursor();
+		const empty = { list: [], from: cur, to: cur };
+		const ctx = analyzeSqlContext(cm.getValue(), cm.indexFromPos(cur));
+		if (!ctx || typeof db === "undefined" || db === null) return empty;
+		const keywords = Object.keys(CodeMirror.resolveMode("text/x-sql").keywords || {});
+		const list = buildSqlHintList(ctx, keywords);
+		if (list.length === 1 && list[0].displayText.toLowerCase() === ctx.prefix.toLowerCase()) return empty; // 既に入力済み
+		list.forEach(item => { if (item.meta) item.render = renderSqlHint; });
+		return { list, from: CodeMirror.Pos(cur.line, cur.ch - ctx.word.length), to: cur };
+	} catch (e) {
+		console.warn("SQL hint failed:", e);
+		return fallbackHint ? fallbackHint(cm, options) : null;
+	}
+}
+
 // DOM読込完了時の初期設定
 window.addEventListener('DOMContentLoaded', async function() {
 	//データベース読込
 	if (db === null) await fetchDB();
-
-	// コード補完のためのテーブル・ビュー情報を取得
-	const tablesForHint = {};
-	try {
-		const allTablesQuery = `
-			SELECT name FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'
-			UNION
-			SELECT if(name == 'info', 'spec.info', name) as name FROM spec.sqlite_master WHERE type IN ('table', 'view')
-			UNION
-			SELECT name FROM sqlite_temp_master WHERE type IN ('table', 'view')
-			ORDER BY name
-		`;
-		const result = db.exec(allTablesQuery);
-		if (result.length > 0) {
-			result[0].values.forEach(row => {
-				const tableName = row[0];
-				if (tableName.includes('.')) return; // スキーマ付きテーブル名はスキップ
-				if (!tablesForHint[tableName]) {
-					tablesForHint[tableName] = [];
-					try {
-						const columnsResult = db.exec(`PRAGMA table_info(${tableName})`);
-						if (columnsResult.length > 0) {
-							columnsResult[0].values.forEach(colRow => {
-								tablesForHint[tableName].push(colRow[1]); // カラム名
-							});
-						}
-					} catch (e) { console.warn(`Could not get columns for table ${tableName}:`, e); }
-				}
-			});
-		}
-	} catch (e) { console.error(`Failed to get table list for hint:`, e); }
 
 	// CodeMirrorのSQLモードにキーワードを追加
 	(function() {
@@ -1714,24 +2260,12 @@ window.addEventListener('DOMContentLoaded', async function() {
 		}
 	})();
 
-	// SQLキーワードがテーブル名より先に表示されるように、標準のヒント関数をオーバーライド
+	// 補完候補を SQLite から動的に取得する関数に差し替える（失敗時は標準の sql-hint にフォールバック）
+	// ・from/join の直後 … テーブル名  ・それ以外 … 文中のテーブルのカラム名 → キーワード → テーブル名
+	// ・"テーブル名." "別名." の直後 … そのテーブルのカラム名
 	const originalSqlHint = CodeMirror.hint.sql;
-	CodeMirror.hint.sql = function(sqlEditor, options) {
-		const result = originalSqlHint(sqlEditor, options);
-		if (result) {
-			const keywords = [];
-			const tables = [];
-			result.list.forEach(item => {
-				// className でキーワードかテーブル/カラムかを判別
-				if (item.className === 'CodeMirror-hint-keyword') {
-					keywords.push(item);
-				} else {
-					tables.push(item);
-				}
-			});
-			result.list = keywords.concat(tables); // キーワードを先に結合
-		}
-		return result;
+	CodeMirror.hint.sql = function(cm, options) {
+		return sqlSmartHint(cm, options, originalSqlHint);
 	};
 
 	// 変数エディタ用モード定義
@@ -1755,7 +2289,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 					state.inBlockComment = true;
 					return "comment";
 				}
-				if (stream.match(/^\$[a-zA-Z0-9_]+/)) {
+				if (stream.match(/^\$\{[^${}]+\}/)) {
 					return "variable-3";
 				}
 				if (stream.match(/^"([^"\\]|\\.)*"/)) {
@@ -1777,7 +2311,6 @@ window.addEventListener('DOMContentLoaded', async function() {
 	const sqlOptions = {}
 	sqlOptions['customOptions'] = {
 		mode: 'text/x-sql',
-		hintOptions: { tables: tablesForHint },
 		autofocus: true
 	};
 	sqlOptions['keyMaps'] = { "Ctrl-Space": "autocomplete" }; // "autocomplete" は CodeMirror.hint.sql を呼び出す
@@ -1804,7 +2337,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 			</svg>
 			<svg id="autoSaved" class="icon hidden" onclick="loadAutoSavedSQL()">
 				<title>自動保存SQL読込</title>
-				<use href="icons.svg#library"></use>
+				<use href="icons.svg#restore"></use>
 			</svg>
 			<span id="toolbar_text"></span>
 		`
@@ -1814,13 +2347,13 @@ window.addEventListener('DOMContentLoaded', async function() {
 	// SQLエディタで {$変数} をハイライトするオーバーレイ定義
 	sqlEditor.addOverlay({
 		token: function(stream) {
-			if (stream.match(/^\{\$[a-zA-Z0-9_]+\}/)) {
+			if (stream.match(/^\$\{[^${}]+\}/)) {
 				return "variable-3";
 			}
-			if (stream.peek() === '{') {
+			if (stream.peek() === '$') {
 				stream.next();
 			} else {
-				stream.skipTo('{') || stream.skipToEnd();
+				stream.skipTo('$') || stream.skipToEnd();
 			}
 			return null;
 		}
@@ -1829,8 +2362,8 @@ window.addEventListener('DOMContentLoaded', async function() {
 	sqlEditor.on("focus", () => clearToolbarText());
 	// 文字入力時に自動で補完候補を表示する
 	sqlEditor.on("inputRead", function(cm, change) {
-		// 入力が1文字の英数字または'.'の場合に補完をトリガー
-		if (/[\w.]/.test(change.text[0])) {
+		// 入力が1文字の英数字・日本語または'.'の場合に補完をトリガー
+		if (/[\w.\u3040-\u30FF\u3400-\u9FFF]/.test(change.text[0])) {
 			// completeSingle: false は、候補が1つの場合に自動で補完しないようにする設定
 			cm.showHint({ completeSingle: false });
 		}
@@ -1883,15 +2416,14 @@ window.addEventListener('DOMContentLoaded', async function() {
 
 	// ドラッグ＆ドロップのイベントリスナーを設定
 	const sql_editor = document.getElementById('sql_editor');
-	sql_editor.addEventListener('dragover', (event) => {
-		event.preventDefault(); // Allow drop
-	});
-	sql_editor.addEventListener('drop', handleDrop);
+	sql_editor.addEventListener('dragover', (e) => e.preventDefault()); 
+	sql_editor.addEventListener('drop', (e) => handleDrop(e)); // Allow drop
 	const var_editor = document.getElementById('var_editor');
-	var_editor.addEventListener('dragover', (event) => {
-		event.preventDefault(); // Allow drop
-	});
-	var_editor.addEventListener('drop', handleDrop);
+	var_editor.addEventListener('dragover', (e) => e.preventDefault()); // Allow drop
+	var_editor.addEventListener('drop', (e) => handleDrop(e, ['var']));
+	const file_tree = document.getElementById('fileTree');
+	file_tree.addEventListener('dragover', (e) => e.preventDefault()); // Allow drop
+	file_tree.addEventListener('drop', (e) => handleDrop(e, ['zip']));
 
 	// sqlText がある場合は autoSaved ボタン可視化
 	if (localStorage.getItem('sqlText')) document.getElementById('autoSaved')?.classList.remove('hidden');

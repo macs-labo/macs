@@ -122,14 +122,14 @@ async function searchCrop(skipPestUpdate = false) {
 	title.innerHTML = titleHtml;
 	title.classList.remove('hidden');
 
-	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`);
+	const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(',');
 	const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
 	const excluder = excludeCondition.replace(/^and/i, 'where');
 	const cropMethodFlags = normalizeColName(crops.join(searchMethod));
 	let sql = skip ? '' :`
 		drop table if exists t_cropTekiyo;
 		create temp table t_cropTekiyo as
-		with t_sakumotsu as (select sakumotsu, ${expandCropFlags.join(',')} from m_sakumotsu left join sakuhojo using(idsaku)),
+		with t_sakumotsu as (select sakumotsu, ${expandCropFlags} from m_sakumotsu left join sakuhojo using(idsaku)),
 		t_tekiyo as (select * from tv_tsushoTekiyo where sakumotsu in (${makeCropCondition(crops)})),
 		t_byochu1 as (select idbyochu, byochu as byochu2, betsumei as byochuruby from m_byochu),
 		t_byochu2 as (select distinct ifnull(byochu, ifnull(mokuteki, hoho)) as byochu2 from m_tekiyo),

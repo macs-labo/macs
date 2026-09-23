@@ -230,26 +230,30 @@ div.handsontable-like {
 .handsontable-like th,
 .handsontable-like td {
 	white-space: nowrap; /* セル内のテキストを改行させない */
-	border: 1px solid var(--border-color); /* CSS変数を使用 */
+	border: 1px solid var(--border-color-ht-common); /* CSS変数を使用 */
 	padding: 2px;
 	text-align: left;
 }
 
 .handsontable-like th {
-	background-color: var(--bg-color-header); /* CSS変数を使用 */
+	color: var(--text-color-dark);
+	background-color: var(--bg-color-ht-header);
+}
+.handsontable-like td {
+	color: var(--text-color);
 }
 .handsontable-like td.No { text-align: center;}
 
 .handsontable-like tfoot td { font-weight: bold; }
 
 /* refreshPlan で現在の作物条件では登録が見つからなかった薬剤の行 */
-#planTable tr.row-not-found td {
-	color: red;
+#planTable tr.row-not-found {
+	text-decoration: line-through;
 }
 
 /* refreshPlan で最新レコードと値が異なっていた旧行のカラム（セル全体、または病害虫名セル内の個別項目） */
 #planTable .cell-changed {
-	color: red;
+	text-decoration: line-through;
 }
 
 /* refreshPlan で hidden 属性を付けた旧データ行：hidden属性は識別用マーカーとして使うため、表示自体は維持する */
@@ -258,8 +262,10 @@ div.handsontable-like {
 }
 
 /* 旧データ行であることが視覚的にわかるよう、背景色を付けて区別する */
-.olddata {
-	background-color: var(--bg-color-fixed-header);
+.olddata td,
+.olddata select  {
+	color: var(--border-color-strong);
+	background-color: rgb(from var(--border-color-ht-common) r g b / 0.5);
 }
 
 .captionLabel {
@@ -276,7 +282,7 @@ div.handsontable-like {
 .iconsbar {
 	margin-top: 10px;
 	display: flex;
-	gap: 10px;
+	gap: 4px;
 }
 
 /* iconsbar 右端に配置する「旧データ一括削除」ボタン */
@@ -953,13 +959,14 @@ async function refreshPlan() {
 			if (byochuCell) {
 				byochuCell.innerHTML = parseByochuList(byochuCell.innerHTML).join('<br>');
 			}
+/*
 			// 前回「失効」表示にした使用回数セルが残っていれば、元の値に戻す
 			const kaisuCell = row.cells[fieldToCellIndex.kaisu];
 			if (kaisuCell && kaisuCell.dataset.originalKaisu !== undefined) {
 				kaisuCell.textContent = kaisuCell.dataset.originalKaisu;
 				delete kaisuCell.dataset.originalKaisu;
 			}
-
+*/
 			let candidates;
 			if (candidateCache.has(yakuzaiName)) {
 				candidates = candidateCache.get(yakuzaiName);
@@ -973,10 +980,12 @@ async function refreshPlan() {
 				row.classList.add('row-not-found'); // 現在の作物条件で登録が見つからない行を赤字表示
 				row.setAttribute('hidden', ''); // 変更候補行と同様に、旧データ行としてマークする
 				row.classList.add('olddata');
+/*
 				if (kaisuCell) {
 					kaisuCell.dataset.originalKaisu = kaisuCell.textContent; // 元の値を保持しておき、再実行時に復元できるようにする
-					kaisuCell.innerHTML = '<em>[失効]</em>'; // 使用回数カラムに失効表示
+					kaisuCell.innerHTML = '<em>[登録削除]</em>'; // 使用回数カラムに「登録削除」表示
 				}
+*/
 				continue;
 			}
 
@@ -1086,9 +1095,9 @@ async function refreshPlan() {
 		updateRowNumbers(); // 行番号・使用回数集計等を更新
 
 		// 更新候補・見つからなかった薬剤のいずれも無く、変更が全く無かった場合は
-		// 「作成時DB登録日」の表示も不要になるためクリアする
+		// 「作成時DB登録日」を「更新時DB登録日」に変更
 		if (updatedCount === 0 && notFoundYakuzai.size === 0) {
-			document.getElementById('datasetInfo')?.classList.add('hidden');
+			setDatasetInfo('更新時DB登録日: ' + currentDbUpdate);
 		}
 
 		let msg = updatedCount > 0
@@ -1330,22 +1339,22 @@ function createPlanTable() {
 				<title>Excelファイルとして保存</title>
 				<use href="icons.svg#file-xls"></use>
 			</svg>
-			<svg id="btnPlanSave" class="icon disabled" onclick="savePlanAsJson()">
-				<title>防除計画/防除記録を${isFileSystemAccessSupported ? '上書き' : ''}保存</title>
+			<svg id="btnSavePlan" class="icon disabled" onclick="savePlanFile()">
+				<title>防除計画/防除記録を${isFileSystemAccessSupported && isDesktop ? '上書き' : ''}保存</title>
 				<use href="icons.svg#save"></use>
 			</svg>
-			<svg id="btnPlanSaveAs" class="icon disabled${isFileSystemAccessSupported ? '' : ' hidden'}" onclick="savePlanAsJson(false)">
+			<svg id="btnSavePlanAs" class="icon disabled${isFileSystemAccessSupported && isDesktop ? '' : ' hidden'}" onclick="savePlanFile(false)">
 				<title>防除計画/防除記録を名前を付けて保存</title>
 				<use href="icons.svg#save-as"></use>
 			</svg>
-			<svg class="icon" onclick="fileOpen()">
+			<svg class="icon" onclick="openPlanFile()">
 				<title>防除計画/防除記録を開く</title>
 				<use href="icons.svg#folder-open"></use>
 			</svg>
 			<input type="file" id="fallbackFileInput" accept=".json" class="hidden">
 			<svg id="btnRestorePlan" class="icon hidden" onclick="restorePlan()">
 				<title>自動保存したデータを復元</title>
-				<use href="icons.svg#library"></use>
+				<use href="icons.svg#restore"></use>
 			</svg>
 			<svg id="btnRefreshPlan" class="icon disabled" onclick="refreshPlan()">
 				<title>計画表登録内容更新</title>
@@ -1356,10 +1365,18 @@ function createPlanTable() {
 	`;
 }
 
+// 現在のデータセットのDB更新日を表示する
+function setDatasetInfo(dbUpdate) {
+	const datasetInfoEl = document.getElementById('datasetInfo');
+	if (!datasetInfoEl) return;
+	datasetInfoEl.textContent = dbUpdate;
+	datasetInfoEl.classList.toggle('hidden', !dbUpdate);
+}
+
 // 現在時刻を YYYYMMDD-hhmmss にフォーマット
 function formatDateTime(opt = '') {
 	const now = new Date();
-	let format = { year: 'numeric' }
+	let format = { year: 'numeric' };
 	switch (opt.toLowerCase()) {
 		case 'year': break;
 		case 'date': format = {...format, month: '2-digit', day: '2-digit'}; break;
@@ -1448,13 +1465,8 @@ function convPlanToJson() {
 
 	const planData = [];
 
-	// #db-update の表示テキストから登録更新日情報を取得する（先頭の「最新DB:」「⚠️過去参照: 」は除いて保存する）
-	const dbUpdateText = (document.getElementById('db-update')?.textContent || '')
-		.trim()
-		.replace(/^((最新|保存)DB:|⚠️過去参照:)\s*/, '');
-
 	const saveData = {
-		dataset: dbUpdateText, // 保存時点の農薬登録情報DBの登録更新日
+		dataset: currentDbUpdate, // 保存時点の農薬登録情報DBの登録更新日
 		sakumotsu: currentSakumotsu, // 作物条件のSQL文字列
 		crops: checkedCrops, // 選択作物オブジェクトの配列(モバイル版互換用)
 		titleText: document.getElementById('title').textContent, // #title のテキスト内容
@@ -1482,7 +1494,7 @@ function convPlanToJson() {
 }
 
 // planTable の内容を JSON 形式で保存する関数
-async function savePlanAsJson(overwrite = true) {
+async function savePlanFile(overwrite = true) {
 	// 登録日の古い旧データ行(olddata)が残っている場合は、保存前に確認する
 	const planTableBodyForCheck = document.querySelector('#planTable tbody');
 	const hasOldDataRowsForSave = planTableBodyForCheck
@@ -1525,7 +1537,6 @@ async function savePlanAsJson(overwrite = true) {
 
 	// overwrite = true でファイルハンドルがあり、basename が一致している場合は「上書き」
 	if (overwrite && currentFileHandle && currentFilename.includes(baseName)) {
-		console.log('fileHandel: ', currentFileHandle);
 		try {
 			const writable = await currentFileHandle.createWritable();
 			await writable.write(saveData);
@@ -1538,7 +1549,7 @@ async function savePlanAsJson(overwrite = true) {
 		}
 	}
 
-	// overwrite = false またはハンドルがない、または basename が一致、または上書きに失敗した場合は「名前を付けて保存」
+	// overwrite = false またはハンドルがない、または basename が不一致、または上書きに失敗した場合は「名前を付けて保存」
 	try {
 		const fileHandle = await window.showSaveFilePicker({
 			suggestedName: filename,
@@ -1553,7 +1564,7 @@ async function savePlanAsJson(overwrite = true) {
 		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
 		currentFilename = fileHandle.name;
 		isDirty = false;
-		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		if (isDesktopChromium) alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
 	} catch (err) {
 		if (err.name !== 'AbortError') {
@@ -1564,11 +1575,11 @@ async function savePlanAsJson(overwrite = true) {
 }
 
 // 防除計画ファイルを開く
-async function fileOpen(item = null) {
+async function openPlanFile(item = null) {
 
 	const planTableBody = document.querySelector('#planTable tbody');
 	if (planTableBody && planTableBody.rows.length > 0) {
-		if (!confirm('jsonファイルを読み込みます。現在の防除計画はクリアされます')) {
+		if (!confirm('現在の防除計画/記録をクリアして、新しいファイルを読み込みますか？')) {
 			return;
 		}
 	}
@@ -1706,16 +1717,8 @@ async function loadPlanFromJson(jsonText, msg) {
 		isDirty = false;
 
 		// 保存時点の農薬登録情報DB登録更新日(dataset)を表示する
-		const datasetInfoEl = document.getElementById('datasetInfo');
-		if (datasetInfoEl) {
-			if (loadedData.dataset) {
-				datasetInfoEl.textContent = `作成時DB登録日: ${loadedData.dataset}`;
-				datasetInfoEl.classList.remove('hidden');
-			} else {
-				datasetInfoEl.textContent = '';
-				datasetInfoEl.classList.add('hidden');
-			}
-		}
+		const dataset = loadedData.dataset ? `作成時DB登録日: ${loadedData.dataset}` : '';
+		setDatasetInfo(dataset);
 
 		// jsonファイルを読み込んだので、登録内容更新（refresh）アイコンを有効化する
 		document.getElementById('btnRefreshPlan')?.classList.remove('disabled');
@@ -1943,11 +1946,10 @@ function addYakuzaiToPlanRow(row, yakuzaiName, data) {
 	const actionCell = row.insertCell(0);
 	actionCell.classList.add('actions');
 
-	actionCell.innerHTML = `
-		<svg class="svg_button" onclick="deleteRow(this)"><title>削除</title><use href="icons.svg?v=3#trash-x"></use></svg>
-		<svg class="svg_button" onclick="moveRow(this, 'up')"><title>上へ移動</title><use href="icons.svg?v=3#arrow-up"></use></svg>
-		<svg class="svg_button" onclick="moveRow(this, 'down')"><title>下へ移動</title><use href="icons.svg?v=3#arrow-down"></use></svg>
-	`;
+	actionCell.innerHTML = 
+		`<svg class="svg_button" onclick="deleteRow(this)"><title>削除</title><use href="icons.svg?v=3#trash-x"></use></svg>` +
+		`<svg class="svg_button" onclick="moveRow(this, 'up')"><title>上へ移動</title><use href="icons.svg?v=3#arrow-up"></use></svg>` +
+		`<svg class="svg_button" onclick="moveRow(this, 'down')"><title>下へ移動</title><use href="icons.svg?v=3#arrow-down"></use></svg>`;
 
 	// No, 薬剤名, ... 他の空セル
 	row.insertCell(1); // No
@@ -2161,7 +2163,7 @@ function updateRowNumbers() {
 	}
 
 	tabExecuted = hasRows; // 防除計画に行があれば実行済み
-	['btnSortPlan', 'btnCopyPlan', 'btnExcelPlan', 'btnPlanSave', 'btnPlanSaveAs'].forEach(id => {
+	['btnSortPlan', 'btnCopyPlan', 'btnExcelPlan', 'btnSavePlan', 'btnSavePlanAs'].forEach(id => {
 		const btn = document.getElementById(id);
 		if (btn) {
 			btn.classList.toggle('disabled', !hasRows);
@@ -2213,11 +2215,11 @@ function updateRowNumbers() {
 	document.getElementById('btnDeleteOldRows')?.classList.toggle('hidden', !hasOldDataRows);
 
 	// 旧データ行(olddata)が発生したことがある状態から、すべて削除されて0件になったら、
-	// 「作成時DB登録日」の表示を消す（読み込み直後、一度も旧データ行が出ていない状態では消さない）
+	// 「作成時DB登録日」の表示を「更新時DB登録日」に変更
 	if (hasOldDataRows) {
 		hasHadOldDataRows = true;
 	} else if (hasHadOldDataRows) {
-		document.getElementById('datasetInfo')?.classList.add('hidden');
+		setDatasetInfo('更新時DB登録日: ' + currentDbUpdate);
 		hasHadOldDataRows = false;
 	}
 }
@@ -2374,7 +2376,7 @@ function handleDrop(event) {
 	// Chrome, Edge の場合
 	const item = event.dataTransfer.items[0];
 	if (item && item.kind === 'file' && item.type === 'application/json') {
-		fileOpen(item);
+		openPlanFile(item);
 	} else {
 		alert('対応していないファイル形式です。');
 	}
@@ -2425,7 +2427,7 @@ window.addEventListener('DOMContentLoaded', async function() {
 	});
 
 	// ドラッグ＆ドロップのイベントリスナーを設定
-	const planContainer = document.getElementById('planContainer');
+	const planContainer = document.getElementById('resultPane');
 	planContainer.addEventListener('dragover', (event) => {
 		event.preventDefault(); // Allow drop
 	});
