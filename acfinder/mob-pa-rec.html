@@ -842,7 +842,8 @@ async function setPlanRecord() {
 	// 表の再描画に合わせて削除ボタンの有効/無効を更新
 	updateRowDeleteButton();
 
-	if (!isFileSystemAccessSupported || !isDesktop) {
+	//if (!isFileSystemAccessSupported || !isDesktop) {
+	if (!isFileSystemAccessSupported) {
 		document.querySelector('#btnSaveRec title').textContent = '防除記録を保存';
 		document.querySelector('#btnSaveRecAs')?.classList.add('hidden');
 	}
