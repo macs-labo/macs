@@ -1097,7 +1097,6 @@ async function refreshPlan() {
 		// 更新候補・見つからなかった薬剤のいずれも無く、変更が全く無かった場合は
 		// 「作成時DB登録日」を「更新時DB登録日」に変更
 		if (updatedCount === 0 && notFoundYakuzai.size === 0) {
-			// setDatasetInfo('更新時DB登録日: ' + getCurrentDbUpdate());
 			setDatasetInfo('更新時DB登録日: ' + currentDbUpdate);
 		}
 
@@ -1355,7 +1354,7 @@ function createPlanTable() {
 			<input type="file" id="fallbackFileInput" accept=".json" class="hidden">
 			<svg id="btnRestorePlan" class="icon hidden" onclick="restorePlan()">
 				<title>自動保存したデータを復元</title>
-				<use href="icons.svg#library"></use>
+				<use href="icons.svg#restore"></use>
 			</svg>
 			<svg id="btnRefreshPlan" class="icon disabled" onclick="refreshPlan()">
 				<title>計画表登録内容更新</title>
@@ -1364,12 +1363,6 @@ function createPlanTable() {
 			<button type="button" id="btnDeleteOldRows" class="hidden" onclick="deleteOldDataRows()">旧データ一括削除</button>
 		</div>
 	`;
-}
-
-// #db-update の表示テキストから登録更新日情報を取得する（先頭の「最新DB:」「⚠️過去参照: 」は除いて保存する）
-function getCurrentDbUpdate() {
-	const dbUpdateText = document.getElementById('db-update')?.textContent || '';
-	return dbUpdateText.trim().replace(/^((最新|保存)DB:|⚠️過去参照:)\s*/, '');
 }
 
 // 現在のデータセットのDB更新日を表示する
@@ -1471,7 +1464,6 @@ function convPlanToJson() {
 	if (!table) return '';
 
 	const planData = [];
-	//const dbUpdateText = getCurrentDbUpdate();
 
 	const saveData = {
 		dataset: currentDbUpdate, // 保存時点の農薬登録情報DBの登録更新日
@@ -2227,7 +2219,6 @@ function updateRowNumbers() {
 	if (hasOldDataRows) {
 		hasHadOldDataRows = true;
 	} else if (hasHadOldDataRows) {
-		//setDatasetInfo('更新時DB登録日: ' + getCurrentDbUpdate());
 		setDatasetInfo('更新時DB登録日: ' + currentDbUpdate);
 		hasHadOldDataRows = false;
 	}
