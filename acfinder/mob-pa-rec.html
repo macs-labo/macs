@@ -163,14 +163,6 @@ clickable { cursor: pointer; }
 	overflow-y: hidden;
 	white-space: nowrap;
 }
-#recCacheDialog .menu-item-name {
-	/* word-break: break-all; */
-	/* white-space: nowrap; */
-}
-#recCacheDialog .menu-item-title {
-	/* word-break: break-all; */
-	/* white-space: nowrap; */
-}
 /* 操作対象の選択ハイライト（チェックマークとは別表示。背景のみで示す） */
 #recCacheDialog .menu-item.selected {
 	background-color: var(--bg-color-icon-hover);
@@ -232,15 +224,15 @@ clickable { cursor: pointer; }
 				<div class="step-fixed">
 					<div class="filebar">
 						<h3>防除計画／防除記録読込</h3>
+						<svg id="btnRestoreRec" class="icon disabled" onclick="restoreRecData()">
+							<title>自動保存データ読込</title>
+							<use href="icons.svg?v=3#restore"></use>
+						</svg>
 						<svg class="icon" onclick="openFileApi()">
 							<title>防除計画/防除記録ファイル読込</title>
 							<use href="icons.svg?v=3#folder-open"></use>
 						</svg>
 						<input type="file" id="fallbackInput" accept=".json" class="hidden" onchange="openFileInput(event)">
-						<svg id="btnRestoreRec" class="icon disabled" onclick="restoreRecData()">
-							<title>未保存データを一覧から復元</title>
-							<use href="icons.svg?v=3#restore"></use>
-						</svg>
 					</div>
 					<div id="planCropTree" class="flex-wrapper"></div>
 				</div>
@@ -682,11 +674,11 @@ function renderRecCacheDialog() {
 			const savedText = entry.savedAt ? new Date(entry.savedAt).toLocaleString('ja-JP') : '-';
 			const meta = entry.broken
 				? 'データが壊れています（削除できます）'
-				: `${escapeRecCacheHtml(entry.titleText || '')} ／ ${entry.planCount}件 ／ ${escapeRecCacheHtml(savedText)}`;
+				: `${escapeRecCacheHtml(savedText)} ／ ${escapeRecCacheHtml(entry.titleText || '')} ／ ${entry.planCount}件`;
 			// is-current＝現在表示キャッシュのチェックマーク（固定）。selected＝操作対象の選択（背景のみ）
 			const itemClass = `menu-item${entry.key === dialogCurrentRecCacheKey ? ' is-current' : ''}${i === selectedRecCacheIndex ? ' selected' : ''}`;
 			return `<li class="${itemClass}" onclick="selectRecCache(${i})">` +
-				`<div><div class="menu-item-name">${escapeRecCacheHtml(entry.fileName)}</div>` +
+				`<div><div class="menu-item-name">${escapeRecCacheHtml(basename(entry.fileName))}</div>` +
 				`<div class="menu-item-title">${meta}</div></div>` +
 			`</li>`;
 		}).join('');
@@ -694,9 +686,9 @@ function renderRecCacheDialog() {
 
 	dialog.innerHTML =
 		`<div class="menu-container"><ul class="menu-list">${listHtml}</ul></div>` +
-		`<form method="dialog"><span>自動保存データの復元</span>` +
+		`<form method="dialog"><span>自動保存データ選択</span>` +
 			`<div class="rec-cache-buttons">` +
-				`<button type="button" id="recCacheRestoreBtn" onclick="restoreSelectedRecCache()">復元</button>` +
+				`<button type="button" id="recCacheRestoreBtn" onclick="restoreSelectedRecCache()">読込</button>` +
 				`<button type="button" id="recCacheDeleteBtn" onclick="deleteSelectedRecCache()">削除</button>` +
 				`<button>閉じる</button>` +
 			`</div>` +
