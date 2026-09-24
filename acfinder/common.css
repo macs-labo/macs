@@ -213,7 +213,7 @@ input[type="checkbox"]:not(.htCheckboxRendererInput):disabled {
 
 select {
 	color: var(--text-color);
-	padding: 3px 8px;
+	padding: 3px 6px;
 	border: solid 1px var(--border-color-strong);
 	border-radius: 7px;
 	background-color: var(--bg-color-listbox);
@@ -389,7 +389,7 @@ dialog {
 	height: 28px;
 }
 
-.inputbar select { width: 46px; }
+.inputbar select { width: 48px; }
 
 .selector {
 	flex-shrink: 0;

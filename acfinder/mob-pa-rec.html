@@ -147,6 +147,59 @@ clickable { cursor: pointer; }
 	pointer-events: none;
 	opacity: 0.6;
 }
+
+/* 復元キャッシュ選択ダイアログ（index.html の showThemeSelection と同系スタイル） */
+#recCacheDialog {
+	max-width: min(100%, 512px);
+	width: 100%;
+	padding: 0;
+}
+#recCacheDialog .menu-list {
+	overflow-y: auto;
+}
+#recCacheDialog .menu-item {
+	height: min-content;
+	overflow-x: auto;
+	overflow-y: hidden;
+	white-space: nowrap;
+}
+/* 操作対象の選択ハイライト（チェックマークとは別表示。背景のみで示す） */
+#recCacheDialog .menu-item.selected {
+	background-color: var(--bg-color-icon-hover);
+}
+/* 現在表示キャッシュのチェックマーク（選択操作では付け替えない専用クラス） */
+#recCacheDialog .menu-item.is-current {
+	position: relative;
+}
+#recCacheDialog .menu-item.is-current::after {
+	content: '';
+	position: absolute;
+	right: 15px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 16px;
+	height: 16px;
+	background-color: var(--text-color-dark);
+	-webkit-mask: var(--svg-checkmark) no-repeat center;
+	mask: var(--svg-checkmark) no-repeat center;
+	pointer-events: none;
+}
+#recCacheDialog .rec-cache-empty {
+	padding: 20px;
+	text-align: center;
+	font-size: 13px;
+}
+#recCacheDialog form .rec-cache-buttons {
+	display: flex;
+	gap: 8px;
+}
+#recCacheDialog form .rec-cache-buttons button {
+	min-width: 3.5em;
+}
+#recCacheDialog form .rec-cache-buttons button:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
 </style>
 </head>
 <body>
@@ -171,15 +224,15 @@ clickable { cursor: pointer; }
 				<div class="step-fixed">
 					<div class="filebar">
 						<h3>防除計画／防除記録読込</h3>
+						<svg id="btnRestoreRec" class="icon disabled" onclick="restoreRecData()">
+							<title>自動保存データ読込</title>
+							<use href="icons.svg?v=3#restore"></use>
+						</svg>
 						<svg class="icon" onclick="openFileApi()">
 							<title>防除計画/防除記録ファイル読込</title>
 							<use href="icons.svg?v=3#folder-open"></use>
 						</svg>
 						<input type="file" id="fallbackInput" accept=".json" class="hidden" onchange="openFileInput(event)">
-						<svg id="btnRestoreRec" class="icon disabled" onclick="restoreRecData()">
-							<title>前回の未保存データを復元</title>
-							<use href="icons.svg?v=3#restore"></use>
-						</svg>
 					</div>
 					<div id="planCropTree" class="flex-wrapper"></div>
 				</div>
@@ -281,7 +334,7 @@ function initPaRec() {
 	});
 
 	// 前回の未保存データがあれば復元ボタンを表示（自動復元はしない）
-	if (localStorage.getItem('pestRecData')) showRestoreButton();
+	if (getRecCacheEntries().length > 0) showRestoreButton();
 
 	// Swiperインスタンスを返す
 	return planSwiperInstance;
@@ -424,12 +477,118 @@ function convRecToJson() {
 }
 
 // 防除記録を localStorage に保存（システムダウン対策のキャッシュ＝復元候補）
+// item 名は fileName 付き（'pestRecData:<fileName>'）で複数キャッシュできる
+var REC_CACHE_PREFIX = 'pestRecData:';
+var REC_CACHE_LEGACY_KEY = 'pestRecData';
+var recCacheList = []; // 復元ダイアログ表示用の一覧（getRecCacheEntries の結果を保持）
+var selectedRecCacheIndex = -1; // ダイアログで選択中のキャッシュ（一覧のインデックス。操作対象）
+var dialogCurrentRecCacheKey = ''; // ダイアログ表示中の現在表示キャッシュ（チェックマーク用。選択では移動しない）
+
+function getRecCacheKey(fileName) {
+	return REC_CACHE_PREFIX + (fileName || '(無題)');
+}
+
+// 現在編集中データに対応するキャッシュキー。fileName が未確定の場合は
+// タイトル（作物名）で代用して、無題同士の上書きをできるだけ避ける
+function getCurrentRecCacheKey() {
+	const titleText = document.getElementById('planHead2')?.textContent?.trim() || '';
+	const cacheFileName = currentFileName || titleText || '(無題)';
+	return getRecCacheKey(cacheFileName);
+}
+
+// 旧形式（単一キー 'pestRecData'）のキャッシュを新形式へ移行する（一度だけ）
+function migrateLegacyRecCache() {
+	let raw = null;
+	try {
+		raw = localStorage.getItem(REC_CACHE_LEGACY_KEY);
+	} catch (err) {
+		return;
+	}
+	if (!raw) return;
+	// すでに新形式があれば旧キーは単に除去、なければ移行する
+	try {
+		const appData = JSON.parse(raw);
+		let moveKey = null;
+		if (appData && appData.planData) {
+			let titleText = '';
+			try {
+				const planData = typeof appData.planData === 'string' ? JSON.parse(appData.planData) : appData.planData;
+				titleText = planData?.titleText || '';
+			} catch (e) {}
+			const cacheFileName = appData.fileName || titleText || '(無題)';
+			moveKey = getRecCacheKey(cacheFileName);
+			if (!localStorage.getItem(moveKey)) {
+				if (!appData.savedAt) appData.savedAt = Date.now();
+				try {
+					localStorage.setItem(moveKey, JSON.stringify(appData));
+				} catch (e) {}
+			}
+		}
+	} catch (err) {
+		console.error('旧キャッシュの移行に失敗しました:', err);
+	} finally {
+		try {
+			localStorage.removeItem(REC_CACHE_LEGACY_KEY);
+		} catch (e) {}
+	}
+}
+
+// 全キャッシュを取得（item 名から FileName を取り出した一覧用）
+function getRecCacheEntries() {
+	migrateLegacyRecCache();
+	const entries = [];
+	for (let i = 0; i < localStorage.length; i++) {
+		const key = localStorage.key(i);
+		if (!key || !key.startsWith(REC_CACHE_PREFIX)) continue;
+		const fileName = key.substring(REC_CACHE_PREFIX.length) || '(無題)';
+		let appData = null;
+		let broken = false;
+		try {
+			appData = JSON.parse(localStorage.getItem(key));
+		} catch (err) {
+			broken = true;
+		}
+		if (!appData || !appData.planData) broken = true;
+		let planCount = 0;
+		let titleText = '';
+		if (!broken) {
+			try {
+				const planData = typeof appData.planData === 'string' ? JSON.parse(appData.planData) : appData.planData;
+				const loadedPlan = planData?.plan || planData?.planList || [];
+				planCount = Array.isArray(loadedPlan) ? loadedPlan.length : 0;
+				titleText = planData?.titleText || '';
+			} catch (err) {
+				broken = true;
+			}
+		}
+		entries.push({
+			key: key,
+			fileName: fileName,
+			appData: appData,
+			broken: broken,
+			planCount: planCount,
+			titleText: titleText,
+			savedAt: appData?.savedAt || 0
+		});
+	}
+	// 新しいものから表示
+	entries.sort((a, b) => (b.savedAt - a.savedAt) || a.fileName.localeCompare(b.fileName, 'ja'));
+	return entries;
+}
+
 function saveRecDataToCache() {
+	const planJson = convRecToJson();
+	if (!planJson) return;
 	const appData = {
-		planData: convRecToJson(),
-		fileName: currentFileName
+		planData: planJson,
+		fileName: currentFileName,
+		savedAt: Date.now()
 	};
-	localStorage.setItem('pestRecData', JSON.stringify(appData));
+	try {
+		localStorage.setItem(getCurrentRecCacheKey(), JSON.stringify(appData));
+	} catch (err) {
+		console.error('キャッシュの保存に失敗しました:', err);
+	}
 	showRestoreButton(); // 編集/保存でキャッシュを更新したので復元ボタンを復活させる
 }
 
@@ -443,45 +602,211 @@ function hideRestoreButton() {
 }
 
 // 復元候補（キャッシュ）を破棄する
-function discardRecCache() {
-	localStorage.removeItem('pestRecData');
-	hideRestoreButton();
+// cacheKey 省略時は現在編集中データに対応するキャッシュのみ破棄する（他ファイルのキャッシュは残す）
+function discardRecCache(cacheKey) {
+	try {
+		localStorage.removeItem(cacheKey || getCurrentRecCacheKey());
+	} catch (err) {}
+	if (getRecCacheEntries().length === 0) hideRestoreButton();
+}
+
+// HTMLエスケープ（キャッシュ一覧の fileName 表示用）
+function escapeRecCacheHtml(text) {
+	return String(text ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
 }
 
 // 前回の未保存データを復元（自動復元はせず、ユーザ操作でのみ実行する）
+// キャッシュ一覧ダイアログから使用するキャッシュを選択する
 async function restoreRecData() {
-	const savedString = localStorage.getItem('pestRecData');
-	if (!savedString) {
+	const entries = getRecCacheEntries();
+	if (entries.length === 0) {
 		showToast('復元できるデータがありません。');
 		return;
 	}
-	if (planList.length > 0 && !confirm('現在の防除計画/記録をクリアして、前回の未保存データを復元しますか？')) return;
+	openRecCacheDialog(entries);
+}
 
-	// キャッシュが壊れている場合は復元候補として残しても意味がないので破棄する
-	let appData;
+// キャッシュ一覧ダイアログを開く（showThemeSelection と同様にリスト＋下部ボタン）
+function openRecCacheDialog(entries) {
+	recCacheList = entries || getRecCacheEntries();
+	// ダイアログ表示中の現在表示キャッシュを固定（選択操作では移動しない）
+	dialogCurrentRecCacheKey = getCurrentRecCacheKey();
+	// デフォルト選択：現在使用しているキャッシュがあればそれ、無ければ先頭
+	selectedRecCacheIndex = recCacheList.findIndex(entry => entry.key === dialogCurrentRecCacheKey);
+	if (selectedRecCacheIndex < 0 && recCacheList.length > 0) selectedRecCacheIndex = 0;
+	let dialog = document.getElementById('recCacheDialog');
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = 'recCacheDialog';
+		dialog.className = 'menu-dialog';
+		document.body.appendChild(dialog);
+		dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+	}
+	renderRecCacheDialog();
+	if (typeof dialog.showModal === 'function') {
+		if (!dialog.open) dialog.showModal();
+	} else {
+		dialog.setAttribute('open', '');
+	}
+}
+
+// ダイアログ内のキャッシュ一覧を描画する
+function renderRecCacheDialog() {
+	const dialog = document.getElementById('recCacheDialog');
+	if (!dialog) return;
+	const prevSelectedKey = recCacheList[selectedRecCacheIndex]?.key || '';
+	recCacheList = getRecCacheEntries();
+	// 再描画後も操作対象の選択のみ維持する。
+	// チェックマーク（dialogCurrentRecCacheKey）はダイアログ表示中は固定し、選択では移動しない
+	let keepIndex = recCacheList.findIndex(entry => entry.key === prevSelectedKey);
+	if (keepIndex < 0 && recCacheList.length > 0) keepIndex = 0;
+	selectedRecCacheIndex = recCacheList.length > 0 ? keepIndex : -1;
+
+	let listHtml = '';
+	if (recCacheList.length === 0) {
+		listHtml = '<div class="rec-cache-empty">復元できるデータがありません。</div>';
+	} else {
+		listHtml = recCacheList.map((entry, i) => {
+			const savedText = entry.savedAt ? new Date(entry.savedAt).toLocaleString('ja-JP') : '-';
+			const meta = entry.broken
+				? 'データが壊れています（削除できます）'
+				: `${escapeRecCacheHtml(savedText)} ／ ${escapeRecCacheHtml(entry.titleText || '')} ／ ${entry.planCount}件`;
+			// is-current＝現在表示キャッシュのチェックマーク（固定）。selected＝操作対象の選択（背景のみ）
+			const itemClass = `menu-item${entry.key === dialogCurrentRecCacheKey ? ' is-current' : ''}${i === selectedRecCacheIndex ? ' selected' : ''}`;
+			return `<li class="${itemClass}" onclick="selectRecCache(${i})">` +
+				`<div><div class="menu-item-name">${escapeRecCacheHtml(basename(entry.fileName))}</div>` +
+				`<div class="menu-item-title">${meta}</div></div>` +
+			`</li>`;
+		}).join('');
+	}
+
+	dialog.innerHTML =
+		`<div class="menu-container"><ul class="menu-list">${listHtml}</ul></div>` +
+		`<form method="dialog"><span>自動保存データ選択</span>` +
+			`<div class="rec-cache-buttons">` +
+				`<button type="button" id="recCacheRestoreBtn" onclick="restoreSelectedRecCache()">読込</button>` +
+				`<button type="button" id="recCacheDeleteBtn" onclick="deleteSelectedRecCache()">削除</button>` +
+				`<button>閉じる</button>` +
+			`</div>` +
+		`</form>`;
+	updateRecCacheButtons();
+}
+
+// 一覧の選択を切り替える（チェックマークは移動しない。操作対象の選択のみ変更）
+function selectRecCache(index) {
+	if (index < 0 || index >= recCacheList.length) return;
+	selectedRecCacheIndex = index;
+	document.querySelectorAll('#recCacheDialog .menu-item').forEach((el, i) => {
+		el.classList.toggle('selected', i === selectedRecCacheIndex);
+	});
+	updateRecCacheButtons();
+}
+
+// 下部ボタンの有効／無効を更新する
+function updateRecCacheButtons() {
+	const entry = recCacheList[selectedRecCacheIndex];
+	const restoreBtn = document.getElementById('recCacheRestoreBtn');
+	const deleteBtn = document.getElementById('recCacheDeleteBtn');
+	if (restoreBtn) restoreBtn.disabled = !entry || entry.broken;
+	if (deleteBtn) deleteBtn.disabled = !entry;
+}
+
+// 選択中のキャッシュを取得する
+function getSelectedRecCacheEntry() {
+	if (selectedRecCacheIndex < 0 || selectedRecCacheIndex >= recCacheList.length) return null;
+	const fresh = getRecCacheEntries();
+	const selectedKey = recCacheList[selectedRecCacheIndex]?.key;
+	const found = fresh.findIndex(entry => entry.key === selectedKey);
+	if (found >= 0) {
+		selectedRecCacheIndex = found;
+		return fresh[found];
+	}
+	return recCacheList[selectedRecCacheIndex] || null;
+}
+
+// 選択中のキャッシュを復元する（復元時はそのままダイアログを抜ける）
+async function restoreSelectedRecCache() {
+	const entry = getSelectedRecCacheEntry();
+	if (!entry) return;
+	await restoreRecCacheByIndex(recCacheList.findIndex(item => item.key === entry.key));
+}
+
+// 選択中のキャッシュを削除する（ダイアログは維持して管理を続けられる）
+function deleteSelectedRecCache() {
+	const entry = getSelectedRecCacheEntry();
+	if (!entry) return;
+	deleteRecCacheByKey(entry.key);
+}
+
+// キー指定でキャッシュを削除する
+function deleteRecCacheByKey(cacheKey) {
+	const entries = getRecCacheEntries();
+	const entry = entries.find(item => item.key === cacheKey) || recCacheList.find(item => item.key === cacheKey);
+	if (!entry) return;
+	if (!confirm(`キャッシュ「${entry.fileName}」を削除しますか？`)) return;
 	try {
-		appData = JSON.parse(savedString);
-	} catch (err) {
-		console.error('復元データの解析に失敗しました:', err);
-		showToast('前回の未保存データが壊れているため復元できません。');
-		discardRecCache();
+		localStorage.removeItem(entry.key);
+	} catch (err) {}
+	showToast(`キャッシュ「${entry.fileName}」を削除しました。`);
+	if (getRecCacheEntries().length === 0) {
+		hideRestoreButton();
+		document.getElementById('recCacheDialog')?.close();
 		return;
+	}
+	renderRecCacheDialog();
+}
+
+// 一覧から選択したキャッシュを復元する
+async function restoreRecCacheByIndex(index) {
+	const entry = getRecCacheEntries()[index] || recCacheList[index];
+	if (!entry) return;
+	if (entry.broken) {
+		showToast('選択したキャッシュは壊れているため復元できません。');
+		return;
+	}
+	if (planList.length > 0 && !confirm(`現在の防除計画/記録をクリアして、「${entry.fileName}」の未保存データを復元しますか？`)) return;
+
+	let appData = entry.appData;
+	if (!appData) {
+		try {
+			appData = JSON.parse(localStorage.getItem(entry.key));
+		} catch (err) {
+			console.error('復元データの解析に失敗しました:', err);
+			showToast('選択したキャッシュが壊れているため復元できません。');
+			discardRecCache(entry.key);
+			renderRecCacheDialog();
+			return;
+		}
 	}
 
 	try {
 		// planData は JSON 文字列で保存されている（読込系は JSON.parse 済みオブジェクトを渡す仕様のため、ここで parse する）
 		const planData = typeof appData.planData === 'string' ? JSON.parse(appData.planData) : appData.planData;
+		if (!planData || (!planData.plan && !planData.planList)) throw new Error('Invalid format');
 		currentFileName = appData.fileName || '';
 		// 作物ツリーの構築完了を待つ（チェック状態の見た目を復元するため）
 		await planCropReady;
 		// タブを開いた直後に押された場合に備えてレイアウトを再計算
 		planSwiperInstance?.update();
+		document.getElementById('recCacheDialog')?.close();
 		await loadPlanFromJson(planData);
 		// キャッシュは復元後も残す（システムダウン対策として有効なまま。ボタンも表示継続）
 	} catch (err) {
 		console.error('データの復元に失敗しました:', err);
-		showToast('前回の未保存データの復元に失敗しました。');
+		showToast('選択した未保存データの復元に失敗しました。');
 	}
+}
+
+// 一覧から選択したキャッシュを削除する
+function deleteRecCacheByIndex(index) {
+	const entries = getRecCacheEntries();
+	const entry = entries[index] || recCacheList[index];
+	if (!entry) return;
+	deleteRecCacheByKey(entry.key);
 }
 
 // 防除記録をJSON形式で保存
@@ -533,9 +858,16 @@ async function saveRecFile(overwrite) {
 		await writable.write(saveData);
 		await writable.close();
 
+		const oldCacheKey = getCurrentRecCacheKey();
 		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
 		currentFileName = fileHandle.name;
 		saveRecDataToCache();
+		// 無題（fileName 未確定時のタイトル代用キー）の孤児キャッシュが残らないよう除去
+		try {
+			const newCacheKey = getCurrentRecCacheKey();
+			if (oldCacheKey !== newCacheKey) localStorage.removeItem(oldCacheKey);
+		} catch (e) {}
+		if (getRecCacheEntries().length > 0) showRestoreButton();
 		if (isDesktop) alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
 	} catch (err) {

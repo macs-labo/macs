@@ -471,7 +471,7 @@ create index t_tekiyoIdx on t_tekiyo (bango, meisho, tsusho, shurui,sakumotsu, b
 /*
 @template: {
 	"views": ["tv_tsushoTekiyo", "tv_meishoTekiyo"],
-	"pattern": "yuko([1-5]),\\s*kaisu\\1",
+	"pattern": "yuko([1-5]),\\s*kaisu$1",
 	"template": "IF(seibun$1=yuko$1, kaisu$1, yuko$1 || 'として' || kaisu$1) as kaisu$1"
 }
 */
