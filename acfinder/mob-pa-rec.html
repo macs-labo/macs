@@ -150,19 +150,26 @@ clickable { cursor: pointer; }
 
 /* 復元キャッシュ選択ダイアログ（index.html の showThemeSelection と同系スタイル） */
 #recCacheDialog {
-	max-width: min(92vw, 480px);
-	width: 92vw;
+	max-width: min(100%, 512px);
+	width: 100%;
 	padding: 0;
 }
 #recCacheDialog .menu-list {
-	max-height: 50vh;
 	overflow-y: auto;
 }
+#recCacheDialog .menu-item {
+	height: min-content;
+	overflow-x: auto;
+	overflow-y: hidden;
+	white-space: nowrap;
+}
 #recCacheDialog .menu-item-name {
-	word-break: break-all;
+	/* word-break: break-all; */
+	/* white-space: nowrap; */
 }
 #recCacheDialog .menu-item-title {
-	word-break: break-all;
+	/* word-break: break-all; */
+	/* white-space: nowrap; */
 }
 /* 操作対象の選択ハイライト（チェックマークとは別表示。背景のみで示す） */
 #recCacheDialog .menu-item.selected {
@@ -195,7 +202,7 @@ clickable { cursor: pointer; }
 	gap: 8px;
 }
 #recCacheDialog form .rec-cache-buttons button {
-	min-width: 56px;
+	min-width: 3.5em;
 }
 #recCacheDialog form .rec-cache-buttons button:disabled {
 	opacity: 0.4;
@@ -687,7 +694,7 @@ function renderRecCacheDialog() {
 
 	dialog.innerHTML =
 		`<div class="menu-container"><ul class="menu-list">${listHtml}</ul></div>` +
-		`<form method="dialog"><span>未保存データの復元</span>` +
+		`<form method="dialog"><span>自動保存データの復元</span>` +
 			`<div class="rec-cache-buttons">` +
 				`<button type="button" id="recCacheRestoreBtn" onclick="restoreSelectedRecCache()">復元</button>` +
 				`<button type="button" id="recCacheDeleteBtn" onclick="deleteSelectedRecCache()">削除</button>` +
