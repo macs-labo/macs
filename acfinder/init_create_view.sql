@@ -464,6 +464,12 @@ left join racinfo r2 on r2.ippanmei = seibun2
 left join racinfo r3 on r3.ippanmei = seibun3
 left join racinfo r4 on r4.ippanmei = seibun4
 left join racinfo r5 on r5.ippanmei = seibun5;
+/* RAC コードがない成分の有効成分名追加 2026.9.25 追加 */
+update t_tekiyo set yuko1 = seibun1 where yuko1 is null and seibun1 is not null;
+update t_tekiyo set yuko2 = seibun2 where yuko2 is null and seibun2 is not null;
+update t_tekiyo set yuko3 = seibun3 where yuko3 is null and seibun3 is not null;
+update t_tekiyo set yuko4 = seibun4 where yuko4 is null and seibun4 is not null;
+update t_tekiyo set yuko5 = seibun5 where yuko5 is null and seibun5 is not null;
 /* t_tekiyo index 2025.10.13 追加 */
 drop index if exists t_tekiyoIdx;
 create index t_tekiyoIdx on t_tekiyo (bango, meisho, tsusho, shurui,sakumotsu, byochu, mokuteki, mid1, mid2, mid3, mid4, mid5);
@@ -471,7 +477,7 @@ create index t_tekiyoIdx on t_tekiyo (bango, meisho, tsusho, shurui,sakumotsu, b
 /*
 @template: {
 	"views": ["tv_tsushoTekiyo", "tv_meishoTekiyo"],
-	"pattern": "yuko([1-5]),\\s*kaisu$1",
+	"pattern": "yuko([1-5]),\\s*kaisu\\1",
 	"template": "IF(seibun$1=yuko$1, kaisu$1, yuko$1 || 'として' || kaisu$1) as kaisu$1"
 }
 */
