@@ -140,6 +140,24 @@ async function deleteCachedFileHandle(cacheKey) {
 	}
 }
 
+// キャッシュ済みファイルハンドルを全件取得（ハンドル一覧ツール用）
+async function getAllCachedFileHandles() {
+	try {
+		const hdb = await openHandleDB();
+		const records = await new Promise((resolve, reject) => {
+			const tx = hdb.transaction(handleStoreName, 'readonly');
+			const req = tx.objectStore(handleStoreName).getAll();
+			req.onsuccess = () => resolve(req.result || []);
+			req.onerror = () => reject(req.error);
+		});
+		hdb.close();
+		return records;
+	} catch (err) {
+		console.warn('[handleCache] 一覧取得に失敗しました:', err);
+		return [];
+	}
+}
+
 // ハンドルが「上書き書き込み可能」な状態か確認し、失効していれば再要求する。
 // requestPermission() はユーザー操作（保存ボタンのクリックなど）の文脈内で呼び出すこと。
 async function ensureFileHandleWritePermission(handle) {

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ファイルハンドル一覧/ACFinderBE</title>
+<script>
+	// FOUC防止（header.js 相当のテーマ適用）
+	(function() {
+		const theme = localStorage.getItem('theme') || 'light';
+		document.documentElement.setAttribute('data-theme', theme);
+	})();
+</script>
+<link rel="stylesheet" href="common.css">
+<style>
+	body { font-family: sans-serif; padding: 20px; line-height: 1.6; }
+	.container { max-width: 960px; margin: 0 auto; background: var(--bg-color-header); padding: 20px; border-radius: 8px; border: 1px solid var(--border-color); }
+	h1 { font-size: 1.2rem; margin-top: 0; color: var(--text-color-dark); border-bottom: 2px solid var(--accent-color); padding-bottom: 5px; }
+	h2 { font-size: 1rem; margin: 20px 0 8px; color: var(--text-color-dark); }
+	.desc { font-size: 0.85rem; color: var(--text-color); }
+	.toolbar { display: flex; gap: 8px; align-items: center; margin: 12px 0; flex-wrap: wrap; }
+	.toolbar button { padding: 6px 14px; border: 1px solid var(--border-color); border-radius: 4px; background: var(--bg-color); color: var(--text-color-dark); cursor: pointer; font-size: 0.85rem; }
+	.toolbar button.danger { background: #c0392b; color: #fff; border-color: #c0392b; }
+	#summary { font-size: 0.85rem; color: var(--text-color); margin-left: auto; }
+	table { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+	th, td { border: 1px solid var(--border-color); padding: 6px 8px; text-align: left; word-break: break-all; }
+	th { background: rgba(128, 128, 128, 0.15); }
+	.badge { display: inline-block; padding: 1px 6px; border-radius: 4px; font-size: 0.75rem; }
+	.badge.ok { background: #e8f5e9; color: #2e7d32; }
+	.badge.warn { background: #fff3e0; color: #e65100; }
+	.badge.info { background: #e3f2fd; color: #1565c0; }
+	.row-del { padding: 3px 10px; border: 1px solid #c0392b; background: transparent; color: #c0392b; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+	#cacheOnlyList { font-size: 0.85rem; margin: 0; padding-left: 20px; word-break: break-all; }
+	.empty { color: var(--text-color); font-style: italic; font-size: 0.85rem; }
+	code { background: rgba(128,128,128,0.15); padding: 0 4px; border-radius: 3px; }
+</style>
+</head>
+<body>
+	<div class="container">
+		<h1>ファイルハンドル キャッシュ一覧</h1>
+		<p class="desc">
+			IndexedDB「fileHandleDB」に保存されている <code>FileSystemFileHandle</code> の一覧です。
+			防除記録の localStorage キャッシュ（<code>pestRecData:*</code>）と同一キーで対になっており、
+			キャッシュを削除すると対応するハンドルも連動削除されます。
+			⚠ 付きは「ハンドルはあるが localStorage キャッシュが無い」孤児状態です（通常は見つかりません）。
+		</p>
+		<div class="toolbar">
+			<button id="btnRefresh">再読込</button>
+			<button id="btnDeleteAll" class="danger">ハンドルを全削除</button>
+			<span id="summary">読み込み中...</span>
+		</div>
+		<table id="handleTable">
+			<thead>
+				<tr><th>ファイル名</th><th>キャッシュキー</th><th>保存日時</th><th>書込許可</th><th>localStorage</th><th>操作</th></tr>
+			</thead>
+			<tbody></tbody>
+		</table>
+		<p id="emptyMsg" class="empty" style="display:none;">保存されているファイルハンドルはありません。</p>
+		<h2>localStorage キャッシュのみ（ハンドル未登録。次回の保存/読込時にハンドルが登録されます）</h2>
+		<ul id="cacheOnlyList"></ul>
+	</div>
+	<script src="./loader.js"></script>
+	<script>
+		'use strict';
+		// mob-pa-rec.html の localStorage キャッシュ接頭辞（連動検証用）
+		const REC_CACHE_PREFIX = 'pestRecData:';
+
+		function escapeHtml(s) {
+			return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+				'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+			}[c]));
+		}
+
+		async function queryWritePermission(handle) {
+			if (!handle || typeof handle.queryPermission !== 'function') return { label: '取得不可', cls: 'warn' };
+			try {
+				const p = await handle.queryPermission({ mode: 'readwrite' });
+				if (p === 'granted') return { label: 'granted', cls: 'ok' };
+				if (p === 'denied') return { label: 'denied', cls: 'warn' };
+				return { label: p || 'prompt', cls: 'info' };
+			} catch (e) {
+				return { label: 'エラー', cls: 'warn' };
+			}
+		}
+
+		function formatSavedAt(t) {
+			if (!t) return '-';
+			try { return new Date(t).toLocaleString('ja-JP'); } catch (e) { return String(t); }
+		}
+
+		async function render() {
+			const tbody = document.querySelector('#handleTable tbody');
+			const summary = document.getElementById('summary');
+			const cacheOnlyList = document.getElementById('cacheOnlyList');
+			const emptyMsg = document.getElementById('emptyMsg');
+			tbody.innerHTML = '';
+			cacheOnlyList.innerHTML = '';
+
+			const records = (await getAllCachedFileHandles()).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+
+			// localStorage の pestRecData:* キー一覧
+			const lsKeys = [];
+			for (let i = 0; i < localStorage.length; i++) {
+				const k = localStorage.key(i);
+				if (k && k.indexOf(REC_CACHE_PREFIX) === 0) lsKeys.push(k);
+			}
+			const recordKeys = records.map(r => r.key);
+
+			let orphanCount = 0;
+			for (const rec of records) {
+				const hasLs = localStorage.getItem(rec.key) !== null;
+				if (!hasLs) orphanCount++;
+				const perm = await queryWritePermission(rec.handle);
+				const tr = document.createElement('tr');
+				tr.innerHTML =
+					'<td>' + escapeHtml(rec.fileName || (rec.handle && rec.handle.name) || '-') + '</td>' +
+					'<td>' + escapeHtml(rec.key) + '</td>' +
+					'<td>' + escapeHtml(formatSavedAt(rec.savedAt)) + '</td>' +
+					'<td><span class="badge ' + perm.cls + '">' + escapeHtml(perm.label) + '</span></td>' +
+					'<td>' + (hasLs
+						? '<span class="badge ok">あり</span>'
+						: '<span class="badge warn">⚠ なし（孤児）</span>') + '</td>' +
+					'<td><button class="row-del" type="button">削除</button></td>';
+				tr.querySelector('.row-del').addEventListener('click', async () => {
+					if (!confirm('ファイルハンドル「' + (rec.fileName || rec.key) + '」を削除しますか？\n（localStorage キャッシュは残ります）')) return;
+					await deleteCachedFileHandle(rec.key);
+					render();
+				});
+				tbody.appendChild(tr);
+			}
+
+			emptyMsg.style.display = records.length ? 'none' : 'block';
+			summary.textContent = 'ハンドル ' + records.length + ' 件（孤児 ' + orphanCount + ' 件）／ localStorage キャッシュ ' + lsKeys.length + ' 件';
+
+			// localStorage 側のみ（ハンドル未登録）の一覧
+			const onlyLs = lsKeys.filter(k => recordKeys.indexOf(k) < 0);
+			if (onlyLs.length === 0) {
+				const li = document.createElement('li');
+				li.className = 'empty';
+				li.textContent = '（ありません）';
+				cacheOnlyList.appendChild(li);
+			} else {
+				onlyLs.forEach(k => {
+					const li = document.createElement('li');
+					li.textContent = k;
+					cacheOnlyList.appendChild(li);
+				});
+			}
+		}
+
+		document.getElementById('btnRefresh').addEventListener('click', render);
+		document.getElementById('btnDeleteAll').addEventListener('click', async () => {
+			const records = await getAllCachedFileHandles();
+			if (records.length === 0) {
+				alert('削除対象のファイルハンドルはありません。');
+				return;
+			}
+			if (!confirm('ファイルハンドルを全 ' + records.length + ' 件削除しますか？\n（localStorage キャッシュは残ります）')) return;
+			for (const rec of records) {
+				await deleteCachedFileHandle(rec.key);
+			}
+			render();
+		});
+		render();
+	</script>
+</body>
+</html>
