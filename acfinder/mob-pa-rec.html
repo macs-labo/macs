@@ -810,7 +810,9 @@ function deleteRecCacheByIndex(index) {
 }
 
 // 防除記録をJSON形式で保存
-async function saveRecFile(overwrite) {
+// overwrite のデフォルトは true（省略時 = 上書き保存ボタン）。未指定のまま呼び出すと
+// 上書き分支が常に false になってピッカーが毎回表示されるため、必ずデフォルト値を付けること
+async function saveRecFile(overwrite = true) {
 	if (planList.length === 0) return;
 
 	const saveData = convRecToJson();
@@ -1175,8 +1177,8 @@ async function setPlanRecord() {
 	// 表の再描画に合わせて削除ボタンの有効/無効を更新
 	updateRowDeleteButton();
 
-	//if (!isFileSystemAccessSupported) {
-	if (!isFileSystemAccessSupported || !isDesktop) {
+	if (!isFileSystemAccessSupported) {
+	//if (!isFileSystemAccessSupported || !isDesktop) {
 		document.querySelector('#btnSaveRec title').textContent = '防除記録を保存';
 		document.querySelector('#btnSaveRecAs')?.classList.add('hidden');
 	}
