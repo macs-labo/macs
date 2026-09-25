@@ -19,42 +19,8 @@ const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
 const isElectron = typeof window.electronAPI !== 'undefined';
 const isFileSystemAccessSupported = 'showOpenFilePicker' in window; // File System Access API サポート判定
-const isDesktop = isDesktopSecure();
-
-function isDesktopSecure() {
-	// 1. 「デスクトップ環境」であることの確定検出
-	// マウス等の精密なポインタがあり、かつ「ホバー（カーソルを合わせる）」が可能なデバイス特性
-	const isDesktopFormFactor = window.matchMedia("(pointer: fine)").matches && window.matchMedia("(hover: hover)").matches;
-
-	// 2. Android / iOS 端末でないことの検出
-	// 注意: "virtualKeyboard" の有無は「Android 専用」ではなく「secure context(HTTPS 等) の Chromium」判定になってしまう
-	//       (Chrome/Edge 94+ はデスクトップ・Android 双方で navigator.virtualKeyboard を持つ。Firefox/Safari は無し)。
-	//       http:// 開放では Android でも無く、HTTPS のデスクトップ Chrome では有る、となり OS 判定に使えないため、
-	//       UA-CH (navigator.userAgentData) を優先し、非対応ブラウザは User-Agent 文字列で判定する。
-	const ua = navigator.userAgent;
-	const uaData = navigator.userAgentData; // User-Agent Client Hints: Chromium 系のみ。WebKit/Gecko では undefined
-	// uaData.platform の値: 'Windows' | 'macOS' | 'Linux' | 'Android' | 'Chrome OS' など
-	const isAndroid = Boolean(uaData && uaData.platform === 'Android') || ua.includes('Android');
-	// iPhone / iPad / iPod。iPadOS の「デスクトップモード」では UA が 'Macintosh' になるため maxTouchPoints でも補完
-	// (maxTouchPoints > 1 だが Macintosh のケース = iPadOS。Windows タッチ機は UA が Windows なので誤判定しない)
-	const isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
-	// Chromium 系のモバイル端末フラグ (デスクトップ UA に偽装された Android 端末などの取りこぼし防止)
-	const isMobileUA = Boolean(uaData && uaData.mobile);
-
-	// iOS専用のスタンドアロン特性 ("standalone" in navigator) は macOS Safari にも存在するため、
-	// iOS 検出としては UA 判定 (isIOS) を使う。参考までに従来チェックの結果もログ出力する。
-	const isLegacyIOS = !("standalone" in window.navigator);
-	const isNotAndroid = !isAndroid;
-	const isNotIOS = !isIOS;
-
-	console.log('isDesktop: ', isDesktopFormFactor);
-	console.log('isNotAndroid: ', isNotAndroid, '(legacy: ' + !("virtualKeyboard" in navigator) + ')');
-	console.log('isNotIOS: ', isNotIOS, '(legacy: ' + isLegacyIOS + ')');
-
-	// 精密ポインタがあり、かつ Android / iOS 端末でなければ
-	// 「Windows / Linux / macOS 版ブラウザ（または Electron）」とみなす
-	return isDesktopFormFactor && isNotAndroid && isNotIOS && !isMobileUA;
-}
+// （旧 isDesktopSecure() / isDesktop は削除。DT 版と Mobile 版の起動判定は index.html が
+//   画面の論理幅で行い、保存ボタンの出し分けは isFileSystemAccessSupported で行う）
 
 // 公開用の自動ログキャンセル
 if (!debug) {
@@ -87,6 +53,107 @@ function openDB(dbName) {
 			reject(event.target.error);
 		};
 	});
+}
+
+// ===== ファイルハンドル キャッシュ（IndexedDB）=====
+// localStorage キャッシュ（例: mob-pa-rec の pestRecData:xxx）と「同一キー」で対にして保存する。
+// ハンドルは FileSystemFileHandle をそのまま structured clone で格納できる。
+// localStorage 側のキャッシュを削除する際は、必ず同じキーのハンドルも deleteCachedFileHandle() で削除すること
+// （放置するとハンドルキャッシュだけが増え続けるため）。
+const handleDbName = 'fileHandleDB';
+const handleStoreName = 'handles';
+
+function openHandleDB() {
+	return new Promise((resolve, reject) => {
+		const request = indexedDB.open(handleDbName, 1);
+		request.onupgradeneeded = (event) => {
+			const db = event.target.result;
+			if (!db.objectStoreNames.contains(handleStoreName)) {
+				db.createObjectStore(handleStoreName, { keyPath: 'key' });
+			}
+		};
+		request.onsuccess = (event) => resolve(event.target.result);
+		request.onerror = (event) => reject(event.target.error);
+	});
+}
+
+// ファイルハンドルをキャッシュに保存
+async function putCachedFileHandle(cacheKey, handle, fileName = '') {
+	if (!cacheKey || !handle) return;
+	try {
+		const hdb = await openHandleDB();
+		await new Promise((resolve, reject) => {
+			const tx = hdb.transaction(handleStoreName, 'readwrite');
+			tx.objectStore(handleStoreName).put({
+				key: cacheKey,
+				handle,
+				fileName: fileName || handle.name || '',
+				savedAt: Date.now()
+			});
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error);
+			tx.onabort = () => reject(tx.error);
+		});
+		hdb.close();
+	} catch (err) {
+		console.warn('[handleCache] 保存に失敗しました:', err);
+	}
+}
+
+// キャッシュからファイルハンドルを取得。expectedFileName を指定した場合は
+// 保存時とファイル名が一致する場合のみ返す（単一スロットキーの取り違え防止）
+async function getCachedFileHandle(cacheKey, expectedFileName = '') {
+	if (!cacheKey) return null;
+	try {
+		const hdb = await openHandleDB();
+		const record = await new Promise((resolve, reject) => {
+			const tx = hdb.transaction(handleStoreName, 'readonly');
+			const req = tx.objectStore(handleStoreName).get(cacheKey);
+			req.onsuccess = () => resolve(req.result || null);
+			req.onerror = () => reject(req.error);
+		});
+		hdb.close();
+		if (!record || !record.handle) return null;
+		if (expectedFileName && record.fileName && record.fileName !== expectedFileName) return null;
+		return record.handle;
+	} catch (err) {
+		console.warn('[handleCache] 取得に失敗しました:', err);
+		return null;
+	}
+}
+
+// キャッシュからファイルハンドルを削除（localStorage キャッシュ削除と必ず連動させること）
+async function deleteCachedFileHandle(cacheKey) {
+	if (!cacheKey) return;
+	try {
+		const hdb = await openHandleDB();
+		await new Promise((resolve, reject) => {
+			const tx = hdb.transaction(handleStoreName, 'readwrite');
+			tx.objectStore(handleStoreName).delete(cacheKey);
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error);
+			tx.onabort = () => reject(tx.error);
+		});
+		hdb.close();
+	} catch (err) {
+		console.warn('[handleCache] 削除に失敗しました:', err);
+	}
+}
+
+// ハンドルが「上書き書き込み可能」な状態か確認し、失効していれば再要求する。
+// requestPermission() はユーザー操作（保存ボタンのクリックなど）の文脈内で呼び出すこと。
+async function ensureFileHandleWritePermission(handle) {
+	if (!handle || typeof handle.queryPermission !== 'function') return false;
+	try {
+		let permission = await handle.queryPermission({ mode: 'readwrite' });
+		if (permission !== 'granted') {
+			permission = await handle.requestPermission({ mode: 'readwrite' });
+		}
+		return permission === 'granted';
+	} catch (err) {
+		console.warn('[handleCache] 書き込み許可の取得に失敗しました:', err);
+		return false;
+	}
 }
 
 // IndexedDBからファイルのメタデータを取得
