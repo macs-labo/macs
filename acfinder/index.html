@@ -118,6 +118,15 @@ const urlParams = new URLSearchParams(window.location.search);
 
 	document.documentElement.appendChild(div);
 
+	// ハンバーガーメニューからもログ画面を開けるようにグローバルへ公開する
+	// force を省略すると表示/非表示のトグルになる
+	window.showPwaLogger = function(force) {
+		const show = force === undefined ? div.style.display === 'none' : !!force;
+		div.style.display = show ? 'block' : 'none';
+		// 開いた瞬間に、通常ログの最下部（最新）へスクロールさせる
+		if (show) div.scrollTop = div.scrollHeight;
+	};
+
 	const originalLog = console.log;
 	console.log = function(...args) {
 		originalLog.apply(console, args);
@@ -138,27 +147,17 @@ const urlParams = new URLSearchParams(window.location.search);
 		div.style.display = 'block'; // 隠れていても強制表示
 	});
 
-	// 👈 【追加】画面を「3本指でタップ」するたびに、ログ画面を表示・非表示にする
+	// 👈 画面を「3本指でタップ」するたびに、ログ画面を表示・非表示にする
 	window.addEventListener('touchstart', function(e) {
 		if (e.touches.length === 3) { // 3本指タッチを検知
-			if (div.style.display === 'none') {
-				div.style.display = 'block';
-				// 開いた瞬間に、通常ログの最下部（最新）へスクロールさせる
-				div.scrollTop = div.scrollHeight;
-			} else {
-				div.style.display = 'none';
-			}
+			window.showPwaLogger();
 		}
 	});
 
 	// ブラウザのタッチエミュレータの場合はマウス右ボタンででログ表示
 	window.addEventListener('contextmenu', function(e) {
 		e.preventDefault();
-		if (div.style.display === 'none') {
-			div.style.display = 'block';
-		} else {
-			div.style.display = 'none';
-		}
+		window.showPwaLogger();
 	});
 })();
 </script>
@@ -866,6 +865,16 @@ function showMainMenu() {
 		</div>
 	`;
 
+	// 開発版（debug）限定のメニュー項目（ハンドル一覧・ログ表示）
+	const debugMenuHtml = debug ? `
+				<li class="menu-item" onclick="showHandleListFromMenu();">
+					<div class="menu-item-name">📂 ファイルハンドル一覧</div>
+				</li>
+				<li class="menu-item" onclick="showPwaLoggerFromMenu();">
+					<div class="menu-item-name">📝 ログ表示</div>
+				</li>
+	` : '';
+
 	dialog.innerHTML = `
 		<div class="menu-container">
 			${zoomControlsHtml}
@@ -895,10 +904,7 @@ function showMainMenu() {
 				</li>
 				<li class="menu-item" onclick="showVersionInfo()">
 					<div class="menu-item-name">ℹ️ バージョン情報</div>
-				</li>
-				<li class="menu-item" onclick="showHandleListDialog();">
-					<div class="menu-item-name">📂 ファイルハンドル一覧</div>
-				</li>
+				</li>${debugMenuHtml}
 				<li class="menu-item" onclick="hardReload();">
 					<div class="menu-item-name">🔄 リロード</div>
 				</li>
@@ -1132,6 +1138,22 @@ async function renderHandleList() {
 			li.textContent = k;
 			cacheOnlyList.appendChild(li);
 		});
+	}
+}
+
+// ハンバーガーメニューからファイルハンドル一覧を開く（メニューを閉じてから開く）
+function showHandleListFromMenu() {
+	document.getElementById('main-menu-dialog')?.close();
+	showHandleListDialog();
+}
+
+// ハンバーガーメニューから開発版ログ画面（pwa-logger-v2）を開く
+function showPwaLoggerFromMenu() {
+	document.getElementById('main-menu-dialog')?.close();
+	if (typeof window.showPwaLogger === 'function') {
+		window.showPwaLogger(true);
+	} else {
+		alert('ログ画面は開発版でのみ利用できます。');
 	}
 }
 
