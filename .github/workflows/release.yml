@@ -42,7 +42,7 @@ jobs:
           BASEFILES=(
             "crop.html" "pest.html" "chem.html" "sql.html" "prop.html" "pestplan.html"
             "pesticides-pests.html" "pesticides-crops.html" "rac_moa.html" "feedrice.html"
-            "acisupdate.html" "proc.html" "notice.html" "handlelist.html"
+            "acisupdate.html" "proc.html" "notice.html"
             "mob-crop.html" "mob-pest.html" "mob-chem.html" "mob-pa-rec.html"
             "common.css" "loader.css" "table.css" "crop.css" "filer.css" "editor.css"
             "loader.js" "table.js" "crop.js" "pest.js" "chem.js" "filer.js" "theme.js"
