@@ -32,7 +32,7 @@ function isDesktopSecure() {
 	// iOS専用のタッチ特性やスタンドアロン特性が無いことを確認
 	const isNotIOS = !("standalone" in window.navigator);
 
-	conlole.log('isDesktop: ', isDesktopFormFactor);
+	console.log('isDesktop: ', isDesktopFormFactor);
 	console.log('isNotAndroid: ', isNotAndroid);
 	console.log('isNotIOS: ', isNotIOS);
 
