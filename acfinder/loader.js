@@ -26,18 +26,34 @@ function isDesktopSecure() {
 	// マウス等の精密なポインタがあり、かつ「ホバー（カーソルを合わせる）」が可能なデバイス特性
 	const isDesktopFormFactor = window.matchMedia("(pointer: fine)").matches && window.matchMedia("(hover: hover)").matches;
 
-	// 2. Android / iOS / macOS ではない（Windows や Linux 等のファイルシステム挙動）の検出
-	// Android専用の "virtualKeyboard" が「存在しない」ことを確認
-	const isNotAndroid = !("virtualKeyboard" in navigator);
-	// iOS専用のタッチ特性やスタンドアロン特性が無いことを確認
-	const isNotIOS = !("standalone" in window.navigator);
+	// 2. Android / iOS 端末でないことの検出
+	// 注意: "virtualKeyboard" の有無は「Android 専用」ではなく「secure context(HTTPS 等) の Chromium」判定になってしまう
+	//       (Chrome/Edge 94+ はデスクトップ・Android 双方で navigator.virtualKeyboard を持つ。Firefox/Safari は無し)。
+	//       http:// 開放では Android でも無く、HTTPS のデスクトップ Chrome では有る、となり OS 判定に使えないため、
+	//       UA-CH (navigator.userAgentData) を優先し、非対応ブラウザは User-Agent 文字列で判定する。
+	const ua = navigator.userAgent;
+	const uaData = navigator.userAgentData; // User-Agent Client Hints: Chromium 系のみ。WebKit/Gecko では undefined
+	// uaData.platform の値: 'Windows' | 'macOS' | 'Linux' | 'Android' | 'Chrome OS' など
+	const isAndroid = Boolean(uaData && uaData.platform === 'Android') || ua.includes('Android');
+	// iPhone / iPad / iPod。iPadOS の「デスクトップモード」では UA が 'Macintosh' になるため maxTouchPoints でも補完
+	// (maxTouchPoints > 1 だが Macintosh のケース = iPadOS。Windows タッチ機は UA が Windows なので誤判定しない)
+	const isIOS = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+	// Chromium 系のモバイル端末フラグ (デスクトップ UA に偽装された Android 端末などの取りこぼし防止)
+	const isMobileUA = Boolean(uaData && uaData.mobile);
+
+	// iOS専用のスタンドアロン特性 ("standalone" in navigator) は macOS Safari にも存在するため、
+	// iOS 検出としては UA 判定 (isIOS) を使う。参考までに従来チェックの結果もログ出力する。
+	const isLegacyIOS = !("standalone" in window.navigator);
+	const isNotAndroid = !isAndroid;
+	const isNotIOS = !isIOS;
 
 	console.log('isDesktop: ', isDesktopFormFactor);
-	console.log('isNotAndroid: ', isNotAndroid);
-	console.log('isNotIOS: ', isNotIOS);
+	console.log('isNotAndroid: ', isNotAndroid, '(legacy: ' + !("virtualKeyboard" in navigator) + ')');
+	console.log('isNotIOS: ', isNotIOS, '(legacy: ' + isLegacyIOS + ')');
 
-	// すべてを満たせば「Windows または Linux 版の Chromium」と確定
-	return isDesktopFormFactor && isNotAndroid && isNotIOS;
+	// 精密ポインタがあり、かつ Android / iOS 端末でなければ
+	// 「Windows / Linux / macOS 版ブラウザ（または Electron）」とみなす
+	return isDesktopFormFactor && isNotAndroid && isNotIOS && !isMobileUA;
 }
 
 // 公開用の自動ログキャンセル

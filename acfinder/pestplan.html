@@ -1564,7 +1564,7 @@ async function savePlanFile(overwrite = true) {
 		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
 		currentFilename = fileHandle.name;
 		isDirty = false;
-		if (isDesktopChromium) alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		if (isDesktop) alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
 	} catch (err) {
 		if (err.name !== 'AbortError') {

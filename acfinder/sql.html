@@ -820,7 +820,7 @@ async function saveTextFileApi(filename, content, overwrite) {
 			currentVarFilename = fileHandle.name;
 		}
 		//isDirty = false;
-		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		if (isDesktop) alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
 	} catch (err) {
 		if (err.name !== 'AbortError') {
@@ -1806,7 +1806,8 @@ function setupEditor(editorID, containerID, options = {}) {
 	cm.btnExec = toolbar.querySelector('.exec');
 
 	// ツールバーボタンの設定
-	if (!isFileSystemAccessSupported) {
+	// API 非対応ブラウザ、および Android Chromium（対応済みだが上書き保存モードにしない）はボタンをひとつに
+	if (!isFileSystemAccessSupported || !isDesktop) {
 		const title = cm.btnSave.querySelector('title');
 		if (title) {
 			title.textContent = title.textContent.replace('を上書き', '');
