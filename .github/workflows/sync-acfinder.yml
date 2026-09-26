@@ -96,8 +96,8 @@ jobs:
           # GitHub CDN の反映待ち
           # push 時、または run_mode が 'full_sync' の場合のみ待機
           if [[ "${{ github.event_name }}" == "push" || "${{ github.event.inputs.run_mode }}" == "full_sync" ]]; then
-            echo "Waiting 120 seconds for GitHub to reflect changes..."
-            sleep 120
+            echo "Waiting 60 seconds for GitHub to reflect changes..."
+            sleep 60
           fi
 
           # 強制更新オプションの判定
