@@ -868,10 +868,10 @@ function showMainMenu() {
 	// 開発版（debug）限定のメニュー項目（ハンドル一覧・ログ表示）
 	const debugMenuHtml = debug ? `
 				<li class="menu-item" onclick="showHandleListFromMenu();">
-					<div class="menu-item-name">📂 ファイルハンドル一覧</div>
+					<div class="menu-item-name">📁🔧⚙ ファイルハンドル一覧</div>
 				</li>
 				<li class="menu-item" onclick="showPwaLoggerFromMenu();">
-					<div class="menu-item-name">📝 ログ表示</div>
+					<div class="menu-item-name">💻📜📄📃📋 ログ表示</div>
 				</li>
 	` : '';
 
@@ -1195,7 +1195,7 @@ function showAddTabMenu() {
 		<div class="menu-container">
 			<ul class="menu-list">
 				<li class="menu-item" onclick="addDynamicTab('防除記録', 'mob-pa-rec.html'); document.getElementById('${dialogId}').close();">
-					<div class="menu-item-name">✍ 防除記録</div>
+					<div class="menu-item-name">📝✍ 防除記録</div>
 				</li>
 				<li class="menu-item" onclick="document.getElementById('localTabFileInput').click(); document.getElementById('${dialogId}').close();">
 					<div class="menu-item-name">📂 ローカルファイル</div>
