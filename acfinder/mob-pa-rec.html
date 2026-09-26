@@ -604,9 +604,12 @@ function hideRestoreButton() {
 // 復元候補（キャッシュ）を破棄する
 // cacheKey 省略時は現在編集中データに対応するキャッシュのみ破棄する（他ファイルのキャッシュは残す）
 function discardRecCache(cacheKey) {
+	const key = cacheKey || getCurrentRecCacheKey();
 	try {
-		localStorage.removeItem(cacheKey || getCurrentRecCacheKey());
+		localStorage.removeItem(key);
 	} catch (err) {}
+	// 対応するファイルハンドルキャッシュも連動削除
+	deleteCachedFileHandle(key);
 	if (getRecCacheEntries().length === 0) hideRestoreButton();
 }
 
@@ -751,6 +754,8 @@ function deleteRecCacheByKey(cacheKey) {
 	try {
 		localStorage.removeItem(entry.key);
 	} catch (err) {}
+	// 対応するファイルハンドルキャッシュも連動削除（ハンドルの無限増殖防止）
+	deleteCachedFileHandle(entry.key);
 	showToast(`キャッシュ「${entry.fileName}」を削除しました。`);
 	if (getRecCacheEntries().length === 0) {
 		hideRestoreButton();
@@ -788,6 +793,8 @@ async function restoreRecCacheByIndex(index) {
 		const planData = typeof appData.planData === 'string' ? JSON.parse(appData.planData) : appData.planData;
 		if (!planData || (!planData.plan && !planData.planList)) throw new Error('Invalid format');
 		currentFileName = appData.fileName || '';
+		// 対応するファイルハンドルも復元（次回保存を上書きにできる状態にする。許可確認は保存ボタン内で行う）
+		currentFileHandle = await getCachedFileHandle(entry.key, currentFileName);
 		// 作物ツリーの構築完了を待つ（チェック状態の見た目を復元するため）
 		await planCropReady;
 		// タブを開いた直後に押された場合に備えてレイアウトを再計算
@@ -810,7 +817,9 @@ function deleteRecCacheByIndex(index) {
 }
 
 // 防除記録をJSON形式で保存
-async function saveRecFile(overwrite) {
+// overwrite のデフォルトは true（省略時 = 上書き保存ボタン）。未指定のまま呼び出すと
+// 上書き分支が常に false になってピッカーが毎回表示されるため、必ずデフォルト値を付けること
+async function saveRecFile(overwrite = true) {
 	if (planList.length === 0) return;
 
 	const saveData = convRecToJson();
@@ -832,9 +841,16 @@ async function saveRecFile(overwrite) {
 		return;
 	}
 
+	// セッション跨ぎ: メモリ上のハンドルが無ければ、localStorage キャッシュと同一キーで保存したハンドルを復元
+	if (overwrite && !currentFileHandle) {
+		currentFileHandle = await getCachedFileHandle(getRecCacheKey(filename), filename)
+			|| await getCachedFileHandle(getCurrentRecCacheKey(), filename);
+	}
 	// overwrite = true でファイルハンドルがあり、filename が一致している場合は「上書き」
 	if (overwrite && currentFileHandle && currentFileName === filename) {
 		try {
+			// 復元したハンドルは書き込み許可が失効している場合がある（拒否時は例外にして新規保存へフォールバック）
+			if (!(await ensureFileHandleWritePermission(currentFileHandle))) throw new Error('書き込み許可が得られませんでした');
 			const writable = await currentFileHandle.createWritable();
 			await writable.write(saveData);
 			await writable.close();
@@ -862,13 +878,18 @@ async function saveRecFile(overwrite) {
 		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
 		currentFileName = fileHandle.name;
 		saveRecDataToCache();
-		// 無題（fileName 未確定時のタイトル代用キー）の孤児キャッシュが残らないよう除去
+		// ハンドルも localStorage キャッシュと同一キーで永続化（次回セッションの上書き保存用）
+		await putCachedFileHandle(getCurrentRecCacheKey(), fileHandle, currentFileName);
+		// 無題（fileName 未確定時のタイトル代用キー）の孤児キャッシュが残らないよう除去（ハンドルも連動削除）
 		try {
 			const newCacheKey = getCurrentRecCacheKey();
-			if (oldCacheKey !== newCacheKey) localStorage.removeItem(oldCacheKey);
+			if (oldCacheKey !== newCacheKey) {
+				localStorage.removeItem(oldCacheKey);
+				deleteCachedFileHandle(oldCacheKey);
+			}
 		} catch (e) {}
 		if (getRecCacheEntries().length > 0) showRestoreButton();
-		if (isDesktop) alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
 	} catch (err) {
 		if (err.name !== 'AbortError') {
@@ -940,6 +961,8 @@ async function openFileApi() {
 		const file = await fileHandle.getFile();
 		currentFileHandle = fileHandle; // ハンドルを記憶
 		loadPlanFile(file); // データ読み込み共通関数へ
+		// ハンドルも localStorage キャッシュと同一キーで永続化（次回セッションの上書き保存用）
+		await putCachedFileHandle(getRecCacheKey(currentFileName), fileHandle, currentFileName);
 	} catch (err) {
 		if (err.name !== 'AbortError') {
 			console.error(err);
@@ -1175,8 +1198,7 @@ async function setPlanRecord() {
 	// 表の再描画に合わせて削除ボタンの有効/無効を更新
 	updateRowDeleteButton();
 
-	//if (!isFileSystemAccessSupported) {
-	if (!isFileSystemAccessSupported || !isDesktop) {
+	if (!isFileSystemAccessSupported) {
 		document.querySelector('#btnSaveRec title').textContent = '防除記録を保存';
 		document.querySelector('#btnSaveRecAs')?.classList.add('hidden');
 	}

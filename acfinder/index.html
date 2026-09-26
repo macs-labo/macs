@@ -118,6 +118,15 @@ const urlParams = new URLSearchParams(window.location.search);
 
 	document.documentElement.appendChild(div);
 
+	// ハンバーガーメニューからもログ画面を開けるようにグローバルへ公開する
+	// force を省略すると表示/非表示のトグルになる
+	window.showPwaLogger = function(force) {
+		const show = force === undefined ? div.style.display === 'none' : !!force;
+		div.style.display = show ? 'block' : 'none';
+		// 開いた瞬間に、通常ログの最下部（最新）へスクロールさせる
+		if (show) div.scrollTop = div.scrollHeight;
+	};
+
 	const originalLog = console.log;
 	console.log = function(...args) {
 		originalLog.apply(console, args);
@@ -138,27 +147,17 @@ const urlParams = new URLSearchParams(window.location.search);
 		div.style.display = 'block'; // 隠れていても強制表示
 	});
 
-	// 👈 【追加】画面を「3本指でタップ」するたびに、ログ画面を表示・非表示にする
+	// 👈 画面を「3本指でタップ」するたびに、ログ画面を表示・非表示にする
 	window.addEventListener('touchstart', function(e) {
 		if (e.touches.length === 3) { // 3本指タッチを検知
-			if (div.style.display === 'none') {
-				div.style.display = 'block';
-				// 開いた瞬間に、通常ログの最下部（最新）へスクロールさせる
-				div.scrollTop = div.scrollHeight;
-			} else {
-				div.style.display = 'none';
-			}
+			window.showPwaLogger();
 		}
 	});
 
 	// ブラウザのタッチエミュレータの場合はマウス右ボタンででログ表示
 	window.addEventListener('contextmenu', function(e) {
 		e.preventDefault();
-		if (div.style.display === 'none') {
-			div.style.display = 'block';
-		} else {
-			div.style.display = 'none';
-		}
+		window.showPwaLogger();
 	});
 })();
 </script>
@@ -638,6 +637,79 @@ table.row-data-table {
 	color: var(--text-color-light);
 	cursor: pointer;
 }
+/* ファイルハンドルキャッシュ一覧ダイアログ */
+#handle-menu {
+	max-width: min(96vw, 640px);
+	width: 100%;
+}
+#handle-menu .menu-container {
+	padding: 12px 16px;
+}
+#handle-menu p.handle-desc {
+	font-size: 12px;
+	padding: 0 0 8px;
+	text-align: left;
+	color: var(--text-color);
+}
+#handle-menu .handle-toolbar {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
+}
+#handle-menu .handle-toolbar button {
+	cursor: pointer;
+	font-size: 12px;
+}
+#handle-menu .handle-toolbar #handle-summary {
+	margin-left: auto;
+	font-size: 12px;
+}
+#handle-menu table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+	margin-bottom: 8px;
+}
+#handle-menu th, #handle-menu td {
+	border: 1px solid var(--border-color);
+	padding: 4px 6px;
+	text-align: left;
+	word-break: break-all;
+}
+#handle-menu .badge {
+	display: inline-block;
+	padding: 0 4px;
+	border-radius: 4px;
+	font-size: 11px;
+}
+#handle-menu .badge.ok {
+	color: green;
+}
+#handle-menu .badge.warn {
+	color: red;
+}
+#handle-menu .row-del, #handle-menu .handle-del-all {
+	cursor: pointer;
+	font-size: 12px;
+}
+#handle-menu .handle-cache-only {
+	font-size: 12px;
+	margin: 0;
+	padding-left: 20px;
+	word-break: break-all;
+}
+#handle-menu .handle-section-title {
+	font-size: 12px;
+	font-weight: bold;
+	margin: 8px 0 4px;
+}
+#handle-menu .empty {
+	color: var(--text-color-light);
+	font-style: italic;
+	font-size: 12px;
+}
 </style>
 <script>
 window.isMobile = true;
@@ -793,6 +865,17 @@ function showMainMenu() {
 		</div>
 	`;
 
+	// 開発版（debug）限定のメニュー項目（ハンドル一覧・ログ表示）
+	// ファイルハンドルアイコン候補 🔧; ログ表示アイコン候補 📃
+	const debugMenuHtml = debug ? `
+				<li class="menu-item" onclick="showHandleListFromMenu();">
+					<div class="menu-item-name">📁 ファイルハンドル一覧</div>
+				</li>
+				<li class="menu-item" onclick="showPwaLoggerFromMenu();">
+					<div class="menu-item-name">📜 ログ表示</div>
+				</li>
+	` : '';
+
 	dialog.innerHTML = `
 		<div class="menu-container">
 			${zoomControlsHtml}
@@ -822,7 +905,7 @@ function showMainMenu() {
 				</li>
 				<li class="menu-item" onclick="showVersionInfo()">
 					<div class="menu-item-name">ℹ️ バージョン情報</div>
-				</li>
+				</li>${debugMenuHtml}
 				<li class="menu-item" onclick="hardReload();">
 					<div class="menu-item-name">🔄 リロード</div>
 				</li>
@@ -910,6 +993,171 @@ function showVersionInfo() {
 	dialog.showModal();
 }
 
+// ファイルハンドルキャッシュ一覧ダイアログの表示
+// mob-pa-rec.html の localStorage キャッシュ（pestRecData:*）と同一キーで対になった
+// IndexedDB「fileHandleDB」の内容を表示し、行単位・一括で削除できる
+async function showHandleListDialog() {
+	const dialogId = 'handle-menu';
+	let dialog = document.getElementById(dialogId);
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		dialog.style.outline = 'none'; // 初回表示時（フォーカス時）の太い外郭線を消す
+		document.body.appendChild(dialog);
+	}
+
+	dialog.innerHTML = `
+		<div class="menu-container">
+			<p class="handle-desc">IndexedDB「fileHandleDB」に保存されている <code>FileSystemFileHandle</code> の一覧です。
+			防除記録の localStorage キャッシュ（<code>pestRecData:*</code>）と同一キーで対になっており、
+			キャッシュを削除すると対応するハンドルも連動削除されます。
+			⚠ 付きは「ハンドルはあるが localStorage キャッシュが無い」孤児状態です。</p>
+			<div class="handle-toolbar">
+				<button type="button" id="handle-refresh">再読込</button>
+				<button type="button" id="handle-delete-all">ハンドルを全削除</button>
+				<span id="handle-summary">読み込み中...</span>
+			</div>
+			<table id="handle-table">
+				<thead>
+					<tr><th>ファイル名</th><th>キャッシュキー</th><th>保存日時</th><th>書込許可</th><th>localStorage</th><th>操作</th></tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+			<p class="empty" style="display:none;">保存されているファイルハンドルはありません。</p>
+			<p class="handle-section-title">localStorage キャッシュのみ（ハンドル未登録。次回の保存/読込時にハンドルが登録されます）</p>
+			<ul class="handle-cache-only"></ul>
+		</div>
+		<form method="dialog"><span>ファイルハンドル一覧</span><button>閉じる</button></form>
+	`;
+	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+	dialog.querySelector('#handle-refresh').addEventListener('click', renderHandleList);
+	dialog.querySelector('#handle-delete-all').classList.add('handle-del-all');
+	dialog.querySelector('#handle-delete-all').addEventListener('click', async () => {
+		const records = await getAllCachedFileHandles();
+		if (records.length === 0) {
+			alert('削除対象のファイルハンドルはありません。');
+			return;
+		}
+		if (!confirm('ファイルハンドルを全 ' + records.length + ' 件削除しますか？\n（localStorage キャッシュは残ります）')) return;
+		for (const rec of records) {
+			await deleteCachedFileHandle(rec.key);
+		}
+		renderHandleList();
+	});
+
+	dialog.showModal();
+	renderHandleList();
+}
+
+// ファイルハンドル一覧ダイアログの内容を描画する
+// （再読込連打などで同時実行されても行が二重追加されないよう、常に最新の呼び出しだけを有効にする）
+async function renderHandleList() {
+	const dialog = document.getElementById('handle-menu');
+	if (!dialog) return;
+	const renderToken = (window.handleListRenderToken || 0) + 1;
+	window.handleListRenderToken = renderToken;
+	const tbody = dialog.querySelector('#handle-table tbody');
+	const summary = dialog.querySelector('#handle-summary');
+	const cacheOnlyList = dialog.querySelector('.handle-cache-only');
+	const emptyMsg = dialog.querySelector('.empty');
+	tbody.innerHTML = '';
+	cacheOnlyList.innerHTML = '';
+
+	const escapeHandleHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+	}[c]));
+
+	const queryHandlePermission = async (handle) => {
+		if (!handle || typeof handle.queryPermission !== 'function') return { label: '取得不可', cls: 'warn' };
+		try {
+			const p = await handle.queryPermission({ mode: 'readwrite' });
+			if (p === 'granted') return { label: 'granted', cls: 'ok' };
+			if (p === 'denied') return { label: 'denied', cls: 'warn' };
+			return { label: p || 'prompt', cls: 'info' };
+		} catch (e) {
+			return { label: 'エラー', cls: 'warn' };
+		}
+	};
+
+	let records = [];
+	try {
+		records = (await getAllCachedFileHandles()).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+	} catch (e) {
+		summary.textContent = '一覧の取得に失敗しました。';
+		return;
+	}
+	if (renderToken !== window.handleListRenderToken) return; // 新しい描画が始まっていたら中断
+
+	// localStorage の pestRecData:* キー一覧
+	const lsKeys = [];
+	for (let i = 0; i < localStorage.length; i++) {
+		const k = localStorage.key(i);
+		if (k && k.indexOf('pestRecData:') === 0) lsKeys.push(k);
+	}
+	const recordKeys = records.map(r => r.key);
+
+	let orphanCount = 0;
+	for (const rec of records) {
+		const hasLs = localStorage.getItem(rec.key) !== null;
+		if (!hasLs) orphanCount++;
+		const perm = await queryHandlePermission(rec.handle);
+		const permBadge = '<span class="badge ' + perm.cls + '">' + escapeHandleHtml(perm.label) + '</span>';
+		const lsBadge = hasLs
+			? '<span class="badge ok">あり</span>'
+			: '<span class="badge warn">⚠ なし（孤児）</span>';
+		const tr = document.createElement('tr');
+		tr.innerHTML =
+			'<td>' + escapeHandleHtml(rec.fileName || (rec.handle && rec.handle.name) || '-') + '</td>' +
+			'<td>' + escapeHandleHtml(rec.key) + '</td>' +
+			'<td>' + escapeHandleHtml(rec.savedAt ? new Date(rec.savedAt).toLocaleString('ja-JP') : '-') + '</td>' +
+			'<td>' + permBadge + '</td>' +
+			'<td>' + lsBadge + '</td>' +
+			'<td><button class="row-del" type="button">削除</button></td>';
+		tr.querySelector('.row-del').addEventListener('click', async () => {
+			if (!confirm(`ファイルハンドル「${rec.fileName || rec.key}」を削除しますか？
+（localStorage キャッシュは残ります）`)) return;
+			await deleteCachedFileHandle(rec.key);
+			renderHandleList();
+		});
+		tbody.appendChild(tr);
+	}
+
+	emptyMsg.style.display = records.length ? 'none' : 'block';
+	summary.textContent = 'ハンドル ' + records.length + ' 件（孤児 ' + orphanCount + ' 件）／ localStorage キャッシュ ' + lsKeys.length + ' 件';
+
+	// localStorage 側のみ（ハンドル未登録）の一覧
+	const onlyLs = lsKeys.filter(k => recordKeys.indexOf(k) < 0);
+	if (onlyLs.length === 0) {
+		const li = document.createElement('li');
+		li.className = 'empty';
+		li.textContent = '（ありません）';
+		cacheOnlyList.appendChild(li);
+	} else {
+		onlyLs.forEach(k => {
+			const li = document.createElement('li');
+			li.textContent = k;
+			cacheOnlyList.appendChild(li);
+		});
+	}
+}
+
+// ハンバーガーメニューからファイルハンドル一覧を開く（メニューを閉じてから開く）
+function showHandleListFromMenu() {
+	document.getElementById('main-menu-dialog')?.close();
+	showHandleListDialog();
+}
+
+// ハンバーガーメニューから開発版ログ画面（pwa-logger-v2）を開く
+function showPwaLoggerFromMenu() {
+	document.getElementById('main-menu-dialog')?.close();
+	if (typeof window.showPwaLogger === 'function') {
+		window.showPwaLogger(true);
+	} else {
+		alert('ログ画面は開発版でのみ利用できます。');
+	}
+}
+
 // ズーム操作の適用
 function applyZoom(scale) {
 	const newZoom = Math.max(0.5, Math.min(2.0, Math.round(scale * 20) / 20));
@@ -944,11 +1192,12 @@ function showAddTabMenu() {
 	dialog.style.right = '10px';
 	dialog.style.left = 'auto';
 
+	// 防除記録アイコン候補 ✍
 	dialog.innerHTML = `
 		<div class="menu-container">
 			<ul class="menu-list">
 				<li class="menu-item" onclick="addDynamicTab('防除記録', 'mob-pa-rec.html'); document.getElementById('${dialogId}').close();">
-					<div class="menu-item-name">✍ 防除記録</div>
+					<div class="menu-item-name">📝 防除記録</div>
 				</li>
 				<li class="menu-item" onclick="document.getElementById('localTabFileInput').click(); document.getElementById('${dialogId}').close();">
 					<div class="menu-item-name">📂 ローカルファイル</div>
