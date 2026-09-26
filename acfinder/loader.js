@@ -19,8 +19,6 @@ const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
 const isElectron = typeof window.electronAPI !== 'undefined';
 const isFileSystemAccessSupported = 'showOpenFilePicker' in window; // File System Access API サポート判定
-// （旧 isDesktopSecure() / isDesktop は削除。DT 版と Mobile 版の起動判定は index.html が
-//   画面の論理幅で行い、保存ボタンの出し分けは isFileSystemAccessSupported で行う）
 
 // 公開用の自動ログキャンセル
 if (!debug) {
