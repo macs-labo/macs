@@ -2324,7 +2324,7 @@ function updateYakuzaiCountTable() {
 
 	const yakuzaiData = new Map();
 	Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden')).forEach(row => {
-		const hoho = row.cells[10].textContent.includes('種子') ? '(種子処理)' : '' ;
+		const hoho = row.cells[10].textContent.includes('種子') ? '(種子処理)' : '';
 		const tsusho = row.cells[4].textContent + hoho;
 		const kaisu = row.cells[7].textContent;
 

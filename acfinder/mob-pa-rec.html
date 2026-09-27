@@ -1075,11 +1075,11 @@ async function setPlanRecord() {
 		let res = null;
 		if (crops.length > 0 && uniqueKeys) {
 			const sql = `
-				select yuko1 as seibun, sum(kaisu1) as seibunkaisu, d_concat('/', mid1, keito1, replace(rem1, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko1 IS NOT NULL group by seibun
-				UNION select yuko2 as seibun, sum(kaisu2) as seibunkaisu, d_concat('/', mid2, keito2, replace(rem2, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko2 IS NOT NULL group by seibun
-				UNION select yuko3 as seibun, sum(kaisu3) as seibunkaisu, d_concat('/', mid3, keito3, replace(rem3, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko3 IS NOT NULL group by seibun
-				UNION select yuko4 as seibun, sum(kaisu4) as seibunkaisu, d_concat('/', mid4, keito4, replace(rem4, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko4 IS NOT NULL group by seibun
-				UNION select yuko5 as seibun, sum(kaisu5) as seibunkaisu, d_concat('/', mid5, keito5, replace(rem5, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko5 IS NOT NULL group by seibun
+				select yuko1 as seibun, kaisu1 as seibunkaisu, hoho, d_concat('/', mid1, keito1, replace(rem1, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko1 IS NOT NULL GROUP BY tsusho
+				UNION select yuko2 as seibun, kaisu2 as seibunkaisu, hoho, d_concat('/', mid2, keito2, replace(rem2, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko2 IS NOT NULL GROUP BY tsusho
+				UNION select yuko3 as seibun, kaisu3 as seibunkaisu, hoho, d_concat('/', mid3, keito3, replace(rem3, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko3 IS NOT NULL GROUP BY tsusho
+				UNION select yuko4 as seibun, kaisu4 as seibunkaisu, hoho, d_concat('/', mid4, keito4, replace(rem4, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko4 IS NOT NULL GROUP BY tsusho
+				UNION select yuko5 as seibun, kaisu5 as seibunkaisu, hoho, d_concat('/', mid5, keito5, replace(rem5, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko5 IS NOT NULL GROUP BY tsusho
 			`;
 			console.log(sql);
 			res = db.exec(sql);
@@ -1092,7 +1092,8 @@ async function setPlanRecord() {
 		missingPlanIndexes = []; // 描画ごとに再計算
 		if (res?.[0]) {
 			res[0].values.forEach(row => {
-				const [seibun, seibunkaisu, rac, kaisu, tsusho] = row;
+				const [seibun, seibunkaisu, hoho, rac, kaisu, orgTsusho] = row;
+				const tsusho = orgTsusho + hoho.includes('種子') ? '(種子処理)' : '';
 				if (!tsushoLimit[tsusho]) tsushoLimit[tsusho] = kaisu;
 				if (!ingredientInfo[seibun]) {
 					ingredientInfo[seibun] = {
