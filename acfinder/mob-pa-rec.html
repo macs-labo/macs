@@ -1119,13 +1119,14 @@ async function setPlanRecord() {
 		if (showTiming) {
 			tableHeaders += `<th>防除時期</th>`;
 		}
-		tableHeaders += `<th>薬剤名</th>`;
+		tableHeaders += `<th>方法</th><th>薬剤名</th>`;
 
 		let html = `<h3>使用予定薬剤</h3><table class="std-data-table"><thead><tr>${tableHeaders}</tr></thead><tbody>`;
 		planList.forEach((chem, i) => {
 			const isFirst = i === 0;
 			const isLast = i === planList.length - 1;
 			const chemName = chem.yakuzai;
+			const hoho = chem.hoho;
 			let timingCell = '';
 			if (showTiming) { // This condition is already `planList.length > 0`
 				const periodStr = (chem.timingMonth && chem.timingPeriod) ? `${chem.timingMonth}月${chem.timingPeriod}` : '';
@@ -1155,6 +1156,7 @@ async function setPlanRecord() {
 				`<svg class="svg_button ${isLast ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'down')"><use href="icons.svg?v=3#arrow-down"></use></svg></div></td>` +
 				`<td class="center">${i+1}</td>` +
 				timingCell +
+				`<td>${hoho}</td>` +
 				`<td class="clickable" onclick="setPlanDetail('${chemName}')">${chemName}</td></tr>`;
 		});
 		html += '</tbody></table>';
