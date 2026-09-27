@@ -2261,13 +2261,15 @@ function updateSeibunCountTable() {
 			const mids = midCell.innerHTML.split('<br>').map(s => s.trim());
 
 			seibuns.forEach((seibun, index) => {
-				const currentData = seibunData.get(seibun) || { count: 0, seibunkaisu: '', mid: '', limit: 0 };
+				const currentData = seibunData.get(seibun) || { count: 0, seibunkaisu: '', mid: '', limit: -1 };
 				currentData.count += 1;
 				if (currentData.count === 1) {
 					currentData.mid = mids[index] || '';
-					currentData.limit = parseInt(currentData.seibunkaisu.match(/^\d+/)?.[0] || '0', 10);
-					const storedDatalimit = parseInt(seibunkaisus[index].match(/^\d+/)?.[0] || '0', 10);
-					if (currentData.limit >= storedDatalimit) currentData.seibunkaisu = seibunkaisus[index];
+					const newLimit = parseInt(seibunkaisus[index].match(/^\d+/)?.[0] || '0', 10);
+					if (newLimit > currentData.limit) {
+						currentData.seibunkaisu = seibunkaisus[index];
+						currentData.limit = newLimit;
+					}
 				}
 				seibunData.set(seibun, currentData);
 			});
