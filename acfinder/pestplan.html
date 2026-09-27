@@ -2264,9 +2264,9 @@ function updateSeibunCountTable() {
 				const currentData = seibunData.get(seibun) || { count: 0, seibunkaisu: '', mid: '', limit: 0 };
 				currentData.count += 1;
 				if (currentData.count === 1) {
-					currentData.seibunkaisu = seibunkaisus[index] || '';
 					currentData.mid = mids[index] || '';
 					currentData.limit = parseInt(currentData.seibunkaisu.match(/^\d+/)?.[0] || '0', 10);
+					if (currentData.limit >= seibunkaisus[index]) currentData.seibunkaisu = seibunkaisus[index];
 				}
 				seibunData.set(seibun, currentData);
 			});
