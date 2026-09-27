@@ -2327,8 +2327,9 @@ function updateYakuzaiCountTable() {
 		const kaisu = row.cells[7].textContent;
 
 		if (tsusho) {
-			const currentData = yakuzaiData.get(tsusho) || { count: 0, kaisu: kaisu };
+			const currentData = yakuzaiData.get(tsusho) || { count: 0, kaisu: 0 };
 			currentData.count += 1;
+			currentData.kaisu += kaisu;
 			yakuzaiData.set(tsusho, currentData);
 		}
 	});
