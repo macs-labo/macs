@@ -1093,7 +1093,8 @@ async function setPlanRecord() {
 		if (res?.[0]) {
 			res[0].values.forEach(row => {
 				const [seibun, seibunkaisu, hoho, rac, kaisu, orgTsusho] = row;
-				const tsusho = orgTsusho + hoho.includes('種子') ? '(種子処理)' : '';
+				const tsusho = orgTsusho + (hoho.includes('種子') ? '(種子処理)' : '');
+				console.log('tsusho: ', tsusho);
 				if (!tsushoLimit[tsusho]) tsushoLimit[tsusho] = kaisu;
 				if (!ingredientInfo[seibun]) {
 					ingredientInfo[seibun] = {
