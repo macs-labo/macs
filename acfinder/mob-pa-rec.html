@@ -1066,7 +1066,8 @@ async function setPlanRecord() {
 		const tsushoCounts = {};
 		planList.forEach(item => {
 			const getTsusho = (val) => (val && val.includes(' ')) ? val.split(' ').slice(1).join(' ') : val;
-			const tsusho = typeof item === 'string' ? getTsusho(item) : (item.yakuzai ? getTsusho(item.yakuzai) : item.meisho);
+			const orgTsusho = typeof item === 'string' ? getTsusho(item) : (item.yakuzai ? getTsusho(item.yakuzai) : item.meisho);
+			const tsusho = orgTsusho + (item.hoho.includes('種子') ? '(種子処理)' : '');
 			tsushoCounts[tsusho] = (tsushoCounts[tsusho] || 0) + 1; // Use tsusho for counting
 		});
 		const uniqueKeys = Object.keys(tsushoCounts).map(item => `'${item}'`).join(',');
@@ -1094,22 +1095,21 @@ async function setPlanRecord() {
 			res[0].values.forEach(row => {
 				const [seibun, seibunkaisu, hoho, rac, kaisu, orgTsusho] = row;
 				const tsusho = orgTsusho + (hoho.includes('種子') ? '(種子処理)' : '');
-				console.log('tsusho: ', tsusho);
 				if (!tsushoLimit[tsusho]) tsushoLimit[tsusho] = kaisu;
-				if (!ingredientInfo[seibun]) {
-					ingredientInfo[seibun] = {
-						count: 0,
-						limit: seibunkaisu || '-',
-						rac: rac || '-',
-					};
+				const currentData = ingredientInfo[seibun] || { count: 0, kaisu: seibunkaisu, rac: rac, limit: -1 };
+				const newLimit = parseInt(seibunkaisu.match(/^\d+/)?.[0] || '0', 10);
+				if (newLimit > currentData.limit) {
+					currentData.limit = newLimit;
+					currentData.kaisu = seibunkaisu;
 				}
-				ingredientInfo[seibun].count += tsushoCounts[tsusho];
+				currentData.count += tsushoCounts[tsusho];
+				ingredientInfo[seibun] = currentData;
 			});
 		}
 		const summary = Object.entries(ingredientInfo).map(([name, data]) => ({
 			name,
 			count: data.count,
-			limit: data.limit,
+			limit: data.kaisu,
 			rac: data.rac
 		})).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja'));
 
@@ -1119,14 +1119,13 @@ async function setPlanRecord() {
 		if (showTiming) {
 			tableHeaders += `<th>防除時期</th>`;
 		}
-		tableHeaders += `<th>方法</th><th>薬剤名</th>`;
+		tableHeaders += `<th>薬剤名</th>`;
 
 		let html = `<h3>使用予定薬剤</h3><table class="std-data-table"><thead><tr>${tableHeaders}</tr></thead><tbody>`;
 		planList.forEach((chem, i) => {
 			const isFirst = i === 0;
 			const isLast = i === planList.length - 1;
-			const chemName = chem.yakuzai;
-			const hoho = chem.hoho;
+			const chemName = chem.yakuzai + (chem.hoho.includes('種子') ? '(種子処理)' : '');
 			let timingCell = '';
 			if (showTiming) { // This condition is already `planList.length > 0`
 				const periodStr = (chem.timingMonth && chem.timingPeriod) ? `${chem.timingMonth}月${chem.timingPeriod}` : '';
@@ -1156,14 +1155,13 @@ async function setPlanRecord() {
 				`<svg class="svg_button ${isLast ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'down')"><use href="icons.svg?v=3#arrow-down"></use></svg></div></td>` +
 				`<td class="center">${i+1}</td>` +
 				timingCell +
-				`<td>${hoho}</td>` +
 				`<td class="clickable" onclick="setPlanDetail('${chemName}')">${chemName}</td></tr>`;
 		});
 		html += '</tbody></table>';
 
 		const yakuzaiCounts = {};
 		planList.forEach((chem) => {
-			const chemName = chem.yakuzai;
+			const chemName = chem.yakuzai + (chem.hoho.includes('種子') ? '(種子処理)' : '');
 			if (!chemName) return;
 			yakuzaiCounts[chemName] = (yakuzaiCounts[chemName] || 0) + 1;
 		});
