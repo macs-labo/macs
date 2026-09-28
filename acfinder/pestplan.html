@@ -2324,14 +2324,21 @@ function updateYakuzaiCountTable() {
 
 	const yakuzaiData = new Map();
 	Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden')).forEach(row => {
-		const hoho = row.cells[10].textContent.includes('種子') ? '(種子処理)' : '';
-		const tsusho = row.cells[4].textContent + hoho;
-		const kaisu = row.cells[7].textContent;
+		const tsusho = row.cells[4]?.textContent.trim() || '';
+		const jiki = row.cells[6]?.textContent.trim() || '';
+		const kaisu = row.cells[7]?.textContent.trim() || '';
 
 		if (tsusho) {
-			const currentData = yakuzaiData.get(tsusho) || { count: 0, kaisu: kaisu };
+			const key = JSON.stringify([tsusho, jiki, kaisu]);
+			const currentData = yakuzaiData.get(key) || {
+				tsusho: tsusho,
+				jiki: jiki,
+				kaisu: kaisu,
+				count: 0,
+				limit: parseInt(kaisu.match(/^\d+/)?.[0] || '0', 10)
+			};
 			currentData.count += 1;
-			yakuzaiData.set(tsusho, currentData);
+			yakuzaiData.set(key, currentData);
 		}
 	});
 
@@ -2340,19 +2347,23 @@ function updateYakuzaiCountTable() {
 		return;
 	}
 
-	const sortedData = Array.from(yakuzaiData.entries()).sort((a, b) => a[0].localeCompare(b[0], 'ja'));
+	const sortedData = Array.from(yakuzaiData.values()).sort((a, b) =>
+		a.tsusho.localeCompare(b.tsusho, 'ja') ||
+		a.jiki.localeCompare(b.jiki, 'ja') ||
+		a.limit - b.limit ||
+		a.kaisu.localeCompare(b.kaisu, 'ja')
+	);
 
-	const rowsHtml = sortedData.map(([tsusho, data]) => {
-		const limit = parseInt(data.kaisu.match(/^\d+/)?.[0] || '0', 10);
-		const countDisplay = (limit > 0 && data.count > limit) ? `<em>${data.count}</em>` : data.count;
-		return `<tr><td>${tsusho}</td><td>${countDisplay}</td><td>${data.kaisu}</td></tr>`;
+	const rowsHtml = sortedData.map(data => {
+		const countDisplay = (data.limit > 0 && data.count > data.limit) ? `<em>${data.count}</em>` : data.count;
+		return `<tr><td>${data.tsusho}</td><td>${data.jiki}</td><td>${countDisplay}</td><td>${data.kaisu}</td></tr>`;
 	}).join('');
 
 	container.innerHTML = `
 		<div class="handsontable-like">
 			<table id="yakuzaiCountTable">
 				<thead>
-					<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th></tr>
+					<tr><th>薬剤名</th><th>使用時期</th><th>使用回数</th><th>使用上限</th></tr>
 				</thead>
 				<tbody>${rowsHtml}</tbody>
 			</table>
