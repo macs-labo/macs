@@ -207,6 +207,17 @@ div.handsontable-like {
 	animation: blink 0.5s 6 forwards;
 }
 
+.handsontable-like td.judge {
+	text-align: left;
+	font-size: 0.9em;
+}
+
+/* 薬剤別使用回数の「使用方法」列は長文になりうるので折り返す */
+#yakuzaiCountTable td:nth-child(3) {
+	white-space: normal;
+	max-width: 24rem;
+}
+
 .handsontable-like .svg_button {
 	width: 24px;
 	height: 24px;
@@ -2240,15 +2251,773 @@ function deleteOldDataRows() {
 	updateRowNumbers();
 }
 
-// 成分の使用回数をカウントしてテーブルを更新する関数
-function updateSeibunCountTable() {
-	const planTableBody = document.querySelector('#planTable tbody');
-	const seibunContainer = document.getElementById('seibunContainer');
-	if (!planTableBody || !seibunContainer) {
-		if (seibunContainer) seibunContainer.clearContent();
-		return;
-	}
+// ==== 使用回数上限の超過判定 (成分別・内訳枠): 時期/方法/対象の3軸で規定文を解釈する ====
+/*
+ * 【全体像】
+ *  入力  : 計画表の使用行(1行 = 1回の使用。「使用回数」列の値は使わない)と、有効成分ごとの成分回数(seibunkaisu)の規定文
+ *  規定文: 「4回以内(は種時の土壌混和は1回以内、生育期の株元灌注は1回以内、散布は合計2回以内)」のように、
+ *          先頭が総量、括弧内が「使用時期・使用方法・対象(剤型など)ごとの内訳上限」
+ *  処理  : ①規定文を「枠(slot)」と「条件(atom)」に分解する(parseRule)
+ *          ②使用行を 時期(positions) / 方法(methods) / 対象(targets・form) に分解する(normalizeRow)
+ *          ③行と条件を 3値(yes/maybe/no)で照合し、行を1つの枠に割り当てる(assign)
+ *          ④枠ごとに使用回数を数え、上限超過を NG、確定できない使用を含めて超えるなら 要確認 とする(judge)
+ *  方針  : 解釈できないものを黙って OK にしない。確定した使用だけで超えたときだけ NG、それ以外の不明は 要確認。
+ *
+ *  【用語】
+ *   枠(slot)   : 「Xは合計N回以内」1つ分の上限。{ id, label, limit, overlay, parentAtoms }。
+ *                「合計」または条件が1つなら複数条件で1枠を共有、「合計」なしの列挙は条件ごとに別枠になる。
+ *   条件(atom) : 枠に属する1つの条件(例: 「は種時の土壌混和」)。時期・方法・対象のうち書かれた軸だけを持つ。
+ *   overlay    : 入れ子の括弧(内数)。親の条件と自分の条件の両方に当てはまる行を数える追加の枠。
+ *   位置(P)    : 作業時期を時間軸上の位置に置き換えた番号(下の P)。
+ *   3値照合    : yes=確実に該当 / maybe=該当するかもしれない(情報不足) / no=該当しない。
+ *                枠を1つに確定できた行だけを「確定」として数え、確定できない行は「可能性」として別に数える。
+ *
+ *  【公開】 UsageLimit.judge(items) だけ。ほかはすべてこの関数の内部用。
+ */
+const UsageLimit = (() => {
 
+// ============================================================ メモ化(計画表の更新ごとに再計算しない)
+const jikiCache = new Map();   // 使用時期の文字列 → parseJikiRaw の結果
+const ruleCache = new Map();   // 規定文(作物別規定は作物名も含む) → parseRuleRaw の結果
+const rowCache = new Map();    // 「時期・方法・液量・薬剤名・剤型」の組 → normalizeRowRaw の結果
+/** cache から key の値を返す。無ければ make() で作って保存する(結果は変更しない前提で共有する) */
+function memo(cache, key, make) {
+  let v = cache.get(key);
+  if (v === undefined) { v = make(); cache.set(key, v); }
+  return v;
+}
+/** 使用時期の文字列を解析する(メモ化)。戻り値は parseJikiRaw を参照 */
+const parseJiki = (t) => memo(jikiCache, String(t == null ? '' : t), () => parseJikiRaw(t));
+/**
+ * 規定文を解析する(メモ化)。t: 規定文、sakumotsu: 行の作物名。
+ * 作物別の規定(数字で始まらない文)だけが作物名で結果が変わるので、そのときだけキャッシュのキーに作物名を含める
+ */
+const parseRule = (t, sakumotsu) => {
+  const text = String(t == null ? '' : t);
+  const key = /^\s*\d/.test(text) ? text : text + '\u0000' + (sakumotsu || '');
+  return memo(ruleCache, key, () => parseRuleRaw(text, { sakumotsu }));
+};
+/** 使用行 r = { jiki, hoho, ekiryo, yakuzai, zaikei } を照合用の形に正規化する(メモ化)。戻り値は normalizeRowRaw を参照 */
+const normalizeRow = (r) => memo(rowCache, [r.jiki, r.hoho, r.ekiryo, r.yakuzai, r.zaikei].join('\u0001'), () => normalizeRowRaw(r));
+
+// ============================================================ 時期の語彙
+// 作業時期を1本の時間軸(年内の作業順)上の位置に置き換える。範囲(A～B)は両端の間の位置をすべて含めて扱う
+//   PRE  =0 作付前・耕起前・前作(土壌消毒など)   SOWB =1 は種前(浸種・催芽を含む)   SOW  =2 は種時・直播時
+//   RAISE=3 育苗期(は種後～移植前)               PLB  =4 移植・定植・植付の前       PL   =5 移植時・定植時(当日・同時)
+//   PLA  =6 移植・定植の直後                     GROW =7 生育期・本田・発生期など   HARV =8 収穫期
+//   AFTER=9 収穫後・剪定後(次作までの休閑期)
+const P = { PRE: 0, SOWB: 1, SOW: 2, RAISE: 3, PLB: 4, PL: 5, PLA: 6, GROW: 7, HARV: 8, AFTER: 9 };
+const P_MAX = 9;   // 位置の最大値(AFTER)
+/** a から b までの整数配列(両端を含む)。範囲の間を埋めるのに使う */
+const range = (a, b) => { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; };
+
+/** 文字列の正規化: 全角→半角(NFKC)、波ダッシュ類(~〜～)を「~」に統一、空白を除去。比較・解析の前に必ず通す */
+function norm(s) {
+  return String(s == null ? '' : s).normalize('NFKC').replace(/[~〜～]/g, '~').replace(/\s+/g, '');
+}
+
+/** 時期の比較キー: 括弧書き・但し書き・語尾(まで/までの処理)を除いた文字列。行の時期と規定文の枠条件が同じ表現かの判定に使う */
+function timeKeyOf(t) {
+  return norm(t).replace(/\([^)]*\)/g, '').replace(/^[^:、~]{1,12}:/, '').replace(/(但し|ただし|但).*$/, '').replace(/までの処理$|まで$|の処理$|処理$/, '');
+}
+
+/**
+ * 1つの語(「移植3日前」「定植直後」等)を 作業基準 + 相対位置 に分解する。戻り値 { term, anchor, rel, lit }
+ *   anchor: 基準となる作業。'PLANT'(移植・定植・植付) / 'SOW'(は種) / 'RAISE'(育苗) / 'AFTER'(収穫後・剪定後) /
+ *           'PRE'(作付前・耕起) / 'GROW'(生育期・発生期などの生育の語) / null(基準なし)
+ *   rel   : 基準に対する相対位置。'before'(前) / 'at'(時・当日・同時) / 'just_after'(直後) / 'after'(後) / 'during'(期間中) / null
+ *   lit   : 位置に置けない季節・月の語(休眠期・夏・6月・融雪後 など)をそのままの文字列で保持する。これは文字列の一致で照合する
+ * 上から順に最初に当たった分類を採用する(順序が意味を持つ。例: 「育苗トレイ」は時期でなく対象なので育苗の分類から除外している)
+ */
+function scanTerm(t) {
+  let anchor = null;   // 基準となる作業(上記)
+  let lit = null;      // 位置に置けない語(季節・月)
+  let rel = null;      // 基準との前後関係(上記)
+  if (/移植|定植|植付|植え付け|田植|植栽/.test(t)) anchor = 'PLANT';
+  else if (/浸種|催芽/.test(t)) { anchor = 'SOW'; rel = 'before'; }
+  else if (/は種|播種|直播|種まき/.test(t)) anchor = 'SOW';
+  else if (/育苗(?!箱|トレイ|ポット|培土)/.test(t)) anchor = 'RAISE';   // 「育苗トレイ」は時期ではなく対象
+  else if (/(収穫|摘採|剪定|刈取)(直|終了|約\d+[カケヶ]?月)?後/.test(t)) anchor = 'AFTER';
+  else if (/作付|耕起|前作|地ごしらえ|整地|残渣|土壌消毒/.test(t)) anchor = 'PRE';
+  else if (/休眠|根雪|夏期|冬期|秋期|春期|積雪|落葉|萌芽前|夏|冬/.test(t)) lit = (t.match(/休眠期?|根雪前?|夏期?|冬期?|秋期?|春期?|積雪期?|落葉期?|萌芽前|夏|冬/) || [t])[0];
+  else if (/発芽前|出芽前|緑化|鉢上げ|苗床/.test(t)) { anchor = 'RAISE'; rel = 'during'; }
+  else if (/植代|しろかき|代かき/.test(t)) { anchor = 'PLANT'; rel = 'before'; }   // 植代 = 移植の少し前
+  else if (/融雪後/.test(t)) lit = '融雪後';
+  else if (/\d+月/.test(t)) lit = t.match(/\d+月/)[0];
+  else if (/本田|本圃|生育|発生|発病|雑草|萌芽|葉期|出穂|穂|幼虫|成虫|着色|結実|展葉|伸長|培土|出蕾|成熟|新梢|開花|満開|発芽|抽苔|果実|肥大|落花|株元|収穫期|収穫始|収穫直前|果|苗立|病斑|若齢|初期|終期|盛期|始期|期/.test(t)) anchor = 'GROW';
+  if (rel == null) {
+    if (/直後/.test(t)) rel = 'just_after';
+    else if (/後/.test(t)) rel = 'after';
+    else if (/前/.test(t)) rel = 'before';
+    else if (/当日|同時|時/.test(t)) rel = 'at';
+  }
+  return { term: t, anchor, rel, lit };
+}
+
+/**
+ * 行(使用時期)側: scanTerm の結果が指す位置の集合(P の値の配列)を返す。行は「実際にいつ使ったか」なので点に近い。
+ * 例: 「移植前」→[PLB]、「移植後」→[PLA, GROW]、「は種後」→[RAISE]、「定植時」→[PL]
+ */
+function rowPositions(sc) {
+  const a = sc.anchor;   // 基準の作業
+  if (a === 'PLANT') return sc.rel === 'before' ? [P.PLB] : sc.rel === 'after' ? [P.PLA, P.GROW] : sc.rel === 'just_after' ? [P.PLA] : [P.PL];
+  if (a === 'SOW') return sc.rel === 'before' ? [P.SOWB] : sc.rel === 'just_after' || sc.rel === 'after' ? [P.RAISE] : [P.SOW];
+  if (a === 'RAISE') return [P.RAISE];
+  if (a === 'PRE') return [P.PRE];
+  if (a === 'AFTER') return [P.AFTER];
+  if (a === 'GROW') return [P.GROW];
+  return [];
+}
+
+/**
+ * 規定文(atom)側: 「までの処理」「〜後」「〜前」の意味を区間に展開した位置の配列を返す。規定は「その時期の使用すべて」を指すので区間になる。
+ * upto: 「定植時までの処理」のように「まで」で終わる条件(=その時点までの全期間)のとき true
+ * 例: 「定植時までの処理」→ PRE～PL、「定植後」→ PLA～AFTERの手前、「本田」→ PLA～AFTERの手前
+ */
+function atomPositions(sc, upto) {
+  const a = sc.anchor;   // 基準の作業
+  // 以降の at/bef/aft は、基準が定植か は種かで決まる「その時・その前・その直後」の位置
+  if (!a) return [];
+  if (a === 'GROW') return /本田|本圃/.test(sc.term) ? range(P.PLA, P_MAX - 1) : [P.PLA, P.GROW, P.HARV];
+  if (a === 'AFTER') return [P.AFTER];
+  if (a === 'PRE') return sc.rel === 'before' || upto ? range(P.PRE, P.PRE) : [P.PRE];
+  if (a === 'RAISE') return [P.RAISE];
+  const at = a === 'PLANT' ? P.PL : P.SOW;
+  const bef = a === 'PLANT' ? P.PLB : P.SOWB;
+  const aft = a === 'PLANT' ? P.PLA : P.RAISE;
+  if (upto) return range(P.PRE, at);
+  if (sc.rel === 'before') return range(P.PRE, bef);
+  if (sc.rel === 'just_after') return [aft];
+  if (sc.rel === 'after') return range(aft, P_MAX - 1);
+  return [at];
+}
+
+/** 「は種又は定植21日前まで」のように、後ろの語だけが持つ相対位置(前・後など)を、相対位置を持たない前の語に引き継ぐ。scans を直接書き換える */
+function inheritRel(scans) {
+  for (let i = scans.length - 2; i >= 0; i--) {
+    if (scans[i].anchor && scans[i].rel == null && scans[i + 1].rel != null) scans[i].rel = scans[i + 1].rel;
+  }
+}
+
+const LIST_SEP = /又は|または|もしくは|及び|並びに|かつ|、|,/;   // 語の列挙の区切り(時期・方法・条件の列挙で共通)
+// 「収穫前日まで」「14日前まで」のように、時期語を含まず収穫前日数(PHI)だけを表す文字列
+const PHI_ONLY = /^(?:収穫|摘採|出荷|摘心)?(?:\d+日)?前(?:日)?まで$/;
+
+/**
+ * 使用時期文字列 → { positions, literals, phi, empty, implied, unresolved }
+ *   phi: 収穫前日数(「収穫前日まで」=1)。時期語ではない
+ *   implied: 時期語が無く収穫前日数だけ → 圃場に作物がある期間とみなす
+ */
+function parseJikiRaw(text) {
+  // res: 戻り値。timeKey=比較キー、phi=収穫前日数、positions=時間軸上の位置(P)の集合、literals=季節・月の語の集合、
+  //      empty=時期の記載なし、implied=収穫前日数だけなので「作物が圃場にある期間」とみなした、unresolved=解釈できなかった語
+  const res = { raw: String(text == null ? '' : text), timeKey: timeKeyOf(text), phi: null, positions: new Set(), literals: new Set(), empty: false, implied: false, unresolved: [] };
+  const s = norm(text);   // 正規化した時期文字列
+  if (s === '' || s === '-') { res.empty = true; return res; }
+
+  const m = s.match(/(?:収穫開始|収穫|摘採|出荷|摘心)(?:(\d+)日)?前(日)?まで/);
+  if (m) res.phi = m[1] ? Number(m[1]) : 1;
+
+  // main: 括弧書き・「1回目:」のような見出し・但し書き(収穫前日数など)を除いた、時期語だけの文字列
+  let main = s.replace(/\([^)]*\)/g, '').replace(/^[^:、~]{1,12}:/, '').replace(/(但し|ただし|但).*$/, '');
+  // 範囲の終点に付く「収穫N日前まで」は時期語ではないので取り除く(phiとして保持済み)
+  main = main.replace(/(?:~|から)?(?:[^、~]*?の)?(?:収穫開始|収穫|摘採|出荷|摘心)(?:\d+日)?前(?:日)?まで/g, '');
+  if (main === '' || PHI_ONLY.test(main)) {
+    if (res.phi != null) {
+      res.implied = true;
+      [P.PLA, P.GROW, P.HARV].forEach((p) => res.positions.add(p));
+    } else res.empty = true;
+    return res;
+  }
+
+  parsePeriod(main, res);
+  return res;
+}
+
+/**
+ * 時期の文字列(「A～B」「AからB」「A又はB」)を positions/literals/unresolved に解釈して res に足す。
+ * 使用行の時期と、規定文の内訳条件(「収穫終了後～落葉期までは3回以内」など)で同じ関数を使い、
+ * 同じ文字列なら必ず同じ結果になるようにする。
+ */
+function parsePeriod(main, res) {
+  // parts: 「~」「から」で分けた範囲の各端(1つなら範囲ではない)。partScans: 各端を「又は・及び」でさらに分けた語の scanTerm 結果
+  const parts = main.split(/(?<!\d)~|~(?!\d)|から/).filter(Boolean);
+  const partScans = parts.map((part) => {
+    const scans = part.split(LIST_SEP).filter(Boolean).map(scanTerm);
+    inheritRel(scans);
+    return scans;
+  });
+  // 「移植3日前～当日」の「当日」のように基準語を持たない終点は、もう一方の基準語を借りる
+  const anchors = partScans.flat().filter((sc) => sc.anchor);
+  if (anchors.length) {
+    partScans.flat().forEach((sc) => {
+      if (!sc.anchor && !sc.lit && (sc.rel === 'at' || sc.rel === 'after' || sc.rel === 'before')) sc.anchor = anchors[0].anchor;
+    });
+  }
+  const partPos = [];   // 各端が指す位置の集合(範囲の端どうしの前後関係を見るため、端ごとに保持する)
+  partScans.forEach((scans) => {
+    const pos = new Set();
+    scans.forEach((sc) => {
+      const ps = rowPositions(sc);
+      if (ps.length) ps.forEach((p) => pos.add(p));
+      else if (sc.lit) res.literals.add(sc.lit);
+      else res.unresolved.push(sc.term);
+    });
+    partPos.push(pos);
+  });
+  const all = new Set();   // 全端の位置の和集合(範囲でないときはこれがそのまま結果、範囲のときは最小～最大の間を埋める)
+  partPos.forEach((ps) => ps.forEach((p) => all.add(p)));
+  if (parts.length >= 2 && partPos.every((ps) => ps.size > 0)) {
+    const first = partPos[0];
+    const last = partPos[partPos.length - 1];
+    if (Math.max(...first) > Math.min(...last)) {
+      // 終点が始点より前の位置 = 年をまたぐ期間(収穫終了後から萌芽まで 等)。生育期などは含めず、始点側だけを使う
+      first.forEach((p) => res.positions.add(p));
+    } else {
+      range(Math.min(...all), Math.max(...all)).forEach((p) => res.positions.add(p));   // 範囲は間を埋める
+    }
+  } else all.forEach((p) => res.positions.add(p));
+  return res;
+}
+
+// ============================================================ 方法・対象の語彙
+// 方法は「種類/細分」の階層で持つ。規定の「散布」(親)は、行の「株元散布」(SPRAY/BASE)を含むが、逆は「かもしれない」(maybe)になる。
+//   SPRAY 散布(/AERIAL 無人航空機・空中, /FLOOD 湛水, /BASE 株元, /FOLIAGE 茎葉・葉面)   DRENCH 灌注(/BASE 株元, /SOIL 土壌)
+//   MIX 混和(/SOIL 土壌混和)   SIDE 側条施用   COAT 塗布   SEEDTREAT 種子処理(粉衣・浸漬)   TRUNK 樹幹   FUME くん煙・くん蒸
+//   JET 噴射   THROW 投げ入れ・滴下   INJECT 注入   STOCK 株処理   ROWTREAT 畦間処理
+const METHODS = [
+  ['SPRAY/AERIAL', /無人航空機|無人ヘリ|空中散布|航空散布|ドローン/],
+  ['SPRAY/FLOOD', /湛水散布|湛水周縁散布|落水散布|原液湛水/],
+  ['SPRAY/BASE', /株元散布/],
+  ['SPRAY/FOLIAGE', /茎葉散布|葉面散布/],
+  ['DRENCH/BASE', /株元灌注|株元かん注/],
+  ['DRENCH/SOIL', /土壌灌注|土壌かん注/],
+  ['MIX/SOIL', /土壌混和|全面混和|作条混和/],
+  ['SIDE', /側条施用|側条/],
+  ['COAT', /塗布|塗沫|塗抹/],
+  ['SEEDTREAT', /粉衣|浸漬|種子処理/],
+  ['TRUNK', /樹幹/],
+  ['FUME', /くん煙|くん蒸|煙霧/],
+  ['JET', /噴射/],
+  ['THROW', /投げ入れ|投入|滴下/],
+  ['INJECT', /注入/],
+  ['STOCK', /株処理|株元処理/],
+  ['ROWTREAT', /畦間処理|畦間/],
+];
+// 細分が特定できないときの汎用の方法(「散布」とだけ書かれた行など)。細分が見つかった場合は重ねて付けない
+const GENERIC = [['SPRAY', /散布/], ['DRENCH', /灌注|かん注|灌水/], ['MIX', /混和/]];
+// 「樹幹散布」「種子粉衣」のように対象が方法を決める語は、汎用の散布/灌注を重ねない
+const EXCLUSIVE = ['TRUNK', 'SEEDTREAT', 'COAT', 'FUME', 'JET', 'THROW', 'INJECT', 'STOCK', 'ROWTREAT', 'SIDE'];
+
+/** 文字列 t に含まれる方法の集合(METHODS のキー / 汎用キー)を返す。行の使用方法にも規定文の条件にも使う */
+function scanMethods(t) {
+  const set = new Set();   // 見つかった方法
+  METHODS.forEach(([k, re]) => { if (re.test(t)) set.add(k); });
+  // 「培土に均一に混和する」「床土に混和」など、土(培土・床土・覆土・土壌)へ混ぜる記述は土壌混和とみなす。
+  // 散布や灌注などを併記している場合(「散布して土壌と混和」)は別の方法が主なので、ここでは決めない
+  if (/混和/.test(t) && /土/.test(t) && !/散布|灌注|かん注|灌水|くん蒸|噴射/.test(t) && ![...set].some((x) => x.startsWith('MIX'))) set.add('MIX/SOIL');
+  const exclusive = EXCLUSIVE.some((k) => set.has(k));
+  GENERIC.forEach(([k, re]) => {
+    if (!exclusive && re.test(t) && ![...set].some((x) => x === k || x.startsWith(k + '/'))) set.add(k);
+  });
+  return set;
+}
+
+// 処理の対象。NURSERY=育苗箱・トレイ・ポット  BED=床土・覆土  SEED=種子・種いも・球根  FIELD=圃場・本圃
+//   これに加えて、剤型は 'FORM:粒剤' のように scanTargets が動的に追加する(剤型別の規定用)
+const TARGETS = [
+  ['NURSERY', /育苗箱|育苗トレイ|セルトレイ|セル成型|ペーパーポット|育苗ポット|苗床/],
+  ['BED', /床土|覆土/],
+  ['SEED', /種子|種もみ|種籾|種いも|種イモ|種芋|種球|球根|浸種/],
+  ['FIELD', /圃場|ほ場|本圃/],
+];
+// 剤型として認識する語。規定文中の剤型の検出と、辞書の zaikei が剤型を表す語かの判定(その他・農薬肥料などを除く)に使う
+const FORMS = /粒剤|粉剤|乳剤|水和剤|水溶剤|エアゾル剤|くん煙剤|フロアブル|顆粒|液剤|ゾル|油剤|マイクロカプセル|ジャンボ|パック/;
+
+/** 文字列 t に含まれる対象('NURSERY' など)と剤型('FORM:粒剤' など)の集合を返す */
+function scanTargets(t) {
+  const set = new Set();   // 見つかった対象・剤型
+  TARGETS.forEach(([k, re]) => { if (re.test(t)) set.add(k); });
+  const f = t.match(FORMS);
+  if (f) set.add('FORM:' + f[0]);
+  return set;
+}
+
+// ============================================================ 規定文のパース
+function normalizeParen(s) { return norm(s); }   // (旧名。現在は norm と同じ)
+
+/**
+ * 節の条件部(「は種時の土壌混和、定植時の株元散布」など)を、列挙ごとの atom の配列にする。
+ * atom = { raw, timeKey, timeOnly, positions, literals, methods, targets, parsed, specificity, fieldStart }
+ *   positions/literals : 時期の条件(位置の集合 / 季節・月の語の集合)。どちらも空なら時期の指定なし
+ *   methods / targets  : 方法の条件 / 対象・剤型の条件。空なら指定なし
+ *   timeKey            : 時期表現の比較キー(行の時期と同じ表現かの判定用)。timeOnly: 時期だけの条件(方法・対象の指定なし)
+ *   specificity        : 指定された軸の数(時期1+方法1+対象の数)。複数の枠に当てはまるときは大きいほうを優先する
+ *   parsed             : 何か1つでも解釈できたか(false なら「条件を解釈できません」の警告)
+ *   fieldStart         : 「本田・本圃」を含む条件か(田植同時の行を優先的にここへ割り当てるため)
+ */
+function parseAtomList(cond) {
+  const items = cond.split(LIST_SEP).filter(Boolean);   // 列挙を分けた各条件の文字列
+  const scans = items.map((it) => scanTerm(it.replace(/までの処理$|まで$|の処理$|処理$/, '')));
+  inheritRel(scans);
+  return items.map((it, i) => {
+    const upto = /(時|期|前)までの?処理?$|までの処理$/.test(it) && !/から/.test(it);
+    const sc = scans[i];
+    let positions = new Set(atomPositions(sc, upto));
+    let literals = new Set(sc.lit ? [sc.lit] : []);
+    const cleaned = it.replace(/\([^)]*\)/g, '').replace(/までの処理$|まで$|の処理$|処理$/, '');
+    if (/(?<!\d)~|~(?!\d)|から/.test(cleaned)) {          // 「収穫終了後～落葉期」など: 使用行の時期と同じ解釈にする
+      const pp = parsePeriod(cleaned, { positions: new Set(), literals: new Set(), unresolved: [] });
+      if (pp.positions.size || pp.literals.size) { positions = pp.positions; literals = pp.literals; }
+    }
+    const methods = scanMethods(it);
+    const targets = scanTargets(it);
+    // 「育苗期」等の時期語に含まれる「育苗」を対象(育苗箱)としては数えない
+    const parsed = positions.size > 0 || literals.size > 0 || methods.size > 0 || targets.size > 0;
+    const dims = (positions.size || literals.size ? 1 : 0) + (methods.size ? 1 : 0) + (targets.size ? targets.size : 0);
+    return { raw: it, timeKey: (positions.size || literals.size) ? timeKeyOf(it) : '', timeOnly: methods.size === 0 && targets.size === 0, positions, literals, methods, targets, parsed, specificity: dims, fieldStart: /本田|本圃/.test(it) };
+  });
+}
+
+/**
+ * 括弧の対応を見て、括弧の外(depth 0)の区切り文字だけで分割する。
+ *   isSep(ch): その文字が区切り候補か / cut(buf): それまでに溜めた文字列 buf で区切ってよいか(「回以内」で終わっているときだけ区切る等)
+ */
+function splitTop(str, isSep, cut) {
+  const out = [];   // 分割結果
+  let depth = 0;    // 現在の括弧の深さ
+  let buf = '';     // 区切りを待って溜めている文字列
+  for (const ch of str) {
+    if (ch === '(') depth++;
+    if (ch === ')') depth--;
+    if (depth === 0 && isSep(ch) && cut(buf)) { out.push(buf); buf = ''; continue; }
+    buf += ch;
+  }
+  if (buf) out.push(buf);
+  return out;
+}
+/** 文字列 b が回数の上限で終わっているか(「…は1回以内」「…は1回以内(内訳)」)。節の区切りの「、」と条件の列挙の「、」を見分けるのに使う */
+const endsWithLimit = (b) => /\d回(以内)?$/.test(b) || (/\)$/.test(b) && /回/.test(b));
+
+/**
+ * 作物別の規定「A、Bは4回以内(…)、上記以外のCは1回」を作物の節ごとに分ける。
+ * 戻り値: [{ crops(作物名の記述), names(作物名の配列), total(総量), inner(括弧内の内訳。無ければ null) }]
+ */
+function parseCropSegments(s) {
+  const segs = [];   // 作物ごとの節
+  let pos = 0;       // 次に読む位置
+  while (pos < s.length) {
+    let depth = 0;
+    let idx = -1;
+    let m = null;
+    for (let k = pos; k < s.length; k++) {
+      const ch = s[k];
+      if (ch === '(') depth++;
+      else if (ch === ')') depth--;
+      else if (depth === 0 && ch === 'は') {
+        const mm = /^は(\d+)回(以内)?/.exec(s.slice(k));
+        if (mm) { idx = k; m = mm; break; }
+      }
+    }
+    if (idx < 0) break;
+    const crops = s.slice(pos, idx);
+    let end = idx + m[0].length;
+    let inner = null;
+    if (s[end] === '(') {
+      let d = 0;
+      let k = end;
+      for (; k < s.length; k++) {
+        if (s[k] === '(') d++;
+        else if (s[k] === ')') { d--; if (d === 0) break; }
+      }
+      inner = s.slice(end + 1, k);
+      end = k + 1;
+    }
+    segs.push({ crops, names: crops.split(/、|及び|又は/).filter(Boolean), total: Number(m[1]), inner });
+    pos = end + (/^[、,]/.test(s.slice(end)) ? 1 : 0);
+  }
+  return segs;
+}
+
+/** 作物名 sakumotsu に該当する節を選ぶ。無ければ「その他・上記以外」の節、それも無ければ null */
+function pickCropSegment(segs, sakumotsu) {
+  const sak = norm(sakumotsu);
+  const isOther = (seg) => /その他|上記以外|以外/.test(seg.crops);
+  let hit = null;
+  if (sak) {
+    hit = segs.find((g) => !isOther(g) && g.names.some((n) => n.replace(/\(.*\)/, '') === sak || (sak.length >= 2 && (n.includes(sak) || sak.includes(n.replace(/\(.*\)/, ''))))));
+  }
+  return hit || segs.find(isOther) || null;
+}
+
+/**
+ * 括弧の内側の節列(「AはN回以内、BはM回以内」)を slot/atom にして rule に追加する。
+ *   inner : 括弧の内側の文字列    rule: 追加先(rule.slots / rule.atoms / rule.warnings)
+ *   prefix: 枠の id の接頭辞('S' → S1, S2, ... / 入れ子は 'S1.' → S1.1)
+ *   parent: 入れ子のとき { atoms: 親の条件 }。あれば追加する枠は overlay(内数)になる
+ * 「合計」付き、または条件が1つ → 1枠を共有。「合計」なしの列挙 → 条件ごとに別枠(id は S2-1, S2-2 …)
+ * 「但し当該処理をする場合には…」のような条件付きの節は評価せず、警告(=要確認)にする
+ */
+function parseClauses(inner, rule, prefix, parent) {
+  let prevAtoms = null;   // 直前の節の条件(「但し」で始まる節を、その内数として扱うため)
+  splitTop(inner, (c) => c === '、' || c === ',', endsWithLimit).forEach((clause, ci) => {
+    const id0 = prefix + (ci + 1);   // この節の枠 id
+    // 入れ子の括弧を分離: head=「条件と上限」の部分、child=入れ子の括弧の中身
+    let head = clause;
+    let child = null;
+    const p = clause.indexOf('(');
+    if (p >= 0 && clause.endsWith(')')) { head = clause.slice(0, p); child = clause.slice(p + 1, -1); }
+    let cond = null;      // 条件部の文字列
+    let limit = null;     // この節の上限回数
+    let shared = false;   // 「合計」付きか(複数条件で1枠を共有)
+    let m = head.match(/^(.+)は(合計)?(\d+)回(?:以内)?$/) || head.match(/^(.+?)(合計)?(\d+)回(?:以内)?$/);
+    if (!m) { rule.warnings.push('規定の節を解釈できません: ' + clause); return; }
+    cond = m[1]; shared = !!m[2]; limit = Number(m[3]);
+    let conditional = false;   // 「但し…」で始まる条件付きの節か
+    if (/^但し/.test(cond)) { cond = cond.replace(/^但し[、,]?(当該処理をする場合には)?/, ''); conditional = true; }
+    if (/場合/.test(cond)) {
+      rule.warnings.push('条件付きの規定は評価していません: ' + clause);
+      return;
+    }
+    const atoms = /^\d+年間に?$/.test(cond)
+      ? [{ raw: cond, positions: new Set(), literals: new Set(), methods: new Set(), targets: new Set(), parsed: true, specificity: 0 }]
+      : parseAtomList(cond);
+    atoms.forEach((a) => { if (!a.parsed) rule.warnings.push('条件を解釈できません: ' + a.raw); });
+    let par = parent;   // この節を overlay にする場合の親(入れ子、または「但し」の節の直前の節)
+    if (conditional && !/当該処理/.test(clause) && prevAtoms) par = { atoms: prevAtoms };       // 直前の節の内数
+    else if (conditional && /当該処理/.test(clause)) rule.warnings.push('「当該処理をする場合」の条件付き節は通常の枠として扱っています: ' + clause);
+
+    // 枠を1つ作り、その条件(atomsOf)を rule.atoms に slotId 付きで登録する
+    const mk = (id, label, atomsOf) => {
+      const slot = { id, label, limit, overlay: !!par };
+      if (par) slot.parentAtoms = par.atoms;
+      rule.slots.push(slot);
+      atomsOf.forEach((a) => rule.atoms.push({ ...a, slotId: id, overlay: !!par }));
+      return slot;
+    };
+    let lastSlot;   // 最後に作った枠(現在は参照していない)
+    if (shared || atoms.length === 1) lastSlot = mk(id0, cond, atoms);
+    else atoms.forEach((a, k) => { lastSlot = mk(`${id0}-${k + 1}`, a.raw, [a]); });
+    if (!par || par === parent) prevAtoms = atoms;
+    if (child) {
+      const stripped = child.replace(/^但し[、,]?/, '');
+      parseClauses(stripped, rule, id0 + '.', { atoms });
+    }
+  });
+}
+
+/**
+ * 規定文を解析する。text: 規定文、opts.sakumotsu: 作物別規定の選択に使う作物名。
+ * 戻り値 rule = { raw, total(総量の上限), slots[], atoms[], warnings[](解釈できなかった部分。あれば 要確認), crop(採用した作物の節) }
+ * 括弧が無い規定は slots が空(=総量のみで、内訳の判定対象なし)
+ */
+function parseRuleRaw(text, opts = {}) {
+  let s = norm(text);   // 正規化した規定文(作物別規定のときは選んだ節を「N回以内(…)」の形に直したもの)
+  const rule = { raw: String(text == null ? '' : text), total: null, slots: [], atoms: [], warnings: [], crop: null };
+
+  if (s && !/^\d/.test(s)) {                       // 作物別の規定
+    const segs = parseCropSegments(s);
+    const seg = segs.length ? pickCropSegment(segs, opts.sakumotsu) : null;
+    if (!seg) { rule.warnings.push('作物別の規定を解釈できません: ' + rule.raw.slice(0, 40)); return rule; }
+    rule.crop = seg.crops;
+    if (!opts.sakumotsu || !seg.names.some((n) => n.includes(norm(opts.sakumotsu)))) {
+      if (/その他|上記以外|以外/.test(seg.crops)) rule.warnings.push('作物名に一致せず「' + seg.crops + '」の規定を採用しました');
+    }
+    s = seg.total + '回以内' + (seg.inner ? '(' + seg.inner + ')' : '');
+  }
+
+  const t = s.match(/^(\d+)回(?:以内)?/);   // 先頭の総量
+  if (t) rule.total = Number(t[1]);
+  else rule.warnings.push('総使用回数を読み取れません: ' + text);
+
+  const i = s.indexOf('(');       // 内訳の括弧の開始
+  const j = s.lastIndexOf(')');   // 内訳の括弧の終了(入れ子があるので最後の閉じ括弧)
+  if (i < 0 || j < i) return rule;
+  parseClauses(s.slice(i + 1, j), rule, 'S', null);
+  return rule;
+}
+
+// ============================================================ 行の解釈と照合
+// 3値の大小(no < maybe < yes)。worst=AND(全部の軸が合って初めて yes)、best=OR(どれか1つ合えば良い)
+const RANK = { no: 0, maybe: 1, yes: 2 };
+const worst = (a, b) => (RANK[a] <= RANK[b] ? a : b);
+const best = (a, b) => (RANK[a] >= RANK[b] ? a : b);
+
+/**
+ * 使用行 r = { jiki, hoho, ekiryo, yakuzai(or meisho), zaikei } を照合用に正規化する。
+ * 戻り値: { jiki(解析済み時期), methods(方法の集合), targets(対象の集合), form(剤型または薬剤名), hoho, fieldSimul(田植同時か) }
+ * 業務ルール(ここで行の解釈を補正する):
+ *   田植同時(側条施用の田植え時・移植時を含む)は本田の処理、育苗箱への散布は移植前の処理として扱う
+ */
+function normalizeRowRaw(r) {
+  const jiki = parseJiki(r.jiki);   // 解析済みの使用時期
+  const hoho = norm(r.hoho);        // 使用方法(正規化)
+  const ekiryo = norm(r.ekiryo);    // 使用液量(「箱あたり」等、対象を示すことがある)
+  const jt = norm(r.jiki);          // 使用時期(正規化した生の文字列)
+  const methods = scanMethods(hoho);   // 行の方法
+  const targets = new Set();           // 行の対象(剤型は別に form で持つ)
+  scanTargets(hoho + ekiryo).forEach((x) => { if (!x.startsWith('FORM:')) targets.add(x); });
+  if (/種|浸種/.test(jt) && /種子|浸種/.test(jt)) targets.add('SEED');
+  // 剤型別の規定(「粒剤は1回以内、水和剤は4回以内」など)の判定には、辞書の剤型(zaikei)を使う。
+  // zaikei が無い・「その他」「農薬肥料」など規定文に出てくる剤型名でないときだけ、薬剤名から推定する
+  const zk0 = norm(r.zaikei).replace(/^エアゾル$/, 'エアゾル剤');   // 辞書の剤型(表記ゆれを補正)
+  const zk = FORMS.test(zk0) ? zk0 : '';                              // 剤型を表す語のときだけ採用
+  const form = zk || norm(r.yakuzai || r.meisho || '');               // 剤型の照合に使う文字列(剤型が使えなければ薬剤名)
+  // 田植同時の施用(田植同時散布機など)は、移植と同時でも本田への処理として判定する
+  // 使用時期が「田植え時」「移植時」の側条施用(田植えと同時に側条へ施用)も同様に扱う。は種時・直播時の側条施用は対象外
+  const fieldSimul = /(田植|移植)(え)?同時/.test(hoho) || (/側条/.test(hoho) && /田植|移植/.test(jt));
+  // 育苗箱への散布は、移植前の処理として判定する(使用時期が「移植当日」までの範囲でも、移植後は含めない)
+  let jikiRow = jiki;   // 照合に使う時期(育苗箱散布のときだけ複製して補正する)
+  // 育苗箱と本田の両方の処理が1行に書かれている登録は、移植前だけとは言えないのでこの扱いにしない
+  const nurserySpray = targets.has('NURSERY') && /散布/.test(hoho) && !/本田|本圃/.test(jt + hoho);
+  if (nurserySpray && jiki.positions.size) {
+    const pre = new Set([...jiki.positions].filter((p) => p <= P.PLB));
+    jikiRow = Object.assign({}, jiki, { positions: pre.size ? pre : new Set([P.PLB]) });   // jiki はキャッシュ共有なので複製する
+  }
+  return { jiki: jikiRow, methods, targets, form, hoho, fieldSimul };
+}
+
+/**
+ * 時期の照合(3値)。atom に時期の指定が無ければ yes。行の時期が不明なら maybe。
+ * 行の位置・語のうち atom に含まれる割合が全部なら yes、一部なら maybe(例: 「移植前～移植当日」の行は「移植前」の枠に一部だけ重なる)、無ければ no。
+ */
+function matchTime(atom, row) {
+  if (atom.positions.size === 0 && atom.literals.size === 0) return 'yes';
+  const j = row.jiki;   // 行の解析済み時期
+  if (row.fieldSimul && atom.fieldStart && j.positions.has(P.PL)) return 'yes';   // 田植同時 = 本田
+  if (j.positions.size === 0 && j.literals.size === 0) return 'maybe';   // 時期不明
+  let inter = 0;   // 行の位置・語のうち atom に含まれるものの数
+  let total = 0;   // 行の位置・語の総数
+  j.positions.forEach((p) => { total++; if (atom.positions.has(p)) inter++; });
+  j.literals.forEach((l) => { total++; if (atom.literals.has(l)) inter++; });
+  if (inter === 0) return atom.fieldStart && j.positions.has(P.PL) ? 'maybe' : 'no';   // 移植時の同時施用は本田か育苗の延長か不明
+  return inter === total ? 'yes' : 'maybe';
+}
+
+/**
+ * 方法の照合(3値)。atom に方法の指定が無ければ yes、行の方法が不明なら maybe。
+ * 行の方法が atom と同じか、その細分(規定「散布」に対して行「株元散布」)なら yes。
+ * 逆に、行が親(「散布」)で atom が細分(「株元散布」)のときは、株元かどうか不明なので maybe。
+ */
+function matchMethod(atom, row) {
+  if (atom.methods.size === 0) return 'yes';
+  if (row.methods.size === 0) return 'maybe';
+  let res = 'no';
+  atom.methods.forEach((a) => {
+    row.methods.forEach((r) => {
+      if (r === a || r.startsWith(a + '/')) res = best(res, 'yes');
+      else if (a.startsWith(r + '/')) res = best(res, 'maybe');     // 行が「散布」だけで株元かは不明
+    });
+  });
+  return res;
+}
+
+/**
+ * 対象・剤型の照合(3値)。atom の対象すべてに対し、行が合えば yes(AND)。
+ *   FORM:x : 行の剤型に x が含まれれば yes、剤型は分かるが別の剤型なら no、判別できなければ maybe
+ *   FIELD  : 行が育苗箱・床土・種子なら no(本田側の枠には該当しない)、それ以外は yes
+ *   BED    : 行が床土・覆土なら yes、育苗箱なら maybe(床土に混和する可能性)
+ *   その他 : 行の対象に含まれれば yes、無ければ no
+ */
+function matchTarget(atom, row) {
+  let res = 'yes';
+  atom.targets.forEach((t) => {
+    let r;
+    if (t.startsWith('FORM:')) r = !row.form ? 'maybe' : row.form.includes(t.slice(5)) ? 'yes' : (/剤/.test(row.form) ? 'no' : 'maybe');
+    else if (t === 'FIELD') r = ['NURSERY', 'BED', 'SEED'].some((x) => row.targets.has(x)) ? 'no' : 'yes';
+    else if (t === 'BED') r = row.targets.has('BED') ? 'yes' : row.targets.has('NURSERY') ? 'maybe' : 'no';
+    else r = row.targets.has(t) ? 'yes' : 'no';
+    res = worst(res, r);
+  });
+  return res;
+}
+
+/** atom と行を時期・方法・対象の3軸で照合し、3軸の worst(最も厳しい値)を返す */
+function matchAtom(atom, row) {
+  let r = matchTime(atom, row);
+  r = worst(r, matchMethod(atom, row));
+  r = worst(r, matchTarget(atom, row));
+  return r;
+}
+
+/**
+ * 行を枠に割り当てる。戻り値 { slots: 該当した枠 id の配列, certain: 確定か, overlay: [{ id, certain }] }
+ *   certain=true : yes の枠が唯一つ(その枠に確定して数える)
+ *   certain=false: 枠が複数ある/maybe だけ(judge が「可能性」として数え、要確認にする)
+ *   slots が空   : どの枠にも該当しない(総量にだけ数える。フラグは立てない)
+ * 複数の枠が yes のときの絞り込み(上から順に適用):
+ *   ① 田植同時の行は「本田」の枠を優先  ② 指定された軸の数(specificity)が大きい枠を優先
+ *      規定の「散布」は、行が株元散布など細分のとき1段低く扱う(「粒剤の処理」など他の枠があればそちらを優先)
+ *   ③ 時期だけの枠どうしなら、行と同じ時期表現の枠  ④ 移植・植付より前の行で、行と同じ時期表現の「Xの植付前の処理」枠(方法指定なし)と
+ *      時期指定のない方法枠が競合するときは、時期で確定する
+ * overlay(入れ子=内数)の枠は、親の条件と自分の条件の両方に当てはまるかを別に評価する
+ */
+function assign(row, rule) {
+  const yes = [];     // 確実に該当する条件
+  const maybe = [];   // 該当するかもしれない条件
+  rule.atoms.forEach((a) => {
+    if (a.overlay) return;
+    const m = matchAtom(a, row);
+    if (m === 'yes') yes.push(a);
+    else if (m === 'maybe') maybe.push(a);
+  });
+  let res = { slots: [], certain: false };   // 戻り値(overlay は最後に付ける)
+  if (yes.length) {
+    // 田植同時の施用は、規定に「本田」の枠があればそちらを優先する(「移植時までの処理」にも読めるため)
+    const pool = row.fieldSimul && yes.some((a) => a.fieldStart) ? yes.filter((a) => a.fieldStart) : yes;
+    // 規定の「散布」は厳密に「散布」とだけ表記された行の枠。株元散布などの行が他の枠(「粒剤の処理」など)にも該当する場合は
+    // そちらを優先し、「散布」枠は他に該当する枠がないときにだけ使う(数え漏れを避けるため、枠自体は残す)
+    // eff: 行に対する条件の実効的な優先度(指定軸の数 − 「散布」枠を細分の行に当てるときの減点1)
+    const eff = (a) => a.specificity - (a.methods.has('SPRAY') && !row.methods.has('SPRAY') && [...row.methods].some((m) => m.startsWith('SPRAY/')) ? 1 : 0);
+    const top = Math.max(...pool.map(eff));                  // 最も優先度の高い値
+    let cand = pool.filter((a) => eff(a) === top);          // 候補の条件(枠が複数残れば不確定)
+    // 同格の枠が複数ある場合は、行の時期と同じ表現の枠を優先する(例: 「萌芽直前～萌芽期」の行 → 同じ表現の枠)。
+    // 時期だけの枠同士に限る。方法や対象で一致した枠が混ざるときは、どちらの枠にも該当しうるので確定しない
+    if (new Set(cand.map((a) => a.slotId)).size > 1 && row.jiki.timeKey && cand.every((a) => a.timeOnly)) {
+      const ex = cand.filter((a) => a.timeKey && a.timeKey === row.jiki.timeKey);
+      if (ex.length) cand = ex;
+    }
+    // 移植・植付より前の時期の行で、行と同じ時期表現の「Xの植付前の処理」枠(方法指定なし)と、時期指定のない方法枠(散布など)が
+    // 競合する場合は、時期で確定する(畝立て前作条散布などは植付前の土壌処理であり、生育期の散布ではない)
+    if (new Set(cand.map((a) => a.slotId)).size > 1 && row.jiki.timeKey && row.jiki.positions.size
+        && [...row.jiki.positions].every((p) => p <= P.PLB)) {
+      const tm = cand.filter((a) => a.timeKey && a.timeKey.endsWith(row.jiki.timeKey) && a.methods.size === 0 && a.positions.size);
+      const rest = cand.filter((a) => !tm.includes(a));
+      if (tm.length && new Set(tm.map((a) => a.slotId)).size === 1 && rest.every((a) => !a.positions.size && !a.literals.size)) cand = tm;
+    }
+    const slots = [...new Set(cand.map((a) => a.slotId))];   // 候補の枠 id(重複を除く)
+    res = { slots, certain: slots.length === 1 };
+  } else if (maybe.length) {
+    res = { slots: [...new Set(maybe.map((a) => a.slotId))], certain: false };
+  }
+  // 入れ子の枠(「Aは5回以内(そのうちBは4回以内)」のB): 親の条件とBの両方に該当する行を数える
+  res.overlay = [];
+  rule.slots.filter((sl) => sl.overlay).forEach((sl) => {
+    let pm = 'no';   // 親の条件との照合結果(親が複数の条件なら best)
+    sl.parentAtoms.forEach((a) => { pm = best(pm, matchAtom(a, row)); });
+    let cm = 'no';   // 自分の条件との照合結果
+    rule.atoms.filter((a) => a.slotId === sl.id).forEach((a) => { cm = best(cm, matchAtom(a, row)); });
+    const r = worst(pm, cm);   // 親と自分の両方に合って初めて内数として数える
+    if (r !== 'no') res.overlay.push({ id: sl.id, certain: r === 'yes' });
+  });
+  return res;
+}
+
+
+// ============================================================ 判定(UI用)
+/**
+ * 1つの有効成分について、計画表の使用行から内訳枠の超過を判定する。
+ * items: [{ no, sakumotsu, yakuzai, jiki, hoho, ekiryo, seibunkaisu }]  (1行 = 1回の使用)
+ * 戻り値: { status: 'NG'|'要確認'|'OK'|'', lines: [{ level, text }], flags: Map(item.ref -> [{ level, text }]) }
+ *   flags: 超過(NG)または枠未確定(要確認)の内訳枠に属する使用行ごとの理由。item.ref は呼び出し側が付ける任意の識別子
+ *   NG      : 確定した使用だけで、内訳枠の上限を超えている
+ *   要確認  : 枠を確定できない使用まで含めると超える/解釈できない規定・時期語がある
+ *   ''      : 内訳規定がなく、総量だけの規定(判定対象なし)
+ * 規定文が複数ある(登録ごとに異なる)場合は、どの規定文も成分の全使用行に当てはめて数え、最悪の結果を返す。
+ * (規定文ごとに、その規定文を持つ行だけを数えると、登録が別でも同じ成分・同じ枠の使用が合算されず超過を見逃す)
+ */
+function judge(items) {
+  // groups: 規定文(+作物別規定なら作物名)ごとの判定単位。rows は常に成分の全使用行(規定文が違っても全行に当てはめる)
+  const groups = new Map();
+  items.forEach((it) => {
+    const text = String(it.seibunkaisu || '').trim();
+    if (!/\d回/.test(text)) return;                       // '-' や空欄は対象外
+    const crop = /^\s*\d/.test(text) ? '' : norm(it.sakumotsu);
+    const key = text + '\u0000' + crop;
+    if (!groups.has(key)) groups.set(key, { text, sakumotsu: it.sakumotsu, rows: items });
+  });
+
+  const lines = [];         // 画面に出す判定行 [{ level: 'NG'|'要確認', text }]
+  const flags = new Map();  // 使用行(item.ref)ごとの理由 → 薬剤別の表に引き当てる
+  // its の各行に (level, text) の理由を付ける(同じ理由は重複して付けない)
+  const flag = (its, level, text) => its.forEach((it) => {
+    if (it.ref === undefined) return;
+    if (!flags.has(it.ref)) flags.set(it.ref, []);
+    const arr = flags.get(it.ref);
+    if (!arr.some((f) => f.level === level && f.text === text)) arr.push({ level, text });
+  });
+  const seen = new Set();   // 判定行の重複除去用
+  // 判定行を追加する(同じ内容は1回だけ)
+  const push = (level, text) => { const k = level + text; if (!seen.has(k)) { seen.add(k); lines.push({ level, text }); } };
+  let hasSlots = false;   // 内訳の枠が1つでもある(=判定対象がある)
+  let ng = false;         // 確定した使用だけで超過した枠がある
+  let check = false;      // 枠を確定できない使用・解釈できない規定/時期語がある
+
+  groups.forEach((g) => {
+    const rule = parseRule(g.text, g.sakumotsu);
+    if (rule.slots.length) hasSlots = true;
+    const sure = {};       // 枠 id → その枠に確定した使用行
+    const possible = {};   // 枠 id → その枠に該当するかもしれない使用行(確定できないもの)
+    rule.slots.forEach((sl) => { sure[sl.id] = []; possible[sl.id] = []; });
+    const rowWarn = new Set();   // 行ごとの警告文(時期語の解釈失敗・枠を確定できない)
+
+    g.rows.forEach((r) => {
+      const nr = normalizeRow(r);   // 照合用に正規化した行
+      if (nr.jiki.unresolved.length) {
+        rowWarn.add('使用時期「' + nr.jiki.unresolved.join('/') + '」を解釈できません');
+        flag([r], '要確認', '使用時期「' + nr.jiki.unresolved.join('/') + '」を解釈できません');
+      }
+      if (!rule.slots.length) return;
+      const a = assign(nr, rule);   // この規定文の枠への割り当て
+      if (a.slots.length && a.certain) sure[a.slots[0]].push(r);
+      else if (a.slots.length) {
+        a.slots.forEach((id) => possible[id].push(r));
+        rowWarn.add('No.' + r.no + ' は該当する内訳枠を確定できません');
+        flag([r], '要確認', '該当する内訳枠を確定できません');
+      }
+      a.overlay.forEach((o) => (o.certain ? sure : possible)[o.id].push(r));
+    });
+
+    rule.slots.forEach((sl) => {
+      const su = sure[sl.id].length;      // 確定した使用回数
+      const po = possible[sl.id].length;  // 可能性のある使用回数
+      const label = sl.label + (sl.overlay ? '(内数)' : '');
+      if (su > sl.limit) {
+        ng = true;
+        push('NG', `${label}: ${su}回 / 上限${sl.limit}回 (No.${sure[sl.id].map((x) => x.no).join(',')})`);
+        flag(sure[sl.id], 'NG', `${label}: 計${su}回 / 上限${sl.limit}回`);
+      } else if (su + po > sl.limit) {
+        check = true;
+        push('要確認', `${label}: 確定${su}回+可能性${po}回 / 上限${sl.limit}回`);
+        flag(sure[sl.id].concat(possible[sl.id]), '要確認', `${label}: 確定${su}回+可能性${po}回 / 上限${sl.limit}回`);
+      }
+    });
+    rule.warnings.forEach((w) => { check = true; push('要確認', w); });
+    rowWarn.forEach((w) => { check = true; push('要確認', w); });
+  });
+
+  // 総合: NG > 要確認 > OK(枠があり問題なし) > ''(判定する内訳規定なし)
+  const status = ng ? 'NG' : check ? '要確認' : hasSlots ? 'OK' : '';
+  return { status, lines, flags };
+}
+
+return { judge };
+})();
+
+// 薬剤名(通称名)から剤型(zaikei)を引く。剤型別の回数規定の判定に使う
+// 結果は薬剤名ごとにキャッシュする。未取得の間は空文字を返して薬剤名からの推定に任せ、取得できたら判定表を更新する
+const zaikeiCache = new Map();
+function zaikeiOf(tsusho) {
+	const key = String(tsusho || '').trim();
+	if (!key) return '';
+	if (zaikeiCache.has(key)) return zaikeiCache.get(key);
+	//if (typeof db === 'undefined' || !db) return '';            // データベース未読込: 読込後の再判定で取得する
+	let z = '';
+	try {
+		const res = db.exec(`select distinct zaikei from m_kihon where tsusho = '${key.replace(/'/g, "''")}'`);
+		const vals = (res[0]?.values || []).map(v => v[0]).filter(Boolean);
+		if (vals.length === 1) z = String(vals[0]);              // 複数あるときは決められないので空にする
+	} catch (e) {
+		if (typeof debug !== 'undefined' && debug) console.warn('剤型の取得に失敗しました:', key, e);
+	}
+	zaikeiCache.set(key, z);
+	return z;
+}
+
+// 計画表から成分ごとの使用状況を集める(成分別・薬剤別の両方の表で共通に使う)
+// 戻り値: Map(成分名 -> { count, seibunkaisu(先頭の数字が最大の規定文), mid, limit, uses[] })
+// uses の各要素は 1行 = 1回の使用で、ref にその計画表の行(tr)を持つ
+function collectSeibunData(planTableBody) {
 	const seibunData = new Map();
 	Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden')).forEach(row => {
 		const seibunCell = row.cells[11];
@@ -2259,20 +3028,48 @@ function updateSeibunCountTable() {
 			const seibuns = seibunCell.innerHTML.split('<br>').map(s => s.trim().match(/\[(.*?)\]/)?.[1] || s.trim()).filter(Boolean);
 			const seibunkaisus = seibunkaisuCell.innerHTML.split('<br>').map(s => s.trim());
 			const mids = midCell.innerHTML.split('<br>').map(s => s.trim());
+			// 内訳判定に使う、この行の情報(1行 = 1回の使用)
+			const use = {
+				ref: row,
+				no: row.cells[1]?.textContent.trim() || '',
+				sakumotsu: row.cells[3]?.textContent.trim() || '',
+				yakuzai: row.cells[4]?.textContent.trim() || '',
+				zaikei: zaikeiOf(row.cells[4]?.textContent),
+				jiki: row.cells[6]?.textContent.trim() || '',
+				hoho: row.cells[10]?.textContent.trim() || '',
+				ekiryo: row.cells[9]?.textContent.trim() || ''
+			};
 
 			seibuns.forEach((seibun, index) => {
-				const currentData = seibunData.get(seibun) || { count: 0, seibunkaisu: '', mid: '', limit: -1 };
+				const kaisuText = seibunkaisus[index] || '';
+				const currentData = seibunData.get(seibun) || { count: 0, seibunkaisu: '', mid: '', limit: -1, uses: [] };
 				currentData.count += 1;
 				if (currentData.count === 1) currentData.mid = mids[index] || '';
-				const newLimit = parseInt(seibunkaisus[index].match(/^\d+/)?.[0] || '0', 10);
+				const newLimit = parseInt(kaisuText.match(/^\d+/)?.[0] || '0', 10);
 				if (newLimit > currentData.limit) {
-					currentData.seibunkaisu = seibunkaisus[index];
+					currentData.seibunkaisu = kaisuText;
 					currentData.limit = newLimit;
 				}
+				currentData.uses.push({ ...use, seibunkaisu: kaisuText });
 				seibunData.set(seibun, currentData);
 			});
 		}
 	});
+	return seibunData;
+}
+
+// 成分の使用回数をカウントしてテーブルを更新する関数
+// 使用回数・使用上限は従来どおり(行数と、成分回数の先頭の数字の最大値)。
+// 加えて「判定」列で、成分回数の括弧内(使用時期・方法・対象ごとの内訳上限)を UsageLimit.judge で判定する。
+function updateSeibunCountTable() {
+	const planTableBody = document.querySelector('#planTable tbody');
+	const seibunContainer = document.getElementById('seibunContainer');
+	if (!planTableBody || !seibunContainer) {
+		if (seibunContainer) seibunContainer.clearContent();
+		return;
+	}
+
+	const seibunData = collectSeibunData(planTableBody);
 
 	if (seibunData.size === 0) {
 		seibunContainer.clearContent();
@@ -2288,19 +3085,29 @@ function updateSeibunCountTable() {
 	let totalCount = 0;
 	const rowsHtml = sortedData.map(([seibun, data]) => {
 		if (data.seibunkaisu !== '-' && data.seibunkaisu !== '') totalCount += data.count;
-		const countDisplay = (data.seibunkaisu === '-' || data.seibunkaisu === '') ? '' : (data.limit > 0 && data.count > data.limit ? `<em>${data.count}</em>` : data.count);
-		return `<tr><td>${seibun}</td><td>${data.mid}</td><td>${countDisplay}</td><td>${data.seibunkaisu}</td></tr>`;
+		const noLimit = (data.seibunkaisu === '-' || data.seibunkaisu === '');
+		const verdict = noLimit ? { status: '', lines: [] } : UsageLimit.judge(data.uses);
+		// 総量の上限超過、または内訳枠の確定超過があれば強調表示する
+		const exceeded = data.limit > 0 && data.count > data.limit || verdict.status === 'NG';
+		const countDisplay = noLimit ? '' : (exceeded ? `<em>${data.count}</em>` : data.count);
+		let judgeHtml = '-';   // 判定する内訳規定がない(総量のみ・上限なし)場合
+		if (verdict.status === 'NG') judgeHtml = '<em>NG</em>';
+		else if (verdict.status) judgeHtml = verdict.status;
+		if (verdict.lines.length) {
+			judgeHtml += '<br>' + verdict.lines.map(l => `${l.level === 'NG' ? '' : '※'}${escapeHtml(l.text)}`).join('<br>');
+		}
+		return `<tr><td>${seibun}</td><td>${data.mid}</td><td>${countDisplay}</td><td>${data.seibunkaisu}</td><td class="judge">${judgeHtml}</td></tr>`;
 	}).join('');
 
 	seibunContainer.innerHTML = `
 		<div class="handsontable-like">
 			<table id="seibunCountTable">
 				<thead>
-					<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th></tr>
+					<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th><th>括弧内判定</th></tr>
 				</thead>
 				<tbody>${rowsHtml}</tbody>
 				<tfoot>
-					<tr><td>合計</td><td></td><td>${totalCount}</td><td></td></tr>
+					<tr><td>合計</td><td></td><td>${totalCount}</td><td></td><td></td></tr>
 				</tfoot>
 			</table>
 		</div>
@@ -2327,17 +3134,24 @@ function updateYakuzaiCountTable() {
 		const tsusho = row.cells[4]?.textContent.trim() || '';
 		const jiki = row.cells[6]?.textContent.trim() || '';
 		const kaisu = row.cells[7]?.textContent.trim() || '';
+		// 使用回数の上限は「使用時期」と「使用方法」の組ごとに登録されている(塗布・空中散布などは方法でしか区別できない)。
+		// 空白の揺れで別扱いにならないよう、空白は1文字に正規化して比較する
+		const hoho = (row.cells[10]?.textContent || '').replace(/\s+/g, ' ').trim();
 
 		if (tsusho) {
-			const key = JSON.stringify([tsusho, jiki, kaisu]);
+			//const key = JSON.stringify([tsusho, jiki, hoho, kaisu]);
+			const key = JSON.stringify([tsusho, kaisu]);
 			const currentData = yakuzaiData.get(key) || {
 				tsusho: tsusho,
-				jiki: jiki,
+				//jiki: jiki,
+				//hoho: hoho,
 				kaisu: kaisu,
 				count: 0,
+				rows: [],
 				limit: parseInt(kaisu.match(/^\d+/)?.[0] || '0', 10)
 			};
 			currentData.count += 1;
+			currentData.rows.push(row);
 			yakuzaiData.set(key, currentData);
 		}
 	});
@@ -2347,23 +3161,52 @@ function updateYakuzaiCountTable() {
 		return;
 	}
 
+	// 薬剤ごとの上限(時期・方法別)を守っていても、有効成分の「括弧内」の内訳枠(例: は種時の土壌混和と定植時の株元散布は合計1回以内)を
+	// 薬剤をまたいで超えることがある。成分別の判定結果を、その使用行ごとに引き当てて薬剤別の表にも出す
+	const rowVerdicts = new Map();   // tr -> [{ seibun, status, flags:[{level,text}] }]
+	collectSeibunData(planTableBody).forEach((data, seibun) => {
+		const noLimit = (data.seibunkaisu === '-' || data.seibunkaisu === '');
+		const verdict = noLimit ? { status: '', flags: new Map() } : UsageLimit.judge(data.uses);
+		data.uses.forEach(use => {
+			if (!rowVerdicts.has(use.ref)) rowVerdicts.set(use.ref, []);
+			rowVerdicts.get(use.ref).push({ seibun, status: verdict.status, flags: verdict.flags.get(use.ref) || [] });
+		});
+	});
+
 	const sortedData = Array.from(yakuzaiData.values()).sort((a, b) =>
 		a.tsusho.localeCompare(b.tsusho, 'ja') ||
-		a.jiki.localeCompare(b.jiki, 'ja') ||
+		//a.jiki.localeCompare(b.jiki, 'ja') ||
+		//a.hoho.localeCompare(b.hoho, 'ja') ||
 		a.limit - b.limit ||
 		a.kaisu.localeCompare(b.kaisu, 'ja')
 	);
 
 	const rowsHtml = sortedData.map(data => {
-		const countDisplay = (data.limit > 0 && data.count > data.limit) ? `<em>${data.count}</em>` : data.count;
-		return `<tr><td>${data.tsusho}</td><td>${data.jiki}</td><td>${countDisplay}</td><td>${data.kaisu}</td></tr>`;
+		// この薬剤・時期・方法の使用行が属する成分の内訳枠の判定をまとめる(NG > 要確認 > OK > 判定なし)
+		let level = '';
+		const reasons = [];
+		data.rows.forEach(row => (rowVerdicts.get(row) || []).forEach(v => {
+			const lv = v.flags.some(f => f.level === 'NG') ? 'NG' : v.flags.length ? '要確認' : (v.status ? 'OK' : '');
+			if (lv === 'NG' || (lv === '要確認' && level !== 'NG') || (lv === 'OK' && level === '')) level = lv;
+			v.flags.forEach(f => {
+				const t = `${f.level === 'NG' ? '' : '※'}${v.seibun}: ${f.text}`;
+				if (!reasons.includes(t)) reasons.push(t);
+			});
+		}));
+		const exceeded = (data.limit > 0 && data.count > data.limit) || level === 'NG';
+		const countDisplay = exceeded ? `<em>${data.count}</em>` : data.count;
+		let judgeHtml = level === 'NG' ? '<em>NG</em>' : (level || '-');
+		if (reasons.length) judgeHtml += '<br>' + reasons.map(escapeHtml).join('<br>');
+		//return `<tr><td>${escapeHtml(data.tsusho)}</td><td>${escapeHtml(data.jiki)}</td><td>${escapeHtml(data.hoho)}</td><td>${countDisplay}</td><td>${escapeHtml(data.kaisu)}</td><td class="judge">${judgeHtml}</td></tr>`;
+		return `<tr><td>${escapeHtml(data.tsusho)}</td><td>${countDisplay}</td><td>${escapeHtml(data.kaisu)}</td><td class="judge">${judgeHtml}</td></tr>`;
 	}).join('');
 
+	//<tr><th>薬剤名</th><th>使用時期</th><th>使用方法</th><th>使用回数</th><th>使用上限</th><th>成分の括弧内判定</th></tr>
 	container.innerHTML = `
 		<div class="handsontable-like">
 			<table id="yakuzaiCountTable">
 				<thead>
-					<tr><th>薬剤名</th><th>使用時期</th><th>使用回数</th><th>使用上限</th></tr>
+					<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th><th>成分の括弧内判定</th></tr>
 				</thead>
 				<tbody>${rowsHtml}</tbody>
 			</table>
