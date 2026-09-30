@@ -3178,7 +3178,7 @@ function updateYakuzaiCountTable() {
 				rows: [],
 				limit: parseInt(kaisu.match(/^\d+/)?.[0] || '0', 10)
 			};
-			const rem = jiki.includes(/収穫([0-9]+日前|前日)|発生初期/) ? '' : jiki;
+			const rem = jiki.match(/収穫([0-9]+日前|前日)|発生初期/) ? '' : jiki;
 			if (currentData.jiki && rem) {
 				if (rem.length < currentData.jiki.length) currentData.jiki = rem;
 			} else {
