@@ -3176,8 +3176,7 @@ function updateYakuzaiCountTable() {
 				rows: [],
 				limit: parseInt(kaisu.match(/^\d+/)?.[0] || '0', 10)
 			};
-			const rem = jiki.match(/収穫([0-9]+日前|前日)|発生初期/) ? '' : `${jiki}/${hoho}`;
-			if (rem) currentData.rem.push(rem);
+			currentData.rem.push(jiki.match(/収穫([0-9]+日前|前日)|発生初期/) ? `生育期/${hoho}` : `${jiki}/${hoho}`);
 			currentData.count += 1;
 			currentData.rows.push(row);
 			yakuzaiData.set(key, currentData);
@@ -3207,9 +3206,7 @@ function updateYakuzaiCountTable() {
 	});
 
 	const sortedData = Array.from(yakuzaiData.values()).sort((a, b) =>
-		a.tsusho.localeCompare(b.tsusho, 'ja') ||
-		//a.jiki.localeCompare(b.jiki, 'ja') ||
-		//a.hoho.localeCompare(b.hoho, 'ja') ||
+		//a.tsusho.localeCompare(b.tsusho, 'ja') ||
 		a.limit - b.limit ||
 		a.kaisu.localeCompare(b.kaisu, 'ja')
 	);
@@ -3230,7 +3227,7 @@ function updateYakuzaiCountTable() {
 		const countDisplay = exceeded ? `<em>${data.count}</em>` : data.count;
 		let judgeHtml = level === 'NG' ? '<em>NG</em>' : (level || '-');
 		if (reasons.length) judgeHtml += '<br>' + reasons.map(escapeHtml).join('<br>');
-		const rem = data.jiki.map(escapeHtml).join('<br>');
+		const rem = data.rem.map(escapeHtml).join('<br>');
 		return `<tr><td>${escapeHtml(data.tsusho)}<td>${rem}</td><td>${countDisplay}</td><td>${escapeHtml(data.kaisu)}</td><td class="judge">${judgeHtml}</td></tr>`;
 	}).join('');
 
