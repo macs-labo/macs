@@ -2304,10 +2304,10 @@ const normalizeRow = (r) => memo(rowCache, [r.jiki, r.hoho, r.ekiryo, r.yakuzai,
 // 作業時期を1本の時間軸(年内の作業順)上の位置に置き換える。範囲(A～B)は両端の間の位置をすべて含めて扱う
 //   PRE  =0 作付前・耕起前・前作(土壌消毒など)   SOWB =1 は種前(浸種・催芽を含む)   SOW  =2 は種時・直播時
 //   RAISE=3 育苗期(は種後～移植前)               PLB  =4 移植・定植・植付の前       PL   =5 移植時・定植時(当日・同時)
-//   PLA  =6 移植・定植の直後                     GROW =7 生育期・本田・発生期など   HARV =8 収穫期
-//   AFTER=9 収穫後・剪定後(次作までの休閑期)
-const P = { PRE: 0, SOWB: 1, SOW: 2, RAISE: 3, PLB: 4, PL: 5, PLA: 6, GROW: 7, HARV: 8, AFTER: 9 };
-const P_MAX = 9;   // 位置の最大値(AFTER)
+//   PLA  =6 移植・定植の直後(植付後萌芽前を含む) GROW =7 生育期・本田・発生期など   HILL =8 土寄せ時・土寄せ後(生育期の後半)
+//   HARV =9 収穫期                               AFTER=10 収穫後・剪定後(次作までの休閑期)
+const P = { PRE: 0, SOWB: 1, SOW: 2, RAISE: 3, PLB: 4, PL: 5, PLA: 6, GROW: 7, HILL: 8, HARV: 9, AFTER: 10 };
+const P_MAX = 10;   // 位置の最大値(AFTER)
 /** a から b までの整数配列(両端を含む)。範囲の間を埋めるのに使う */
 const range = (a, b) => { const r = []; for (let i = a; i <= b; i++) r.push(i); return r; };
 
@@ -2333,7 +2333,7 @@ function scanTerm(t) {
   let anchor = null;   // 基準となる作業(上記)
   let lit = null;      // 位置に置けない語(季節・月)
   let rel = null;      // 基準との前後関係(上記)
-  if (/移植|定植|植付|植え付け|田植|植栽/.test(t)) anchor = 'PLANT';
+  if (/移植|定植|植付|植え付け|田植|植栽|挿苗/.test(t)) anchor = 'PLANT';   // 挿苗(かんしょ等)は定植と同じ
   else if (/浸種|催芽/.test(t)) { anchor = 'SOW'; rel = 'before'; }
   else if (/は種|播種|直播|種まき/.test(t)) anchor = 'SOW';
   else if (/育苗(?!箱|トレイ|ポット|培土)/.test(t)) anchor = 'RAISE';   // 「育苗トレイ」は時期ではなく対象
@@ -2344,7 +2344,8 @@ function scanTerm(t) {
   else if (/植代|しろかき|代かき/.test(t)) { anchor = 'PLANT'; rel = 'before'; }   // 植代 = 移植の少し前
   else if (/融雪後/.test(t)) lit = '融雪後';
   else if (/\d+月/.test(t)) lit = t.match(/\d+月/)[0];
-  else if (/本田|本圃|生育|発生|発病|雑草|萌芽|葉期|出穂|穂|幼虫|成虫|着色|結実|展葉|伸長|培土|出蕾|成熟|新梢|開花|満開|発芽|抽苔|果実|肥大|落花|株元|収穫期|収穫始|収穫直前|果|苗立|病斑|若齢|初期|終期|盛期|始期|期/.test(t)) anchor = 'GROW';
+  else if (/土寄/.test(t)) anchor = 'HILL';   // 土寄せ(培土)は生育期の途中の作業。「土寄せ後」は萌芽前・生育初期を含まない
+  else if (/本田|本圃|生育|発生|発病|雑草(?!茎葉)|萌芽|葉期|出穂|穂|幼虫|成虫|着色|結実|展葉|伸長|培土|出蕾|成熟|新梢|開花|満開|発芽|抽苔|果実|肥大|落花|株元|収穫期|収穫始|収穫直前|果|苗立|病斑|若齢|初期|終期|盛期|始期|期/.test(t)) anchor = 'GROW';
   if (rel == null) {
     if (/直後/.test(t)) rel = 'just_after';
     else if (/後/.test(t)) rel = 'after';
@@ -2366,6 +2367,7 @@ function rowPositions(sc) {
   if (a === 'PRE') return [P.PRE];
   if (a === 'AFTER') return [P.AFTER];
   if (a === 'GROW') return [P.GROW];
+  if (a === 'HILL') return sc.rel === 'before' ? [P.GROW] : [P.HILL];
   return [];
 }
 
@@ -2378,7 +2380,8 @@ function atomPositions(sc, upto) {
   const a = sc.anchor;   // 基準の作業
   // 以降の at/bef/aft は、基準が定植か は種かで決まる「その時・その前・その直後」の位置
   if (!a) return [];
-  if (a === 'GROW') return /本田|本圃/.test(sc.term) ? range(P.PLA, P_MAX - 1) : [P.PLA, P.GROW, P.HARV];
+  if (a === 'GROW') return /本田|本圃/.test(sc.term) ? range(P.PLA, P_MAX - 1) : [P.PLA, P.GROW, P.HILL, P.HARV];
+  if (a === 'HILL') return upto ? [P.PLA, P.GROW, P.HILL] : sc.rel === 'before' ? [P.PLA, P.GROW] : [P.HILL, P.HARV];
   if (a === 'AFTER') return [P.AFTER];
   if (a === 'PRE') return sc.rel === 'before' || upto ? range(P.PRE, P.PRE) : [P.PRE];
   if (a === 'RAISE') return [P.RAISE];
@@ -2425,7 +2428,7 @@ function parseJikiRaw(text) {
   if (main === '' || PHI_ONLY.test(main)) {
     if (res.phi != null) {
       res.implied = true;
-      [P.PLA, P.GROW, P.HARV].forEach((p) => res.positions.add(p));
+      [P.PLA, P.GROW, P.HILL, P.HARV].forEach((p) => res.positions.add(p));
     } else res.empty = true;
     return res;
   }
@@ -2454,6 +2457,13 @@ function parsePeriod(main, res) {
       if (!sc.anchor && !sc.lit && (sc.rel === 'at' || sc.rel === 'after' || sc.rel === 'before')) sc.anchor = anchors[0].anchor;
     });
   }
+  // 「移植直後～15日」「移植後3日～10日」の「15日」「10日」のように、日数だけの終点は、直前の端の基準を引き継ぐ
+  // (直前が「前」なら前、それ以外は後。「移植前3日～1日」なら移植前、「移植後3日～10日」なら移植後)
+  partScans.forEach((scans, pi) => {
+    if (pi === 0 || scans.length !== 1 || !/^\d+日(間)?$/.test(scans[0].term)) return;
+    const prev = partScans[pi - 1].filter((sc) => sc.anchor).pop();
+    if (prev) { scans[0].anchor = prev.anchor; scans[0].rel = prev.rel === 'before' ? 'before' : 'after'; }
+  });
   const partPos = [];   // 各端が指す位置の集合(範囲の端どうしの前後関係を見るため、端ごとに保持する)
   partScans.forEach((scans) => {
     const pos = new Set();
@@ -2465,6 +2475,13 @@ function parsePeriod(main, res) {
     });
     partPos.push(pos);
   });
+  // 「植付後萌芽前」「植付後～萌芽前」のように移植・植付の後で萌芽(発芽・出芽)前までの期間は、植付直後の位置(PLA)だけ。
+  // 生育期(GROW)以降は含まない。「休眠期～萌芽前」など植付を伴わない萌芽前は、従来どおり季節の語として扱う
+  if (/(萌芽|発芽|出芽)前/.test(main) && partPos.some((ps) => ps.has(P.PLA))) {
+    partPos.forEach((ps) => { ps.delete(P.GROW); ps.delete(P.HILL); ps.delete(P.HARV); });
+    res.literals.add('萌芽前');   // 「萌芽前」の枠(季節の語)と照合するために残す
+    res.preEmerge = true;         // 植付後・萌芽前の行(matchTime で、生育期・萌芽後の枠には当てず、萌芽前の枠には確定させる)
+  }
   const all = new Set();   // 全端の位置の和集合(範囲でないときはこれがそのまま結果、範囲のときは最小～最大の間を埋める)
   partPos.forEach((ps) => ps.forEach((p) => all.add(p)));
   if (parts.length >= 2 && partPos.every((ps) => ps.size > 0)) {
@@ -2489,7 +2506,7 @@ const METHODS = [
   ['SPRAY/AERIAL', /無人航空機|無人ヘリ|空中散布|航空散布|ドローン/],
   ['SPRAY/FLOOD', /湛水散布|湛水周縁散布|落水散布|原液湛水/],
   ['SPRAY/BASE', /株元散布/],
-  ['SPRAY/FOLIAGE', /茎葉散布|葉面散布/],
+  ['SPRAY/FOLIAGE', /茎葉散布|葉面散布|茎葉兼/],   // 「雑草茎葉兼土壌散布」も茎葉への散布を含む
   ['DRENCH/BASE', /株元灌注|株元かん注/],
   ['DRENCH/SOIL', /土壌灌注|土壌かん注/],
   ['MIX/SOIL', /土壌混和|全面混和|作条混和/],
@@ -2503,11 +2520,13 @@ const METHODS = [
   ['INJECT', /注入/],
   ['STOCK', /株処理|株元処理/],
   ['ROWTREAT', /畦間処理|畦間/],
+  ['HOLE', /植穴/],                                   // 植穴処理(定植時の植穴への施用)
+  ['SOILAPPLY', /土中施用|(?:は種|播種)同時施(?:薬|用)/],   // は種同時施薬機を用いた土中施用
 ];
 // 細分が特定できないときの汎用の方法(「散布」とだけ書かれた行など)。細分が見つかった場合は重ねて付けない
 const GENERIC = [['SPRAY', /散布/], ['DRENCH', /灌注|かん注|灌水/], ['MIX', /混和/]];
 // 「樹幹散布」「種子粉衣」のように対象が方法を決める語は、汎用の散布/灌注を重ねない
-const EXCLUSIVE = ['TRUNK', 'SEEDTREAT', 'COAT', 'FUME', 'JET', 'THROW', 'INJECT', 'STOCK', 'ROWTREAT', 'SIDE'];
+const EXCLUSIVE = ['TRUNK', 'SEEDTREAT', 'COAT', 'FUME', 'JET', 'THROW', 'INJECT', 'STOCK', 'ROWTREAT', 'SIDE', 'HOLE', 'SOILAPPLY'];
 
 /** 文字列 t に含まれる方法の集合(METHODS のキー / 汎用キー)を返す。行の使用方法にも規定文の条件にも使う */
 function scanMethods(t) {
@@ -2575,7 +2594,7 @@ function parseAtomList(cond) {
     // 「育苗期」等の時期語に含まれる「育苗」を対象(育苗箱)としては数えない
     const parsed = positions.size > 0 || literals.size > 0 || methods.size > 0 || targets.size > 0;
     const dims = (positions.size || literals.size ? 1 : 0) + (methods.size ? 1 : 0) + (targets.size ? targets.size : 0);
-    return { raw: it, timeKey: (positions.size || literals.size) ? timeKeyOf(it) : '', timeOnly: methods.size === 0 && targets.size === 0, positions, literals, methods, targets, parsed, specificity: dims, fieldStart: /本田|本圃/.test(it) };
+    return { raw: it, growthOnly: sc.anchor === 'GROW' && !/本田|本圃/.test(sc.term), timeKey: (positions.size || literals.size) ? timeKeyOf(it) : '', timeOnly: methods.size === 0 && targets.size === 0, positions, literals, methods, targets, parsed, specificity: dims, fieldStart: /本田|本圃/.test(it) };
   });
 }
 
@@ -2728,7 +2747,9 @@ function parseRuleRaw(text, opts = {}) {
 
   const t = s.match(/^(\d+)回(?:以内)?/);   // 先頭の総量
   if (t) rule.total = Number(t[1]);
-  else rule.warnings.push('総使用回数を読み取れません: ' + text);
+  // 「1株当り1回」「1花につき1回」のように、時期・方法・対象の要素を含まない単位当たりの回数規定は、
+  // 内訳の判定対象がない単なる回数なので要確認にしない(括弧の内訳がある規定だけ、総量を読めないことを警告する)
+  else if (s.includes('(')) rule.warnings.push('総使用回数を読み取れません: ' + text);
 
   const i = s.indexOf('(');       // 内訳の括弧の開始
   const j = s.lastIndexOf(')');   // 内訳の括弧の終了(入れ子があるので最後の閉じ括弧)
@@ -2785,6 +2806,10 @@ function matchTime(atom, row) {
   if (atom.positions.size === 0 && atom.literals.size === 0) return 'yes';
   const j = row.jiki;   // 行の解析済み時期
   if (row.fieldSimul && atom.fieldStart && j.positions.has(P.PL)) return 'yes';   // 田植同時 = 本田
+  if (j.preEmerge) {   // 植付後萌芽前の行: 「萌芽前」の枠に当たる。「生育期」「萌芽後」など生育期の枠には当たらない
+    if (atom.literals.has('萌芽前')) return 'yes';
+    if (atom.growthOnly) return 'no';
+  }
   if (j.positions.size === 0 && j.literals.size === 0) return 'maybe';   // 時期不明
   let inter = 0;   // 行の位置・語のうち atom に含まれるものの数
   let total = 0;   // 行の位置・語の総数
@@ -2797,7 +2822,7 @@ function matchTime(atom, row) {
 /**
  * 方法の照合(3値)。atom に方法の指定が無ければ yes、行の方法が不明なら maybe。
  * 行の方法が atom と同じか、その細分(規定「散布」に対して行「株元散布」)なら yes。
- * 逆に、行が親(「散布」)で atom が細分(「株元散布」)のときは、株元かどうか不明なので maybe。
+ * 逆に、行が親(「散布」とだけ登録)で atom が細分(「株元散布」「無人航空機散布」)のときは no(方法の登録どおりに照合する)。
  */
 function matchMethod(atom, row) {
   if (atom.methods.size === 0) return 'yes';
@@ -2806,7 +2831,8 @@ function matchMethod(atom, row) {
   atom.methods.forEach((a) => {
     row.methods.forEach((r) => {
       if (r === a || r.startsWith(a + '/')) res = best(res, 'yes');
-      else if (a.startsWith(r + '/')) res = best(res, 'maybe');     // 行が「散布」だけで株元かは不明
+      // 行の方法が「散布」とだけ登録されている場合は、株元散布・無人航空機散布などの細分の枠には当てない
+      // (細分の方法は、行に「株元散布」「無人航空機による散布」と登録されるので、方法の登録どおりに照合する)
     });
   });
   return res;
@@ -2950,10 +2976,13 @@ function judge(items) {
     const possible = {};   // 枠 id → その枠に該当するかもしれない使用行(確定できないもの)
     rule.slots.forEach((sl) => { sure[sl.id] = []; possible[sl.id] = []; });
     const rowWarn = new Set();   // 行ごとの警告文(時期語の解釈失敗・枠を確定できない)
+    const needTime = rule.atoms.some((a) => a.positions.size > 0 || a.literals.size > 0);   // 規定に時期の条件があるか
 
     g.rows.forEach((r) => {
       const nr = normalizeRow(r);   // 照合用に正規化した行
-      if (nr.jiki.unresolved.length) {
+      // 使用時期を解釈できないことが問題になるのは、規定に時期の条件があるときだけ。
+      // 総量だけの規定や、方法・対象・剤型だけの内訳規定なら、時期が読めなくても判定に影響しない(単なる回数として数える)
+      if (nr.jiki.unresolved.length && needTime) {
         rowWarn.add('使用時期「' + nr.jiki.unresolved.join('/') + '」を解釈できません');
         flag([r], '要確認', '使用時期「' + nr.jiki.unresolved.join('/') + '」を解釈できません');
       }
@@ -3001,10 +3030,10 @@ function zaikeiOf(tsusho) {
 	const key = String(tsusho || '').trim();
 	if (!key) return '';
 	if (zaikeiCache.has(key)) return zaikeiCache.get(key);
-	//if (typeof db === 'undefined' || !db) return '';            // データベース未読込: 読込後の再判定で取得する
+	// if (typeof db === 'undefined' || !db) return '';            // データベース未読込: 読込後の再判定で取得する
 	let z = '';
 	try {
-		const res = db.exec(`select distinct zaikei from m_kihon where tsusho = '${key.replace(/'/g, "''")}'`);
+		const res = db.exec(`select zaikei from m_kihon where tsusho = '${key.replace(/'/g, "''")}'`);
 		const vals = (res[0]?.values || []).map(v => v[0]).filter(Boolean);
 		if (vals.length === 1) z = String(vals[0]);              // 複数あるときは決められないので空にする
 	} catch (e) {
@@ -3136,20 +3165,25 @@ function updateYakuzaiCountTable() {
 		const kaisu = row.cells[7]?.textContent.trim() || '';
 		// 使用回数の上限は「使用時期」と「使用方法」の組ごとに登録されている(塗布・空中散布などは方法でしか区別できない)。
 		// 空白の揺れで別扱いにならないよう、空白は1文字に正規化して比較する
-		const hoho = (row.cells[10]?.textContent || '').replace(/\s+/g, ' ').trim();
+		//const hoho = (row.cells[10]?.textContent || '').replace(/\s+/g, ' ').trim();
 
 		if (tsusho) {
-			//const key = JSON.stringify([tsusho, jiki, hoho, kaisu]);
 			const key = JSON.stringify([tsusho, kaisu]);
 			const currentData = yakuzaiData.get(key) || {
 				tsusho: tsusho,
-				//jiki: jiki,
+				jiki: '',
 				//hoho: hoho,
 				kaisu: kaisu,
 				count: 0,
 				rows: [],
 				limit: parseInt(kaisu.match(/^\d+/)?.[0] || '0', 10)
 			};
+			const rem = jiki.includes(/収穫([0-9]+日前|前日)|発生初期/) ? '' : jiki;
+			if (currentData.jiki && rem) {
+				if (rem.length < currentData.jiki.length) currentData.jiki = rem;
+			} else {
+				if (rem) currentData.jiki = rem; 
+			}
 			currentData.count += 1;
 			currentData.rows.push(row);
 			yakuzaiData.set(key, currentData);
@@ -3167,9 +3201,14 @@ function updateYakuzaiCountTable() {
 	collectSeibunData(planTableBody).forEach((data, seibun) => {
 		const noLimit = (data.seibunkaisu === '-' || data.seibunkaisu === '');
 		const verdict = noLimit ? { status: '', flags: new Map() } : UsageLimit.judge(data.uses);
+		// 成分の総使用回数(成分回数の先頭の数字)を超えている場合も、その成分を含む全使用行の薬剤別の判定に NG として出す
+		// (薬剤ごとには上限内でも、同じ成分を含む別の薬剤との合計で超えることがあるため)
+		const totalOver = data.limit > 0 && data.count > data.limit;
 		data.uses.forEach(use => {
 			if (!rowVerdicts.has(use.ref)) rowVerdicts.set(use.ref, []);
-			rowVerdicts.get(use.ref).push({ seibun, status: verdict.status, flags: verdict.flags.get(use.ref) || [] });
+			const flags = (verdict.flags.get(use.ref) || []).slice();
+			if (totalOver) flags.unshift({ level: 'NG', text: `総使用回数: ${data.count}回 / 上限${data.limit}回` });
+			rowVerdicts.get(use.ref).push({ seibun, status: totalOver ? 'NG' : verdict.status, flags });
 		});
 	});
 
@@ -3197,16 +3236,14 @@ function updateYakuzaiCountTable() {
 		const countDisplay = exceeded ? `<em>${data.count}</em>` : data.count;
 		let judgeHtml = level === 'NG' ? '<em>NG</em>' : (level || '-');
 		if (reasons.length) judgeHtml += '<br>' + reasons.map(escapeHtml).join('<br>');
-		//return `<tr><td>${escapeHtml(data.tsusho)}</td><td>${escapeHtml(data.jiki)}</td><td>${escapeHtml(data.hoho)}</td><td>${countDisplay}</td><td>${escapeHtml(data.kaisu)}</td><td class="judge">${judgeHtml}</td></tr>`;
-		return `<tr><td>${escapeHtml(data.tsusho)}</td><td>${countDisplay}</td><td>${escapeHtml(data.kaisu)}</td><td class="judge">${judgeHtml}</td></tr>`;
+		return `<tr><td>${escapeHtml(data.tsusho)}(${escapeHtml(data.jiki)})</td><td>${countDisplay}</td><td>${escapeHtml(data.kaisu)}</td><td class="judge">${judgeHtml}</td></tr>`;
 	}).join('');
 
-	//<tr><th>薬剤名</th><th>使用時期</th><th>使用方法</th><th>使用回数</th><th>使用上限</th><th>成分の括弧内判定</th></tr>
 	container.innerHTML = `
 		<div class="handsontable-like">
 			<table id="yakuzaiCountTable">
 				<thead>
-					<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th><th>成分の括弧内判定</th></tr>
+					<tr><th>薬剤名</th><th>使用回数</th><th>使用上限</th><th>成分の判定(総量・括弧内)</th></tr>
 				</thead>
 				<tbody>${rowsHtml}</tbody>
 			</table>
