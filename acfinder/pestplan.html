@@ -3236,7 +3236,7 @@ function updateYakuzaiCountTable() {
 		const countDisplay = exceeded ? `<em>${data.count}</em>` : data.count;
 		let judgeHtml = level === 'NG' ? '<em>NG</em>' : (level || '-');
 		if (reasons.length) judgeHtml += '<br>' + reasons.map(escapeHtml).join('<br>');
-		return `<tr><td>${escapeHtml(data.tsusho)}(${escapeHtml(data.jiki)})</td><td>${countDisplay}</td><td>${escapeHtml(data.kaisu)}</td><td class="judge">${judgeHtml}</td></tr>`;
+		return `<tr><td>${escapeHtml(data.tsusho)}${data.jiki ? escapeHtml('(' + data.jiki + ')') : ''}</td><td>${countDisplay}</td><td>${escapeHtml(data.kaisu)}</td><td class="judge">${judgeHtml}</td></tr>`;
 	}).join('');
 
 	container.innerHTML = `
