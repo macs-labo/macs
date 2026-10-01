@@ -1,7 +1,7 @@
 --/d
-/* —LŒø¬•ª“Å«ƒ}ƒXƒ^[ 2026.09.01 */
+/* —LŒø¬•ª“Å«ƒ}ƒXƒ^[ 2026.10.01 */
 create table if not exists info (item varchar primary key, value varchar);
-insert or replace into info (item, value) values ('m_dokusei', '2026.09.01');
+insert or replace into info (item, value) values ('m_dokusei', '2026.10.01');
 drop table if exists m_dokusei;
 create table m_dokusei (ippanmei varchar, nai varchar, yoto varchar, biko varchar, ojas varchar, rac varchar, dokusei varchar, adi varchar, arfd varchar, wqs varchar, eqs varchar, hatsutoroku varchar, jogai varchar);
 begin transaction;
@@ -67,6 +67,7 @@ insert into m_dokusei values ('ƒVƒƒ}ƒWƒ“','Cyromazine','’',NULL,NULL,'I-17','•
 insert into m_dokusei values ('ƒWƒ“ƒvƒƒsƒŠƒ_ƒY','Dimpropyridaz','’',NULL,NULL,'I-36','•','0.21','1.2','0.55','3000','2026.01.14',NULL);
 insert into m_dokusei values ('ƒXƒsƒlƒgƒ‰ƒ€','Spinetoram','’',NULL,NULL,'I-5','•','0.024','-','0.063','0.023','2011.03.29',NULL);
 insert into m_dokusei values ('ƒXƒsƒmƒTƒh','Spinosad','’',NULL,'›','I-5','•','0.024','-','0.063','3.2','1999.04.19',NULL);
+insert into m_dokusei values ('ƒXƒsƒƒsƒWƒIƒ“','spiropidion','’',NULL,NULL,'I-23','•','0.047','    0.3 (0.1)','0.12','56','2026.09.10',NULL);
 insert into m_dokusei values ('ƒXƒsƒƒWƒNƒƒtƒFƒ“','Spirodiclofen','’',NULL,NULL,'I-23','•','0.013','-','0.034','100','2003.08.28',NULL);
 insert into m_dokusei values ('ƒXƒsƒƒeƒgƒ‰ƒ}ƒg','Spirotetramat','’',NULL,NULL,'I-23','•','0.12','1','0.31','240','2012.12.28',NULL);
 insert into m_dokusei values ('ƒXƒsƒƒƒVƒtƒFƒ“','Spiromesifen','’',NULL,NULL,'I-23','•','0.022',NULL,'0.058','9.2','2007.12.28',NULL);
@@ -125,7 +126,6 @@ insert into m_dokusei values ('ƒuƒvƒƒtƒFƒWƒ“','Buprofezin','’',NULL,NULL,'I-16
 insert into m_dokusei values ('ƒtƒ‹ƒGƒ“ƒXƒ‹ƒzƒ“','Fluensulfone','’',NULL,NULL,'-','•','0.014','0.33','0.037','43','2017.04.11',NULL);
 insert into m_dokusei values ('ƒtƒ‹ƒLƒTƒƒ^ƒ~ƒh','fluxametamide','’',NULL,NULL,'I-30','•','0.0085','-','0.022','3.9','2019.01.22',NULL);
 insert into m_dokusei values ('ƒtƒ‹ƒVƒgƒŠƒl[ƒg','Flucythrinate','’',NULL,NULL,'I-3A','Œ€','0.0125',NULL,NULL,'0.0055','1986.10.28',NULL);
-insert into m_dokusei values ('ƒtƒ‹ƒoƒŠƒl[ƒg','Fluvalinate','’',NULL,NULL,'I-3A','Œ€','0.005','0.06','0.01','0.18','1987.04.13','5%•');
 insert into m_dokusei values ('ƒtƒ‹ƒsƒ‰ƒWƒtƒƒ“','Flupyradifurone','’',NULL,NULL,'I-4D','•','0.031','0.35','0.082','6.1','2015.12.22',NULL);
 insert into m_dokusei values ('ƒtƒ‹ƒsƒŠƒ~ƒ“','Flupyrimin','’',NULL,NULL,'I-4F','•','0.011','0.08','0.029','9.9','2019.06.27',NULL);
 insert into m_dokusei values ('ƒtƒ‹ƒtƒFƒmƒNƒXƒƒ“','Flufenoxuron','’',NULL,NULL,'I-15','•','0.037','-','0.098','0.017','1993.11.08',NULL);
@@ -253,7 +253,7 @@ insert into m_dokusei values ('ƒsƒRƒLƒVƒXƒgƒƒrƒ“','Picoxystrobin','‹Û',NULL,NUL
 insert into m_dokusei values ('ƒsƒWƒtƒ‹ƒƒgƒtƒFƒ“','Pydiflumetofen','‹Û',NULL,NULL,'F-7','•','0.099','0.3','0.26','33','2020.11.16',NULL);
 insert into m_dokusei values ('ƒqƒhƒƒLƒVƒCƒ\ƒLƒTƒ][ƒ‹','Hymexazol','‹Û',NULL,NULL,'F-32','•','0.05',NULL,NULL,'2800','1970.03.07',NULL);
 insert into m_dokusei values ('ƒqƒhƒƒLƒVƒCƒ\ƒLƒTƒ][ƒ‹ƒJƒŠƒEƒ€‰–','Hymexazol-potassium ','‹Û',NULL,NULL,'F-32','•',NULL,NULL,NULL,NULL,'1969.08.26',NULL);
-insert into m_dokusei values ('”ñ•aŒ´«ƒŠƒ]ƒrƒEƒ€ƒrƒeƒBƒX','Rhizobium vitis strain ARK-1','‹Û','”÷','›',NULL,'-','-','-',NULL,NULL,'2025.03.26',NULL);
+insert into m_dokusei values ('”ñ•aŒ´«ƒŠƒ]ƒrƒEƒ€ƒrƒeƒBƒX','Rhizobium vitis strain ARK-1','‹Û','”÷','›','F-BM','-','-','-',NULL,NULL,'2025.03.26',NULL);
 insert into m_dokusei values ('ƒsƒ‰ƒNƒƒXƒgƒƒrƒ“','Pyraclostrobin','‹Û',NULL,NULL,'F-11','Œ€','0.034','0.05','0.09','0.6','2006.09.25','6.8%•');
 insert into m_dokusei values ('ƒsƒ‰ƒWƒtƒ‹ƒ~ƒh','Pyraziflumid','‹Û',NULL,NULL,'F-7','•','0.021','1.6','0.055','160','2017.11.29',NULL);
 insert into m_dokusei values ('ƒsƒŠƒIƒtƒFƒmƒ“','Pyriofenone','‹Û',NULL,NULL,'F-50','•','0.091','-','0.24','130','2013.10.22',NULL);
