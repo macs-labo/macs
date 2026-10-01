@@ -3167,7 +3167,7 @@ function updateYakuzaiCountTable() {
 		const stage = kaisu === '-' || jiki === '-'? '-' :  hoho.includes('塗布') ? '塗布' : hoho.includes('畦間土壌散布') ? '畦間土壌散布' : 
 									jiki.includes('収穫後') ? 1 : jiki.includes('休眠期') ? '休眠期' : /(?<!無)種子|種いも|塗沫/.test(hoho) ? '種子' :
 									jiki.includes('[萌出]芽前') ? '出芽前' : jiki.includes('は種前') ? 'は種前' :
-									/([は播]種|[移定]植)(時|当日)/.test(jiki) ? '育苗期' : '生育期';
+									/([は播]種|[移定]植)(直前|時|当日)/.test(jiki) ? '育苗期' : '生育期';
 
 		if (tsusho) {
 			const key = JSON.stringify([tsusho, stage, kaisu]);
