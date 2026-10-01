@@ -3180,7 +3180,7 @@ function updateYakuzaiCountTable() {
 				rows: [],
 				limit: parseInt(kaisu.match(/^\d+/)?.[0] || '0', 10)
 			};
-			currentData.rem.push(`${jiki}/${hoho}`);
+			currentData.rem.push(stage === '生育期' ? `生育期/${hoho}` : `${jiki}/${hoho}`);
 			currentData.count += 1;
 			currentData.rows.push(row);
 			yakuzaiData.set(key, currentData);
