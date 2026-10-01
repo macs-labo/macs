@@ -3160,7 +3160,7 @@ function updateYakuzaiCountTable() {
 
 	const yakuzaiData = new Map();
 	Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden')).forEach(row => {
-		const timing = row.cells[0]?.textContent.trim() || '';
+		const timing = getTimingText(row.cells[2]);
 		const tsusho = row.cells[4]?.textContent.trim() || '';
 		const jiki = row.cells[6]?.textContent.trim() || '-';
 		const kaisu = row.cells[7]?.textContent.trim() || '-';
@@ -3181,7 +3181,7 @@ function updateYakuzaiCountTable() {
 				rows: [],
 				limit: parseInt(kaisu.match(/^\d+/)?.[0] || '0', 10)
 			};
-			currentData.rem.push(/*timing ? `${timing}/${hoho}` :*/ stage === '生育期' ? `生育期/${hoho}` : `${jiki}/${hoho}`);
+			currentData.rem.push(timing ? `${timing}/${hoho}` : stage === '生育期' ? `生育期/${hoho}` : `${jiki}/${hoho}`);
 			currentData.count += 1;
 			currentData.rows.push(row);
 			yakuzaiData.set(key, currentData);
