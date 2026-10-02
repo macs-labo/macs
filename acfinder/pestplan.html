@@ -3165,11 +3165,13 @@ function updateYakuzaiCountTable() {
 		const jiki = row.cells[6]?.textContent.trim() || '-';
 		const kaisu = row.cells[7]?.textContent.trim() || '-';
 		const hoho = row.cells[10]?.textContent.trim() || '';
-		const stage = kaisu === '-' || jiki === '-' ? '-' :  hoho.includes('塗布') ? '塗布' : hoho.includes('畦間土壌散布') ? '畦間土壌散布' : 
-									/収穫(終了)?後/.test(jiki) ? '収穫後' : jiki.includes('休眠期') ? '休眠期' : /(?<!無)種子|種いも|塗沫/.test(hoho) ? '種子処理' :
-									/[萌出]芽前/.test(jiki) ? '出芽前' : jiki.includes('は種前') ? 'は種前' :
-									/^定植前(?!日)/.test(jiki) && hoho.includes('灌注') ? '定植前灌注' : /^定植前(?!日)/.test(jiki) && hoho.includes('混和') ? '定植前混和' :
-									/([は播]種|[移定]植|出芽)(直前|時|当日)|育苗/.test(jiki) ? '育苗期' : '生育期';
+		const hasBreakdown = (row.cells[12]?.innerHTML.trim() || '').includes('(');
+		const stage = 
+			kaisu === '-' || jiki === '-' || !hasBreakdown ? '-' :  hoho.includes('塗布') ? '塗布' : hoho.includes('畦間土壌散布') ? '畦間土壌散布' : 
+			/収穫(終了)?後/.test(jiki) ? '収穫後' : jiki.includes('休眠期') ? '休眠期' : /(?<!無)種子|種いも|塗沫/.test(hoho) ? '種子処理' :
+			/[萌出]芽前/.test(jiki) ? '出芽前' : jiki.includes('は種前') ? 'は種前' :
+			/^定植前(?!日)/.test(jiki) && hoho.includes('灌注') ? '定植前灌注' : /^定植前(?!日)/.test(jiki) && hoho.includes('混和') ? '定植前混和' :
+			/([は播]種|[移定]植|出芽)(直前|時|当日)|育苗/.test(jiki) ? '育苗期' : '生育期';
 
 		if (tsusho) {
 			const key = JSON.stringify([tsusho, stage, kaisu]);
