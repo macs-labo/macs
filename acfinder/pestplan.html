@@ -3182,7 +3182,7 @@ function updateYakuzaiCountTable() {
 				rows: [],
 				limit: parseInt(kaisu.match(/^\d+/)?.[0] || '0', 10)
 			};
-			let rem = timing ? `${timing}/${hoho}` : /^収穫(前|[0-9]+)日/.test(jiki) ? `生育期/${hoho}` : `${jiki}/${hoho}`;
+			let rem = timing ? `${timing}/${hoho}` : /^(収穫(前|[0-9]+)日|生育期)/.test(jiki) ? `生育期/${hoho}` : `${jiki}/${hoho}`;
 			if (debug) rem += ` [${stage}]`;
 			currentData.rem.push(rem);
 			currentData.count += 1;
