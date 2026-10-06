@@ -135,6 +135,7 @@ async function fetchDefaultCss(themeName) {
 		}
 
 		const match = cssText.match(regex);
+		console.log('match: ', match);
 		if (match && match[1]) {
 			return match[1].trim();
 		}
