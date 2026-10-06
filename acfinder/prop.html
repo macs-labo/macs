@@ -115,8 +115,40 @@ div.codemirror-colorview {
 <script>
 let editor;
 let savedState = null;
-function toggleCssEditor() {
+
+// common.css からテーマ別のCSS変数を抽出する関数
+async function fetchDefaultCss(themeName) {
+	try {
+		const response = await fetch('./common.css');
+		if (!response.ok) {
+			throw new Error(`HTTP error! status: ${response.status}`);
+		}
+		const cssText = await response.text();
+
+		let regex;
+		if (themeName === 'light') {
+			regex = /:root\s*{\n\s*color-scheme: light dark;\n\s*\/\* 基本変更しない \*\/[^]*?\/\* これ以降はテーマに合わせて変更 \*\/([^]*?)\/\*\tこれ以降は handsontable 専用\t\*\//;
+		} else if (themeName === 'dark') {
+			regex = /\[data-theme="dark"\]\s*{\n\s*color-scheme: dark;\n\s*\/\* 基本変更しない \*\/[^]*?\/\* これ以降はテーマに合わせて変更 \*\/([^]*?)\/\*\tこれ以降は handsontable 専用\t\*\//;
+		} else {
+			return '';
+		}
+
+		const match = cssText.match(regex);
+		if (match && match[1]) {
+			return match[1].trim();
+		}
+		return '';
+	} catch (error) {
+		console.error('Error fetching or parsing common.css:', error);
+		return '';
+	}
+}
+
+async function toggleCssEditor() {
 	const dialog = document.getElementById('custom-css-editor');
+	const userCssInput = document.getElementById('user-css-input');
+
 	if (!dialog.classList.contains('hidden')) {
 		dialog.classList.add('hidden');
 	} else {
@@ -126,14 +158,41 @@ function toggleCssEditor() {
 			selectedTheme: localStorage.getItem('selected_theme_name'),
 			activeCss: localStorage.getItem('active_theme_css'),
 			baseTheme: localStorage.getItem('theme'),
-			editorValue: document.getElementById('user-css-input').value
+			editorValue: userCssInput.value
 		};
 
 		dialog.classList.remove('hidden');
+
 		if (!editor) {
 			initCodeMirror();
 		} else {
 			editor.refresh();
+		}
+
+		const selectedThemeName = localStorage.getItem('selected_theme_name');
+		const baseTheme = localStorage.getItem('theme');
+
+		// 選択されているテーマが標準テーマの場合、common.cssからCSSをフェッチして表示
+		if (selectedThemeName === 'light' || selectedThemeName === 'dark') {
+			const defaultCss = await fetchDefaultCss(selectedThemeName);
+			userCssInput.value = defaultCss;
+			if (editor) editor.setValue(defaultCss);
+		} else if (selectedThemeName === 'custom') {
+			// カスタムテーマの場合は、保存されているカスタムCSSをエディタにセット
+			const customCss = localStorage.getItem('user_custom_css_save') || '';
+			userCssInput.value = customCss;
+			if (editor) editor.setValue(customCss);
+		} else {
+			// それ以外のテーマ（colorThemes配列のテーマ）の場合
+			const currentThemeIndex = colorThemes.findIndex(t => t.name === selectedThemeName);
+			if (currentThemeIndex !== -1 && colorThemes[currentThemeIndex].css) {
+				userCssInput.value = colorThemes[currentThemeIndex].css;
+				if (editor) editor.setValue(colorThemes[currentThemeIndex].css);
+			} else if (baseTheme === 'light' || baseTheme === 'dark') { // 選択されたテーマにCSSがなくても、ベーステーマがあれば読み込む
+				const defaultCss = await fetchDefaultCss(baseTheme);
+				userCssInput.value = defaultCss;
+				if (editor) editor.setValue(defaultCss);
+			}
 		}
 		editor.focus();
 	}
@@ -417,14 +476,14 @@ async function init() {
 			themeSelect.value = idx;
 			const css = colorThemes[idx].css;
 			document.getElementById('user-css-input').value = css;
-			customizeBtn.classList.toggle('hidden', !css);
+			customizeBtn.classList.remove('hidden'); // 常に表示
 		} else {
 			themeSelect.value = 0;
-			customizeBtn.classList.toggle('hidden', !colorThemes[0].css);
+			customizeBtn.classList.remove('hidden'); // 常に表示
 		}
 	} else {
 		themeSelect.value = 0;
-		customizeBtn.classList.toggle('hidden', !colorThemes[0].css);
+		customizeBtn.classList.remove('hidden'); // 常に表示
 	}
 
 	themeSelect.addEventListener('change', (event) => {
@@ -435,7 +494,7 @@ async function init() {
 		} else {
 			const idx = Number(val);
 			applyTheme(idx);
-			customizeBtn.classList.toggle('hidden', !colorThemes[idx].css);
+			customizeBtn.classList.remove('hidden'); // 常に表示
 		}
 
 		const css = localStorage.getItem('active_theme_css');
@@ -532,7 +591,7 @@ window.addEventListener('DOMContentLoaded', init);
 	<div class="theme-switcher">
 		<span>テーマ選択:</span>
 		<select id="theme-select"></select>
-		<button id="customize-btn" class="hidden" onclick="toggleCssEditor()">カスタマイズ</button>
+		<button id="customize-btn" onclick="toggleCssEditor()">カスタマイズ</button>
 		<p>検索結果があるタブが起動されている状態で、テーマ切替やカスタマイズを行ってください。そのタブが実物見本となります。</p>
 	</div>
 
