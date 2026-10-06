@@ -127,9 +127,9 @@ async function fetchDefaultCss(themeName) {
 
 		let regex;
 		if (themeName === 'light') {
-			regex = /:root\s*{\n\s*color-scheme: light dark;\n\s*\/\* 基本変更しない \*\/[^]*?\/\* これ以降はテーマに合わせて変更 \*\/([^]*?)\/\*\tこれ以降は handsontable 専用\t\*\//;
+			regex = /:root\s*\{[^}]*?color-scheme:[^\r\n]*\r?\n([\s\S]*?)\r?\n\s*\}/;
 		} else if (themeName === 'dark') {
-			regex = /\[data-theme="dark"\]\s*{\n\s*color-scheme: dark;\n\s*\/\* 基本変更しない \*\/[^]*?\/\* これ以降はテーマに合わせて変更 \*\/([^]*?)\/\*\tこれ以降は handsontable 専用\t\*\//;
+			regex = /\[data-theme="dark"\]\s*\{[^}]*?color-scheme:[^\r\n]*\r?\n([\s\S]*?)\r?\n\s*\}/;
 		} else {
 			return '';
 		}
