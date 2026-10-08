@@ -2,6 +2,12 @@
  * ACFinderBE 共通テーマ定義・適用スクリプト
  */
 
+/*
+ * 警告・確認の色(--bg-color-warn / -warn-b / -warn-c / --bg-color-ok / --bg-color-success / --text-color-warn /
+ * --text-color-muted / --outline-*)の標準ライト・標準ダークの既定値は common.css にある。各テーマでは、そのテーマの背景色・
+ * 偶数行の色・文字色と見分けられ、文字のコントラスト 4.5:1 以上を保つ値で上書きする。
+ */
+
 // テーマの定義データ
 const colorThemes = [
 	{ name: 'light', title: '標準ライトテーマ', css: '' },
@@ -15,6 +21,14 @@ css: `:root {
 	--bg-color-fixed-header: #70d0d050;  /* 固定列背景色 */
 	--selection-border-color: #008b8b;   /* 選択罫線色 */
 	--bg-color-accent: #107d81;          /* 選択スライド色 */
+	/* 警告・確認の背景色 */
+	--bg-color-warn: #ffeded;        /* 警告色A: NG・超過（赤系） */
+	--bg-color-warn-b: #fff8de;      /* 警告色B: 注目・選択（黄系） */
+	--bg-color-warn-c: #f6f0ff;      /* 警告色C: 要確認（紫系） */
+	--bg-color-ok: #e8f0ff;          /* 確認色D: 確認・参照（青系） */
+	--bg-color-success: #eef9e8;     /* 適合色E: 適合・問題なし（緑系） */
+	--text-color-warn: #c80000;      /* 警告文字色（NG・超過の強調） */
+	--text-color-muted: #6a6a6a;     /* 控えめな文字色（参考情報。背景・警告色の上でも 4.5:1 以上） */
 }` },
 	{ name: 'light-soft-sepia', title: 'UDソフトセピア(眼精疲労軽減)',
 css: `:root {
@@ -44,6 +58,14 @@ css: `:root {
 	--selection-border-color: #a6917c;  /* 選択セル枠線色 */
 	--scrollbar-track-color: #EDE2D5CC; /* スクロールバーの背景色 */
 	--scrollbar-tumb-color: #A6917CCC;  /* スクロールバーのつまみ色 */
+	/* 警告・確認の背景色 */
+	--bg-color-warn: #f9e9e2;        /* 警告色A: NG・超過（赤系） */
+	--bg-color-warn-b: #f8f0d6;      /* 警告色B: 注目・選択（黄系） */
+	--bg-color-warn-c: #f1eaf1;      /* 警告色C: 要確認（紫系） */
+	--bg-color-ok: #ebeff2;          /* 確認色D: 確認・参照（青系） */
+	--bg-color-success: #ecf1e2;     /* 適合色E: 適合・問題なし（緑系） */
+	--text-color-warn: #a8371f;      /* 警告文字色（NG・超過の強調） */
+	--text-color-muted: #73675d;     /* 控えめな文字色（参考情報。背景・警告色の上でも 4.5:1 以上） */
 }` },
 	{ name: 'light-sandbeige', title: 'UDサンドベージュ(眼精疲労軽減)',
 css: `:root {
@@ -73,6 +95,14 @@ css: `:root {
 	--selection-border-color: #826948;  /* 選択セル枠線色 */
 	--scrollbar-track-color: #DFD0BFCC; /* スクロールバーの背景色 */
 	--scrollbar-tumb-color: #886E4CCC;  /* スクロールバーのつまみ色 */
+	/* 警告・確認の背景色 */
+	--bg-color-warn: #f3dbd0;        /* 警告色A: NG・超過（赤系） */
+	--bg-color-warn-b: #f1e5bf;      /* 警告色B: 注目・選択（黄系） */
+	--bg-color-warn-c: #e8dde8;      /* 警告色C: 要確認（紫系） */
+	--bg-color-ok: #dfe5ea;          /* 確認色D: 確認・参照（青系） */
+	--bg-color-success: #e1e8d2;     /* 適合色E: 適合・問題なし（緑系） */
+	--text-color-warn: #9a2f17;      /* 警告文字色（NG・超過の強調） */
+	--text-color-muted: #6f5f4f;     /* 控えめな文字色（参考情報。背景・警告色の上でも 4.5:1 以上） */
 }` },
 	{ name: 'light-bule-orange', title: 'UDブルーオレンジ(P/D型色覚)',
 css: `:root {
@@ -85,6 +115,14 @@ css: `:root {
 	--selection-border-color: #005aff;  /* 選択罫線色 */
 	--db-update-text-color: #0041b0;    /* 更新文字色 */
 	--bg-color-accent: #0c47ad;         /* 選択スライド色 */
+	/* 警告・確認の背景色（P/D型で見分けやすい朱・黄・青を主に、紫は赤みを抑える） */
+	--bg-color-warn: #ffe2cf;        /* 警告色A: NG・超過（赤系） */
+	--bg-color-warn-b: #fffbcc;      /* 警告色B: 注目・選択（黄系） */
+	--bg-color-warn-c: #f7ecf3;      /* 警告色C: 要確認（紫系） */
+	--bg-color-ok: #dde9ff;          /* 確認色D: 確認・参照（青系） */
+	--bg-color-success: #edf5e8;     /* 適合色E: 適合・問題なし（緑系） */
+	--text-color-warn: #b23600;      /* 警告文字色（NG・超過の強調） */
+	--text-color-muted: #656565;     /* 控えめな文字色（参考情報。背景・警告色の上でも 4.5:1 以上） */
 }` },
 	{ name: 'light-green-positive', title: 'UD ポジティブ・グリーン(T型色覚)',
 css: `:root {
@@ -97,6 +135,14 @@ css: `:root {
 	--selection-border-color: #67c23a;  /* 選択罫線色 */
 	--db-update-text-color: #1e7e34;    /* 更新文字色 */
 	--bg-color-accent: #1d8548;         /* 選択スライド色 */
+	/* 警告・確認の背景色（T型で混同しやすい青と緑、黄と紫は明度差で区別） */
+	--bg-color-warn: #ffe2e2;        /* 警告色A: NG・超過（赤系） */
+	--bg-color-warn-b: #fff1d2;      /* 警告色B: 注目・選択（黄系） */
+	--bg-color-warn-c: #efe8fb;      /* 警告色C: 要確認（紫系） */
+	--bg-color-ok: #dcecf8;          /* 確認色D: 確認・参照（青系） */
+	--bg-color-success: #dcefcf;     /* 適合色E: 適合・問題なし（緑系） */
+	--text-color-warn: #bb3326;      /* 警告文字色（NG・超過の強調） */
+	--text-color-muted: #676767;     /* 控えめな文字色（参考情報。背景・警告色の上でも 4.5:1 以上） */
 }` },
 	{ name: 'light-mono', title: 'UDモノクローム(明暗差重視)',
 css: `:root {
@@ -119,6 +165,18 @@ css: `:root {
 	--bg-color-highlighted-header: #DDDDDD; /* カーソル列背景色（色排除） */
 	--bg-color-active-header: #DCDCDC;      /* 操作中列背景色（色排除） */
 	--border-color-focus: #000000;      /* フォーカス枠線色 */
+	/* 警告・確認の背景色（色彩を使わず明度差＋枠線の線種で区別） */
+	--bg-color-warn: #c4c4c4;        /* 警告色A: NG・超過（赤系） */
+	--bg-color-warn-b: #e6e6e6;      /* 警告色B: 注目・選択（黄系） */
+	--bg-color-warn-c: #d6d6d6;      /* 警告色C: 要確認（紫系） */
+	--bg-color-ok: #f0f0f0;          /* 確認色D: 確認・参照（青系） */
+	--bg-color-success: #ffffff;     /* 適合色E: 適合・問題なし（緑系） */
+	--text-color-warn: #000000;      /* 警告文字色（NG・超過の強調） */
+	--outline-warn: 2px solid #000000;      /* 警告色Aの枠線（色に頼らない区別） */
+	--outline-warn-b: 1px dotted #000000;    /* 警告色Bの枠線 */
+	--outline-warn-c: 2px dashed #000000;    /* 警告色Cの枠線 */
+	--outline-ok: 1px solid #888888;        /* 確認色Dの枠線 */
+	--text-color-muted: #4f4f4f;     /* 控えめな文字色（参考情報。背景・警告色の上でも 4.5:1 以上） */
 }` },
 	{ name: 'light-high-contrast', title: 'UD ハイコントラスト(明瞭度重視)',
 css: `:root {
@@ -141,6 +199,14 @@ css: `:root {
 	--db-update-text-color: #d00000;    /* 更新箇所（高彩度赤） */
 	--bg-color-accent: #0000bb;         /* 選択スライド色 */
 	--text-color-step: #dddddd;         /* スライドステップ文字色 */
+	/* 警告・確認の背景色（彩度を上げて明瞭化） */
+	--bg-color-warn: #ffcccc;        /* 警告色A: NG・超過（赤系） */
+	--bg-color-warn-b: #fff38a;      /* 警告色B: 注目・選択（黄系） */
+	--bg-color-warn-c: #e8d2ff;      /* 警告色C: 要確認（紫系） */
+	--bg-color-ok: #cfe3ff;          /* 確認色D: 確認・参照（青系） */
+	--bg-color-success: #cff0cf;     /* 適合色E: 適合・問題なし（緑系） */
+	--text-color-warn: #c00000;      /* 警告文字色（NG・超過の強調） */
+	--text-color-muted: #5c5c5c;     /* 控えめな文字色（参考情報。背景・警告色の上でも 4.5:1 以上） */
 }` },
 	{ name: 'dark', title: '標準ダークテーマ', css: '' },
 	{ name: 'dark-soft-night', title: 'UDダークソフトナイト(眼精疲労軽減)',
@@ -155,6 +221,14 @@ css: `[data-theme="dark"] {
 	--db-update-text-color: #9cdcfe;    /* 更新文字色 */
 	--bg-color-even-row: #23282b;       /* 偶数行背景色 */
 	--border-color: #454d50;            /* 枠線色 */
+	/* 警告・確認の背景色 */
+	--bg-color-warn: #3a2a2c;        /* 警告色A: NG・超過（赤系） */
+	--bg-color-warn-b: #373427;      /* 警告色B: 注目・選択（黄系） */
+	--bg-color-warn-c: #312e3c;      /* 警告色C: 要確認（紫系） */
+	--bg-color-ok: #263441;          /* 確認色D: 確認・参照（青系） */
+	--bg-color-success: #27362e;     /* 適合色E: 適合・問題なし（緑系） */
+	--text-color-warn: #e59393;      /* 警告文字色（NG・超過の強調） */
+	--text-color-muted: #979fa2;     /* 控えめな文字色（参考情報。背景・警告色の上でも 4.5:1 以上） */
 }` },
 	{ name: 'dark-blue-orange', title: 'UDダークブルーオレンジ(P/D型色覚)',
 css: `[data-theme="dark"] {
@@ -170,6 +244,14 @@ css: `[data-theme="dark"] {
 	--db-update-text-color: #7abaff;    /* 更新文字色 */
 	--bg-color-even-row: #22252a;       /* 偶数行背景色 */
 	--bg-color-accent: #ff9d00;         /* スライドステップ背景色 */
+	/* 警告・確認の背景色（P/D型向けに朱・黄・青を主に） */
+	--bg-color-warn: #5a2a06;        /* 警告色A: NG・超過（赤系） */
+	--bg-color-warn-b: #3d3b26;      /* 警告色B: 注目・選択（黄系） */
+	--bg-color-warn-c: #38304a;      /* 警告色C: 要確認（紫系） */
+	--bg-color-ok: #173659;          /* 確認色D: 確認・参照（青系） */
+	--bg-color-success: #29342c;     /* 適合色E: 適合・問題なし（緑系） */
+	--text-color-warn: #ffad5c;      /* 警告文字色（NG・超過の強調） */
+	--text-color-muted: #a6a6a7;     /* 控えめな文字色（参考情報。背景・警告色の上でも 4.5:1 以上） */
 }` },
 	{ name: 'dark-high-contrast', title: 'UDダークハイコントラスト(明瞭度重視)',
 css: `[data-theme="dark"] {
@@ -194,6 +276,14 @@ css: `[data-theme="dark"] {
 	--db-update-text-color: #ffff00;    /* 更新文字色 */
 	--bg-color-even-row: #222222;       /* 偶数行背景色（明確化） */
 	--text-color-step: #222222;         /* スライドステップ文字色 */
+	/* 警告・確認の背景色（彩度・明度差を強めて明瞭化） */
+	--bg-color-warn: #6a0f0f;        /* 警告色A: NG・超過（赤系） */
+	--bg-color-warn-b: #544b00;      /* 警告色B: 注目・選択（黄系） */
+	--bg-color-warn-c: #4a2b6e;      /* 警告色C: 要確認（紫系） */
+	--bg-color-ok: #0b3d78;          /* 確認色D: 確認・参照（青系） */
+	--bg-color-success: #114a11;     /* 適合色E: 適合・問題なし（緑系） */
+	--text-color-warn: #ff7a7a;      /* 警告文字色（NG・超過の強調） */
+	--text-color-muted: #bcbcbc;     /* 控えめな文字色（参考情報。背景・警告色の上でも 4.5:1 以上） */
 }` },
 ];
 

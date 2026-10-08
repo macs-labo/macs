@@ -59,6 +59,18 @@ html, body {
 	--bg-color-filter-header: #10101040;
 	--bg-color-fixed-header: #10101020;
 	--bg-color-pagesize-over: #fdb;
+	/*	警告・確認の色(表のセルや行の強調。各テーマで背景色・偶数行・文字色と見分けられ、文字のコントラスト 4.5:1 以上を保つ値にする)	*/
+	--bg-color-warn: #fff3f3;      /* 警告色A: NG・超過(薄い赤。背景と見分けられる限界の薄さ) */
+	--bg-color-warn-b: #fffcf4;    /* 警告色B: 注目・選択(薄い黄) */
+	--bg-color-warn-c: #f9f7ff;    /* 警告色C: 要確認(薄い紫) */
+	--bg-color-ok: #f2f8ff;        /* 確認色D: 確認・参照(薄い青) */
+	--bg-color-success: #f3fbf2;   /* 適合色E: 適合・問題なし(薄い緑) */
+	--text-color-warn: #d00000;    /* 警告文字色(NG・超過の強調) */
+	--text-color-muted: #6f6f6f;   /* 控えめな文字色(参考情報。背景・警告色の上でも 4.5:1 以上) */
+	--outline-warn: none;          /* 警告色A〜確認色Dの枠線(色に頼らない区別。outline の値。モノクロームテーマで線種を変えて使う) */
+	--outline-warn-b: none;
+	--outline-warn-c: none;
+	--outline-ok: none;
 }
 
 [data-theme="dark"] {
@@ -98,6 +110,14 @@ html, body {
 	--bg-color-filter-header: #fcfcfc58;
 	--bg-color-fixed-header: #fcfcfc38;
 	--bg-color-pagesize-over: #640;
+	/*	警告・確認の色	*/
+	--bg-color-warn: #432426;      /* 警告色A: NG・超過(暗い赤) */
+	--bg-color-warn-b: #3d3720;    /* 警告色B: 注目・選択(暗い黄) */
+	--bg-color-warn-c: #352c45;    /* 警告色C: 要確認(暗い紫) */
+	--bg-color-ok: #20324a;        /* 確認色D: 確認・参照(暗い青) */
+	--bg-color-success: #203a29;   /* 適合色E: 適合・問題なし(暗い緑) */
+	--text-color-warn: #ff7070;    /* 警告文字色 */
+	--text-color-muted: #a1a1a1;   /* 控えめな文字色 */
 }
 
 :root,
