@@ -1,5 +1,5 @@
 --/d
-/* 2026.10.02 Œ»İ‚Ì”_…È”_–ò“o˜^î•ñ’ñ‹ŸƒVƒXƒeƒ€‚ÉŠî‚Ã‚­ì•¨ƒ}ƒXƒ^[ (2021.5.25) */
+/* 2026.10.09 Œ»İ‚Ì”_…È”_–ò“o˜^î•ñ’ñ‹ŸƒVƒXƒeƒ€‚ÉŠî‚Ã‚­ì•¨ƒ}ƒXƒ^[ (2021.5.25) */
 drop view if exists vg_sakumotsu;
 drop view if exists vg_sakumotsu2;
 drop view if exists vs_sakumotsu;
@@ -1491,7 +1491,6 @@ insert into m_sakumotsu values(4, 3, '2202000000010000', '22020000010000', 1, NU
 insert into m_sakumotsu values(4, 3, '2202000000020000', '22020000020000', 2, NULL, '‚Â‚Ô‚ç‚¶‚¢', '‚±‚¶‚¢A‚µ‚¢', '‚Â‚Ô‚ç‚¶‚¢A‚±‚¶‚¢A‚µ‚¢', NULL, NULL);
 insert into m_sakumotsu values(1, 1, '2203000000000000', '22030000000000', 1, NULL, '‚Â‚Â‚¶—Ş', NULL, '‚Â‚Â‚¶‚é‚¢', NULL, NULL);
 insert into m_sakumotsu values(5, 4, '2203000000000006', '22030000000006', 1, NULL, '‚Â‚Â‚¶—Ş(”«Í”|)', NULL, '‚Â‚Â‚¶‚é‚¢(‚Í‚¿‚³‚¢‚Î‚¢)', NULL, NULL);
-insert into m_sakumotsu values(5, 4, '2203000000000007', '22030000000007', 1, NULL, '‚Â‚Â‚¶—Ş(”«A‚¦)', NULL, '‚Â‚Â‚¶‚é‚¢(‚Í‚¿‚¤‚¦)', NULL, NULL);
 insert into m_sakumotsu values(4, 3, '2203000000010000', '22030000010000', 1, NULL, 'ƒAƒUƒŒƒA', NULL, '‚ ‚´‚ê‚ ', NULL, NULL);
 insert into m_sakumotsu values(5, 4, '2203000000010001', '22030000010001', 1, NULL, 'ƒAƒUƒŒƒA({İÍ”|)', NULL, '‚ ‚´‚ê‚ (‚µ‚¹‚Â‚³‚¢‚Î‚¢)A‚µ‚¹‚Â‚ ‚´‚ê‚ ', NULL, NULL);
 insert into m_sakumotsu values(4, 3, '2203000000020000', '22030000020000', 2, NULL, '‚¨‚¨‚Ş‚ç‚³‚«', NULL, '‚¨‚¨‚Ş‚ç‚³‚«', NULL, NULL);
@@ -2482,8 +2481,7 @@ insert into sakuhojo values('2200000000000131', '÷–Ø—Ş', 'A——t«’ë–Ø—ŞAj—t
 insert into sakuhojo values('2200000000000132', '÷–Ø—Ş', 'A‚¢‚Ê‚Ü‚«A', NULL);
 insert into sakuhojo values('2200000001240001', 'ƒRƒEƒˆƒEƒUƒ“', NULL, NULL);
 insert into sakuhojo values('2201000000000001', '‚©‚µ—Ş', NULL, NULL);
-insert into sakuhojo values('2203000000000006', '‚Â‚Â‚¶—Ş', 'A‚Â‚Â‚¶—Ş(”«A‚¦)A', NULL);
-insert into sakuhojo values('2203000000000007', '‚Â‚Â‚¶—Ş', 'A‚Â‚Â‚¶—Ş(”«Í”|)A', NULL);
+insert into sakuhojo values('2203000000000006', '‚Â‚Â‚¶—Ş', 'A', NULL);
 insert into sakuhojo values('2203000000010001', 'ƒAƒUƒŒƒA', 'AƒAƒUƒŒƒA(˜I’nÍ”|)A', 'AƒAƒUƒŒƒA(…kÍ”|)A');
 insert into sakuhojo values('2203000000040001', '‚³‚Â‚«', 'A‚³‚Â‚«(˜I’nÍ”|•c)A', 'A‚³‚Â‚«(…kÍ”|•c)A');
 insert into sakuhojo values('2203000000050003', '‚µ‚á‚­‚È‚°', 'A‚µ‚á‚­‚È‚°(˜I’nÍ”|)A', 'A‚µ‚á‚­‚È‚°(…kÍ”|)A');
