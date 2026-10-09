@@ -406,11 +406,11 @@ async function setupPlanChem(moveThis = true) {
 			order by t.ruby, s.ruby, idbyochu;
 			drop table if exists t_planTekiyo;
 			create temp table t_planTekiyo as select * from tv_tsushoTekiyo2 where sakumotsu in (${cropQuery});
-			with t_tekiyo1 as (select tsusho, sakumotsu, jiki, kaisu, hoho, gn_concat(',', n_concat('&', byochu, mokuteki)) as byochu,
+			with t_tekiyo1 as (select tsusho, sakumotsu, jiki, kaisu, baisu, hoho, baisu, gn_concat(',', n_concat('&', byochu, mokuteki)) as byochu,
 				n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
-				from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu, jiki, kaisu, hoho order by ruby
+				from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu, jiki, kaisu, baisu, hoho order by ruby
 			),
-			t_tekiyo2 as (select tsusho, gn_concat('|', format('%s:%s/%s/%s/%s', sakumotsu, jiki, kaisu, hoho, byochu)) as tekiyo, keywords from t_tekiyo1 group by tsusho)
+			t_tekiyo2 as (select tsusho, jiki, hoho, kaisu, gn_concat('|', format('%s/%s/%s', sakumotsu, baisu, byochu)) as tekiyo, keywords from t_tekiyo1 group by tsusho, jiki, kaisu, hoho)
 			select * from t_tekiyo2;
 		`;
 		console.log('${cropQuery} = {', cropQuery, '}');
@@ -419,10 +419,35 @@ async function setupPlanChem(moveThis = true) {
 		if (sqlResult?.[0]?.values) {
 			const chems = sqlResult[0].values.map(row => ({
 				tsusho: row[0],
-				tekiyo: row[1],
-				keywords: row[2]
+				jiki: row[1],
+				hoho: row[2],
+				kaisu: row[3],
+				tekiyo: row[4],
+				keywords: row[5]
 			}));
-			planChemManager.update(chems);
+			let group = '';
+			const renderer = (row) => {
+				const tsusho = row.tsusho;
+				const info = row.keywords;
+				let groupItem = '';
+				if (group !== tsusho) {
+					group = tsusho;
+					groupItem = `
+						<div class="checkListItem" data-group data-info="${tsusho}|${info}" title="${tsusho}"><em>${tsusho}</em> ${info}</div>
+					`;
+				}
+				const jiki = row.jiki === '-' ? '時期無指定' : row.jiki;
+				const hoho = row.hoho === '-' ? '方法無指定' : row.hoho;
+				const kaisu = row.kaisu === '-' ? '回数無指定' : row.kaisu;
+				//const bango = row.bango;
+				//const name = `${bango} ${row.meisho}`;
+				return `${groupItem}
+					<div class="checkListItem" data-info="${tsusho}|${info}" title="${name}">
+						<input type="radio" name="chemSelect" value="${name}" id="${bango}"><label for="${bango}">${name}</label>
+					</div>
+				`;
+			};
+			await planChemManager.update(chems, renderer);
 		} else {
 			planChemManager.update([]);
 		}
