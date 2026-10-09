@@ -408,7 +408,7 @@ async function setupPlanChem(moveThis = true) {
 			create temp table t_planTekiyo as select * from tv_tsushoTekiyo2 where sakumotsu in (${cropQuery});
 			with t_tekiyo1 as (select tsusho, sakumotsu, jiki, kaisu, hoho, gn_concat(',', n_concat('&', byochu, mokuteki)) as byochu,
 				n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
-				from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu, jiki, kausu, hoho order by ruby
+				from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu, jiki, kaisu, hoho order by ruby
 			),
 			t_tekiyo2 as (select tsusho, gn_concat('|', format('%s:%s/%s/%s/%s', sakumotsu, jiki, kaisu, hoho, byochu)) as tekiyo, keywords from t_tekiyo1 group by tsusho)
 			select * from t_tekiyo2;
