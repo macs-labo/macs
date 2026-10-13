@@ -410,7 +410,7 @@ async function setupPlanChem(moveThis = true) {
 				n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
 				from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu, jiki, kaisu, baisu, hoho order by ruby
 			),
-			t_tekiyo2 as (select tsusho, jiki, hoho, kaisu, gn_concat('|', format('%s/%s/%s', sakumotsu, baisu, byochu)) as tekiyo, keywords from t_tekiyo1 group by tsusho, jiki, kaisu, hoho)
+			t_tekiyo2 as (select tsusho, jiki, hoho, kaisu, gn_concat('|', n_concat('≫', sakumotsu, baisu, byochu)) as tekiyo, keywords from t_tekiyo1 group by tsusho, jiki, kaisu, hoho)
 			select * from t_tekiyo2;
 		`;
 		console.log('${cropQuery} = {', cropQuery, '}');
@@ -441,7 +441,7 @@ async function setupPlanChem(moveThis = true) {
 				const kaisu = row.kaisu === '-' ? '回数無指定' : row.kaisu;
 				const kubun = `${jiki}:${hoho}:${kaisu}`;
 				const id = `${tsusho}:${kubun}`;
-				const tekiyo =`${kubun}:${row.tekiyo}`;
+				const tekiyo =`${kubun}|${row.tekiyo}`;
 				//const bango = row.bango;
 				//const name = `${bango} ${row.meisho}`;
 				return `${groupItem}
