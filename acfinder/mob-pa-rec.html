@@ -439,11 +439,14 @@ async function setupPlanChem(moveThis = true) {
 				const jiki = row.jiki === '-' ? '時期無指定' : row.jiki;
 				const hoho = row.hoho === '-' ? '方法無指定' : row.hoho;
 				const kaisu = row.kaisu === '-' ? '回数無指定' : row.kaisu;
+				const kubun = `${jiki}:${hoho}:${kaisu}`;
+				const id = `${tsusho}:${kubun}`;
+				const tekiyo =`${kubun}:${row.tekiyo}`;
 				//const bango = row.bango;
 				//const name = `${bango} ${row.meisho}`;
 				return `${groupItem}
-					<div class="checkListItem" data-info="${tsusho}|${info}" title="${name}">
-						<input type="radio" name="chemSelect" value="${name}" id="${bango}"><label for="${bango}">${name}</label>
+					<div class="checkListItem" data-info="${tsusho}|${info}|${kubun}" title="${tsusho}">
+						<input type="radio" name="chemSelect" value="${tekiyo}" id="${id}"><label for="${id}">${tekiyo}</label>
 					</div>
 				`;
 			};
