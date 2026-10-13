@@ -213,6 +213,22 @@ div.handsontable-like {
 	animation: blink 0.5s 6 forwards;
 }
 
+/* 判定記号(○・×・△・？): 線の太さを決めた図形で描く(judgeMarkHtml)。色は文字色に従う */
+.jm {
+	display: inline-block;
+	width: 1.05em;
+	height: 1.05em;
+	vertical-align: -0.17em;
+	background-color: currentColor;
+	-webkit-mask: var(--jm-svg) center / contain no-repeat;
+	mask: var(--jm-svg) center / contain no-repeat;
+}
+.jm-t { font-size: 0; }   /* コピー・読み上げ用の文字(画面では見えない) */
+.jm-ok  { --jm-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3C/svg%3E"); }
+.jm-ng  { --jm-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3.2' stroke-linecap='round'%3E%3Cpath d='M5.5 5.5L18.5 18.5M18.5 5.5L5.5 18.5'/%3E%3C/svg%3E"); }
+.jm-tri { --jm-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linejoin='round'%3E%3Cpath d='M12 3.8L21.2 19.8H2.8Z'/%3E%3C/svg%3E"); }
+.jm-q   { --jm-svg: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M8 8.5a4 4 0 1 1 5.6 3.7c-1 .5-1.6 1.3-1.6 2.5v.8'/%3E%3Ccircle cx='12' cy='19.6' r='0.4'/%3E%3C/svg%3E"); }
+
 .handsontable-like td.judge {
 	text-align: left;
 	font-size: 0.9em;
@@ -231,6 +247,7 @@ div.handsontable-like {
 	color: var(--text-color-dark);
 }
 #yakuzaiCountTable .yk-okr,
+#harvestTable .yk-okr,
 #seibunCountTable .yk-okr { color: var(--text-color-muted, #6f6f6f); }   /* 薬剤別・成分別使用回数: OK の理由(判定には影響しない事実)は控えめに表示 */
 #yakuzaiCountTable td.yk-ng,
 #yakuzaiCountTable td.yk-co { cursor: pointer; }
@@ -262,7 +279,25 @@ div.handsontable-like {
 #usageResolveDialog label.ur-opt { display: block; margin: 0.15rem 0; cursor: pointer; }
 #usageResolveDialog .ur-buttons { display: flex; justify-content: flex-end; gap: 0.5rem; }
 .warn-bg-d { background-color: var(--bg-color-ok, #f2f8ff) !important; outline: var(--outline-ok, none); outline-offset: -2px; }
-#seibunCountTable td.sb-name { cursor: pointer; }
+#seibunCountTable .hl { cursor: pointer; }
+#seibunCountTable td.rac-name,
+#seibunCountTable td.rac-count { vertical-align: top; }
+/* 系統・系統回数は縦中央。数字だけの系統回数・成分回数(と合計)は右寄せ、文字も入る RAC回数は左寄せ */
+#seibunCountTable td.grp-name,
+#seibunCountTable td.grp-count { vertical-align: middle; }
+#seibunCountTable td.grp-count,
+#seibunCountTable td.sb-count,
+#seibunCountTable tfoot td { text-align: right; }
+#seibunCountTable td.rac-count { text-align: left; }
+#seibunCountTable td.rac-count { white-space: normal; min-width: 4rem; max-width: 16rem; }
+/* 有効成分の有機JAS・特栽の区分(kihon ビューの ojas。title に原文)と、成分回数の合計に数えない回数(括弧書き) */
+.ojas-setting { gap: 8px; flex-wrap: wrap; white-space: normal; }
+#seibunCountTable .ojas-tag { font-size: 0.8em; color: var(--text-color-muted, #6f6f6f); border: 1px solid var(--border-color-strong, #999); border-radius: 3px; padding: 0 0.25em; margin-left: 0.3em; white-space: nowrap; }
+#seibunCountTable .ojas-tag.ojas-ng { color: var(--text-color-warn, red); border-color: var(--text-color-warn, red); font-weight: bold; }
+#seibunContainer .ojas-warn { color: var(--text-color-warn, red); font-weight: bold; margin: 0.3rem 0; white-space: normal; }
+#seibunContainer .ojas-warn .hl { cursor: pointer; text-decoration: underline; }
+#seibunCountTable .sb-nc { color: var(--text-color-muted, #6f6f6f); }
+#seibunCountTable .rac-info { font-size: 0.85em; color: var(--text-color-muted, #6f6f6f); }   /* FRAC系統名・HRAC旧分類・耐性リスク(RAC回数の下に添える。省略しない) */
 .warn-bg { background-color: var(--bg-color-warn, #fff3f3) !important; outline: var(--outline-warn, none); outline-offset: -2px; }   /* 警告色と警告色Bが重なるセルは警告色(NG)を優先する */
 #yakuzaiCountTable tr.yk-first td {
 	border-top: 2px solid var(--border-color-strong);
@@ -278,7 +313,8 @@ div.handsontable-like {
 
 #planContainer,
 #seibunContainer,
-#yakuzaiCountContainer {
+#yakuzaiCountContainer,
+#harvestContainer {
 	overflow-x: hidden;
 }
 
@@ -385,6 +421,11 @@ div.handsontable-like {
 .timing-period {
 	width: auto;
 }
+/* 収穫前日数の欄: 収穫開始時期の入力欄(計画モードは月・旬、記録モードは年月日) */
+.harvest-setting { gap: 4px; }
+.harvest-setting select { width: auto; }
+/* 記録モードで、カウント開始日(1行目の防除日)より前の防除日: 日付の修正を促す */
+#planTable td.phi-date-error { outline: 2px solid var(--text-color-warn, red); outline-offset: -2px; background-color: var(--bg-color-warn, #fff3f3); }
 </style>
 <!--	タブ専用の view や table の設定 -->
 <script type="text/plain" id="views_or_tables">
@@ -812,7 +853,8 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 				concat_ws('/',mid3,keito3,replace(rem3, 'FRAC系統名: ', ''), risk3),
 				concat_ws('/',mid4,keito4,replace(rem4, 'FRAC系統名: ', ''), risk4),
 				concat_ws('/',mid5,keito5,replace(rem5, 'FRAC系統名: ', ''), risk5)
-			) as mid
+			) as mid,
+			MAX(seizaiojas) as seizaiojas   -- 製剤の有機JAS・特栽の区分(t_tokusai: 全成分が有機JAS・特栽の対象の製剤だけ)
 			FROM t_tekiyo
 			WHERE tsusho = '${yakuzaiName}' AND sakumotsu IN (${currentSakumotsu})
 			GROUP BY tsusho, sakumotsu, jiki, kaisu, baisu, ekiryo, hoho;
@@ -830,7 +872,7 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 		return;
 	}
 
-	const headers = ['操作', '作物名', '通称名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC'];
+	const headers = ['操作', '作物名', '通称名', '対象病害虫', '使用時期', '使用回数', '希釈倍数/使用量', '使用液量', '使用方法', '有効成分', '成分回数', 'RAC', '有機JAS・特栽'];
 	const columns = results[0].columns;
 	let tableHtml = `<div class="handsontable-like">
 		<table id="candidateTable">
@@ -861,6 +903,7 @@ async function showYakuzaiTekiyo(yakuzaiName) {
 				<td>${valueRow[columns.indexOf('seibun')] || ''}</td>
 				<td>${valueRow[columns.indexOf('seibunkaisu')] || ''}</td>
 				<td>${valueRow[columns.indexOf('mid')] || ''}</td>
+				<td>${escapeHtml(String(valueRow[columns.indexOf('seizaiojas')] || ''))}</td>
 			</tr>`;
 	});
 
@@ -1378,6 +1421,10 @@ function createPlanTable() {
 			<input type="checkbox" id="checkRecordMode" onchange="toggleRecordMode(this.checked)" autocomplete="off">
 			<label for="checkRecordMode"> 記録モード (日付入力)</label>
 		</div>
+		<div class="checkListItem">
+			<input type="checkbox" id="checkHarvestJudge" onchange="onHarvestSettingChange()" autocomplete="off">
+			<label for="checkHarvestJudge"> 収穫前日数を判定する</label>
+		</div>
 		<div id="datasetInfo" class="hidden"></div>
 		<div class="handsontable-like">
 			<table id="planTable">
@@ -1531,6 +1578,8 @@ function convPlanToJson() {
 		sakumotsu: currentSakumotsu, // 作物条件のSQL文字列
 		crops: checkedCrops, // 選択作物オブジェクトの配列(モバイル版互換用)
 		titleText: document.getElementById('title').textContent, // #title のテキスト内容
+		ojasCount: getOjasCountMode(), // 成分回数の合計に数えない成分: 'all'(全カウント) / 'jas'(有機JAS非カウント) / 'jas_tokusai'(有機JAS・特栽可能性非カウント)
+		harvest: getHarvestSetting(), // 収穫前日数の設定 { enabled(判定する), month, period(収穫開始の月旬), date(記録モードの収穫開始年月日) }
 		plan: planData
 	};
 
@@ -1744,6 +1793,11 @@ async function loadPlanFromJson(jsonText, msg) {
 			titleElement.textContent = loadedData.titleText;
 			titleElement.classList.remove('hidden'); // タイトルを表示状態にする
 		}
+
+		// 収穫前日数の設定を復元(項目の無い古い形式のファイルは未設定・判定しないに戻す。旧版の「収穫中も散布あり」は読み捨てる)
+		setHarvestSetting(loadedData.harvest);
+		// 成分回数の合計に数えない成分の選択を復元(項目の無い古いファイルは全カウント)
+		setOjasCountMode(loadedData.ojasCount);
 
 		// 既存のテーブル内容と候補テーブルをクリア
 		planTableBody?.clearContent();
@@ -2133,6 +2187,7 @@ function renderTimingCell(cell, data) {
 // モード切り替え
 function toggleRecordMode(checked) {
 	isRecordMode = checked;
+	updateHarvestInputs();   // 収穫開始時期の入力欄も切り替える(計画モードは月旬、記録モードは年月日)
 	const planTableBody = document.querySelector('#planTable tbody');
 	if (!planTableBody) return;
 
@@ -2174,6 +2229,15 @@ function sortPlanByTiming() {
 	if (!planTableBody) return;
 	const rows = Array.from(planTableBody.rows);
 	const periodMap = { '上旬': 1, '中旬': 2, '下旬': 3, '': 0 }; // 0 for unspecified period
+	// 月旬の計画は、1行目(防除時期の入った最初の行)をその作の最初の防除とし、その月旬から始まる1年間(作期)の順に並べる
+	// (11月始まりの作で1月の行が先頭に来て、作期の起点が変わらないように。収穫前日数の判定と同じ考え方)
+	const idxOf = (row) => {
+		const m = parseInt(row.querySelector('.timing-cell .timing-month')?.value || '', 10);
+		const p = periodMap[row.querySelector('.timing-cell .timing-period')?.value || ''] || 0;
+		return m >= 1 && p >= 1 ? (m - 1) * 3 + (p - 1) : null;   // 0～35(年内の旬の通し番号)
+	};
+	const anchorRow = rows.find((row) => idxOf(row) !== null);
+	const anchorIdx = anchorRow ? idxOf(anchorRow) : 0;
 
 	rows.sort((a, b) => {
 		// Row A の値を取得
@@ -2185,9 +2249,7 @@ function sortPlanByTiming() {
 		if (dateInputA && dateInputA.value) {
 			valA = new Date(dateInputA.value).getTime(); // Convert to timestamp for sorting
 		} else if (monthSelectA && monthSelectA.value && periodSelectA && periodSelectA.value) {
-			const m = parseInt(monthSelectA.value, 10);
-			const p = periodMap[periodSelectA.value] || 0;
-			valA = m * 10 + p; // Numeric representation for month/period
+			valA = ((idxOf(a) - anchorIdx) % 36 + 36) % 36; // 作期の起点(1行目の月旬)からの旬の数
 		}
 
 		// Row B の値を取得
@@ -2200,9 +2262,7 @@ function sortPlanByTiming() {
 		if (dateInputB && dateInputB.value) {
 			valB = new Date(dateInputB.value).getTime();
 		} else if (monthSelectB && monthSelectB.value && periodSelectB && periodSelectB.value) {
-			const m = parseInt(monthSelectB.value, 10);
-			const p = periodMap[periodSelectB.value] || 0;
-			valB = m * 10 + p;
+			valB = ((idxOf(b) - anchorIdx) % 36 + 36) % 36;
 		}
 
 		// Handle null/undefined values (unspecified timing) by pushing them to the end
@@ -2217,7 +2277,8 @@ function sortPlanByTiming() {
 	updateRowNumbers();
 }
 
-// No. の再採番とボタンの状態更新
+// No. の再採番とボタンの状態更新。行が無くなったら、記録モードと収穫前日数(判定のチェック・収穫開始時期・表)を初期化し、
+// 作物の選択からやり直せるようにする。最後に薬剤別・成分別使用回数の表(と収穫前日数の表)を作り直す
 function updateRowNumbers() {
 	const planTableBody = document.querySelector('#planTable tbody');
 	if (!planTableBody) return;
@@ -2237,6 +2298,10 @@ function updateRowNumbers() {
 		isRecordMode = false;
 		const checkRecordMode = document.getElementById('checkRecordMode');
 		if (checkRecordMode) checkRecordMode.checked = false;
+		// 収穫前日数も完全に初期化する(判定のチェック・収穫開始時期・収穫開始年月日を外し、欄と表を消す)
+		setHarvestSetting(null);
+		const harvestContainer = document.getElementById('harvestContainer');
+		if (harvestContainer) harvestContainer.innerHTML = '';
 	}
 
 	// 作物ツリーのロック制御
@@ -3836,7 +3901,7 @@ function contentPctOf(tsusho, seibun) {
 		const table = new Map();
 		try {
 			const q = s.replace(/'/g, "''");
-			const res = db.exec(`select distinct m.tsusho, s.nodo from m_kihon m join seibun s using(bango) where s.ippanmei = '${q}' or s.seibun = '${q}'`);
+			const res = db.exec(`select distinct tsusho, nodo from kihon where seibun = '${q}'`);
 			(res[0]?.values || []).forEach(([name, nodo]) => {
 				const m = String(nodo || '').match(/([\d.]+)\s*%/);
 				if (!name || !m) return;
@@ -3861,10 +3926,10 @@ function zaikeiOf(tsusho) {
 	const key = String(tsusho || '').trim();
 	if (!key) return '';
 	if (zaikeiCache.has(key)) return zaikeiCache.get(key);
-	//if (typeof db === 'undefined' || !db) return '';            // データベース未読込: 読込後の再判定で取得する
+	if (typeof db === 'undefined' || !db) return '';            // データベース未読込: 読込後の再判定で取得する
 	let z = '';
 	try {
-		const res = db.exec(`select zaikei from m_kihon where tsusho = '${key.replace(/'/g, "''")}'`);
+		const res = db.exec(`select distinct zaikei from m_kihon where tsusho = '${key.replace(/'/g, "''")}'`);
 		const vals = (res[0]?.values || []).map(v => v[0]).filter(Boolean);
 		if (vals.length === 1) z = String(vals[0]);              // 複数あるときは決められないので空にする
 	} catch (e) {
@@ -3968,7 +4033,9 @@ function collectSeibunData(planTableBody) {
 				const kaisuText = seibunkaisus[index] || '';
 				const currentData = seibunData.get(seibun) || { count: 0, seibunkaisu: '', mid: '', limit: -1, uses: [] };
 				currentData.count += 1;
-				if (currentData.count === 1) currentData.mid = mids[index] || '';
+				// RAC 列(コード/系統/FRAC系統名など/耐性リスク)は、情報のいちばん多い行のものを使う(耐性リスクを落とさないため。RAC別使用回数の表示用)
+				const midText = mids[index] || '';
+				if (currentData.count === 1 || midText.split('/').filter(x => x.trim()).length > currentData.mid.split('/').filter(x => x.trim()).length) currentData.mid = midText;
 				const newLimit = parseInt(kaisuText.match(/^\d+/)?.[0] || '0', 10);
 				if (newLimit > currentData.limit) {
 					currentData.seibunkaisu = kaisuText;
@@ -3995,11 +4062,123 @@ function usageResolveButtonHtml(qs, attrName, value) {
 	return `<br><button type="button" class="ur-open${open ? '' : ' ur-done'}" ${attrName}="${escapeHtml(value)}" title="要確認になった項目が、確認対象のどの内容に当たるかを選んで再計算します(保存はされません)">${label}</button>`;
 }
 
-// 成分の使用回数をカウントしてテーブルを更新する関数
-// 使用回数・使用上限は従来どおり(行数と、成分回数の先頭の数字の最大値)。
-// 加えて「判定」列で、成分回数の総量(条件付きの上限を含む)と括弧内(使用時期・方法・対象ごとの内訳上限)を UsageLimit.judge で判定する。
-// 理由は判定によらず、総使用回数と、内訳枠のある成分は使われた内訳枠をすべて表示する(NG → 要確認(※) → OK(灰色)の順)。
-// 要確認の問いがあれば「内容を選択/選択を変更」ボタンを出す(選択はその場限りの再計算で、保存しない)
+// RAC別使用回数の表(#seibunCountTable)を作る関数。判定はしない(成分の使用回数の判定は薬剤別使用回数の表で行う)。
+// 防除計画の RAC 欄(「F:11/メトキシアクリレート/QoI殺菌剤(Qo阻害剤)/高(…)」「I:1(B)/有機リン系」)を、RAC・系統・有効成分の3段でまとめる。列:
+//   RAC / RAC回数 / 系統 / 系統回数 / 有効成分 / 成分回数 / 薬剤名(その成分を含む通称と回数)
+//   RAC     : RAC コード。英字が括弧付きのコード(IRAC の 1(A)・1(B) など)は、数字が同じものを連用しない決まりなので数字で1つにまとめる(「I:1」)。
+//             括弧の無い英字付きのコード(4A・25B など)は、英字が違えば連用できるのでコードのまま(「I:4A」)
+//   RAC回数 : そのコードの成分を含む防除計画の行の数(同じコードの成分を2つ含む1回の散布も1回)。下に FRAC グループ名・耐性リスクなど
+//             (RAC 欄の3番目以降)を添える
+//   系統    : RAC 欄の2番目(系統名)。括弧付きの英字のコードは系統記号を頭に付ける(「1(A): 有機リン系」)。系統回数は、その系統の成分を含む行の数
+//   成分回数: その成分を含む行の数。表の末尾に成分回数の合計(成分使用回数の合計。ラジオボタンの選択(全カウント・有機JAS非カウント・有機JAS・特栽可能性非カウント)で数えない成分だけを除く)を出す
+//   RAC 欄が空の成分は「RAC分類なし」にまとめる。同じ RAC コードでも系統名の違う成分(F:11 のアゾキシストロビンとピリベンカルブ)は別の系統になる
+// どの項目(RAC・系統・有効成分・薬剤名とその回数)をクリックしても、その項目に当たる防除計画の行の薬剤名と、薬剤別使用回数の表の薬剤名を
+// 警告色Bにする(光っている所をクリックすると、すべて消灯)
+// ============================================================ 有機JAS・特栽の区分(成分回数の合計に数えない成分)
+// kihon ビュー(init_create_view.sql)の ojas は、薬剤の種類・系統・成分ごとに ojas_shurui / ojas_keito / ojas_seibun(spec)を
+// つないだ文字列。「○」「○…に限る」= 有機JAS で使用できる成分(条件付きを含む)、「特栽(認証団体によって取扱いが異なる)」=
+// 特栽で数えない可能性がある成分。
+// 製剤としての評価: tv_tsushoTekiyo の seizaiojas(t_tokusai。全成分に ojas がある製剤だけ値があり、エコピタ液剤は特栽)も併せて見て、
+//   成分の区分と製剤の区分の低いほう(有機JAS > 特栽可能性 > なし)を、その薬剤でのその成分の区分にする。
+//   ・有機JAS非カウント: 製剤が有機JAS(seizaiojas が「○…」)で、成分も有機JAS のときだけ数えない
+//     (エコピタ液剤の還元澱粉糖化物、有機JAS の成分と特栽の成分の混合剤、対象外の成分を含む混合剤の有機JAS の成分は数える)
+//   ・有機JAS・特栽可能性非カウント: 製剤が有機JAS か特栽可能性(全成分が対象)のときだけ数えない
+//   製剤の区分が読めないとき(DB の読み込みの失敗など)は数える(厳しいほうに倒す)。
+// 判定には使わず、RAC別使用回数の表の成分回数・合計の数え方だけに使う。
+
+/** 成分回数の合計に数えない成分の選択: 'all'(全カウント) / 'jas'(有機JAS非カウント) / 'jas_tokusai'(有機JAS・特栽可能性非カウント) */
+function getOjasCountMode() {
+	return document.querySelector('input[name="ojasCount"]:checked')?.value || 'all';
+}
+/** 選択を入力欄に入れる(ファイルの読み込み時)。不明な値・項目なしは全カウント */
+function setOjasCountMode(mode) {
+	const v = ['all', 'jas', 'jas_tokusai'].includes(mode) ? mode : 'all';
+	document.querySelectorAll('input[name="ojasCount"]').forEach(r => { r.checked = (r.value === v); });
+}
+/** 選択が変わったとき: 計画の変更として扱い、表を作り直す */
+function onOjasCountChange() {
+	updateRowNumbers();
+}
+
+const ojasCache = new Map();       // 通称 → Map(成分名(ippanmei・seibun の両方) → ojas の文字列)。DB は変わらないので読み直さない
+const ojasProdCache = new Map();   // 通称 → 製剤の ojas(tv_tsushoTekiyo の seizaiojas。無ければ '')
+const spreaderCache = new Map();   // 通称 → 展着剤(農薬の種類が「…展着剤」)なら成分名の配列、展着剤でなければ null
+/**
+ * 通称の一覧について、kihon ビューから成分の ojas と農薬の種類(展着剤か)、tv_tsushoTekiyo から製剤の seizaiojas を
+ * 読み込んでおく(読み込み済みの通称は読まない)
+ */
+function loadOjas(tsushos) {
+	const need = [...new Set(tsushos)].filter(t => t && !(ojasCache.has(t) && ojasProdCache.has(t) && spreaderCache.has(t)));
+	if (!need.length || typeof db === 'undefined' || !db) return;
+	try {
+		const list = need.map(t => `'${String(t).replace(/'/g, "''")}'`).join(',');
+		const res = db.exec(`select tsusho, shurui, ippanmei, seibun, ojas from kihon where tsusho in (${list})`);
+		const resProd = db.exec(`select tsusho, max(seizaiojas) from tv_tsushoTekiyo where tsusho in (${list}) group by tsusho`);
+		need.forEach(t => { ojasCache.set(t, new Map()); ojasProdCache.set(t, ''); spreaderCache.set(t, null); });
+		(resProd[0]?.values || []).forEach(([t, oj]) => { if (oj) ojasProdCache.set(String(t), String(oj)); });
+		(res[0]?.values || []).forEach(([t, shurui, ippanmei, seibun, ojas]) => {
+			// 展着剤: 成分名(有効成分名が無いので一般名)を集める
+			if (/展着剤$/.test(String(shurui || ''))) {
+				const list = spreaderCache.get(t) || [];
+				const name = String(seibun || ippanmei || '');
+				if (name && !list.includes(name)) list.push(name);
+				spreaderCache.set(t, list);
+			}
+			if (!ojas) return;
+			const m = ojasCache.get(t);
+			if (!m) return;
+			if (ippanmei) m.set(String(ippanmei), String(ojas));
+			if (seibun) m.set(String(seibun), String(ojas));
+		});
+	} catch (e) {
+		need.forEach(t => { ojasCache.delete(t); ojasProdCache.delete(t); spreaderCache.delete(t); });   // 次の表の作り直しで読み直す
+		console.error('有機JAS・特栽の区分(kihon.ojas・seizaiojas)の取得に失敗しました:', e);   // 失敗したときは区分なし(全部数える)のまま
+	}
+}
+/** 薬剤(通称)の成分の ojas の文字列。無ければ ''。計画の有効成分名と kihon の名前が違うときは、片方がもう片方を含むものを使う */
+function ojasOf(tsusho, seibun) {
+	const m = ojasCache.get(tsusho);
+	if (!m || !seibun) return '';
+	let oj = m.get(seibun);
+	if (oj === undefined) {
+		const hit = [...m.keys()].find(k => k.includes(seibun) || seibun.includes(k));
+		oj = hit ? m.get(hit) : '';
+	}
+	return oj || '';
+}
+/** 展着剤なら成分名の配列、展着剤でない(または読めない)なら null */
+function spreaderOf(tsusho) {
+	return spreaderCache.get(tsusho) || null;
+}
+/** 有機JAS で使用できない展着剤の成分(パラフィン・カゼイン以外)。展着剤でなければ [] */
+const ORGANIC_SPREADER = /パラフィン|カゼイン/;
+function spreaderNgSeibuns(tsusho) {
+	return (spreaderOf(tsusho) || []).filter(n => !ORGANIC_SPREADER.test(n));
+}
+/** 製剤(通称)の seizaiojas。無ければ '' */
+function ojasProdOf(tsusho) {
+	return ojasProdCache.get(tsusho) || '';
+}
+/**
+ * その薬剤でのその成分の区分(成分と製剤の低いほう)。戻り値 { cat: 'jas' | 'tokusai' | '', seibunOjas, prodOjas }
+ *   製剤の区分は全成分が対象のときだけあるので、対象外の成分を含む混合剤の成分は '' になる
+ */
+function ojasUseOf(tsusho, seibun) {
+	const seibunOjas = ojasOf(tsusho, seibun);
+	const prodOjas = ojasProdOf(tsusho);
+	const rank = { jas: 2, tokusai: 1, '': 0 };
+	const a = ojasCategory(seibunOjas), b = ojasCategory(prodOjas);
+	return { cat: rank[a] <= rank[b] ? a : b, seibunOjas, prodOjas };
+}
+/** ojas の文字列の区分: 'tokusai'(特栽可能性) / 'jas'(有機JAS) / ''(なし) */
+function ojasCategory(oj) {
+	return !oj ? '' : oj.includes('特栽') ? 'tokusai' : oj.includes('○') ? 'jas' : '';
+}
+/** その区分を、選択(mode)で合計に数えないか */
+function ojasExcluded(cat, mode) {
+	return (mode === 'jas' && cat === 'jas') || (mode === 'jas_tokusai' && (cat === 'jas' || cat === 'tokusai'));
+}
+
 function updateSeibunCountTable() {
 	const planTableBody = document.querySelector('#planTable tbody');
 	const seibunContainer = document.getElementById('seibunContainer');
@@ -4011,59 +4190,139 @@ function updateSeibunCountTable() {
 	clearWarnBHighlight();   // 表を作り直すので、警告色Bの表示は解除する(防除計画側だけが残らないように)
 	const seibunData = collectSeibunData(planTableBody);
 
+	document.getElementById('ojasCountSetting')?.classList.toggle('hidden', seibunData.size === 0);
 	if (seibunData.size === 0) {
 		seibunContainer.clearContent();
 		return;
 	}
+	// 有機JAS・特栽の区分(成分回数の合計に数えない成分)
+	const ojasMode = getOjasCountMode();
+	loadOjas(Array.from(planTableBody.rows).filter(r => !r.hasAttribute('hidden')).map(r => r.cells[4]?.textContent.trim() || ''));
 
-	const getPriority = (mid) => mid === '' ? 5 : mid.startsWith('F:') ? 1 : mid.startsWith('I:') ? 2 : mid.startsWith('H:') ? 3 : 4;
-	const sortedData = Array.from(seibunData.entries()).sort((a, b) => {
-		const pA = getPriority(a[1].mid), pB = getPriority(b[1].mid);
-		return pA !== pB ? pA - pB : (a[1].mid).localeCompare(b[1].mid) || a[0].localeCompare(b[0]);
+	// 有効成分ごとの行: { racKey(RAC 欄のまとめのコード), group(系統の表示), info(RAC 欄の3番目以降), seibun, rows, drugs, counted }
+	let seibunTotal = 0;   // 成分使用回数の合計
+	const entries = [];
+	seibunData.forEach((data, seibun) => {
+		const mid = String(data.mid || '').trim();
+		const parts = mid.split('/').map(x => x.trim());
+		const code = mid ? parts[0] : '';
+		// 括弧付きの英字のコード(「I:1(B)」)は数字でまとめる(「I:1」)。系統の頭には系統記号(「1(B)」)を付ける
+		const pm = code.match(/^(.*?)(\d+)\(([A-Za-z]+)\)$/);
+		const racKey = !code ? 'RAC分類なし' : pm ? pm[1] + pm[2] : code;
+		const groupName = mid ? (parts[1] || '') : '';
+		const group = pm ? `${code.replace(/^[A-Za-z]+:/, '')}: ${groupName}` : groupName;
+		const info = mid ? parts.slice(2).filter(Boolean).join(' / ') : '';
+		const rows = new Set();
+		const drugs = new Map();
+		const ncRows = new Set();      // 選択により合計に数えない行
+		const ojasTags = new Map();   // 印の文字 → 説明の集合(この成分を含む薬剤ごと。同じ成分でも薬剤で区分が違うことがある)
+		let ncUses = 0;
+		data.uses.forEach(u => {
+			const o = ojasUseOf(u.yakuzai || '', seibun);
+			const cat = o.cat;
+			if (cat) {
+				const label = cat === 'tokusai' ? '特栽可能性' : (o.seibunOjas.replace(/○/g, '') || o.prodOjas.replace(/○/g, '')) ? '有機JAS※' : '有機JAS';
+				if (!ojasTags.has(label)) ojasTags.set(label, new Set());
+				ojasTags.get(label).add(`${u.yakuzai}: 成分 ${o.seibunOjas || '-'} / 製剤 ${o.prodOjas || '-'}`);
+			}
+			// 展着剤は成分回数「-」と同じ扱いで、どの選択でも合計に数えない
+			const spreader = !!spreaderOf(u.yakuzai || '');
+			if (spreader) {
+				const ng = ojasMode !== 'all' && spreaderNgSeibuns(u.yakuzai || '').length > 0;
+				const label = ng ? '展着剤・有機JAS不可' : '展着剤';
+				if (!ojasTags.has(label)) ojasTags.set(label, new Set());
+				ojasTags.get(label).add(`${u.yakuzai}: 展着剤(合計に数えない)` + (ng ? '。有機JAS で使用できる展着剤はパラフィン・カゼインのみ' : ''));
+			}
+			const nc = spreader || ojasExcluded(cat, ojasMode);
+			if (nc) ncUses++;
+			if (rows.has(u.ref)) return;
+			rows.add(u.ref);
+			if (nc) ncRows.add(u.ref);
+			const t = u.yakuzai || '';
+			drugs.set(t, (drugs.get(t) || 0) + 1);
+		});
+		// 合計は、選択(全カウント・有機JAS非カウントなど)で数えない使用だけを除く。
+		// 成分回数の規定が「-」(上限なし。銅など)の成分も、全カウントでは数える(数えるかどうかはラジオボタンの選択で決める)
+		seibunTotal += data.count - ncUses;
+		entries.push({ racKey, code, group, info, seibun, rows, drugs, ncRows, ojasTags, count: data.count });
 	});
 
-	let totalCount = 0;
-	const questionsBySeibun = new Map();   // 有効成分 → 要確認の選択の問い(ダイアログに出す)
-	const rowsHtml = sortedData.map(([seibun, data]) => {
-		if (data.seibunkaisu !== '-' && data.seibunkaisu !== '') totalCount += data.count;
-		const noLimit = (data.seibunkaisu === '-' || data.seibunkaisu === '');
-		const verdict = noLimit ? { status: '', lines: [], questions: [] } : UsageLimit.judge(data.uses, seibun, { contentPct: contentPctOf, resolve: resolveUsageChoice });
-		// 総量の判定(条件付きの上限を含む)と、括弧内の内訳の判定を合わせる。どちらかを判定していれば OK/要確認/NG、上限が無ければ '-'
-		const total = noLimit ? { status: '', text: '' } : judgeKaisuTotal(data.count, data.seibunkaisu, '総使用回数', seibunTotalCtx(seibun, data));
-		const qs = (total.question ? [total.question] : []).concat(verdict.questions || []);
-		questionsBySeibun.set(seibun, qs);
-		const rankS = { '': 0, 'OK': 1, '要確認': 2, 'NG': 3 };
-		const status = rankS[total.status] >= rankS[verdict.status] ? total.status : verdict.status;
-		// 理由: 総使用回数は判定によらず必ず表示し、内訳枠のある成分は OK の枠も必ず表示する(判定とは別の事実。判定には使わない)
-		const lines = (total.text ? [{ level: total.status, text: total.text }] : []).concat(verdict.lines, verdict.okLines || []);
-		// 総量の上限超過、または内訳枠の確定超過があれば強調表示する
-		const exceeded = status === 'NG';
-		const countDisplay = noLimit ? '' : (exceeded ? `<em>${data.count}</em>` : data.count);
-		let judgeHtml = '-';   // 上限なし(判定対象なし)
-		if (status === 'NG') judgeHtml = '<em>NG</em>';
-		else if (status) judgeHtml = status;
-		if (lines.length) {
-			// 表示の順: NG → 要確認(※) → OK(控えめな色)。並べ替えと印は表示だけのもの
-			const rk = { 'NG': 3, '要確認': 2, 'OK': 1 };
-			judgeHtml += '<br>' + lines.slice().sort((x, y) => (rk[y.level] || 0) - (rk[x.level] || 0)).map(l => l.level === 'NG' ? escapeHtml(l.text)
-				: l.level === '要確認' ? '※' + escapeHtml(l.text) : `<span class="yk-okr">${escapeHtml(l.text)}</span>`).join('<br>');
+	// 並び: 殺菌剤(F) → 殺虫剤(I) → 除草剤(H) → その他 → RAC分類なし。同じ種類の中はコードの自然順、系統、有効成分の順
+	const typeOrder = (k) => k === 'RAC分類なし' ? 5 : k.startsWith('F:') ? 1 : k.startsWith('I:') ? 2 : k.startsWith('H:') ? 3 : 4;
+	const cmp = (a, b) => a.localeCompare(b, 'ja', { numeric: true });
+	entries.sort((a, b) => typeOrder(a.racKey) - typeOrder(b.racKey) || cmp(a.racKey, b.racKey) || cmp(a.group, b.group) || cmp(a.seibun, b.seibun));
+
+	// クリックで警告色Bにする対象: 項目のキー → 防除計画の行
+	const hlRows = new Map();
+	const addRows = (key, rows) => { if (!hlRows.has(key)) hlRows.set(key, new Set()); rows.forEach(r => hlRows.get(key).add(r)); };
+	const racKeyOf = (e) => 'rac\u0001' + e.racKey;
+	const grpKeyOf = (e) => 'grp\u0001' + e.racKey + '\u0001' + e.group;
+	const sbKeyOf = (e) => 'sb\u0001' + e.seibun;
+	entries.forEach(e => { addRows(racKeyOf(e), e.rows); addRows(grpKeyOf(e), e.rows); addRows(sbKeyOf(e), e.rows); });
+	// 薬剤(通称)は、その薬剤の防除計画の全行
+	Array.from(planTableBody.rows).filter(r => !r.hasAttribute('hidden')).forEach(r => addRows('ts\u0001' + (r.cells[4]?.textContent.trim() || ''), [r]));
+
+	// 結合セルの行数(同じ RAC / 同じ系統 が続く数)
+	const spanOf = (key, idx) => { let n = 0; for (let k = idx; k < entries.length && key(entries[k]) === key(entries[idx]); k++) n++; return n; };
+	const firstOf = (key, idx) => idx === 0 || key(entries[idx - 1]) !== key(entries[idx]);
+	const TIP = 'クリックで、該当する防除計画の薬剤を警告色Bで表示(薬剤別使用回数の表の薬剤名にも反映)';
+	const cell = (cls, hl, text, span) => `<td class="hl ${cls}" data-hl="${escapeHtml(hl)}"${span > 1 ? ` rowspan="${span}"` : ''} title="${TIP}">${text}</td>`;
+	const rowsHtml = entries.map((e, idx) => {
+		let html = '<tr>';
+		if (firstOf(racKeyOf, idx)) {
+			const span = spanOf(racKeyOf, idx);
+			// RAC 欄の3番目以降(FRAC系統名・HRAC旧分類・耐性リスク)は、RAC回数の下に添える(同じまとめで異なるものはすべて)。
+			// 耐性リスクは、同じコードの連用を控える(使用回数を制限する)必要があるかを見るための情報なので、省略しない。
+			// 作用機構・作用点は表がうるさくなるので出さない(同じコードを連用しなければよい、というのが RAC コードによる耐性管理)
+			const infos = [...new Set(entries.slice(idx, idx + span).map(x => x.info).filter(Boolean))];
+			html += cell('rac-name', racKeyOf(e), escapeHtml(e.racKey), span);
+			html += cell('rac-count', racKeyOf(e), `${hlRows.get(racKeyOf(e)).size}` + (infos.length ? ` <br><span class="rac-info">${infos.map(escapeHtml).join('<br>')}</span>` : ''), span);
 		}
-		judgeHtml += usageResolveButtonHtml(qs, 'data-seibun', seibun);
-		return `<tr><td class="sb-name" data-seibun="${escapeHtml(seibun)}" title="クリックで、この有効成分を含む防除計画の薬剤を警告色Bで表示">${seibun}</td><td>${data.mid}</td><td>${countDisplay}</td><td>${data.seibunkaisu}</td><td class="judge">${judgeHtml}</td></tr>`;
+		if (firstOf(grpKeyOf, idx)) {
+			const span = spanOf(grpKeyOf, idx);
+			html += cell('grp-name', grpKeyOf(e), escapeHtml(e.group), span);
+			html += cell('grp-count', grpKeyOf(e), `${hlRows.get(grpKeyOf(e)).size}`, span);
+		}
+		// 有機JAS・特栽の区分の印(成分と製剤を併せた区分。title に薬剤ごとの成分・製剤の原文)。成分回数は数える回数、数えない回数は括弧書き
+		const tags = [...e.ojasTags.entries()].map(([label, notes]) => ` <span class="ojas-tag${label.includes('不可') ? ' ojas-ng' : ''}" title="${escapeHtml([...notes].join('\n'))}">${label}</span>`).join('');
+		html += cell('sb-name', sbKeyOf(e), escapeHtml(e.seibun) + tags, 1);
+		const nNc = e.ncRows.size, nC = e.rows.size - nNc;
+		const ncText = nNc ? `<span class="sb-nc" title="合計に数えない回数(展着剤${ojasMode === 'jas' ? '・有機JAS非カウント' : ojasMode === 'jas_tokusai' ? '・有機JAS・特栽可能性非カウント' : ''})">(${nC ? '+' : ''}${nNc})</span>` : '';
+		html += cell('sb-count', sbKeyOf(e), nNc && !nC ? ncText : `${nC}` + (ncText ? ' ' + ncText : ''), 1);
+		const drugs = [...e.drugs.entries()].sort((a, b) => cmp(a[0], b[0]))
+			.map(([t, n]) => `<span class="hl ts-name" data-hl="${escapeHtml('ts\u0001' + t)}" title="${TIP}">${escapeHtml(t)}(${n}回)</span>`).join('、<br>');   // 「、」は表をコピーしたときの区切り
+		return html + `<td>${drugs}</td></tr>`;
 	}).join('');
+
+	// 有機JAS(有機JAS非カウント・有機JAS・特栽可能性非カウントを選んだとき): パラフィン・カゼイン以外の成分の展着剤は使用できないので警告する。
+	// 展着剤は有効成分の欄が空のことが多く表に出ないので、防除計画の薬剤から調べる(薬剤名はクリックで防除計画の行を警告色Bで表示)
+	let spreaderWarn = '';
+	if (ojasMode !== 'all') {
+		const ng = new Map();
+		Array.from(planTableBody.rows).filter(r => !r.hasAttribute('hidden')).forEach(r => {
+			const t = r.cells[4]?.textContent.trim() || '';
+			const list = spreaderNgSeibuns(t);
+			if (list.length && !ng.has(t)) ng.set(t, list);
+		});
+		if (ng.size) {
+			const items = [...ng.entries()].map(([t, list]) => `<span class="hl ts-name" data-hl="${escapeHtml('ts\u0001' + t)}" title="${TIP}">${escapeHtml(t)}</span>(${list.map(escapeHtml).join('、')})`).join('、');
+			spreaderWarn = `<div class="ojas-warn">${judgeMarkHtml('NG')} 有機JAS で使用できる展着剤はパラフィン・カゼインのみです。使用できない展着剤: ${items}</div>`;
+		}
+	}
 
 	seibunContainer.innerHTML = `
 		<div class="handsontable-like">
 			<table id="seibunCountTable">
 				<thead>
-					<tr><th>有効成分</th><th>RAC</th><th>使用回数</th><th>使用上限</th><th>判定(総量・括弧内)</th></tr>
+					<tr><th>RAC</th><th>RAC回数</th><th>系統</th><th>系統回数</th><th>有効成分</th><th>成分回数</th><th>薬剤名</th></tr>
 				</thead>
 				<tbody>${rowsHtml}</tbody>
 				<tfoot>
-					<tr><td>合計</td><td></td><td>${totalCount}</td><td></td><td></td></tr>
+					<tr><td>${ojasMode === 'jas' ? '合計(有機JAS除く)' : ojasMode === 'jas_tokusai' ? '合計(有機JAS・特栽可能性除く)' : '合計'}</td><td></td><td></td><td></td><td></td><td title="成分使用回数の合計(展着剤と、選択により数えない成分は数えない)">${seibunTotal}</td><td></td></tr>
 				</tfoot>
 			</table>
 		</div>
+		${spreaderWarn}
 		<div class="iconsbar">
 			<svg class="icon" onclick="copyTableToClipboard('seibunCountTable')">
 				<title>クリップボードにコピー</title>
@@ -4071,25 +4330,28 @@ function updateSeibunCountTable() {
 			</svg>
 		</div>
 	`;
-	seibunContainer._questions = questionsBySeibun;
+	seibunContainer._hlRows = hlRows;
 	if (!seibunContainer._warnBBound) {   // 表は作り直されるが container は残るので、クリックの受け口は1回だけ付ける
 		seibunContainer._warnBBound = true;
 		seibunContainer.addEventListener('click', (e) => {
-			const btn = e.target.closest('button.ur-open');   // 要確認の内容を選ぶダイアログ
-			if (btn) { openUsageResolveDialog(btn.dataset.seibun, seibunContainer._questions.get(btn.dataset.seibun) || []); return; }
-			const td = e.target.closest('td.sb-name');
-			if (!td) return;
-			const already = td.classList.contains('warn-bg-b');
-			clearWarnHighlight();    // 薬剤名クリックによる警告色(警告色A)が有効なときは、すべて解除する
-			clearWarnCHighlight();   // 併用前提の警告による警告色Cも解除する
-			clearWarnBHighlight();   // 別の有効成分をクリックしたときは前の指定を消す。警告色Bの有効成分セルの再クリックは解除(キャンセル)のみ
+			const el = e.target.closest('.hl');
+			if (!el) return;
+			const already = el.classList.contains('warn-bg-b');
+			clearWarnHighlight();    // 薬剤名クリックによる警告色(警告色A・確認色)が有効なときは、すべて解除する
+			clearWarnCHighlight();   // 要確認の警告色Cも解除する
+			clearWarnBHighlight();   // 別の項目をクリックしたときは前の指定を消す
 			if (already) return;
-			td.classList.add('warn-bg-b');
-			// 防除計画で、この有効成分を含む薬剤(NGかどうかに関係なく、すべての登録の行)の薬剤名セルを警告色Bにする
-			document.querySelectorAll('#planTable tbody tr').forEach(row => {
+			const key = el.dataset.hl;
+			// 表の中の同じ項目(RAC と RAC回数、系統と系統回数、有効成分と成分回数、同じ薬剤の通称)をすべて点灯する
+			seibunContainer.querySelectorAll('.hl').forEach(c => { if (c.dataset.hl === key) c.classList.add('warn-bg-b'); });
+			const drugs = new Set();
+			(seibunContainer._hlRows.get(key) || []).forEach(row => {
 				if (row.hasAttribute('hidden')) return;
-				if (seibunsOfPlanRow(row).includes(td.dataset.seibun)) row.cells[4]?.classList.add('warn-bg-b');
+				row.cells[4]?.classList.add('warn-bg-b');
+				drugs.add(row.cells[4]?.textContent.trim() || '');
 			});
+			// 薬剤別使用回数の表でも、該当する薬剤の薬剤名セルを警告色Bにする
+			document.querySelectorAll('#yakuzaiCountTable td.yk-name').forEach(c => { if (drugs.has(c.dataset.tsusho)) c.classList.add('warn-bg-b'); });
 		});
 	}
 }
@@ -4144,13 +4406,336 @@ function planRowSlotText(row) {
 	}).filter(Boolean).join(' ・ ');
 }
 
+// ============================================================ 収穫前日数の判定
+// 使用時期の「収穫7日前まで」「収穫前日まで」「摘採14日前まで」「収穫開始3日前まで」「収穫予定7～30日前」などと、
+// 計画の防除時期・収穫開始時期(計画に1つ。混植では収穫のいちばん早い作物の収穫開始時期)から、散布から収穫までの日数を確かめる。
+// 「収穫前日数を判定する」にチェックしたときだけ判定し、結果は専用の「収穫前日数」の表にだけ出す(薬剤別使用回数の判定には入れない)。
+// 作期: 計画表の1行目をカウント開始(その作の最初の防除)とし、ほかの行はすべて今作の防除とする。収穫開始以降の散布は収穫中の散布。
+// 判定の詳細は judgePhi、日数の数え方は phiTimeline。
+// 混植(作物を複数選択): 同じ薬剤の、選択したほかの作物の登録のうち使用方法が同じものの収穫前日数も調べ、最も長いものを使う。
+// 日数: 月旬は 上旬=1～10日、中旬=11～20日、下旬=21日～月末 の幅。記録モードは日付のとおり。
+
+/**
+ * 収穫前日数の設定 { enabled, month, period, date }。
+ *   enabled: 「収穫前日数を判定する」。month・period: 収穫開始時期の月旬(計画モード)。date: 実際の収穫開始年月日(記録モード)。
+ *   未入力は ''。(「収穫中も散布あり」の設定は廃止。収穫開始以降の散布は、すべて収穫中の散布として扱う)
+ */
+function getHarvestSetting() {
+	return {
+		enabled: !!document.getElementById('checkHarvestJudge')?.checked,
+		month: document.getElementById('harvestMonth')?.value || '',
+		period: document.getElementById('harvestPeriod')?.value || '',
+		date: document.getElementById('harvestDate')?.value || '',
+	};
+}
+/** 収穫前日数の設定を入力欄に入れる(ファイルの読み込み時)。h が無ければ未設定(判定しない)に戻す */
+function setHarvestSetting(h) {
+	const set = (id, prop, v) => { const el = document.getElementById(id); if (el) el[prop] = v; };
+	// enabled の無いファイル(収穫開始時期だけを保存していた版)は、収穫開始時期が入っていれば判定する
+	set('checkHarvestJudge', 'checked', !!(h && (h.enabled !== undefined ? h.enabled : (h.month || h.date))));
+	set('harvestMonth', 'value', h && h.month ? String(h.month) : '');
+	set('harvestPeriod', 'value', h && h.period ? h.period : '');
+	set('harvestDate', 'value', h && h.date ? h.date : '');
+	updateHarvestInputs();
+}
+/** 収穫前日数の欄の表示: 判定するときだけ欄を出す。収穫開始時期は、計画モードは月旬、記録モードは年月日で入力する */
+function updateHarvestInputs() {
+	const h = getHarvestSetting();
+	document.getElementById('harvestSection')?.classList.toggle('hidden', !h.enabled);
+	const rec = typeof isRecordMode !== 'undefined' && isRecordMode;
+	document.getElementById('harvestMonth')?.classList.toggle('hidden', rec);
+	document.getElementById('harvestPeriod')?.classList.toggle('hidden', rec);
+	document.getElementById('harvestDate')?.classList.toggle('hidden', !rec);
+}
+/** 収穫前日数の設定が変わったとき: 計画の変更として扱い、判定をやり直す */
+function onHarvestSettingChange() {
+	updateHarvestInputs();
+	updateRowNumbers();
+}
+
+/**
+ * 使用時期の文字列から収穫前日数の規定を読む。戻り値 { base, min, max, text } または null(規定なし)
+ *   base: '収穫開始'(収穫開始の前だけに効く) / '収穫'(摘採・採草・掘取り・出荷も同じ扱い)
+ *   min : 散布から収穫まで最低限あける日数(前日まで=1)。max: 幅のある規定(「収穫予定7～30日前」)の上限。無ければ null
+ *   text: 規定の文言(理由の表示用)
+ */
+function phiRuleOf(jiki) {
+	const s = String(jiki || '').normalize('NFKC').replace(/\s+/g, '').replace(/[~〜～]/g, '~');
+	const BASE = '(収穫開始|収穫|摘採|採草|出荷|(?:種芋)?掘取り?|刈取り?)';
+	const baseOf = (b) => (/収穫開始/.test(b) ? '収穫開始' : '収穫');
+	let m;
+	// 「収穫前日まで」「収穫開始前日まで」「果実肥大期～収穫前日」
+	if ((m = s.match(new RegExp(BASE + '(?:予定日?)?の?前日(?:まで)?')))) return { base: baseOf(m[1]), min: 1, max: null, text: m[0] };
+	// 「収穫当日まで」
+	if ((m = s.match(new RegExp(BASE + '(?:予定日?)?の?当日まで')))) return { base: baseOf(m[1]), min: 0, max: null, text: m[0] };
+	// 「収穫前50～30日」(N～M日前の言い換え)
+	if ((m = s.match(new RegExp(BASE + '前(\\d+)~(\\d+)日')))) {
+		const a = Number(m[2]), b = Number(m[3]);
+		return { base: baseOf(m[1]), min: Math.min(a, b), max: Math.max(a, b), text: m[0] };
+	}
+	// 「収穫7日前まで」「収穫予定7～30日前」「収穫開始予定日の14日前まで」「収穫開始予定日の25日～7日前」
+	if ((m = s.match(new RegExp(BASE + '(?:予定日?|期)?の?(\\d+)日?(?:~(\\d+))?日前(まで)?')))) {
+		const a = Number(m[2]), b = m[3] ? Number(m[3]) : null;
+		// 「まで」の付かない範囲(「収穫予定7～30日前」)は、早すぎてもいけない幅として上限を持つ
+		const max = b != null && !m[4] ? Math.max(a, b) : null;
+		return { base: baseOf(m[1]), min: b != null ? Math.min(a, b) : a, max, text: m[0] };
+	}
+	// 「収穫期の3週間前」「収穫2～4週間前」
+	if ((m = s.match(new RegExp(BASE + '(?:予定日?|期)?の?(\\d+)(?:週間)?(?:~(\\d+))?週間前(まで)?')))) {
+		const a = Number(m[2]) * 7, b = m[3] ? Number(m[3]) * 7 : null;
+		return { base: baseOf(m[1]), min: b != null ? Math.min(a, b) : a, max: b != null && !m[4] ? Math.max(a, b) : null, text: m[0] };
+	}
+	return null;
+}
+
+// 使用方法の比較キー(混植のほかの作物の登録を、同じ使用方法のものに限るため)。散布の仲間は「散布」にそろえる(registrationKeyOf と同じ)
+function phiMethodKey(hoho) {
+	const h = String(hoho || '').normalize('NFKC').replace(/\s+/g, '');
+	return /^(?:散布|空中散布|航空散布|無人(?:ヘリコプター|ヘリ|航空機)(?:による|で)?散布|ドローン(?:による|で)?散布)$/.test(h) ? '散布' : h;
+}
+// 混植のほかの作物の登録(薬剤名 + 作物条件ごとにデータベースから1回だけ引く)
+const phiOtherRegCache = new Map();   // key → [{ sakumotsu, jiki, hoho }]
+function phiOtherRegistrations(tsusho) {
+	if (typeof db === 'undefined' || !db || !currentSakumotsu) return [];
+	const key = tsusho + '\u0001' + currentSakumotsu;
+	if (phiOtherRegCache.has(key)) return phiOtherRegCache.get(key);
+	let list = [];
+	try {
+		const res = db.exec(`select distinct sakumotsu, jiki, hoho from tv_tsushoTekiyo where tsusho = '${String(tsusho).replace(/'/g, "''")}' and sakumotsu in (${currentSakumotsu})`);
+		list = (res[0]?.values || []).map(([sakumotsu, jiki, hoho]) => ({ sakumotsu: String(sakumotsu || ''), jiki: String(jiki || ''), hoho: String(hoho || '') }));
+	} catch (e) {
+		if (typeof debug !== 'undefined' && debug) console.warn('混植の登録の取得に失敗しました:', tsusho, e);
+		return [];   // 取得に失敗したときはキャッシュしない
+	}
+	phiOtherRegCache.set(key, list);
+	return list;
+}
+/**
+ * 計画の行に効く収穫前日数の規定。行自身の登録の規定と、混植(作物を複数選択)のときは同じ薬剤・同じ使用方法の、ほかの作物の登録の規定のうち、
+ * 最低限あける日数(min)が最も長いもの。戻り値 { base, min, max, text, crop(ほかの作物の登録から採った場合の作物名) } または null
+ */
+function phiRuleOfRow(row) {
+	const own = phiRuleOf(row.cells[6]?.textContent);
+	let best = own ? { ...own, crop: '' } : null;
+	const crops = (typeof checkedCrops !== 'undefined' && Array.isArray(checkedCrops)) ? checkedCrops : [];
+	if (crops.length > 1) {
+		const tsusho = row.cells[4]?.textContent.trim() || '';
+		const myCrop = (row.cells[3]?.textContent || '').normalize('NFKC').replace(/\s+/g, '');
+		const myMethod = phiMethodKey(row.cells[10]?.textContent);
+		phiOtherRegistrations(tsusho).forEach((r) => {
+			if (r.sakumotsu.normalize('NFKC').replace(/\s+/g, '') === myCrop) return;   // 行自身の作物の登録は上で見ている
+			if (phiMethodKey(r.hoho) !== myMethod) return;                             // 使用方法の違う登録は対象外
+			const x = phiRuleOf(r.jiki);
+			if (x && (!best || x.min > best.min)) best = { ...x, crop: r.sakumotsu };
+		});
+	}
+	return best;
+}
+
+// 月旬 → その年の通算日の幅 [始め, 終わり](平年。閏年は記録モードの日付だけで扱う)
+const PHI_MONTH_DAYS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+function phiDoyRange(month, period) {
+	const m = Number(month);
+	if (!(m >= 1 && m <= 12) || !/^[上中下]旬$/.test(period || '')) return null;
+	const before = PHI_MONTH_DAYS.slice(0, m - 1).reduce((x, y) => x + y, 0);
+	const [a, b] = period === '上旬' ? [1, 10] : period === '中旬' ? [11, 20] : [21, PHI_MONTH_DAYS[m - 1]];
+	return [before + a, before + b];
+}
+/**
+ * 計画の行の散布時期と収穫開始を、同じ通し日数の幅にそろえる。
+ * 作期の考え方: 計画表の1行目(防除時期の入った最初の行)を、その作の最初の防除(カウント開始日)とする。ほかの行は並び順に関係なく、
+ * すべて今作の防除とみなす。月旬の計画では、1行目の時期から始まる1年間のどこか(月が1行目より前でも翌年とはせず、同じ作期の後半)として数え、
+ * 年をまたぐ分は1行目の時期からの日数で自然に配慮する。収穫開始も、1行目の時期以降で最初に来るその月旬とする。
+ * 記録モードは日付のとおり。1行目の日付より前の日付は入力の誤り(beforeAnchor)とする。収穫開始は入力した年月日
+ * (未入力で月旬だけあれば、1行目の日付以降で最初に来るその月旬)。
+ * 戻り値 { spray: Map(行 → { r: [始め, 終わり] | null, label, beforeAnchor }), harvest: [始め, 終わり] | null, harvestLabel,
+ *          anchorLabel(カウント開始日の表示), harvestBeforeAnchor(収穫開始日がカウント開始日より前) }
+ */
+function phiTimeline(rows, h) {
+	const spray = new Map();
+	let anchor = null;       // 月旬の計画: 1行目の通算日(始め)。記録モード: 1行目の日付の通し日数
+	let anchorYear = null;   // 記録モード: 1行目の年
+	let anchorLabel = '';
+	const parsed = rows.map((row) => {
+		const [timing, month, period] = getTimingArray(isRecordMode, row.cells[2]);
+		if (isRecordMode) {
+			if (!/^\d{4}-\d{2}-\d{2}$/.test(timing || '')) return { row, r: null, label: '' };
+			const [y, mo, d] = timing.split('-').map(Number);
+			const t = Date.UTC(y, mo - 1, d) / 86400000;
+			if (anchor === null) { anchor = t; anchorYear = y; anchorLabel = timing; }
+			return { row, r: [t, t], label: timing };
+		}
+		const dr = phiDoyRange(month, period);
+		if (!dr) return { row, r: null, label: '' };
+		if (anchor === null) { anchor = dr[0]; anchorLabel = `${Number(month)}月${period}`; }
+		return { row, dr, label: `${Number(month)}月${period}` };
+	});
+	// 月旬 → 作期の起点(1行目)からの日数(起点より前の月旬は、同じ作期の後半として1年分を足して数える)
+	const place = (dr) => {
+		const off = ((dr[0] - anchor) % 365 + 365) % 365;
+		return [off, off + (dr[1] - dr[0])];
+	};
+	parsed.forEach((p) => spray.set(p.row, {
+		r: isRecordMode ? p.r : (p.dr ? place(p.dr) : null),
+		label: p.label,
+		beforeAnchor: !!(isRecordMode && p.r && p.r[0] < anchor),   // 記録モード: カウント開始日より前の防除日(入力の誤り)
+	}));
+	let harvest = null;
+	let harvestLabel = h.month && h.period ? `${Number(h.month)}月${h.period}` : '';
+	let harvestBeforeAnchor = false;
+	if (isRecordMode && /^\d{4}-\d{2}-\d{2}$/.test(h.date || '')) {
+		// 記録モードで実際の収穫開始年月日がある: その日
+		const [y, mo, d] = h.date.split('-').map(Number);
+		const t = Date.UTC(y, mo - 1, d) / 86400000;
+		harvest = [t, t]; harvestLabel = h.date;
+		harvestBeforeAnchor = anchor !== null && t < anchor;
+	} else {
+		const hd = phiDoyRange(h.month, h.period);
+		if (hd && anchor !== null) {
+			if (isRecordMode) {
+				// 1行目の日付の年のその月旬。1行目の日付より前に終わるなら翌年
+				const at = (y) => {
+					const s0 = Date.UTC(y, Number(h.month) - 1, 1) / 86400000;
+					const last = new Date(Date.UTC(y, Number(h.month), 0)).getUTCDate();
+					const [a, b] = h.period === '上旬' ? [1, 10] : h.period === '中旬' ? [11, 20] : [21, last];
+					return [s0 + a - 1, s0 + b - 1];
+				};
+				harvest = at(anchorYear);
+				if (harvest[1] < anchor) harvest = at(anchorYear + 1);
+			} else {
+				harvest = place(hd);
+			}
+		}
+	}
+	return { spray, harvest, harvestLabel, anchorLabel, harvestBeforeAnchor };
+}
+
+/**
+ * 計画の行ごとの収穫前日数の判定。戻り値 Map(行 → { level: 'OK'|'△'|'NG'|'?', head, text, strong, dateError })。
+ *   head: 判定記号のすぐ横に出す、利用者への行動を促す文(「出荷実績との突合が必要」「日付を確認してください」)。
+ *   text: 理由(判定を含まない事実の文。判定の下の行に出す)。strong: 判定の行を×と同じ強さで強調する
+ * 「収穫前日数を判定する」にチェックが無ければ空(判定しない)。
+ *   ○: 収穫前日数を満たす、収穫前日数の規定が無い、収穫中(収穫開始以降)の散布で収穫前日数が前日まで(1日以下)
+ *   △: 根拠不足(収穫開始時期・防除時期が未設定、月旬の幅のために満たすか決められない)、
+ *      記録モードで、収穫中の散布に収穫前日数が前日までより長い薬剤を使った(「△ 出荷実績との突合が必要」。×と同じ強調)
+ *   ×: どう数えても日数が足りない(幅のある規定では早すぎる)、計画モードで、収穫中の散布に収穫前日数が前日までより長い薬剤を使う、
+ *      収穫開始N日前までの規定の薬剤を収穫開始以降に使う、
+ *   ?: 記録モードで、防除日・収穫開始日がカウント開始日(1行目の防除日)より前(入力の誤り。「？ 日付を確認してください」。
+ *      dateError=true の行は、防除計画の防除時期のセルにも警告の枠を付ける)
+ */
+function judgePhi(rows) {
+	const h = getHarvestSetting();
+	const res = new Map();
+	if (!h.enabled) return res;   // 「収穫前日数を判定する」でなければ判定しない(従来の使用回数の判定だけ)
+	const tl = phiTimeline(rows, h);
+	const harvestSet = (isRecordMode && /^\d{4}-\d{2}-\d{2}$/.test(h.date || '')) || !!phiDoyRange(h.month, h.period);
+	rows.forEach((row) => {
+		const rule = phiRuleOfRow(row);
+		const sp = tl.spray.get(row);
+		const words = rule ? rule.text + (rule.crop ? `(${rule.crop}の登録)` : '') : '';
+		// 記録モード: カウント開始日(1行目の防除日)より前の日付は入力の誤り。日付の修正を促す
+		if (sp && sp.beforeAnchor) {
+			res.set(row, { level: '?', head: '日付を確認してください', strong: true, dateError: true, text: `防除日${sp.label}がカウント開始日(1行目の防除日${tl.anchorLabel})より前` });
+			return;
+		}
+		if (tl.harvestBeforeAnchor) {
+			res.set(row, { level: '?', head: '日付を確認してください', strong: true, text: `収穫開始日${tl.harvestLabel}がカウント開始日(1行目の防除日${tl.anchorLabel})より前` });
+			return;
+		}
+		if (!rule) { res.set(row, { level: 'OK', text: '収穫前日数の規定なし' }); return; }
+		// 未設定の理由は入力欄の状態で分ける(収穫開始時期は入力済みでも、防除時期の入った行が1つも無いと収穫開始を時系列に置けない)
+		if (!harvestSet) { res.set(row, { level: '△', text: `${words}: 収穫開始時期が未設定` }); return; }
+		if (!sp || !sp.r || !tl.harvest) { res.set(row, { level: '△', text: `${words}: 防除時期が未設定` }); return; }
+		const [s0, s1] = sp.r, [h0, h1] = tl.harvest;
+		const after = s0 >= h1;         // 散布は確実に収穫開始以降(収穫中の散布)
+		const mayAfter = s1 >= h0;      // 散布が収穫開始以降の可能性がある
+		const minGap = h0 - s1, maxGap = h1 - s0;   // 散布から収穫開始までの日数の幅(判定にはこの値を使う)
+		// 表示: 同じ旬などで幅が収穫開始をまたぐときも、実務上の間隔として 0 日から表す(マイナスの日数は出さない)
+		const shownMin = Math.max(0, minGap);
+		const gapText = `散布${sp.label}→収穫開始${tl.harvestLabel} 間隔${shownMin === maxGap ? maxGap : `${shownMin}～${maxGap}`}日`;
+		const dayBefore = rule.base !== '収穫開始' && rule.min <= 1 && rule.max == null;   // 収穫前日数が前日まで(1日以下)
+		if (after) {
+			// 収穫中の散布: 前日までの薬剤は○。収穫開始N日前までの規定は収穫開始以降には使えないので×。
+			// それ以外の薬剤は、計画では×、記録では出荷のない期間の散布もありうるので△(出荷実績との突合が必要)
+			const where = `収穫開始(${tl.harvestLabel})以降の散布(散布${sp.label})`;
+			if (dayBefore) { res.set(row, { level: 'OK', text: `${words}: ${where}` }); return; }
+			if (rule.base === '収穫開始' || !isRecordMode) { res.set(row, { level: 'NG', text: `${words}: ${where}` }); return; }
+			res.set(row, { level: '△', head: '出荷実績との突合が必要', strong: true, text: `${words}: ${where}` });
+			return;
+		}
+		// 同じ旬など収穫開始をまたぐ可能性がある散布でも、前日までの薬剤は○(収穫の前日までに散布できる)
+		if (rule.min <= 1 && rule.max == null) { res.set(row, { level: 'OK', text: `${words}: ${gapText}` }); return; }
+		let level;
+		if (maxGap < rule.min || (rule.max != null && minGap > rule.max)) level = 'NG';
+		else if (!mayAfter && minGap >= rule.min && (rule.max == null || maxGap <= rule.max)) level = 'OK';
+		else level = '△';
+		res.set(row, { level, text: `${words}: ${gapText}` });
+	});
+	return res;
+}
+
+// 判定記号(○・×・△・？)の HTML。フォントによっては記号が太字にならないので、線の太さを決めた図形(CSS マスクの SVG)で描く。
+// 色は文字色(currentColor)に従うので、<em> の中では警告文字色になる。中の文字はコピー・読み上げ用(画面では見えない)
+function judgeMarkHtml(level) {
+	const m = { 'OK': ['ok', '○'], 'NG': ['ng', '×'], '△': ['tri', '△'], '?': ['q', '？'] }[level];
+	if (!m) return escapeHtml(level || '');
+	return `<span class="jm jm-${m[0]}" role="img" aria-label="${m[1]}"><span class="jm-t">${m[1]}</span></span>`;
+}
+
+/**
+ * 収穫前日数の表(#harvestContainer)を作る。「収穫前日数を判定する」のときだけ。
+ * 防除計画の行ごとに、No・防除時期・薬剤名・作物名・使用時期・判定と理由を並べる(収穫前日数の規定の無い行は○)。
+ * 判定と理由は judgePhi の結果そのもの。収穫前日数の結果はこの表にだけ出す(薬剤別使用回数の判定欄には入れない)
+ */
+function updateHarvestTable(rows, phiByRow) {
+	const container = document.getElementById('harvestContainer');
+	if (!container) return;
+	if (!getHarvestSetting().enabled || !rows.length) {
+		container.innerHTML = '';
+		rows.forEach((row) => row.cells[2]?.classList.remove('phi-date-error'));   // 判定しないときは日付の警告も消す
+		return;
+	}
+	// 記録モードでカウント開始日より前の日付の行は、防除計画の防除時期のセルを警告色で示し、日付の修正を促す
+	rows.forEach((row) => row.cells[2]?.classList.toggle('phi-date-error', !!phiByRow.get(row)?.dateError));
+	const body = rows.map((row) => {
+		const c = row.cells;
+		const [timing] = getTimingArray(isRecordMode, c[2]);
+		const p = phiByRow.get(row);
+		// 判定の行: 記号と、行動を促す文(head)。strong の行は×と同じ強調。その下の行に理由
+		let judge = '-';
+		if (p) {
+			const line = judgeMarkHtml(p.level) + (p.head ? ' ' + escapeHtml(p.head) : '');
+			const top = (p.strong || p.level === 'NG') ? `<em>${line}</em>` : line;
+			const reason = p.level === 'OK' ? `<span class="yk-okr">${escapeHtml(p.text)}</span>` : (p.level === '△' && !p.head ? '※' : '') + escapeHtml(p.text);
+			judge = `${top}<br>${reason}`;
+		}
+		return `<tr><td class="No">${escapeHtml(c[1]?.textContent.trim() || '')}</td><td>${escapeHtml(timing || '')}</td><td>${escapeHtml(c[4]?.textContent.trim() || '')}</td>`
+			+ `<td>${escapeHtml(c[3]?.textContent.trim() || '')}</td><td>${escapeHtml(c[6]?.textContent.trim() || '')}</td><td class="judge">${judge}</td></tr>`;
+	}).join('');
+	container.innerHTML = `
+		<div class="handsontable-like">
+			<table id="harvestTable">
+				<thead><tr><th>No</th><th>防除時期</th><th>薬剤名</th><th>作物名</th><th>使用時期</th><th>収穫前日数の判定</th></tr></thead>
+				<tbody>${body}</tbody>
+			</table>
+		</div>
+		<div class="iconsbar">
+			<svg class="icon" onclick="copyTableToClipboard('harvestTable')">
+				<title>クリップボードにコピー</title>
+				<use href="icons.svg?v=3#clipboard-copy"></use>
+			</svg>
+		</div>
+	`;
+}
+
 // 薬剤の使用回数をカウントしてテーブルを更新する関数
 //   集計(表示の1行): (通称, 使用回数の文面, 内訳枠の文字列 = planRowSlotText) の3キー。判定は集計キーに入れない
 //   判定: ①成分の判定(総使用回数・内訳枠。行ごとに引き当てる) ②本剤の使用回数(登録 = 使用時期×使用方法ごと。散布の仲間は「散布」にそろえる)
-//         ③「合計」と明記した使用回数は登録をまたいだ合計 ④併用前提の登録の相手の有無。NG > 要確認 > OK
+//         ③「合計」と明記した使用回数は登録をまたいだ合計 ④併用前提の登録の相手の有無。
+//         重さの順 NG(×) > 要確認 > OK(○) > 判定なし(-)。収穫前日数はこの表に入れず、専用の表(updateHarvestTable)に出す
 //   理由: 成分の総使用回数と内訳枠(OK も含めすべて)、併用前提。本剤の使用回数(②③)は理由に書かず判定にだけ反映する
 //   要確認の問いがあれば、その薬剤の各行に「内容を選択/選択を変更」ボタンを出す(openUsageResolveDialog。選択は保存しない)
-//   クリック: NG → 警告色A(NG行)、要確認 → 警告色C(要確認の原因の行)、OK → 確認色(全行)
+//   クリック: ×(NG) → 警告色A(NG行)、要確認・△ → 警告色C(原因の行)、○(OK) → 確認色(全行)
 function updateYakuzaiCountTable() {
 	const planTableBody = document.querySelector('#planTable tbody');
 	const container = document.getElementById('yakuzaiCountContainer');
@@ -4227,9 +4812,15 @@ function updateYakuzaiCountTable() {
 	const coUse = checkCoUse(Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden')));
 	const coUseWarn = new Set([...coUse].filter(([, list]) => list.some(x => x.level === '要確認')).map(([row]) => row));
 	coUse.forEach(list => list.forEach(x => { if (x.question) allQuestions.push(x.question); }));
+	// 収穫前日数の判定(計画の行ごと。1行目をカウント開始日として数えるので、表示中の全行をまとめて渡す)
+	const phiRows = Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden'));
+	const phiByRow = judgePhi(phiRows);
+	updateHarvestTable(phiRows, phiByRow);   // 収穫前日数の表(判定するときだけ)。薬剤別使用回数の判定には入れない
 	// --- 1. 集計の組(通称, 使用回数, 内訳枠の文字列)ごとに、判定(NG > 要確認 > OK > 判定なし)と理由をまとめる ---
 	const ngRows = new Map();   // 薬剤名 -> NG判定の防除計画の行(tr)。薬剤名・NG判定セルのクリックで警告色にする対象
-	const rank = { '': 0, 'OK': 1, '要確認': 2, 'NG': 3 };
+	// 判定の重さ: NG(×) > 要確認 > OK(○) > 判定なし。'△' はこの表では現在使わない(収穫前日数は専用の表だけに出すため)。
+	// 表示・クリックの △ の扱い(要確認と同じ)は、将来この表に別の根拠不足の判定を入れるときのために残している
+	const rank = { '': 0, 'OK': 1, '△': 2, '要確認': 3, 'NG': 4 };
 	sortedData.forEach(data => {
 		let level = '';
 		// 理由: { level, text }。text は判定結果を含まない事実の文(回数・上限・照合結果)。判定(level)とは別に管理し、
@@ -4274,14 +4865,24 @@ function updateYakuzaiCountTable() {
 		});
 		// 本剤の使用回数(登録ごと)は、表の使用回数・使用上限の列で分かるので、理由には書かず判定(level)にだけ反映する
 		if (rank[ownLevel] > rank[level]) level = ownLevel;
-		// 要確認の原因になった防除計画の行(成分の判定で要確認の行、併用前提の警告の行、登録の使用回数が条件付き上限の範囲の行)
+		// 使用回数・成分回数の上限がどちらも「-」(規定なし。銅剤・展着剤など)の薬剤は、超えようがないので判定を ○(OK)にする。
+		// 使用回数・成分回数の文面が空(データなし)や読めない文面のときは、判定なしのまま
+		if (level === '') {
+			const noLimit = (t) => /^[-－ー―‐−]$/.test(String(t || '').normalize('NFKC').trim());
+			const seibunKaisus = data.rows.flatMap(row => (row.cells[12]?.innerHTML || '').split('<br>').map(x => x.replace(/<[^>]*>/g, '').trim()).filter(Boolean));
+			if (noLimit(data.kaisu) && seibunKaisus.every(noLimit)) level = 'OK';
+		}
+		const countNG = level === 'NG';   // 回数・内訳・併用前提での NG(使用回数の強調表示に使う。収穫前日数の NG は含めない)
+		// 収穫前日数はこの表の判定には入れない(収穫前日数の専用の表 updateHarvestTable にだけ出す)
+		// 要確認・△の原因になった防除計画の行(成分の判定で要確認の行、併用前提の警告の行、登録の使用回数が条件付き上限の範囲の行、
+		// 収穫前日数が根拠不足の行)。クリックで警告色Cにする対象
 		data.chkRows = data.rows.filter(row => ownByRow.get(row)?.status === '要確認' || coUseWarn.has(row)
 			|| (rowVerdicts.get(row) || []).some(v => v.flags.some(f => f.level === '要確認')));
 		data.level = level;
 		data.reasons = reasons;
-		data.exceeded = over || level === 'NG';
+		data.exceeded = over || countNG;
 		data.shareKeys = shareKeys;
-		if (data.exceeded) {
+		if (data.exceeded || level === 'NG') {
 			// 表でNG(使用回数の強調・NG判定)になった使用行。本剤の回数超過はその登録の行、成分の判定NG・併用前提のNGは行ごと
 			data.rows.forEach(row => {
 				const rowNG = ownByRow.get(row)?.status === 'NG' || (rowVerdicts.get(row) || []).some(v => v.flags.some(f => f.level === 'NG'))
@@ -4399,19 +5000,21 @@ function updateYakuzaiCountTable() {
 		drugRows.set(tsusho, groups.flatMap(d => d.rows));   // この薬剤の防除計画の全行(OK の薬剤名のクリックで光らせる)
 		const attr = escapeHtml(tsusho);
 		const nameTitle = worstLevel === 'NG' ? 'クリックで警告色表示(NG判定のセル・防除計画のNG行の薬剤名にも反映)'
-			: worstLevel === '要確認' ? 'クリックで警告色C表示(要確認のセル・防除計画の要確認の原因になった行の薬剤名にも反映)'
+			: (worstLevel === '要確認' || worstLevel === '△') ? 'クリックで警告色C表示(要確認・△のセル・防除計画の原因になった行の薬剤名にも反映)'
 			: 'クリックで警告色表示';
 		return list.map((L, i) => {
 			const nameCell = i === 0 ? `<td class="yk-name" data-tsusho="${attr}" rowspan="${list.length}" title="${nameTitle}">${attr}</td>` : '';
 			const countDisplay = L.exceeded ? `<em>${L.count}</em>` : L.count;
-			let judgeHtml = L.level === 'NG' ? '<em>NG</em>' : (L.level || '-');
+			// 判定の表記: NG → ×、OK → ○、△・要確認はそのまま、判定なし → -
+			let judgeHtml = L.level === 'NG' ? `<em>${judgeMarkHtml('NG')}</em>` : L.level === 'OK' ? judgeMarkHtml('OK') : L.level === '△' ? judgeMarkHtml('△') : (L.level || '-');
 			// 理由の表示: NG の理由 → 要確認の理由(※) → OK の理由(控えめな色)の順。印と順序は表示だけのもので、集約には使わない
 			const shown = L.reasons.slice().sort((x, y) => rank[y.level] - rank[x.level]);
 			if (shown.length) judgeHtml += '<br>' + shown.map(r => r.level === 'NG' ? escapeHtml(r.text)
-				: r.level === '要確認' ? '※' + escapeHtml(r.text) : `<span class="yk-okr">${escapeHtml(r.text)}</span>`).join('<br>');
+				: (r.level === '要確認' || r.level === '△') ? '※' + escapeHtml(r.text) : `<span class="yk-okr">${escapeHtml(r.text)}</span>`).join('<br>');
 			judgeHtml += usageResolveButtonHtml(L.questions, 'data-tsusho', tsusho);
-			const cls = L.level === 'NG' ? ' yk-ng' : L.level === '要確認' ? ' yk-co' : '';
-			const title = L.level === '要確認' ? ' title="クリックで警告色C表示(防除計画の、要確認の原因になった行の薬剤名にも反映)"' : '';
+			// △ のクリックは要確認と同じ(警告色C)
+			const cls = L.level === 'NG' ? ' yk-ng' : (L.level === '要確認' || L.level === '△') ? ' yk-co' : '';
+			const title = (L.level === '要確認' || L.level === '△') ? ' title="クリックで警告色C表示(防除計画の、要確認の原因になった行の薬剤名にも反映)"' : '';
 			return `<tr${i === 0 ? ' class="yk-first"' : ''}>${nameCell}<td class="yk-hoho">${L.entries.sort((x, y) => x.idx - y.idx).map(e => escapeHtml(e.text)).join('<br>')}</td><td>${countDisplay}</td><td>${escapeHtml(L.kaisu)}</td><td class="judge${cls}" data-tsusho="${attr}"${title}>${judgeHtml}</td></tr>`;
 		}).join('');
 	}).join('');
@@ -4420,7 +5023,7 @@ function updateYakuzaiCountTable() {
 		<div class="handsontable-like">
 			<table id="yakuzaiCountTable">
 				<thead>
-					<tr><th>薬剤名</th><th>使用時期/方法</th><th>使用回数</th><th>使用上限</th><th>成分の判定(総量・括弧内)</th></tr>
+					<tr><th>薬剤名</th><th>使用時期/方法</th><th>使用回数</th><th>使用上限</th><th>判定(使用回数)</th></tr>
 				</thead>
 				<tbody>${rowsHtml}</tbody>
 			</table>
@@ -4444,7 +5047,7 @@ function updateYakuzaiCountTable() {
 			if (btn) { openUsageResolveDialog(btn.dataset.tsusho, container._questions.get(btn.dataset.tsusho) || []); return; }
 			// 要確認のセル、または判定が要確認の薬剤の薬剤名: NG のクリックと同じ挙動で、警告色Cを使う
 			const nameTd = e.target.closest('td.yk-name');
-			const co = e.target.closest('td.yk-co') || (nameTd && container._drugLevel.get(nameTd.dataset.tsusho) === '要確認' ? nameTd : null);
+			const co = e.target.closest('td.yk-co') || (nameTd && ['要確認', '△'].includes(container._drugLevel.get(nameTd.dataset.tsusho)) ? nameTd : null);
 			if (co) {
 				clearWarnHighlight();    // 警告色A・Bが有効なときは、すべて解除する
 				clearWarnBHighlight();
@@ -4454,6 +5057,7 @@ function updateYakuzaiCountTable() {
 				// この薬剤の薬剤名セルと要確認のセル(薬剤別の表)、防除計画の要確認の原因になった行の薬剤名セルを警告色Cにする
 				container.querySelectorAll('td.yk-name, td.yk-co').forEach(c => { if (c.dataset.tsusho === tsusho) c.classList.add('warn-bg-c'); });
 				(container._coRows.get(tsusho) || []).forEach(row => row.cells[4]?.classList.add('warn-bg-c'));
+				highlightRacTableFor(tsusho, container._coRows.get(tsusho) || [], 'warn-bg-c');
 				return;
 			}
 			const td = e.target.closest('td.yk-name, td.yk-ng');   // 薬剤名、またはNG判定のセル。どちらをクリックしても同じ動作
@@ -4467,10 +5071,12 @@ function updateYakuzaiCountTable() {
 				// NG の薬剤: 薬剤名セルとNG判定のセル(薬剤別の表)、防除計画のNG行の薬剤名セルを警告色Aにする
 				container.querySelectorAll('td.yk-name, td.yk-ng').forEach(c => { if (c.dataset.tsusho === tsusho) c.classList.add('warn-bg'); });
 				(container._ngRows.get(tsusho) || []).forEach(row => row.cells[4]?.classList.add('warn-bg'));
+				highlightRacTableFor(tsusho, container._ngRows.get(tsusho) || [], 'warn-bg');
 			} else {
 				// NG でない(OK など)の薬剤: 薬剤名セルと、防除計画のその薬剤の全行の薬剤名セルを確認色(青系)にする
 				td.classList.add('warn-bg-d');
 				(container._drugRows.get(tsusho) || []).forEach(row => row.cells[4]?.classList.add('warn-bg-d'));
+				highlightRacTableFor(tsusho, container._drugRows.get(tsusho) || [], 'warn-bg-d');
 			}
 		});
 	}
@@ -4529,6 +5135,31 @@ function openUsageResolveDialog(subject, questions) {
 		+ `<div class="ur-buttons"><button type="button" data-act="clear">この選択をすべて解除</button><button type="button" data-act="cancel">キャンセル</button><button type="button" data-act="ok">確定して再計算</button></div>`;
 	if (dlg.showModal) { if (!dlg.open) dlg.showModal(); } else dlg.setAttribute('open', '');
 }
+
+// 薬剤別使用回数の表のクリックを、RAC別使用回数の表にも反映する: その薬剤の通称と、点灯した防除計画の行(rows)に含まれる有効成分を、
+// 同じ警告色(cls)で点灯する
+function highlightRacTableFor(tsusho, rows, cls) {
+	const table = document.getElementById('seibunCountTable');
+	if (!table) return;
+	const seibuns = new Set();
+	rows.forEach(row => { if (!row.hasAttribute('hidden')) seibunsOfPlanRow(row).forEach(x => seibuns.add(x)); });
+	table.querySelectorAll('.hl').forEach(el => {
+		const key = el.dataset.hl || '';
+		if (key === 'ts\u0001' + tsusho || (key.startsWith('sb\u0001') && seibuns.has(key.slice(3)))) el.classList.add(cls);
+	});
+}
+
+// 点灯している文字・セル(防除計画・薬剤別使用回数・RAC別使用回数の表)をクリックしたら、必ずすべての点灯を消すだけにする
+// (新しい点灯は始めない)。キャプチャ段階で先に処理し、薬剤別・RAC別の表のクリック処理には渡さない。ボタン(内容を選択など)は対象外
+document.addEventListener('click', (e) => {
+	if (!(e.target instanceof Element) || e.target.closest('button')) return;
+	const lit = e.target.closest('.warn-bg, .warn-bg-b, .warn-bg-c, .warn-bg-d');
+	if (!lit || !lit.closest('#planTable, #yakuzaiCountTable, #seibunCountTable')) return;
+	clearWarnHighlight();
+	clearWarnBHighlight();
+	clearWarnCHighlight();
+	if (!lit.closest('#planTable')) e.stopPropagation();   // 防除計画の表は、ほかのクリック操作(行の操作など)を妨げない
+}, true);
 
 // 警告色C(warn-bg-c)をすべて元の背景色に戻す
 function clearWarnCHighlight() {
@@ -4697,8 +5328,26 @@ window.addEventListener('beforeunload', (event) => {
 				<div id="planContainer"></div>
 				<div class="captionLabel">薬剤別使用回数</div>
 				<div id="yakuzaiCountContainer"></div>
-				<div class="captionLabel">成分別使用回数</div>
+				<div class="captionLabel">RAC別使用回数</div>
+				<!-- 成分回数の合計に数えない成分(kihon ビューの ojas: 有機JAS で使える成分・特栽で数えない可能性がある成分)の選び方。表があるときだけ表示する -->
+				<div id="ojasCountSetting" class="checkListItem ojas-setting hidden" title="特別栽培の節減対象農薬の成分回数のように、有機JASで使用できる成分などを合計に数えないときに選びます(RAC回数・系統回数は変わりません)">
+					<span>成分回数の合計</span>
+					<label><input type="radio" name="ojasCount" value="all" checked onchange="onOjasCountChange()">全カウント</label>
+					<label><input type="radio" name="ojasCount" value="jas" onchange="onOjasCountChange()">有機JAS非カウント</label>
+					<label><input type="radio" name="ojasCount" value="jas_tokusai" onchange="onOjasCountChange()">有機JAS・特栽可能性非カウント</label>
+				</div>
 				<div id="seibunContainer"></div>
+				<!-- 収穫前日数: 「収穫前日数を判定する」にチェックしたときだけ表示する -->
+				<div id="harvestSection" class="hidden">
+					<div class="captionLabel">収穫前日数</div>
+					<div class="checkListItem harvest-setting" title="混植の場合は、収穫のいちばん早い作物の収穫開始時期を入力します。収穫前日数はこの時期から逆算します">
+						<span>収穫開始時期</span>
+						<select id="harvestMonth" class="harvest-month" onchange="onHarvestSettingChange()"><option value="">月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option><option value="4">4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option></select>
+						<select id="harvestPeriod" class="harvest-period" onchange="onHarvestSettingChange()"><option value="">旬</option><option value="上旬">上旬</option><option value="中旬">中旬</option><option value="下旬">下旬</option></select>
+						<input type="date" id="harvestDate" class="harvest-date hidden" onchange="onHarvestSettingChange()" title="記録モード: 実際の収穫開始年月日">
+					</div>
+					<div id="harvestContainer"></div>
+				</div>
 			</div>
 			<!-- #result は #planContainer の後に移動 -->
 			<div id="result"></div>
