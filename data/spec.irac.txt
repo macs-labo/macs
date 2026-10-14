@@ -168,6 +168,7 @@ insert into irac_sg values ('UNV*','UNV','ウイルス');
 insert into irac_sg values ('未','xa','未分類:気門封鎖系');-- IRAC Uncategorized
 insert into irac_sg values ('未','xb','未分類:微生物');-- IRAC Uncategorized
 insert into irac_sg values ('未','xc','未分類:天敵');-- IRAC Uncategorized
+insert into irac_sg values ('未','xd','未分類:フェロモン');-- IRAC Uncategorized 2026.10.14 追加
 insert into irac_sg values ('未','xz','未分類:その他');-- IRAC Uncategorized
 commit;
 /* Active Ingredient */
@@ -577,6 +578,25 @@ insert into irac_ai values ('xc','アカメガシワクダアザミウマ');
 insert into irac_ai values ('xc','タバコカスミカメ');
 insert into irac_ai values ('xc','ギフアブラバチ');
 insert into irac_ai values ('xc','ヤマウチアシボソトゲダニ'); --2025.8.5追加
+insert into irac_ai values ('xd','アリマルア'); --2026.10.14追加
+insert into irac_ai values ('xd','アルミゲルア'); --2026.10.14追加
+insert into irac_ai values ('xd','インフェルア'); --2026.10.14追加
+insert into irac_ai values ('xd','ウワバルア'); --2026.10.14追加
+insert into irac_ai values ('xd','オキメラノルア'); --2026.10.14追加
+insert into irac_ai values ('xd','オリフルア'); --2026.10.14追加
+insert into irac_ai values ('xd','ケルキボルア'); --2026.10.14追加
+insert into irac_ai values ('xd','コッシンルア'); --2026.10.14追加
+insert into irac_ai values ('xd','サキメラノルア'); --2026.10.14追加
+insert into irac_ai values ('xd','シナンセルア'); --2026.10.14追加
+insert into irac_ai values ('xd','スウィートビルア'); --2026.10.14追加
+insert into irac_ai values ('xd','ダイアモルア'); --2026.10.14追加
+insert into irac_ai values ('xd','ダイシルア'); --2026.10.14追加
+insert into irac_ai values ('xd','トートリルア'); --2026.10.14追加
+insert into irac_ai values ('xd','ビートアーミルア'); --2026.10.14追加
+insert into irac_ai values ('xd','ピーチフルア'); --2026.10.14追加
+insert into irac_ai values ('xd','ピリマルア'); --2026.10.14追加
+insert into irac_ai values ('xd','フォールウェブルア'); --2026.10.14追加
+insert into irac_ai values ('xd','リトルア'); --2026.10.14追加
 insert into irac_ai values ('xz','二酸化炭素');
 insert into irac_ai values ('xz','メタアルデヒド');
 insert into irac_ai values ('xz','フルエンスルホン');
