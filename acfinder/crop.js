@@ -682,7 +682,7 @@ function expandCrops(crop) {
 	const result = db.exec(sql);
 	const crops = csvToRegexp(result[0].values[0][0]);
 	const jogai = csvToRegexp(result[1].values[0][0].replaceAll('、', ',').replace(/^,+|,+$/g, ''), false);
-	let cond = `('、'||n_concat('、', sakumotsu, shozoku)||'、' regexp '${crops}' and nozoku not regexp '${crops}' or fukumu regexp '${crops}')`;
+	let cond = `('、'||n_concat('、', sakumotsu, shozoku)||'、' regexp '${crops}' and nozoku not regexp '${crops}' or fukumu regexp '${crops}' or sakumotsu regexp '農作物等?$')`;
 	if (jogai) cond = `(${cond} and sakumotsu not regexp '${jogai}')`
 	return cond;
 }
