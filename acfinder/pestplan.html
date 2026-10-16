@@ -296,6 +296,7 @@ div.handsontable-like {
 #seibunCountTable .ojas-tag.ojas-ng { color: var(--text-color-warn, red); border-color: var(--text-color-warn, red); font-weight: bold; }
 #seibunContainer .ojas-warn { color: var(--text-color-warn, red); font-weight: bold; margin: 0.3rem 0; white-space: normal; }
 #seibunContainer .ojas-warn .hl { cursor: pointer; text-decoration: underline; }
+#seibunCountTable tfoot td.sum-note { white-space: normal; font-size: 0.85em; color: var(--text-color-muted, #6f6f6f); }   /* 合計の数え方の注釈(有効成分の列の下。切り換えても RAC の列幅が変わらないように) */
 #seibunCountTable .sb-nc { color: var(--text-color-muted, #6f6f6f); }
 #seibunCountTable .rac-info { font-size: 0.85em; color: var(--text-color-muted, #6f6f6f); }   /* FRAC系統名・HRAC旧分類・耐性リスク(RAC回数の下に添える。省略しない) */
 .warn-bg { background-color: var(--bg-color-warn, #fff3f3) !important; outline: var(--outline-warn, none); outline-offset: -2px; }   /* 警告色と警告色Bが重なるセルは警告色(NG)を優先する */
@@ -2426,7 +2427,7 @@ function deleteOldDataRows() {
  *   R14 排他的な区分なのにどの枠にも当たらない行は、時期の読み違いとみなし、方法・対象で否定されない枠を候補に戻す
  *       (0なら総量にだけ数える。規定文と登録の方法が食い違う場合で、規定文側の問題)
  *   R15 含有率で区別する剤型(「2%粒剤」「1%粒剤」)は、農薬名から辞書の含有率を引いて照合。含有率表は、そのような規定を持つ成分を
- *       判定するときだけ、データベース(m_kihon・seibun)からその成分の分を作る(contentPctOf)。引けない農薬は確定しない。
+ *       判定するときだけ、データベース(kihon ビュー)からその成分の分を作る(contentPctOf)。引けない農薬は確定しない。
  *       「散布」の受け皿にしか確定的に当たらない株元散布などの行は、方法まで合う別の枠に該当しうるなら確定しない
  *
  *  【用語】
@@ -3901,7 +3902,8 @@ function contentPctOf(tsusho, seibun) {
 		const table = new Map();
 		try {
 			const q = s.replace(/'/g, "''");
-			const res = db.exec(`select distinct tsusho, nodo from kihon where seibun = '${q}'`);
+			// kihon ビュー(init_create_view.sql)を使う。有効成分名(seibun)が無い成分(フェロモン剤・展着剤など。計画では一般名)もあるので一般名でも引く
+			const res = db.exec(`select distinct tsusho, nodo from kihon where seibun = '${q}' or ippanmei = '${q}'`);
 			(res[0]?.values || []).forEach(([name, nodo]) => {
 				const m = String(nodo || '').match(/([\d.]+)\s*%/);
 				if (!name || !m) return;
@@ -3929,7 +3931,7 @@ function zaikeiOf(tsusho) {
 	if (typeof db === 'undefined' || !db) return '';            // データベース未読込: 読込後の再判定で取得する
 	let z = '';
 	try {
-		const res = db.exec(`select distinct zaikei from m_kihon where tsusho = '${key.replace(/'/g, "''")}'`);
+		const res = db.exec(`select distinct zaikei from m_kihon where tsusho = '${key.replace(/'/g, "''")}'`)   // 剤型の元のテーブル(tv_tsushoTekiyo の zaikei も m_kihon から);
 		const vals = (res[0]?.values || []).map(v => v[0]).filter(Boolean);
 		if (vals.length === 1) z = String(vals[0]);              // 複数あるときは決められないので空にする
 	} catch (e) {
@@ -4071,7 +4073,7 @@ function usageResolveButtonHtml(qs, attrName, value) {
 //             (RAC 欄の3番目以降)を添える
 //   系統    : RAC 欄の2番目(系統名)。括弧付きの英字のコードは系統記号を頭に付ける(「1(A): 有機リン系」)。系統回数は、その系統の成分を含む行の数
 //   成分回数: その成分を含む行の数。表の末尾に成分回数の合計(成分使用回数の合計。ラジオボタンの選択(全カウント・有機JAS非カウント・有機JAS・特栽可能性非カウント)で数えない成分だけを除く)を出す
-//   RAC 欄が空の成分は「RAC分類なし」にまとめる。同じ RAC コードでも系統名の違う成分(F:11 のアゾキシストロビンとピリベンカルブ)は別の系統になる
+//   RAC 欄が空の成分は RAC 欄を「-」にまとめ、系統欄に区分(フェロモン剤・植調剤・製剤の用途)を出す。展着剤は表に入れない。同じ RAC コードでも系統名の違う成分(F:11 のアゾキシストロビンとピリベンカルブ)は別の系統になる
 // どの項目(RAC・系統・有効成分・薬剤名とその回数)をクリックしても、その項目に当たる防除計画の行の薬剤名と、薬剤別使用回数の表の薬剤名を
 // 警告色Bにする(光っている所をクリックすると、すべて消灯)
 // ============================================================ 有機JAS・特栽の区分(成分回数の合計に数えない成分)
@@ -4080,6 +4082,7 @@ function usageResolveButtonHtml(qs, attrName, value) {
 // 特栽で数えない可能性がある成分。
 // 製剤としての評価: tv_tsushoTekiyo の seizaiojas(t_tokusai。全成分に ojas がある製剤だけ値があり、エコピタ液剤は特栽)も併せて見て、
 //   成分の区分と製剤の区分の低いほう(有機JAS > 特栽可能性 > なし)を、その薬剤でのその成分の区分にする。
+//   成分に ojas が無い(名前で引けない)ときは、製剤の区分をそのまま使う(全成分が対象の製剤なので、全成分に同じ区分が付く)。
 //   ・有機JAS非カウント: 製剤が有機JAS(seizaiojas が「○…」)で、成分も有機JAS のときだけ数えない
 //     (エコピタ液剤の還元澱粉糖化物、有機JAS の成分と特栽の成分の混合剤、対象外の成分を含む混合剤の有機JAS の成分は数える)
 //   ・有機JAS・特栽可能性非カウント: 製剤が有機JAS か特栽可能性(全成分が対象)のときだけ数えない
@@ -4103,20 +4106,28 @@ function onOjasCountChange() {
 const ojasCache = new Map();       // 通称 → Map(成分名(ippanmei・seibun の両方) → ojas の文字列)。DB は変わらないので読み直さない
 const ojasProdCache = new Map();   // 通称 → 製剤の ojas(tv_tsushoTekiyo の seizaiojas。無ければ '')
 const spreaderCache = new Map();   // 通称 → 展着剤(農薬の種類が「…展着剤」)なら成分名の配列、展着剤でなければ null
+const kihonInfoCache = new Map();  // 通称 → { yoto(製剤の用途), ingredients: [{ name(有効成分名、無ければ一般名), ippanmei, seibun, keito(系統) }] }
 /**
  * 通称の一覧について、kihon ビューから成分の ojas と農薬の種類(展着剤か)、tv_tsushoTekiyo から製剤の seizaiojas を
  * 読み込んでおく(読み込み済みの通称は読まない)
  */
 function loadOjas(tsushos) {
-	const need = [...new Set(tsushos)].filter(t => t && !(ojasCache.has(t) && ojasProdCache.has(t) && spreaderCache.has(t)));
+	const need = [...new Set(tsushos)].filter(t => t && !(ojasCache.has(t) && ojasProdCache.has(t) && spreaderCache.has(t) && kihonInfoCache.has(t)));
 	if (!need.length || typeof db === 'undefined' || !db) return;
 	try {
 		const list = need.map(t => `'${String(t).replace(/'/g, "''")}'`).join(',');
-		const res = db.exec(`select tsusho, shurui, ippanmei, seibun, ojas from kihon where tsusho in (${list})`);
+		const res = db.exec(`select tsusho, shurui, ippanmei, seibun, ojas, seizaiyoto, keito from kihon where tsusho in (${list})`);
 		const resProd = db.exec(`select tsusho, max(seizaiojas) from tv_tsushoTekiyo where tsusho in (${list}) group by tsusho`);
-		need.forEach(t => { ojasCache.set(t, new Map()); ojasProdCache.set(t, ''); spreaderCache.set(t, null); });
+		need.forEach(t => { ojasCache.set(t, new Map()); ojasProdCache.set(t, ''); spreaderCache.set(t, null); kihonInfoCache.set(t, { yoto: '', ingredients: [] }); });
 		(resProd[0]?.values || []).forEach(([t, oj]) => { if (oj) ojasProdCache.set(String(t), String(oj)); });
-		(res[0]?.values || []).forEach(([t, shurui, ippanmei, seibun, ojas]) => {
+		(res[0]?.values || []).forEach(([t, shurui, ippanmei, seibun, ojas, yoto, keito]) => {
+			// 製剤の用途と成分(RAC コードの無い成分の区分 noRacCategoryOf と、計画の有効成分欄が空の行の成分に使う)
+			const ki = kihonInfoCache.get(t);
+			if (ki) {
+				if (yoto && !ki.yoto) ki.yoto = String(yoto);
+				const name = String(seibun || ippanmei || '');
+				if (name && !ki.ingredients.some(x => x.name === name)) ki.ingredients.push({ name, ippanmei: String(ippanmei || ''), seibun: String(seibun || ''), keito: String(keito || '') });
+			}
 			// 展着剤: 成分名(有効成分名が無いので一般名)を集める
 			if (/展着剤$/.test(String(shurui || ''))) {
 				const list = spreaderCache.get(t) || [];
@@ -4131,7 +4142,7 @@ function loadOjas(tsushos) {
 			if (seibun) m.set(String(seibun), String(ojas));
 		});
 	} catch (e) {
-		need.forEach(t => { ojasCache.delete(t); ojasProdCache.delete(t); spreaderCache.delete(t); });   // 次の表の作り直しで読み直す
+		need.forEach(t => { ojasCache.delete(t); ojasProdCache.delete(t); spreaderCache.delete(t); kihonInfoCache.delete(t); });   // 次の表の作り直しで読み直す
 		console.error('有機JAS・特栽の区分(kihon.ojas・seizaiojas)の取得に失敗しました:', e);   // 失敗したときは区分なし(全部数える)のまま
 	}
 }
@@ -4155,12 +4166,25 @@ const ORGANIC_SPREADER = /パラフィン|カゼイン/;
 function spreaderNgSeibuns(tsusho) {
 	return (spreaderOf(tsusho) || []).filter(n => !ORGANIC_SPREADER.test(n));
 }
+/**
+ * RAC コードの無い成分の系統欄の区分。系統が性フェロモンなど → 'フェロモン剤'、植物成長調整剤・殺菌植調剤など → '植調剤'、
+ * そのほかは製剤の用途(殺そ剤・その他など)。DB が読めないときは ''
+ */
+function noRacCategoryOf(tsusho, seibun) {
+	const info = kihonInfoCache.get(tsusho);
+	if (!info) return '';
+	const ing = info.ingredients.find(i => i.name === seibun || i.ippanmei === seibun || i.seibun === seibun)
+		|| info.ingredients.find(i => i.name && seibun && (i.name.includes(seibun) || seibun.includes(i.name)));
+	if (/フェロモン/.test(ing?.keito || '')) return 'フェロモン剤';
+	if (/植調|植物成長調整/.test(info.yoto)) return '植調剤';
+	return info.yoto || '';
+}
 /** 製剤(通称)の seizaiojas。無ければ '' */
 function ojasProdOf(tsusho) {
 	return ojasProdCache.get(tsusho) || '';
 }
 /**
- * その薬剤でのその成分の区分(成分と製剤の低いほう)。戻り値 { cat: 'jas' | 'tokusai' | '', seibunOjas, prodOjas }
+ * その薬剤でのその成分の区分(成分と製剤の低いほう。成分に ojas が無ければ製剤の区分)。戻り値 { cat: 'jas' | 'tokusai' | '', seibunOjas, prodOjas }
  *   製剤の区分は全成分が対象のときだけあるので、対象外の成分を含む混合剤の成分は '' になる
  */
 function ojasUseOf(tsusho, seibun) {
@@ -4168,6 +4192,9 @@ function ojasUseOf(tsusho, seibun) {
 	const prodOjas = ojasProdOf(tsusho);
 	const rank = { jas: 2, tokusai: 1, '': 0 };
 	const a = ojasCategory(seibunOjas), b = ojasCategory(prodOjas);
+	// 成分に ojas が無い(または計画の有効成分名と kihon の名前が合わない)ときは、製剤の seizaiojas をその成分の区分にする
+	// (seizaiojas は全成分が対象の製剤だけにあるので、コンフューザ類など成分名で引けないものもここで拾える)
+	if (!a) return { cat: b, seibunOjas, prodOjas };
 	return { cat: rank[a] <= rank[b] ? a : b, seibunOjas, prodOjas };
 }
 /** ojas の文字列の区分: 'tokusai'(特栽可能性) / 'jas'(有機JAS) / ''(なし) */
@@ -4179,6 +4206,36 @@ function ojasExcluded(cat, mode) {
 	return (mode === 'jas' && cat === 'jas') || (mode === 'jas_tokusai' && (cat === 'jas' || cat === 'tokusai'));
 }
 
+// RAC コードの FRAC系統名など(rac_sg.fgroup。系統ごと)と耐性リスク(rac_mg.risk。コードごと。FRAC の耐性管理ガイドラインの有無を含む)。
+// 計画の行の RAC 列(保存したときの内容)に入っていなくても出せるように、DB(spec)から引く。読めないときは計画の行の内容を使う
+let racRiskCache = null;   // { fgroup: Map(コード\u0001系統 → fgroup), fgroupByCode: Map(コード → Set(fgroup)), risk: Map(コード → risk) }
+function racRiskInfoOf(code, keito) {
+	if (!code) return null;
+	if (!racRiskCache) {
+		if (typeof db === 'undefined' || !db) return null;
+		try {
+			const sg = db.exec('select mid, keito, fgroup from rac_sg');
+			const mg = db.exec('select mid, risk from rac_mg');
+			const c = { fgroup: new Map(), fgroupByCode: new Map(), risk: new Map() };
+			(sg[0]?.values || []).forEach(([m, k, f]) => {
+				if (!m || !f) return;
+				const fg = String(f).replace('FRAC系統名: ', '');   // 適用の表の RAC 列と同じ書き方(「FRAC系統名: 」を取る)
+				c.fgroup.set(m + '\u0001' + (k || ''), fg);
+				if (!c.fgroupByCode.has(m)) c.fgroupByCode.set(m, new Set());
+				c.fgroupByCode.get(m).add(fg);
+			});
+			(mg[0]?.values || []).forEach(([m, r]) => { if (m && r) c.risk.set(String(m), String(r)); });
+			racRiskCache = c;
+		} catch (e) {
+			console.error('RAC の FRAC系統名・耐性リスク(rac_sg・rac_mg)の取得に失敗しました:', e);   // 計画の行の内容で表示し、次の表の作り直しで読み直す
+			return null;
+		}
+	}
+	const byCode = racRiskCache.fgroupByCode.get(code);
+	const fgroup = racRiskCache.fgroup.get(code + '\u0001' + (keito || '')) || (byCode && byCode.size === 1 ? [...byCode][0] : '');
+	return { fgroup, risk: racRiskCache.risk.get(code) || '' };
+}
+
 function updateSeibunCountTable() {
 	const planTableBody = document.querySelector('#planTable tbody');
 	const seibunContainer = document.getElementById('seibunContainer');
@@ -4188,16 +4245,35 @@ function updateSeibunCountTable() {
 	}
 
 	clearWarnBHighlight();   // 表を作り直すので、警告色Bの表示は解除する(防除計画側だけが残らないように)
-	const seibunData = collectSeibunData(planTableBody);
+	const seibunData = collectSeibunData(planTableBody);   // 判定と同じ集め方(ここで足し引きするのは、この表の中だけ)
+	const visibleRows = Array.from(planTableBody.rows).filter(r => !r.hasAttribute('hidden'));
+	// 有機JAS・特栽の区分(成分回数の合計に数えない成分)、展着剤か、製剤の用途と成分を DB から読んでおく
+	const ojasMode = getOjasCountMode();
+	loadOjas(visibleRows.map(r => r.cells[4]?.textContent.trim() || ''));
+	// 有効成分欄が空の行(RAC コードの無いフェロモン剤・植調剤など)は、DB の成分で数える
+	visibleRows.forEach(row => {
+		if (seibunsOfPlanRow(row).length) return;
+		const t = row.cells[4]?.textContent.trim() || '';
+		if (!t || spreaderOf(t)) return;
+		(kihonInfoCache.get(t)?.ingredients || []).forEach(ing => {
+			const d = seibunData.get(ing.name) || { count: 0, seibunkaisu: '', mid: '', limit: -1, uses: [] };
+			d.count += 1;
+			d.uses.push({ ref: row, yakuzai: t });
+			seibunData.set(ing.name, d);
+		});
+	});
+	// 展着剤は RAC別使用回数の表に入れない(合計にも数えない。有機JAS の警告は表の下に出す)
+	seibunData.forEach((data, seibun) => {
+		data.uses = data.uses.filter(u => !spreaderOf(u.yakuzai || ''));
+		data.count = data.uses.length;
+		if (!data.count) seibunData.delete(seibun);
+	});
 
 	document.getElementById('ojasCountSetting')?.classList.toggle('hidden', seibunData.size === 0);
 	if (seibunData.size === 0) {
 		seibunContainer.clearContent();
 		return;
 	}
-	// 有機JAS・特栽の区分(成分回数の合計に数えない成分)
-	const ojasMode = getOjasCountMode();
-	loadOjas(Array.from(planTableBody.rows).filter(r => !r.hasAttribute('hidden')).map(r => r.cells[4]?.textContent.trim() || ''));
 
 	// 有効成分ごとの行: { racKey(RAC 欄のまとめのコード), group(系統の表示), info(RAC 欄の3番目以降), seibun, rows, drugs, counted }
 	let seibunTotal = 0;   // 成分使用回数の合計
@@ -4208,10 +4284,16 @@ function updateSeibunCountTable() {
 		const code = mid ? parts[0] : '';
 		// 括弧付きの英字のコード(「I:1(B)」)は数字でまとめる(「I:1」)。系統の頭には系統記号(「1(B)」)を付ける
 		const pm = code.match(/^(.*?)(\d+)\(([A-Za-z]+)\)$/);
-		const racKey = !code ? 'RAC分類なし' : pm ? pm[1] + pm[2] : code;
+		// RAC コードの無い成分は RAC 欄を「-」にし、系統欄に区分(フェロモン剤・植調剤・製剤の用途)を出す(RAC 欄を広げないため)
+		const racKey = !code ? '-' : pm ? pm[1] + pm[2] : code;
 		const groupName = mid ? (parts[1] || '') : '';
-		const group = pm ? `${code.replace(/^[A-Za-z]+:/, '')}: ${groupName}` : groupName;
-		const info = mid ? parts.slice(2).filter(Boolean).join(' / ') : '';
+		const noRacCats = code ? [] : [...new Set(data.uses.map(u => noRacCategoryOf(u.yakuzai || '', seibun)).filter(Boolean))];
+		const group = !code ? (noRacCats.join('・') || groupName) : pm ? `${code.replace(/^[A-Za-z]+:/, '')}: ${groupName}` : groupName;
+		// RAC回数の下に添える「FRAC系統名など / 耐性リスク」(組で出す)。DB の値を優先し、無ければ計画の行の RAC 列の3番目以降
+		const planInfo = mid ? parts.slice(2).filter(Boolean).join(' / ') : '';
+		const dbInfo = racRiskInfoOf(code, parts[1] || '');
+		const dbText = dbInfo ? [dbInfo.fgroup, dbInfo.risk].filter(Boolean).join(' / ') : '';
+		const info = dbText || planInfo;
 		const rows = new Set();
 		const drugs = new Map();
 		const ncRows = new Set();      // 選択により合計に数えない行
@@ -4225,15 +4307,7 @@ function updateSeibunCountTable() {
 				if (!ojasTags.has(label)) ojasTags.set(label, new Set());
 				ojasTags.get(label).add(`${u.yakuzai}: 成分 ${o.seibunOjas || '-'} / 製剤 ${o.prodOjas || '-'}`);
 			}
-			// 展着剤は成分回数「-」と同じ扱いで、どの選択でも合計に数えない
-			const spreader = !!spreaderOf(u.yakuzai || '');
-			if (spreader) {
-				const ng = ojasMode !== 'all' && spreaderNgSeibuns(u.yakuzai || '').length > 0;
-				const label = ng ? '展着剤・有機JAS不可' : '展着剤';
-				if (!ojasTags.has(label)) ojasTags.set(label, new Set());
-				ojasTags.get(label).add(`${u.yakuzai}: 展着剤(合計に数えない)` + (ng ? '。有機JAS で使用できる展着剤はパラフィン・カゼインのみ' : ''));
-			}
-			const nc = spreader || ojasExcluded(cat, ojasMode);
+			const nc = ojasExcluded(cat, ojasMode);   // 展着剤は上で表から除いている
 			if (nc) ncUses++;
 			if (rows.has(u.ref)) return;
 			rows.add(u.ref);
@@ -4247,8 +4321,8 @@ function updateSeibunCountTable() {
 		entries.push({ racKey, code, group, info, seibun, rows, drugs, ncRows, ojasTags, count: data.count });
 	});
 
-	// 並び: 殺菌剤(F) → 殺虫剤(I) → 除草剤(H) → その他 → RAC分類なし。同じ種類の中はコードの自然順、系統、有効成分の順
-	const typeOrder = (k) => k === 'RAC分類なし' ? 5 : k.startsWith('F:') ? 1 : k.startsWith('I:') ? 2 : k.startsWith('H:') ? 3 : 4;
+	// 並び: 殺菌剤(F) → 殺虫剤(I) → 除草剤(H) → その他 → RAC コードなし(「-」)。同じ種類の中はコードの自然順、系統、有効成分の順
+	const typeOrder = (k) => k === '-' ? 5 : k.startsWith('F:') ? 1 : k.startsWith('I:') ? 2 : k.startsWith('H:') ? 3 : 4;
 	const cmp = (a, b) => a.localeCompare(b, 'ja', { numeric: true });
 	entries.sort((a, b) => typeOrder(a.racKey) - typeOrder(b.racKey) || cmp(a.racKey, b.racKey) || cmp(a.group, b.group) || cmp(a.seibun, b.seibun));
 
@@ -4287,7 +4361,7 @@ function updateSeibunCountTable() {
 		const tags = [...e.ojasTags.entries()].map(([label, notes]) => ` <span class="ojas-tag${label.includes('不可') ? ' ojas-ng' : ''}" title="${escapeHtml([...notes].join('\n'))}">${label}</span>`).join('');
 		html += cell('sb-name', sbKeyOf(e), escapeHtml(e.seibun) + tags, 1);
 		const nNc = e.ncRows.size, nC = e.rows.size - nNc;
-		const ncText = nNc ? `<span class="sb-nc" title="合計に数えない回数(展着剤${ojasMode === 'jas' ? '・有機JAS非カウント' : ojasMode === 'jas_tokusai' ? '・有機JAS・特栽可能性非カウント' : ''})">(${nC ? '+' : ''}${nNc})</span>` : '';
+		const ncText = nNc ? `<span class="sb-nc" title="合計に数えない回数(${ojasMode === 'jas' ? '有機JAS非カウント' : '有機JAS・特栽可能性非カウント'})">(${nC ? '+' : ''}${nNc})</span>` : '';
 		html += cell('sb-count', sbKeyOf(e), nNc && !nC ? ncText : `${nC}` + (ncText ? ' ' + ncText : ''), 1);
 		const drugs = [...e.drugs.entries()].sort((a, b) => cmp(a[0], b[0]))
 			.map(([t, n]) => `<span class="hl ts-name" data-hl="${escapeHtml('ts\u0001' + t)}" title="${TIP}">${escapeHtml(t)}(${n}回)</span>`).join('、<br>');   // 「、」は表をコピーしたときの区切り
@@ -4318,7 +4392,7 @@ function updateSeibunCountTable() {
 				</thead>
 				<tbody>${rowsHtml}</tbody>
 				<tfoot>
-					<tr><td>${ojasMode === 'jas' ? '合計(有機JAS除く)' : ojasMode === 'jas_tokusai' ? '合計(有機JAS・特栽可能性除く)' : '合計'}</td><td></td><td></td><td></td><td></td><td title="成分使用回数の合計(展着剤と、選択により数えない成分は数えない)">${seibunTotal}</td><td></td></tr>
+					<tr><td>合計</td><td></td><td></td><td></td><td class="sum-note">${ojasMode === 'jas' ? '有機JAS・展着剤除く' : ojasMode === 'jas_tokusai' ? '有機JAS・特栽可能性・展着剤除く' : '展着剤除く'}</td><td title="成分使用回数の合計(展着剤と、選択により数えない成分は数えない)">${seibunTotal}</td><td></td></tr>
 				</tfoot>
 			</table>
 		</div>
