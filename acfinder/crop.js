@@ -672,17 +672,21 @@ let cropConditions = [];
 
 // 単純作物名を上位下位展開して sakhojo 用検索条件に変換
 // class 5 作物で除外作物がある場合は、相反する栽培条件を拾わないよう最後に再判定 2026.9.4追加
+// 展着剤、その他の概念の
 function expandCrops(crop) {
 	const sql = `
 		select gn_concat(',', sakumotsu) from (select idsaku, sakumotsu, toroku from m_sakumotsu order by idsaku desc) where toroku in (1, 3) and idsaku regexp (
 		select n_concat('|',idsaku,substr(idsaku,1,12)||'0000',substr(idsaku,1,8)||'00000000',substr(idsaku,1,6)||'0000000000',substr(idsaku,1,4)||'000000000000',substr(idsaku,1,2)||'00000000000000',
 		if(gunmei is not null,(select idsaku from m_sakumotsu where sakumotsu = a.gunmei))) from m_sakumotsu as a where sakumotsu = '${crop}');
 		select iif(class = 5, ifnull(nozoku, ''), '') from m_sakumotsu left join sakuhojo using(idsaku) where sakumotsu = '${crop}';
+		select substr(idsaku, 1, 2) from m_sakumotsu where sakumotsu = '${crop}';
+		select substr(idsaku, 1, 2) from m_sakumotsu where sakumotsu = '適用地帯等';
 	`;
 	const result = db.exec(sql);
 	const crops = csvToRegexp(result[0].values[0][0]);
 	const jogai = csvToRegexp(result[1].values[0][0].replaceAll('、', ',').replace(/^,+|,+$/g, ''), false);
-	let cond = `('、'||n_concat('、', sakumotsu, shozoku)||'、' regexp '${crops}' and nozoku not regexp '${crops}' or fukumu regexp '${crops}' or sakumotsu regexp '加害する農作物等?$')`;
+	const hogan = result[2].values[0][0] < result[3].values[0][0] ? " or sakumotsu regexp '加害する農作物等?$'" : '';
+	let cond = `('、'||n_concat('、', sakumotsu, shozoku)||'、' regexp '${crops}' and nozoku not regexp '${crops}' or fukumu regexp '${crops}'${hogan})`;
 	if (jogai) cond = `(${cond} and sakumotsu not regexp '${jogai}')`
 	return cond;
 }
