@@ -140,6 +140,10 @@ tr.missing-row {
 .missing-row td {
 	color: var(--border-color-strong);
 }
+td small {
+	font-size: 11px;
+	color: var(--text-color-light);
+}
 clickable { cursor: pointer; }
 
 /* 作物ツリーロック */
@@ -300,15 +304,17 @@ var hasTsushoLimitResult = false;
 function initPaRec() {
 	// 薬剤マネージャ初期化
 	planChemManager = new ChemListManager('#planChemWrapper', (selectedChemValue) => {
+		console.log(selectedChemValue);
 		const planSwiper = document.querySelector('.plan-swiper').swiper;
 		if (selectedChemValue) {
 			// Step 2 で選択された薬剤をリストに追加
-			// selectedChemValue は "bango meisho" 形式の文字列
-			const [bango, meisho] = selectedChemValue.split(' ');
+			// selectedChemValue は "tusho;kjiki;hoho;kaisu" 形式の文字列
+			const [tsusho, jiki, hoho, kaisu] = selectedChemValue.split(';');
 			const chemObject = {
-				yakuzai: selectedChemValue, // Store the full string for display
-				bango: bango,
-				meisho: meisho,
+				yakuzai: tsusho,
+				jiki: jiki,
+				hoho: hoho,
+				kaisu: kaisu,
 				// 手動追加時にも防除時期の列が表示されるように初期値を設定
 				timingMonth: '',
 				timingPeriod: '',
@@ -439,14 +445,14 @@ async function setupPlanChem(moveThis = true) {
 				const jiki = row.jiki === '-' ? '時期無指定' : row.jiki;
 				const hoho = row.hoho === '-' ? '方法無指定' : row.hoho;
 				const kaisu = row.kaisu === '-' ? '回数無指定' : row.kaisu;
-				const kubun = `${jiki}:${hoho}:${kaisu}`;
-				const id = `${tsusho}:${kubun}`;
+				const kubun = `${jiki};${hoho};${kaisu}`;
+				const id = `${tsusho};${kubun}`;
 				const tekiyo =`${kubun}|${row.tekiyo}`;
 				//const bango = row.bango;
 				//const name = `${bango} ${row.meisho}`;
 				return `${groupItem}
 					<div class="checkListItem" data-info="${tsusho}|${info}|${kubun}" title="${tsusho}">
-						<input type="radio" name="chemSelect" value="${tekiyo}" id="${id}"><label for="${id}">${tekiyo}</label>
+						<input type="radio" name="chemSelect" value="${id}" id="${id}"><label for="${id}">${tekiyo}</label>
 					</div>
 				`;
 			};
@@ -1104,11 +1110,11 @@ async function setPlanRecord() {
 		let res = null;
 		if (crops.length > 0 && uniqueKeys) {
 			const sql = `
-				select yuko1 as seibun, max(kaisu1) as seibunkaisu, d_concat('/', mid1, keito1, replace(rem1, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko1 IS NOT NULL group by seibun
-				UNION select yuko2 as seibun, max(kaisu2) as seibunkaisu, d_concat('/', mid2, keito2, replace(rem2, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko2 IS NOT NULL group by seibun
-				UNION select yuko3 as seibun, max(kaisu3) as seibunkaisu, d_concat('/', mid3, keito3, replace(rem3, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko3 IS NOT NULL group by seibun
-				UNION select yuko4 as seibun, max(kaisu4) as seibunkaisu, d_concat('/', mid4, keito4, replace(rem4, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko4 IS NOT NULL group by seibun
-				UNION select yuko5 as seibun, max(kaisu5) as seibunkaisu, d_concat('/', mid5, keito5, replace(rem5, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko5 IS NOT NULL group by seibun
+				select yuko1 as seibun, max(kaisu1) as seibunkaisu, d_concat('/', mid1, keito1, replace(rem1, 'FRAC系統名: ', '')) as rac, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko1 IS NOT NULL group by seibun, jiki, hoho, kaisu1
+				UNION select yuko2 as seibun, max(kaisu2) as seibunkaisu, d_concat('/', mid2, keito2, replace(rem2, 'FRAC系統名: ', '')) as rac, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko2 IS NOT NULL group by seibun, jiki, hoho, kaisu2
+				UNION select yuko3 as seibun, max(kaisu3) as seibunkaisu, d_concat('/', mid3, keito3, replace(rem3, 'FRAC系統名: ', '')) as rac, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko3 IS NOT NULL group by seibun, jiki, hoho, kaisu3
+				UNION select yuko4 as seibun, max(kaisu4) as seibunkaisu, d_concat('/', mid4, keito4, replace(rem4, 'FRAC系統名: ', '')) as rac, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko4 IS NOT NULL group by seibun, jiki, hoho, kaisu4
+				UNION select yuko5 as seibun, max(kaisu5) as seibunkaisu, d_concat('/', mid5, keito5, replace(rem5, 'FRAC系統名: ', '')) as rac, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko5 IS NOT NULL group by seibun, jiki, hoho, kaisu5
 			`;
 			console.log(sql);
 			res = db.exec(sql);
@@ -1117,12 +1123,20 @@ async function setPlanRecord() {
 		// 集計結果が取得できたか（未取得時は全行 missing 扱いになるので削除ボタンの安全弁にする）
 		hasTsushoLimitResult = !!res?.[0];
 		const ingredientInfo = {};
-		const tsushoLimit = {};
+		const tsushoLimit = new Map();
 		missingPlanIndexes = []; // 描画ごとに再計算
 		if (res?.[0]) {
 			res[0].values.forEach(row => {
-				const [seibun, seibunkaisu, rac, kaisu, tsusho] = row;
-				if (!tsushoLimit[tsusho]) tsushoLimit[tsusho] = kaisu;
+				const [seibun, seibunkaisu, rac, jiki, hoho, kaisu, tsusho] = row;
+				const keyTsusho = JSON.stringify([tsusho, jiki, hoho, kaisu]);
+				const dataTsusho = {
+					tsusho: tsusho,
+					jiki: jiki,
+					hoho: hoho,
+					kaisu: kaisu,
+					limit: parseInt(kaisu.match(/^\d+/)?.[0] || '0', 10)
+				};
+				tsushoLimit.set(keyTsusho, dataTsusho);
 				if (!ingredientInfo[seibun]) {
 					ingredientInfo[seibun] = {
 						count: 0,
@@ -1153,6 +1167,9 @@ async function setPlanRecord() {
 			const isFirst = i === 0;
 			const isLast = i === planList.length - 1;
 			const chemName = chem.yakuzai;
+			const chemJiki = chem.jiki;
+			const chemHoho = chem.hoho;
+			const chemKaisu = chem.kaisu;
 			let timingCell = '';
 			if (showTiming) { // This condition is already `planList.length > 0`
 				const periodStr = (chem.timingMonth && chem.timingPeriod) ? `${chem.timingMonth}月${chem.timingPeriod}` : '';
@@ -1172,7 +1189,8 @@ async function setPlanRecord() {
 			}
 
 			// 現在の農薬登録情報で登録が見つからない薬剤（.missing-row と同じ条件でインデックスを収集）
-			const isMissing = !tsushoLimit[chemName];
+			const keyTsusho = JSON.stringify([chemName, chemJiki, chemHoho, chemKaisu]);
+			const isMissing = !tsushoLimit.get(keyTsusho);
 			if (isMissing) missingPlanIndexes.push(i);
 
 			html += `<tr class="${i % 2 === 0 ? '' : 'even-row'}${isMissing ? ' missing-row' : ''}">` +
@@ -1182,20 +1200,38 @@ async function setPlanRecord() {
 				`<svg class="svg_button ${isLast ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'down')"><use href="icons.svg?v=3#arrow-down"></use></svg></div></td>` +
 				`<td class="center">${i+1}</td>` +
 				timingCell +
-				`<td class="clickable" onclick="setPlanDetail('${chemName}')">${chemName}</td></tr>`;
+				`<td class="clickable" onclick="setPlanDetail('${chemName}')">${chemName}<br><small>${chemJiki}/${chemHoho}</small></td></tr>`;
 		});
 		html += '</tbody></table>';
 
-		const yakuzaiCounts = {};
+		const yakuzaiCounts = new Map();
 		planList.forEach((chem) => {
 			const chemName = chem.yakuzai;
 			if (!chemName) return;
-			yakuzaiCounts[chemName] = (yakuzaiCounts[chemName] || 0) + 1;
+			const chemJiki = chem.jiki;
+			const chemHoho = chem.hoho;
+			const chemKaisu = chem.kaisu;
+			const keyTsusho = JSON.stringify([chemName, chemJiki, chemHoho, chemKaisu]);
+			const dataLimit = tsushoLimit.get(keyTsusho);
+			const isMissing = !dataLimit;
+			const dataTsusho = yakuzaiCounts.get(keyTsusho) || {
+				tsusho: chemName,
+				jiki: chemJiki,
+				hoho: chemHoho,
+				kaisu: chemKaisu,
+				count: 0,
+				isMissing: isMissing,
+				limit: isMissing ? '×' : dataLimit.limit
+			};
+			dataTsusho.count += 1;
+			yakuzaiCounts.set(keyTsusho, dataTsusho);
 		});
+		console.log(yakuzaiCounts);
+		console.log(Array.from(yakuzaiCounts.values()));
 
-		const yakuzaiRows = Object.entries(yakuzaiCounts)
-			.sort(([a], [b]) => a.localeCompare(b, 'ja'))
-			.map(([name, count]) => `<tr class="${tsushoLimit[name] ? '': 'missing-row'}"><td>${name}</td><td>${count}</td><td>${tsushoLimit[name] || '×'}</td></tr>`)
+		const yakuzaiRows = Array.from(yakuzaiCounts.values())
+			.sort((a, b) => a.tsusho.localeCompare(b.tsusho, 'ja'))
+			.map(([name, jiki, hoho, kaisu, count, isMissing, limit]) => `<tr class="${isMissing ? 'missing-row': ''}"><td>${name}<br><small>${jiki}/${hoho}</small></td><td>${count}</td><td>${limit}</td></tr>`)
 			.join('');
 
 		if (yakuzaiRows) {
