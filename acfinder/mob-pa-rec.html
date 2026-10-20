@@ -95,6 +95,9 @@
 	color: var(--text-color);
 	text-align: left;
 }
+div.row-data-table {
+	margin-bottom: 10px;
+}
 .row-data-table .actions, .std-data-table .actions {
 	display: flex;
 	gap: 3px;
@@ -151,7 +154,7 @@ td em {
 	color: var(--text-color-warn, red);
 }
 
-clickable { cursor: pointer; }
+.clickable { cursor: pointer; }
 
 /* 作物ツリーロック */
 #planCropTree.locked {
@@ -409,11 +412,11 @@ async function setupPlanChem(moveThis = true) {
 				ifnull(jiki, '-') as jiki, ifnull(kaisu, '-') as kaisu, ifnull(hoho, '-') as hoho,
 				iif(basho = '-', null, basho) as basho, iif(jikan = '-', null, jikan) as jikan, iif(ondo ='-', null, ondo) as ondo,
 				iif(dojo = '-', null, dojo) as dojo, iif(chitai ='-', null, chitai) as chitai, tekiyaku,
-				seibun1, yuko1, kaisu1, mid1, keito1, rem1, risk1,
-				seibun2, yuko2, kaisu2, mid2, keito2, rem2, risk2,
-				seibun3, yuko3, kaisu3, mid3, keito3, rem3, risk3,
-				seibun4, yuko4, kaisu4, mid4, keito4, rem4, risk4,
-				seibun5, yuko5, kaisu5, mid5, keito5, rem5, risk5,
+				seibun1, yuko1, ifnull(kaisu1, '-') as kaisu1, mid1, keito1, rem1, risk1,
+				seibun2, yuko2, ifnull(kaisu2, '-') as kaisu2, mid2, keito2, rem2, risk2,
+				seibun3, yuko3, ifnull(kaisu3, '-') as kaisu3, mid3, keito3, rem3, risk3,
+				seibun4, yuko4, ifnull(kaisu4, '-') as kaisu4, mid4, keito4, rem4, risk4,
+				seibun5, yuko5, ifnull(kaisu5, '-') as kaisu5, mid5, keito5, rem5, risk5,
 				kongo, seizaiyoto, seizaikoka, seizaiojas
 			from t_tekiyo left join tsushoruby as t using (tsusho) left join m_sakumotsu as s using (sakumotsu) left join m_byochu as b using (byochu)
 			order by t.ruby, s.ruby, idbyochu;
@@ -1077,6 +1080,14 @@ async function loadPlanFromJson(data) {
 	}
 }
 
+function dispJiki(jiki) {
+	return jiki.includes('全期間') ? '-' : jiki;
+}
+
+function dispHoho(hoho) {
+	return hoho.length > 15 ? hoho.slice(0, 15) + '…' : hoho;
+}
+
 // 防除記録タブ step.3: 使用予定薬剤及び使用回数集計表示
 async function setPlanRecord() {
 	const title = document.querySelector('#planHead3');
@@ -1116,13 +1127,13 @@ async function setPlanRecord() {
 		let res = null;
 		if (crops.length > 0 && uniqueKeys) {
 			const sql = `
-				select yuko1 as seibun, max(kaisu1) as seibunkaisu, mid1 as rac, keito1 as keito, d_concat('/', replace(rem1, 'FRAC系統名: ', ''), risk1) as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko1 IS NOT NULL group by seibun, jiki, hoho, kaisu1
-				UNION select yuko2 as seibun, max(kaisu2) as seibunkaisu, mid2 as rac, keito1 as keito, d_concat('/', replace(rem2, 'FRAC系統名: ', ''), risk2) as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko2 IS NOT NULL group by seibun, jiki, hoho, kaisu2
-				UNION select yuko3 as seibun, max(kaisu3) as seibunkaisu, mid3 as rac, keito3 as keito, d_concat('/', replace(rem3, 'FRAC系統名: ', ''), risk3) as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko3 IS NOT NULL group by seibun, jiki, hoho, kaisu3
-				UNION select yuko4 as seibun, max(kaisu4) as seibunkaisu, mid4 as rac, keito4 as keito, d_concat('/', replace(rem4, 'FRAC系統名: ', ''), risk4) as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko4 IS NOT NULL group by seibun, jiki, hoho, kaisu4
-				UNION select yuko5 as seibun, max(kaisu5) as seibunkaisu, mid5 as rac, keito5 as keito, d_concat('/', replace(rem5, 'FRAC系統名: ', ''), risk5) as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko5 IS NOT NULL group by seibun, jiki, hoho, kaisu5
+				select yuko1 as seibun, max(kaisu1) as seibunkaisu, mid1 as rac, keito1 as keito, d_concat('/', replace(rem1, 'FRAC系統名: ', ''), risk1) as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko1 IS NOT NULL group by tsusho, jiki, hoho, kaisu
+				UNION select yuko2 as seibun, max(kaisu2) as seibunkaisu, mid2 as rac, keito1 as keito, d_concat('/', replace(rem2, 'FRAC系統名: ', ''), risk2) as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko2 IS NOT NULL group by tsusho, jiki, hoho, kaisu
+				UNION select yuko3 as seibun, max(kaisu3) as seibunkaisu, mid3 as rac, keito3 as keito, d_concat('/', replace(rem3, 'FRAC系統名: ', ''), risk3) as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko3 IS NOT NULL group by tsusho, jiki, hoho, kaisu
+				UNION select yuko4 as seibun, max(kaisu4) as seibunkaisu, mid4 as rac, keito4 as keito, d_concat('/', replace(rem4, 'FRAC系統名: ', ''), risk4) as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko4 IS NOT NULL group by tsusho, jiki, hoho, kaisu
+				UNION select yuko5 as seibun, max(kaisu5) as seibunkaisu, mid5 as rac, keito5 as keito, d_concat('/', replace(rem5, 'FRAC系統名: ', ''), risk5) as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko5 IS NOT NULL group by tsusho, jiki, hoho, kaisu;
 			`;
-			console.log(sql);
+			console.log('${uniqueKeys} = {', uniqueKeys, '}');
 			res = db.exec(sql);
 		}
 
@@ -1142,19 +1153,20 @@ async function setPlanRecord() {
 					jiki: jiki,
 					hoho: hoho,
 					kaisu: kaisu,
-					limit: parseInt(kaisu.match(/^\d+/)?.[0] || '0', 10)
+					limit: parseInt(kaisu.match(/^\d+/)?.[0] || '9999', 10)
 				};
 				tsushoLimit.set(keyTsusho, dataTsusho);
 				if (!tsushoSeibun[tsusho]) tsushoSeibun[tsusho] = [];
 				if (!tsushoSeibun[tsusho].includes(seibun)) tsushoSeibun[tsusho].push(seibun);
-				if (!seibunInfo[seibun]) {
-					seibunInfo[seibun] = {
+				const dataSeibun = {
 						rac: rac || '-',
 						keito: keito,
 						rem: rem,
-						kaisu: seibunkaisu || '-',
-						limit: parseInt(seibunkaisu.match(/^\d+/)?.[0] || '0', 10)
-					};
+						kaisu: seibunkaisu,
+						limit: parseInt(seibunkaisu.match(/^\d+/)?.[0] || '9999', 10)
+				};
+				if (!seibunInfo[seibun] || seibunInfo[seibun].limit < dataSeibun.limit) {
+					seibunInfo[seibun] = dataSeibun;
 				}
 				if (rac) {
 					if (!seibunRac[seibun]) seibunRac[seibun] = [];
@@ -1206,7 +1218,7 @@ async function setPlanRecord() {
 				`<svg class="svg_button ${isLast ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'down')"><use href="icons.svg?v=3#arrow-down"></use></svg></div></td>` +
 				`<td class="center">${i+1}</td>` +
 				timingCell +
-				`<td class="clickable" onclick="setPlanDetail('${yakuzai}')">${yakuzai}<br><small>${jiki}/${hoho}</small></td></tr>`;
+				`<td class="clickable" onclick="setPlanDetail('${yakuzai}')">${yakuzai}<br><small>${dispJiki(jiki)}/${dispHoho(hoho)}</small></td></tr>`;
 		});
 		html += '</tbody></table>';
 
@@ -1233,13 +1245,11 @@ async function setPlanRecord() {
 			const seibuns = tsushoSeibun[yakuzai];
 			seibuns.forEach(seibun => {
 				const { rac, keito, rem, kaisu, limit } = seibunInfo[seibun];
-				const racs = [];
-				racs.push(rac);
-				if (keito) racs.push(keito);
-				if (rem) racs.push(rem);
 				const dataSeibun = seibunCounts[seibun] || {
 					count: 0,
-					rac: racs.join('/'),
+					rac: rac,
+					keito: keito,
+					rem: rem,
 					kaisu: kaisu,
 					limit: limit,
 					tsusho: []
@@ -1269,7 +1279,7 @@ async function setPlanRecord() {
 				if (o.isMissing) classList.push('missing-row');
 				if (i % 2 === 1) classList.push('even-row');
 				const count = o.count > o.limit ? `<em>${o.count}</em>` : o.count;
-				return `<tr class="${classList.join(' ')}"><td>${o.tsusho}<br><small>${o.jiki}/${o.hoho}</small></td><td>${count}</td><td>${o.kaisu}</td></tr>`;
+				return `<tr class="${classList.join(' ')}"><td>${o.tsusho}<br><small>${dispJiki(o.jiki)}/${dispHoho(o.hoho)}</small></td><td>${count}</td><td>${o.kaisu}</td></tr>`;
 			})
 			.join('');
 
@@ -1281,6 +1291,8 @@ async function setPlanRecord() {
 		const seibunRows = Object.entries(seibunCounts).map(([name, data]) => ({
 			name,
 			rac: data.rac,
+			keito: data.keito,
+			rem: data.rem,
 			count: data.count,
 			kaisu: data.kaisu,
 			limit: data.limit,
@@ -1289,19 +1301,40 @@ async function setPlanRecord() {
 
 		if (seibunRows.length > 0) {
 			html += '<h3>成分別使用回数</h3>';
-			seibunRows.forEach((data) => {
-				const count = data.count > data.limit ? `<em>${data.count}</em>` : data.count;
-				html += `<div class="row-title">${data.name}</div>` +
+			seibunRows.forEach(data => {
+				const { name, rac, keito, rem, count, kaisu, limit, tsusho } = data;
+				html += `<div class="row-title">${name}</div>` +
 					`<table class="row-data-table"><tbody>` +
-					`<tr><th>回数</th><td>${count}</td></tr>` +
-					`<tr class="even-row"><th>上限</th><td>${data.kaisu}</td></tr>` +
-					`<tr><th>薬剤</th><td>${data.tsusho.join(',')}</td></tr>` +
-					`<tr class="even-row"><th>RAC</th><td>${data.rac}</td></tr>` +
+					`<tr><th>回数</th><td>${count > limit ? '<em>' + count + '</em>' : count}</td></tr>` +
+					`<tr class="even-row"><th>上限</th><td>${kaisu}</td></tr>` +
+					`<tr><th>薬剤</th><td>${tsusho.join(',')}</td></tr>` +
+					`<tr class="even-row"><th>RAC</th><td>${rac}${keito ? ' / ' + keito : ''}${rem ? '<br><small>' + rem + '</small>' : ''}</td></tr>` +
+					`</tbody></table>`;
+			});
+		}
+		html += '<div class="row-data-table"></div>';
+
+		const racRows = Object.entries(racCounts).map(([name, data]) => ({
+			name,
+			count: data.count,
+			rem: data.rem,
+			seibun: data.seibun,
+			tsusho: data.tsusho
+		})).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+
+		if (racRows.length > 0) {
+			html += '<h3>RAC別使用回数</h3>';
+			racRows.forEach(data => {
+				const { name, count, rem, seibun, tsusho } = data;
+				html += `<div class="row-title">${name}</div>` +
+					`<table class="row-data-table"><tbody>` +
+					`<tr><th>回数</th><td>${count}${rem ? '<br><small>' + rem + '</small>' : ''}</td></tr>` +
+					`<tr class="even-row"><th>成分</th><td>${seibun.join(',')}</td></tr>` +
+					`<tr><th>薬剤</th><td>${tsusho.join(',')}</td></tr>` +
 					`</tbody></table>`;
 			});
 		}
 
-		html += '<div class="bottom-spacer"></div>';
 		div.innerHTML = html;
 		wrapper.appendChild(div);
 	} catch (e) {
