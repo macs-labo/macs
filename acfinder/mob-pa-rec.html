@@ -1148,12 +1148,19 @@ async function setPlanRecord() {
 			res[0].values.forEach(row => {
 				const [seibun, seibunkaisu, rac, keito, rem, jiki, hoho, kaisu, tsusho] = row;
 				const keyTsusho = JSON.stringify([tsusho, jiki, hoho, kaisu]);
+				const matches = kaisu.match(/(?<=^|:)\d+/g);
+				let limit = 0;
+				if (matches) {
+					matches.forEach(d => limit += parseInt(d, 10));
+				} else {
+					limit = 999;
+				}
 				const dataTsusho = {
 					tsusho: tsusho,
 					jiki: jiki,
 					hoho: hoho,
 					kaisu: kaisu,
-					limit: parseInt(kaisu.match(/^\d+/)?.[0] || '9999', 10)
+					limit: limit
 				};
 				tsushoLimit.set(keyTsusho, dataTsusho);
 				if (!tsushoSeibun[tsusho]) tsushoSeibun[tsusho] = [];
@@ -1163,7 +1170,7 @@ async function setPlanRecord() {
 						keito: keito,
 						rem: rem,
 						kaisu: seibunkaisu,
-						limit: parseInt(seibunkaisu.match(/^\d+/)?.[0] || '9999', 10)
+						limit: parseInt(seibunkaisu.match(/^\d+/)?.[0] || '999', 10)
 				};
 				if (!seibunInfo[seibun] || seibunInfo[seibun].limit < dataSeibun.limit) {
 					seibunInfo[seibun] = dataSeibun;
