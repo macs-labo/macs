@@ -1231,7 +1231,7 @@ async function setPlanRecord() {
 
 		const yakuzaiRows = Array.from(yakuzaiCounts.values())
 			.sort((a, b) => a.tsusho.localeCompare(b.tsusho, 'ja'))
-			.map(([name, jiki, hoho, kaisu, count, isMissing, limit]) => `<tr class="${isMissing ? 'missing-row': ''}"><td>${name}<br><small>${jiki}/${hoho}</small></td><td>${count}</td><td>${limit}</td></tr>`)
+			.map(o => `<tr class="${o.isMissing ? 'missing-row': ''}"><td>${o.tsusho}<br><small>${o.jiki}/${o.hoho}</small></td><td>${o.count}</td><td>${o.limit}</td></tr>`)
 			.join('');
 
 		if (yakuzaiRows) {
