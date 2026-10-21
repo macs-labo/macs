@@ -422,9 +422,28 @@ div.handsontable-like {
 .timing-period {
 	width: auto;
 }
+/* 記録モードの日付のカレンダー(openTimingCalendar)。色はテーマの変数 */
+#timingCalendar {
+	position: fixed; z-index: 1000; padding: 6px; border: 1px solid var(--border-color-strong); border-radius: 4px;
+	background-color: var(--bg-color); color: var(--text-color); box-shadow: 0 2px 8px var(--bg-color-active-header, rgba(0,0,0,0.3)); font-size: 0.9rem;
+}
+#timingCalendar button {
+	color: var(--text-color); background-color: var(--bg-color-button); border: 1px solid var(--border-color); border-radius: 3px; cursor: pointer; padding: 2px 6px;
+}
+#timingCalendar button:hover, #timingCalendar button:focus-visible { background-color: var(--bg-color-icon-hover); outline: 1px solid var(--border-color-focus); }
+#timingCalendar .tc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 6px; }
+#timingCalendar .tc-title { font-weight: bold; }
+#timingCalendar .tc-grid { display: grid; grid-template-columns: repeat(7, 2.2em); gap: 2px; text-align: center; }
+#timingCalendar .tc-wd { font-size: 0.85em; color: var(--text-color-muted, #6f6f6f); }
+#timingCalendar .tc-day { padding: 3px 0; background-color: var(--bg-color); border-color: transparent; }
+#timingCalendar .tc-day.tc-hint { background-color: var(--bg-color-ok, #f2f8ff); border-color: var(--border-color); }   /* 計画モードで入れた旬(目安) */
+#timingCalendar .tc-day.tc-today { border-color: var(--border-color-strong); }
+#timingCalendar .tc-day.tc-sel { background-color: var(--bg-color-accent); color: var(--text-color-accent); font-weight: bold; }
+#timingCalendar .tc-foot { display: flex; justify-content: flex-end; gap: 4px; margin-top: 4px; }
 /* 収穫前日数の欄: 収穫開始時期の入力欄(計画モードは月・旬、記録モードは年月日) */
-.harvest-setting { gap: 4px; }
-.harvest-setting select { width: auto; }
+/* 生育ステージの表: 時期の入力欄(計画モードは月・旬、記録モードは年月日) */
+#stageTable td.stage-input { white-space: nowrap; }
+#stageTable td.stage-note { white-space: normal; font-size: 0.9em; color: var(--text-color-muted, #6f6f6f); }
 /* 記録モードで、カウント開始日(1行目の防除日)より前の防除日: 日付の修正を促す */
 #planTable td.phi-date-error { outline: 2px solid var(--text-color-warn, red); outline-offset: -2px; background-color: var(--bg-color-warn, #fff3f3); }
 </style>
@@ -437,6 +456,19 @@ div.handsontable-like {
 // テーブルインスタンスを保存する大域変数
 let isRecordMode = false; // 記録モードフラグ
 let currentSakumotsu = null; // 現在選択されている作物条件
+
+// 防除計画タブの作物条件: 作物ツリーの条件(crop.js の makeCropCondition)に、どの作物でも使える作物名の登録を足す。
+//   ・「〜が加害する農作物(等)」: 燐酸第二鉄剤(ナメクジ類)、殺そ剤(野ソ)、コンフューザ(コナガ・ヨトウ類)など。
+//     作物ツリーでは選べず、防除計画に薬剤が入ると作物ツリーがロックされて後から足せないため。
+//     その害虫がその作物を加害していることが使用の前提なので、候補・計画の作物名はそのまま表示する
+//   ・「薬液のつきにくい農作物等」: 展着剤は常に選べるようにする
+//   ・「開墾後に栽培する農作物等」は入れない(開墾地での使用が前提の登録のため)
+// 作物が選ばれていないときは null(makeCropCondition と同じ)。他のタブの作物条件は変えない
+const PLAN_COMMON_CROPS = '(が加害する農作物等?|^薬液のつきにくい農作物等)$';
+function makePlanCropCondition(crops) {
+	const base = makeCropCondition(crops);
+	return base ? `${base} or sakumotsu regexp '${PLAN_COMMON_CROPS}'` : base;
+}
 let currentCbyochu = null;   // 現在選択されているcid
 // let currentYoto = null;   // 現在選択されている用途　未使用
 let currentByochu = null;   // 現在選択されている病害虫
@@ -486,7 +518,7 @@ async function searchCrop() {
 	document.getElementById('yakuzaiTekiyo')?.clearContent();
 
 	// Determine currentSakumotsu based on checkedCrops (this can return null)
-	currentSakumotsu = makeCropCondition(checkedCrops.map(item => item.sakumotsu));
+	currentSakumotsu = makePlanCropCondition(checkedCrops.map(item => item.sakumotsu));
 
 	if (!currentSakumotsu) { // No crops selected or makeCropCondition returned null
 		title?.clearContent();
@@ -1580,7 +1612,8 @@ function convPlanToJson() {
 		crops: checkedCrops, // 選択作物オブジェクトの配列(モバイル版互換用)
 		titleText: document.getElementById('title').textContent, // #title のテキスト内容
 		ojasCount: getOjasCountMode(), // 成分回数の合計に数えない成分: 'all'(全カウント) / 'jas'(有機JAS非カウント) / 'jas_tokusai'(有機JAS・特栽可能性非カウント)
-		harvest: getHarvestSetting(), // 収穫前日数の設定 { enabled(判定する), month, period(収穫開始の月旬), date(記録モードの収穫開始年月日) }
+		harvest: getHarvestSetting(), // 収穫前日数の設定 { enabled(判定する), month, period(収穫開始の月旬), date(記録モードの収穫開始年月日) }。収穫開始は stages の「収穫開始」と同じ値(旧版互換)
+		stages: getStageSettings(), // 生育ステージの時期 { ステージ名: { month, period(計画モードの月旬), date(記録モードの年月日) } }(「定植」「収穫開始」)
 		plan: planData
 	};
 
@@ -1771,7 +1804,7 @@ async function loadPlanFromJson(jsonText, msg) {
 		// currentSakumotsu を checkedCrops から再構築、または古い形式のsakumotsuから復元
 		currentSakumotsu = null; // まず初期化
 		if (window.checkedCrops.length > 0) {
-			currentSakumotsu = makeCropCondition(window.checkedCrops.map(item => item.sakumotsu));
+			currentSakumotsu = makePlanCropCondition(window.checkedCrops.map(item => item.sakumotsu));
 		} else if (loadedData.sakumotsu) { // 古い形式のJSONでcropsがない場合
 			currentSakumotsu = loadedData.sakumotsu;
 		}
@@ -1797,6 +1830,8 @@ async function loadPlanFromJson(jsonText, msg) {
 
 		// 収穫前日数の設定を復元(項目の無い古い形式のファイルは未設定・判定しないに戻す。旧版の「収穫中も散布あり」は読み捨てる)
 		setHarvestSetting(loadedData.harvest);
+		// 生育ステージの時期を復元(項目の無い古いファイルは、収穫開始だけを harvest から読む)
+		setStageSettings(loadedData.stages, true);
 		// 成分回数の合計に数えない成分の選択を復元(項目の無い古いファイルは全カウント)
 		setOjasCountMode(loadedData.ojasCount);
 
@@ -2110,7 +2145,12 @@ function addYakuzaiToPlanRow(row, yakuzaiName, data) {
 }
 
 // タイミングセルの内容を描画・更新するヘルパー
-function renderTimingCell(cell, data) {
+/**
+ * 時期のセル(防除計画の防除時期・生育ステージの時期で共通)を作る。計画モードは月・旬の選択、記録モードは日付(ラベル+隠した日付入力)。
+ * onChange(cell): 値が変わったとき(防除計画は updateRowNumbers)。記録モードで日付が空のときは、ラベルの月旬(計画モードで入れた時期)
+ * か、上の行の日付の月でカレンダーを開く(timingCalendarView・openTimingCalendar)
+ */
+function renderTimingCell(cell, data, onChange = () => updateRowNumbers()) {
 	cell.innerHTML = '';
 	cell.classList.add('timing-cell');
 
@@ -2134,24 +2174,30 @@ function renderTimingCell(cell, data) {
 		}
 		displayLabel.textContent = displayText;
 
+		// 日付の値は隠した日付入力に持つ(並べ替え・保存などはこの値を読む)。選択はこの画面のカレンダー(openTimingCalendar)で行う
 		const dateInput = document.createElement('input');
 		dateInput.type = 'date';
 		dateInput.id = uniqueId;
+		dateInput.hidden = true;
+		dateInput.tabIndex = -1;
 		dateInput.value = data.timing && /^\d{4}-\d{2}-\d{2}$/.test(data.timing) ? data.timing : '';
+		displayLabel.htmlFor = '';
+		displayLabel.tabIndex = 0;
+		displayLabel.setAttribute('role', 'button');
+		displayLabel.title = 'クリックでカレンダーを開く';
 
-		dateInput.onchange = function() {
-			displayLabel.textContent = this.value;
-			// 先頭行が日付になったら、他の行も（もし未設定なら）自動で合わせるためのフックポイント
-			updateRowNumbers();
+		const open = (e) => {
+			e.stopPropagation();
+			const view = timingCalendarView(dateInput.value, displayLabel.textContent, cell);
+			openTimingCalendar(displayLabel, dateInput.value, view, (v) => {
+				dateInput.value = v;
+				displayLabel.textContent = v || displayText;
+				// 先頭行が日付になったら、他の行も（もし未設定なら）自動で合わせるためのフックポイント
+				onChange(cell);
+			});
 		};
-		dateInput.onclick = function(e) { e.stopPropagation(); };
-
-		dateDisplayWrapper.onclick = function() {
-			// labelクリックによりinputが反応するが、ブラウザ互換性のためにshowPickerも維持
-			if (typeof dateInput.showPicker === 'function') {
-				try { dateInput.showPicker(); } catch (e) {}
-			}
-		};
+		dateDisplayWrapper.onclick = open;
+		displayLabel.onkeydown = (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(e); } };
 
 		dateDisplayWrapper.appendChild(displayLabel);
 		dateDisplayWrapper.appendChild(dateInput);
@@ -2175,14 +2221,102 @@ function renderTimingCell(cell, data) {
 			periodSelect.innerHTML = '<option value="">旬</option>' + periods.map(p => `<option value="${p}">${p}</option>`).join(''); // Option for period
 			periodSelect.value = data.timingPeriod || '';
 
-			monthSelect.onchange = updateRowNumbers;
-			periodSelect.onchange = updateRowNumbers;
+			monthSelect.onchange = () => onChange(cell);
+			periodSelect.onchange = () => onChange(cell);
 
 			timingDiv.appendChild(monthSelect);
 			timingDiv.appendChild(periodSelect);
 		}
 		cell.appendChild(timingDiv);
 	}
+}
+
+/**
+ * 記録モードのカレンダーを開く月と、目安の旬。戻り値 { y, m(1～12), hint: [初日, 末日] | null }
+ *   日付があればその月。無ければ、ラベルが「9月下旬」(計画モードで入れた月旬)ならその月(その旬の日を目安として色付け)、
+ *   それも無ければ防除計画で上の行の日付の月(生育ステージの表は最後の行の日付)、それも無ければ今月。
+ *   年は防除計画の1行目の日付の年(1行目の月より前の月なら翌年)。日付が1つも無ければ今年
+ */
+function timingCalendarView(value, labelText, cell) {
+	if (/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return { y: Number(value.slice(0, 4)), m: Number(value.slice(5, 7)), hint: null };
+	const rows = Array.from(document.querySelectorAll('#planTable tbody tr')).filter(r => !r.hasAttribute('hidden'));
+	const dateOf = (r) => { const t = r.cells[2]?.querySelector('input[type="date"]')?.value || ''; return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : ''; };
+	const first = rows.map(dateOf).find(Boolean);
+	const m = String(labelText || '').match(/^(\d{1,2})月(上旬|中旬|下旬)$/);
+	if (m) {
+		const mo = Number(m[1]);
+		let y = first ? Number(first.slice(0, 4)) : new Date().getFullYear();
+		if (first && mo < Number(first.slice(5, 7))) y++;
+		const last = new Date(y, mo, 0).getDate();
+		return { y, m: mo, hint: m[2] === '上旬' ? [1, 10] : m[2] === '中旬' ? [11, 20] : [21, last] };
+	}
+	const row = cell?.closest('#planTable tbody tr');
+	const prev = (row ? rows.slice(0, rows.indexOf(row)) : rows).map(dateOf).filter(Boolean).pop();
+	if (prev) return { y: Number(prev.slice(0, 4)), m: Number(prev.slice(5, 7)), hint: null };
+	const t = new Date();
+	return { y: t.getFullYear(), m: t.getMonth() + 1, hint: null };
+}
+
+/**
+ * 記録モードの日付を選ぶカレンダー(防除時期・生育ステージの時期で共通)。anchor の下に開き、日を押すと onPick(年月日) を呼んで閉じる。
+ * 「クリア」は onPick('')。前月・翌月で月を移る。枠の外を押す・Esc で何もせず閉じる。
+ * ブラウザの日付入力の部品は、日付が空のときに開く月を指定できないので、この画面で作る
+ */
+function openTimingCalendar(anchor, value, view, onPick) {
+	closeTimingCalendar();
+	const pad = (n) => String(n).padStart(2, '0');
+	const today = new Date();
+	const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
+	let y = view.y, m = view.m;
+	const pop = document.createElement('div');
+	pop.id = 'timingCalendar';
+	pop.setAttribute('role', 'dialog');
+	pop.setAttribute('aria-label', '日付の選択');
+	const render = () => {
+		const days = new Date(y, m, 0).getDate();
+		const start = new Date(y, m - 1, 1).getDay();
+		const hint = (view.hint && y === view.y && m === view.m) ? view.hint : null;
+		let cells = '';
+		for (let i = 0; i < start; i++) cells += '<span></span>';
+		for (let d = 1; d <= days; d++) {
+			const ds = `${y}-${pad(m)}-${pad(d)}`;
+			const cls = ['tc-day', ds === value ? 'tc-sel' : '', ds === todayStr ? 'tc-today' : '', hint && d >= hint[0] && d <= hint[1] ? 'tc-hint' : ''].filter(Boolean).join(' ');
+			cells += `<button type="button" class="${cls}" data-date="${ds}">${d}</button>`;
+		}
+		pop.innerHTML = `<div class="tc-head"><button type="button" data-nav="-1" title="前の月">◀</button><span class="tc-title">${y}年${m}月</span><button type="button" data-nav="1" title="次の月">▶</button></div>`
+			+ `<div class="tc-grid">${['日', '月', '火', '水', '木', '金', '土'].map(w => `<span class="tc-wd">${w}</span>`).join('')}${cells}</div>`
+			+ `<div class="tc-foot"><button type="button" data-act="clear">クリア</button><button type="button" data-act="today">今日</button><button type="button" data-act="close">閉じる</button></div>`;
+	};
+	render();
+	pop.addEventListener('click', (e) => {
+		e.stopPropagation();
+		const b = e.target.closest('button');
+		if (!b) return;
+		if (b.dataset.nav) { m += Number(b.dataset.nav); if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } render(); return; }
+		if (b.dataset.date) { closeTimingCalendar(); onPick(b.dataset.date); return; }
+		if (b.dataset.act === 'clear') { closeTimingCalendar(); onPick(''); return; }
+		if (b.dataset.act === 'today') { closeTimingCalendar(); onPick(todayStr); return; }
+		if (b.dataset.act === 'close') closeTimingCalendar();
+	});
+	document.body.appendChild(pop);
+	// 位置: anchor の下(画面からはみ出すときは上・左に寄せる)
+	const r = anchor.getBoundingClientRect();
+	const w = pop.offsetWidth, h = pop.offsetHeight;
+	let left = Math.min(r.left, window.innerWidth - w - 8), top = r.bottom + 2;
+	if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 2);
+	pop.style.left = `${Math.max(8, left)}px`;
+	pop.style.top = `${top}px`;
+	pop._onDoc = (e) => { if (!pop.contains(e.target)) closeTimingCalendar(); };
+	pop._onKey = (e) => { if (e.key === 'Escape') closeTimingCalendar(); };
+	setTimeout(() => { document.addEventListener('click', pop._onDoc); document.addEventListener('keydown', pop._onKey); }, 0);
+	(pop.querySelector('.tc-sel') || pop.querySelector('.tc-hint') || pop.querySelector('.tc-day'))?.focus();
+}
+function closeTimingCalendar() {
+	const pop = document.getElementById('timingCalendar');
+	if (!pop) return;
+	document.removeEventListener('click', pop._onDoc);
+	document.removeEventListener('keydown', pop._onKey);
+	pop.remove();
 }
 
 // モード切り替え
@@ -2301,6 +2435,7 @@ function updateRowNumbers() {
 		if (checkRecordMode) checkRecordMode.checked = false;
 		// 収穫前日数も完全に初期化する(判定のチェック・収穫開始時期・収穫開始年月日を外し、欄と表を消す)
 		setHarvestSetting(null);
+		setStageSettings(null);   // 生育ステージの時期も消す
 		const harvestContainer = document.getElementById('harvestContainer');
 		if (harvestContainer) harvestContainer.innerHTML = '';
 	}
@@ -2411,6 +2546,7 @@ function deleteOldDataRows() {
  *   R4  同格の候補は、方法の語句が使用方法と文字どおり一致する枠、時期が真に狭い枠(定植直後 ⊂ 定植後)を優先
  *   R5  出来事基準の時期(開花・出穂・幼穂形成・入水・伏せ込み・加温・一次/二次生理落果・浸種)は前後関係で照合。
  *       使用時期の括弧書きも読む。行がその出来事に触れていなければ確定しない(maybe)。
+ *       ただし生育ステージの表にその出来事の時期があり、防除時期との前後が分かる行(item.eventDates)は、文面で決まらないときその前後で決める。
  *       前提: 出穂前20日以内は幼穂形成期の後、二次生理落果の時期・後は一次生理落果の後、満開・落花の後は開花の後
  *   R6  横断的な時期の枠(出来事基準の時期だけの節で、内訳の合計が総量を超え、時期の無い方法の節と並ぶもの。例: 出穂期以降)は、
  *       方法の枠と重ねて数える
@@ -2453,7 +2589,9 @@ function deleteOldDataRows() {
  *  【公開】 UsageLimit.judge(items, 成分名, { contentPct(農薬名, 成分名), resolve(問い) })、
  *          UsageLimit.text(item, 成分名, { contentPct })(使用行が当たる内訳枠の規定文の文言。薬剤別の集計キー用。選択は反映しない)、
  *          UsageLimit.stageOf(時期)(現在の表示では使っていない)。ほかはすべてこの関数の内部用。
- *   items の各行: { no, ref, sakumotsu, yakuzai, zaikei, jiki, hoho, ekiryo, baisu(希釈倍数), byochu(病害虫名・使用目的), seibunkaisu }
+ *   items の各行: { no, ref, sakumotsu, yakuzai, zaikei, jiki, hoho, ekiryo, baisu(希釈倍数), byochu(病害虫名・使用目的), seibunkaisu,
+ *                   stage(段階別使用回数の登録の行だけ: 'NURSERY'=苗床・育苗 / 'FIELD'=本圃・本田 / 'BOTH'=決まらない。normalizeRowRaw 参照),
+ *                   eventDates(生育ステージの表の出来事の時期に対する防除時期の前後 Map(出来事 → 'before'|'at'|'after')。matchTime 参照) }
  */
 const UsageLimit = (() => {
 
@@ -2480,7 +2618,8 @@ const parseRule = (t, sakumotsu) => {
   return memo(ruleCache, key, () => parseRuleRaw(text, { sakumotsu }));
 };
 /** 使用行 r = { jiki, hoho, ekiryo, yakuzai, zaikei } を照合用の形に正規化する(メモ化)。戻り値は normalizeRowRaw を参照 */
-const normalizeRow = (r) => memo(rowCache, [r.jiki, r.hoho, r.ekiryo, r.yakuzai, r.zaikei, r.baisu, r.byochu, /仮植/.test(r.sakumotsu || '') ? 'K' : ''].join('\u0001'), () => normalizeRowRaw(r));
+const normalizeRow = (r) => memo(rowCache, [r.jiki, r.hoho, r.ekiryo, r.yakuzai, r.zaikei, r.baisu, r.byochu, /仮植/.test(r.sakumotsu || '') ? 'K' : '', r.stage || '',
+  r.eventDates && r.eventDates.size ? [...r.eventDates].map(([e, x]) => e + '=' + x).join(',') : ''].join('\u0001'), () => normalizeRowRaw(r));
 
 // ============================================================ 時期の語彙
 // 作業時期を1本の時間軸(年内の作業順)上の位置に置き換える。範囲(A～B)は両端の間の位置をすべて含めて扱う
@@ -3204,6 +3343,26 @@ function normalizeRowRaw(r) {
   if (/育苗|苗床/.test(jt) && !/本田|本圃/.test(jt + hoho)) targets.add('NURSERY');
   // は種前の浸漬・粉衣・塗沫は種子(種もみ)への処理(「は種前 6～72時間浸漬」)
   if (methods.has('SEEDTREAT') && jiki.positions.has(P.SOWB)) targets.add('SEED');
+  // 段階別使用回数の登録(使用回数「苗床:4回以内 本圃:3回以内」)の行: 生育ステージの定植の時期・利用者の選択で決めた段階(stage)で、
+  // 育苗の場所(NURSERY)か本圃かと、時期の位置(苗床 = 定植の前、本圃 = 定植以降)を決める。決まらない行(BOTH)は両方に当たりうる(STAGE?)
+  if (r.stage === 'NURSERY' || r.stage === 'FIELD' || r.stage === 'BOTH') {
+    const pos = new Set(jikiRow.positions);
+    let np;
+    if (r.stage === 'NURSERY') {
+      targets.add('NURSERY');
+      np = new Set([...pos].filter((p) => p <= P.PLB));
+      if (!np.size) np.add(P.RAISE);
+    } else if (r.stage === 'FIELD') {
+      targets.delete('NURSERY');
+      np = new Set([...pos].filter((p) => p >= P.PL));
+      if (!np.size) np.add(P.GROW);
+    } else {
+      targets.delete('NURSERY');
+      targets.add('STAGE?');
+      np = new Set([...pos, P.RAISE]);
+    }
+    jikiRow = Object.assign({}, jikiRow, { positions: np });   // jiki はキャッシュ共有なので複製する
+  }
   // 希釈倍数(「500～1000倍」)。規定の「500倍希釈灌注」などの照合に使う。倍数の記載が無ければ null(不明)
   const bm = norm(r.baisu).match(/(\d+)(?:~(\d+))?倍/);
   const dil = bm ? [Number(bm[1]), Number(bm[2] || bm[1])] : null;
@@ -3215,7 +3374,8 @@ function normalizeRowRaw(r) {
     if (/雑草|雑かん木|スギナ|ササ|イネ科|広葉|ノビエ|スズメノカタビラ|メヒシバ|ヒエ|カヤツリグサ|ホタルイ|コナギ|クズ|竹/.test(by)) purpose.add('除草');
     purpose.text = by;
   }
-  return { jiki: jikiRow, methods, targets, form, hoho, fieldSimul, dil, purpose };
+  // eventDates: 生育ステージの表の出来事の時期に対する防除時期の前後 Map(出来事 → 'before'|'at'|'after')。無ければ null
+  return { jiki: jikiRow, methods, targets, form, hoho, fieldSimul, dil, purpose, eventDates: r.eventDates && r.eventDates.size ? r.eventDates : null };
 }
 
 /**
@@ -3228,7 +3388,12 @@ function matchTime(atom, row) {
   if (atom.events && atom.events.size) {
     let r = null;
     atom.events.forEach((ar, ev) => {
-      if (j.events && j.events.has(ev)) { const x = eventRel(ar, j.events.get(ev)); r = r == null ? x : worst(r, x); }
+      let x = null;
+      if (j.events && j.events.has(ev)) x = eventRel(ar, j.events.get(ev));
+      // 生育ステージの表にその出来事の時期があり、防除時期との前後が分かる行(eventDates): 使用時期の文面で決まらないときは、その前後で決める
+      const dr = row.eventDates ? row.eventDates.get(ev) : undefined;
+      if (dr && (x == null || x === 'maybe')) x = eventRel(ar, dr);
+      if (x != null) r = r == null ? x : worst(r, x);
     });
     if (r != null) return r;
     if (atom.eventOnly) {
@@ -3311,6 +3476,8 @@ function matchTarget(atom, row) {
     } else if (t.startsWith('PURPOSE:')) {   // 使用目的(茎葉枯凋・除草剤として): 病害虫名の欄で照合。欄が空なら不明
       r = !row.purpose ? 'maybe' : row.purpose.has(t.slice(8)) ? 'yes' : 'no';
     }
+    // 段階別使用回数の行で、苗床か本圃か決まらない(STAGE?): 育苗の場所・本圃の枠のどちらにも当たりうる
+    else if (row.targets.has('STAGE?') && (t === 'FIELD' || t === 'NURSERY')) r = 'maybe';
     else if (t === 'FIELD') r = ['NURSERY', 'BED', 'SEED'].some((x) => row.targets.has(x)) ? 'no' : 'yes';
     else if (t === 'BED') r = row.targets.has('BED') ? 'yes' : row.targets.has('NURSERY') ? 'maybe' : 'no';
     // 育苗箱への処理と、床土・覆土への処理: 箱育苗の床土・覆土は育苗箱の中の土なので、該当しうる(maybe)
@@ -3783,7 +3950,9 @@ function text(item, seibun, opts = {}) {
   return parts.join(' / ');
 }
 
-return { judge, stageOf, text };
+/** 文字列に出てくる出来事(開花・出穂・入水など。EVENTS の名前)の配列。生育ステージの表に出す出来事を決めるのに使う */
+function eventsIn(t) { return [...eventsOf(t).keys()]; }
+return { judge, stageOf, text, eventsIn, EVENT_NAMES: EVENTS.map(([n]) => n) };
 })();
 
 // ============================================================ 併用前提の登録(他の薬剤に加用・混用・併用して使う登録)
@@ -4028,7 +4197,9 @@ function collectSeibunData(planTableBody) {
 				hoho: row.cells[10]?.textContent.trim() || '',
 				ekiryo: row.cells[9]?.textContent.trim() || '',
 				baisu: row.cells[8]?.textContent.trim() || '',    // 希釈倍数(「500倍希釈灌注は1回以内」などの照合用)
-				byochu: row.cells[5]?.textContent.trim() || ''    // 病害虫名・使用目的(「茎葉枯凋は1回以内」「除草剤としては3回以内」などの照合用)
+				byochu: row.cells[5]?.textContent.trim() || '',   // 病害虫名・使用目的(「茎葉枯凋は1回以内」「除草剤としては3回以内」などの照合用)
+				stage: currentRowStages.get(row)?.stage,          // 段階別使用回数の登録の行の段階(苗床・本圃・決まらない)。それ以外の行は undefined
+				eventDates: currentRowEvents.get(row)             // 生育ステージの出来事(開花・出穂など)に対する防除時期の前後。無ければ undefined
 			};
 
 			seibuns.forEach((seibun, index) => {
@@ -4472,12 +4643,244 @@ function planRowSlotText(row) {
 		hoho: row.cells[10]?.textContent.trim() || '',
 		ekiryo: row.cells[9]?.textContent.trim() || '',
 		baisu: row.cells[8]?.textContent.trim() || '',
-		byochu: row.cells[5]?.textContent.trim() || ''
+		byochu: row.cells[5]?.textContent.trim() || '',
+		stage: currentRowStages.get(row)?.stage,
+		eventDates: currentRowEvents.get(row)
 	};
 	return seibuns.map((s, i) => {
 		const t = UsageLimit.text({ ...item, seibunkaisu: kaisus[i] || '' }, s, { contentPct: contentPctOf });
 		return t ? `${s}: ${t}` : '';
 	}).filter(Boolean).join(' ・ ');
+}
+
+// ============================================================ 生育ステージ
+// 計画の薬剤が必要とする生育ステージの時期を、防除計画の表の下の「生育ステージ」の表で1回だけ入力する(.json の stages に保存)。
+// 計画モードは月旬、記録モードは年月日。混植でもステージは計画に1つ(収穫開始は、収穫のいちばん早い作物の時期)。
+//   定植    : 使用回数が「苗床:4回以内 本圃:3回以内」「育苗箱:1回、本田:2回以内」のように段階別の登録(段階別使用回数)があるとき。
+//             苗床(育苗)と本圃(本田)の境目。防除時期が定植より前の行は苗床、後の行は本圃での使用とする
+//   収穫開始: 「収穫前日数を判定する」のとき。収穫前日数はこの時期から逆算する(judgePhi)
+//   出来事(浸種・入水・伏せ込み・加温・幼穂形成・出穂・開花・一次/二次生理落果): 成分回数の内訳枠がその出来事を基準にしているとき
+//             (「開花前は2回以内、開花後は3回以内」「出穂期以降は2回以内」)。防除時期との前後で、使用時期の文面だけでは
+//             決まらなかった行の枠を決める(computeRowEvents → 判定の行の eventDates → UsageLimit の matchTime)。
+//             同じ旬(記録モードは同じ日)・未入力の行は今までどおり(文面で決まらなければ可能性として数え、要確認)
+const STAGE_DEFS = [
+	{ key: '浸種', label: '浸種', note: '浸種前・浸種後の内訳枠', event: true },
+	{ key: '定植', label: '定植・移植', note: '苗床(育苗)と本圃(本田)の境目' },
+	{ key: '入水', label: '入水', note: '入水前・入水後の内訳枠', event: true },
+	{ key: '伏込', label: '伏せ込み', note: '伏せ込み前・後の内訳枠', event: true },
+	{ key: '加温', label: '加温開始', note: '加温直後などの内訳枠', event: true },
+	{ key: '幼穂形成', label: '幼穂形成期', note: '幼穂形成期・幼穂形成期後の内訳枠', event: true },
+	{ key: '出穂', label: '出穂期', note: '出穂期以降などの内訳枠', event: true },
+	{ key: '開花', label: '開花', note: '開花前・開花後の内訳枠', event: true },
+	{ key: '一次生理落果', label: '一次生理落果', note: '一次生理落果発生期の内訳枠', event: true },
+	{ key: '二次生理落果', label: '二次生理落果', note: '二次生理落果発生後の内訳枠', event: true },
+	{ key: '収穫開始', label: '収穫開始', note: '収穫前日数の判定の基準(混植は収穫のいちばん早い作物)' },
+];
+const stageValues = new Map();   // ステージ名 → { month, period, date }
+/** ステージの時期 { month, period, date }(未入力は '') */
+function getStageValue(key) {
+	const v = stageValues.get(key) || {};
+	return { month: v.month || '', period: v.period || '', date: v.date || '' };
+}
+/** ステージの時期を入れる。すべて空なら消す */
+function setStageValue(key, v) {
+	const x = { month: String(v?.month || ''), period: String(v?.period || ''), date: String(v?.date || '') };
+	if (x.month || x.period || x.date) stageValues.set(key, x); else stageValues.delete(key);
+}
+/** .json に保存する形 { ステージ名: { month, period, date } } */
+function getStageSettings() {
+	const o = {};
+	STAGE_DEFS.forEach(d => { if (stageValues.has(d.key)) o[d.key] = getStageValue(d.key); });
+	return o;
+}
+/** .json から復元する。merge=true は今の値(旧版の harvest から入れた収穫開始)を残して上書きする。null は全消去 */
+function setStageSettings(obj, merge = false) {
+	if (!merge) stageValues.clear();
+	if (obj && typeof obj === 'object') STAGE_DEFS.forEach(d => { if (obj[d.key]) setStageValue(d.key, obj[d.key]); });
+	renderStageTable();
+}
+
+/**
+ * 段階別使用回数の読み取り: 使用回数「苗床:4回以内 本圃:3回以内」「育苗箱:1回、本田:2回以内」「苗床:2回以内」
+ * → [{ label: '苗床', kind: 'NURSERY'|'FIELD', text: '4回以内', limit: 4 }]。この形でなければ null
+ *   NURSERY: 苗床・育苗箱・育苗期・移植前・仮植床。FIELD: 本圃・本田・生育期・定植後・移植後
+ */
+function parseStageKaisu(text) {
+	const s = String(text || '').normalize('NFKC').trim();
+	if (!s.includes(':')) return null;
+	const tokens = s.split(/[、,\s]+/).filter(Boolean);
+	const res = [];
+	for (const t of tokens) {
+		const m = t.match(/^([^:]+):(\d+)回(以内)?$/);
+		if (!m) return null;
+		const kind = /苗床|育苗|移植前|定植前|仮植/.test(m[1]) ? 'NURSERY' : /本圃|本田|生育期|定植後|移植後/.test(m[1]) ? 'FIELD' : null;
+		if (!kind) return null;
+		res.push({ label: m[1], kind, text: `${m[2]}回${m[3] || ''}`, limit: Number(m[2]) });
+	}
+	return res.length ? res : null;
+}
+
+/**
+ * 段階別使用回数の行の段階。戻り値 Map(行 → { stage: 'NURSERY'|'FIELD'|'BOTH', st(段階の配列), by, question })
+ *   段階が1つだけの登録(「苗床:2回以内」)はその段階。2つあれば、防除時期と生育ステージの「定植」の時期で決める:
+ *   定植より前 → 苗床、定植より後 → 本圃、同じ旬(記録モードは同じ日)・防除時期か定植が未入力 → 決まらない(BOTH)。
+ *   決まらない行は、利用者が要確認の選択で段階を選べる(question。選べばその段階)。
+ *   計画モードの定植の月旬は、1行目(カウント開始)以降に置く。ただし1行目から9か月より後になるときは、1行目より前の定植とみなす
+ *   (苗床での防除が無く、定植後から始まる計画のため)
+ */
+function computeRowStages(rows) {
+	const res = new Map();
+	const targets = rows.map(row => ({ row, st: parseStageKaisu(row.cells[7]?.textContent) })).filter(x => x.st);
+	if (!targets.length) return res;
+	const tv = getStageValue('定植');
+	const tl = phiTimeline(rows, tv);   // 防除時期と定植を同じ通し日数にそろえる(定植は harvest の位置に入る)
+	let T = tl.harvest;
+	// 月旬で入れた定植(日付ではない)が1行目から9か月より後になるときは、1行目より前の定植とみなす
+	if (T && !(isRecordMode && /^\d{4}-\d{2}-\d{2}$/.test(tv.date)) && T[0] - tl.anchorAt > 270) T = [T[0] - 365, T[1] - 365];
+	targets.forEach(({ row, st }) => {
+		const kinds = [...new Set(st.map(x => x.kind))];
+		let stage = kinds.length === 1 ? kinds[0] : null;
+		let by = stage ? '使用回数' : '';
+		if (!stage && T) {
+			const r = tl.spray.get(row)?.r;
+			if (r) {
+				if (r[1] < T[0]) stage = 'NURSERY';
+				else if (r[0] > T[1]) stage = 'FIELD';
+				if (stage) by = '定植';
+			}
+		}
+		let question = null;
+		if (!stage) {
+			const tsusho = row.cells[4]?.textContent.trim() || '';
+			const kaisu = (row.cells[7]?.textContent || '').trim();
+			question = {
+				kind: 'stage', key: 'stage\u0001' + tsusho + '\u0001' + kaisu.normalize('NFKC').replace(/\s+/g, ''), ref: row, rows: [row],
+				no: row.cells[1]?.textContent.trim() || '', tsusho,
+				title: `${tsusho}: 使用回数「${kaisu}」のどの段階での使用ですか(生育ステージの表で定植の時期を入れると防除時期から決まります)`,
+				options: st.map(x => ({ value: x.kind, label: `${x.label}(${x.text})` })),
+			};
+			const c = resolveUsageChoice(question);
+			if (c && kinds.includes(c)) { stage = c; question.answer = c; by = '選択'; }
+		}
+		res.set(row, { stage: stage || 'BOTH', st, by, question });
+	});
+	return res;
+}
+let currentRowStages = new Map();   // 直近の判定で使った行の段階(computeRowStages)。成分の判定の行に stage として渡す
+
+/**
+ * 生育ステージの表の出来事(開花・出穂など)の時期に対する、各行の防除時期の前後。戻り値 Map(行 → Map(出来事 → 'before'|'at'|'after'))
+ *   防除時期の幅が出来事の時期より前 → before、後 → after、記録モードで同じ日 → at。同じ旬・どちらかが未入力 → 入れない(分からない)。
+ *   計画モードの出来事の月旬は、定植と同じく1行目(カウント開始)以降に置き、1行目から9か月より後になるときは1行目より前とする
+ */
+function computeRowEvents(rows) {
+	const res = new Map();
+	STAGE_DEFS.filter(d => d.event && stageValues.has(d.key)).forEach(d => {
+		const tl = phiTimeline(rows, getStageValue(d.key));
+		let E = tl.harvest;
+		if (!E) return;
+		const ev = getStageValue(d.key);
+		if (!(isRecordMode && /^\d{4}-\d{2}-\d{2}$/.test(ev.date)) && E[0] - tl.anchorAt > 270) E = [E[0] - 365, E[1] - 365];   // 定植と同じ: 月旬で入れた時期が1行目から9か月より後なら、1行目より前とみなす
+		rows.forEach(row => {
+			const r = tl.spray.get(row)?.r;
+			if (!r) return;
+			const rel = r[1] < E[0] ? 'before' : r[0] > E[1] ? 'after' : (isRecordMode && r[0] === r[1] && E[0] === E[1] && r[0] === E[0]) ? 'at' : null;   // 記録モードで同じ日
+			if (!rel) return;
+			if (!res.has(row)) res.set(row, new Map());
+			res.get(row).set(d.key, rel);
+		});
+	});
+	return res;
+}
+let currentRowEvents = new Map();   // 直近の判定で使った行の出来事の前後(computeRowEvents)。成分の判定の行に eventDates として渡す
+
+/**
+ * 段階別使用回数の登録の判定(本剤の使用回数)。rows: その登録の全使用行、stages: computeRowStages の結果。
+ * 戻り値 { status(登録全体), byKind(段階ごとの判定), rowStatus(行 → その行の判定), facts(段階ごとの回数の文。現在の表示では使っていない) }。
+ * 薬剤別使用回数の表では、段階ごとに行を分け(使用上限の欄を「苗床:4回以内」「本圃:3回以内」にする)、その段階の判定を出す。
+ * 本剤の使用回数はほかの薬剤と同じく理由には書かない(使用回数・使用上限の欄で分かる)。
+ *   段階の決まらない行(BOTH)は「可能性」: どの段階に振っても上限内 → ○、どう振っても超える → ×、振り方で変わる → 要確認
+ */
+function judgeStageKaisu(rows, st, stages) {
+	const kinds = [...new Set(st.map(x => x.kind))];
+	const lim = new Map(kinds.map(k => [k, st.filter(x => x.kind === k).reduce((a, x) => Math.min(a, x.limit), Infinity)]));
+	const sure = new Map(kinds.map(k => [k, 0]));
+	let both = 0;
+	rows.forEach(r => {
+		const sg = stages.get(r)?.stage;
+		if (sg && sure.has(sg)) sure.set(sg, sure.get(sg) + 1); else both++;
+	});
+	const allOK = kinds.every(k => sure.get(k) + both <= lim.get(k));
+	const anyOK = kinds.every(k => sure.get(k) <= lim.get(k)) && both <= kinds.reduce((a, k) => a + (lim.get(k) - sure.get(k)), 0);
+	const status = allOK ? 'OK' : anyOK ? '要確認' : 'NG';
+	// 段階ごとの判定(その段階の行の判定): 確定した回数で超える → NG、決まらない行を合わせると超えうる → 要確認
+	const byKind = new Map(kinds.map(k => [k, sure.get(k) > lim.get(k) ? 'NG' : sure.get(k) + both > lim.get(k) ? '要確認' : 'OK']));
+	const facts = kinds.map(k => {
+		const x = st.find(y => y.kind === k);
+		const n = sure.get(k), L = lim.get(k);
+		const level = n > L ? 'NG' : n + both > L ? '要確認' : 'OK';
+		return { level, text: `本剤の使用回数(${x.label})は${x.text}: 使用回数${n}回${both ? `+可能性${both}回` : ''}` };
+	});
+	// 段階ごとには超えていないが、決まらない行を合わせると全段階の上限の合計を超える
+	if (status === 'NG' && !facts.some(f => f.level === 'NG')) {
+		const sum = kinds.reduce((a, k) => a + lim.get(k), 0);
+		facts.push({ level: 'NG', text: `本剤の使用回数(段階の合計)は${sum}回以内: 使用回数${rows.length}回` });
+	}
+	// 行ごとの判定: 段階の決まった行はその段階の判定、決まらない行は登録全体の判定
+	const rowStatus = (r) => { const sg = stages.get(r)?.stage; return byKind.has(sg) ? byKind.get(sg) : status; };
+	return { status, facts, byKind, rowStatus };
+}
+
+/** 生育ステージの表に出すステージ(計画の薬剤が必要とするものだけ)。戻り値 [{ def, why: [理由の文] }] */
+function neededStages(rows) {
+	const out = [];
+	const split = [...new Set(rows.filter(r => (parseStageKaisu(r.cells[7]?.textContent) || []).map(x => x.kind).filter((k, i, a) => a.indexOf(k) === i).length > 1)
+		.map(r => r.cells[4]?.textContent.trim() || ''))].filter(Boolean);
+	// 成分回数の内訳枠・使用回数が出来事を基準にしている薬剤: 出来事 → 薬剤名
+	const evDrugs = new Map();
+	rows.forEach(r => {
+		const t = r.cells[4]?.textContent.trim() || '';
+		[r.cells[12]?.innerHTML || '', r.cells[7]?.textContent || ''].join(' ').split('<br>').forEach(x => UsageLimit.eventsIn(x).forEach(ev => {
+			if (!evDrugs.has(ev)) evDrugs.set(ev, new Set());
+			evDrugs.get(ev).add(t);
+		}));
+	});
+	STAGE_DEFS.forEach(def => {
+		const why = [];
+		if (def.event && evDrugs.has(def.key)) why.push(`時期別の使用回数: ${[...evDrugs.get(def.key)].filter(Boolean).join('、')}`);
+		if (def.key === '定植' && split.length) why.push(`段階別使用回数: ${split.join('、')}`);
+		if (def.key === '収穫開始' && getHarvestSetting().enabled) why.push('収穫前日数の判定');
+		if (why.length) out.push({ def, why });
+	});
+	return out;
+}
+/** 生育ステージの表を作り直す。必要なステージが無ければ欄ごと隠す(入力済みの値は消さない) */
+function renderStageTable() {
+	const section = document.getElementById('stageSection');
+	const container = document.getElementById('stageContainer');
+	if (!section || !container) return;
+	const body = document.querySelector('#planTable tbody');
+	const rows = body ? Array.from(body.rows).filter(r => !r.hasAttribute('hidden')) : [];
+	const need = neededStages(rows);
+	section.classList.toggle('hidden', need.length === 0);
+	if (!need.length) { container.innerHTML = ''; return; }
+	const rowsHtml = need.map(({ def, why }) => `<tr data-stage="${escapeHtml(def.key)}"><td>${escapeHtml(def.label)}</td><td class="stage-input"></td><td class="stage-note">${escapeHtml(def.note)}<br>必要: ${why.map(escapeHtml).join('、')}</td></tr>`).join('');
+	container.innerHTML = `<div class="handsontable-like"><table id="stageTable"><thead><tr><th>ステージ</th><th>時期</th><th>説明</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>`;
+	// 時期のセルは防除計画の防除時期と同じ作り(計画モードは月・旬、記録モードは日付。記録モードで日付が無ければ月旬を表示)
+	container.querySelectorAll('#stageTable tbody tr').forEach(tr => {
+		const v = getStageValue(tr.dataset.stage);
+		renderTimingCell(tr.cells[1], { timing: v.date, timingMonth: v.month, timingPeriod: v.period }, onStageInput);
+	});
+}
+/** 生育ステージの時期が変わったとき: 計画の変更として扱い、判定をやり直す(計画モードは月旬、記録モードは日付を入れる) */
+function onStageInput(cell) {
+	const key = cell.closest('tr')?.dataset.stage;
+	if (!key) return;
+	const v = getStageValue(key);
+	if (typeof isRecordMode !== 'undefined' && isRecordMode) v.date = cell.querySelector('input[type="date"]')?.value || '';
+	else { v.month = cell.querySelector('.timing-month')?.value || ''; v.period = cell.querySelector('.timing-period')?.value || ''; }
+	setStageValue(key, v);
+	updateRowNumbers();
 }
 
 // ============================================================ 収穫前日数の判定
@@ -4495,11 +4898,12 @@ function planRowSlotText(row) {
  *   未入力は ''。(「収穫中も散布あり」の設定は廃止。収穫開始以降の散布は、すべて収穫中の散布として扱う)
  */
 function getHarvestSetting() {
+	const v = getStageValue('収穫開始');   // 収穫開始時期は生育ステージの表の「収穫開始」で入力する
 	return {
 		enabled: !!document.getElementById('checkHarvestJudge')?.checked,
-		month: document.getElementById('harvestMonth')?.value || '',
-		period: document.getElementById('harvestPeriod')?.value || '',
-		date: document.getElementById('harvestDate')?.value || '',
+		month: v.month,
+		period: v.period,
+		date: v.date,
 	};
 }
 /** 収穫前日数の設定を入力欄に入れる(ファイルの読み込み時)。h が無ければ未設定(判定しない)に戻す */
@@ -4507,19 +4911,14 @@ function setHarvestSetting(h) {
 	const set = (id, prop, v) => { const el = document.getElementById(id); if (el) el[prop] = v; };
 	// enabled の無いファイル(収穫開始時期だけを保存していた版)は、収穫開始時期が入っていれば判定する
 	set('checkHarvestJudge', 'checked', !!(h && (h.enabled !== undefined ? h.enabled : (h.month || h.date))));
-	set('harvestMonth', 'value', h && h.month ? String(h.month) : '');
-	set('harvestPeriod', 'value', h && h.period ? h.period : '');
-	set('harvestDate', 'value', h && h.date ? h.date : '');
+	setStageValue('収穫開始', { month: h && h.month ? String(h.month) : '', period: h && h.period ? h.period : '', date: h && h.date ? h.date : '' });
 	updateHarvestInputs();
 }
-/** 収穫前日数の欄の表示: 判定するときだけ欄を出す。収穫開始時期は、計画モードは月旬、記録モードは年月日で入力する */
+/** 収穫前日数の欄の表示: 判定するときだけ欄を出す。収穫開始時期の入力は生育ステージの表(計画モードは月旬、記録モードは年月日) */
 function updateHarvestInputs() {
 	const h = getHarvestSetting();
 	document.getElementById('harvestSection')?.classList.toggle('hidden', !h.enabled);
-	const rec = typeof isRecordMode !== 'undefined' && isRecordMode;
-	document.getElementById('harvestMonth')?.classList.toggle('hidden', rec);
-	document.getElementById('harvestPeriod')?.classList.toggle('hidden', rec);
-	document.getElementById('harvestDate')?.classList.toggle('hidden', !rec);
+	renderStageTable();
 }
 /** 収穫前日数の設定が変わったとき: 計画の変更として扱い、判定をやり直す */
 function onHarvestSettingChange() {
@@ -4616,72 +5015,78 @@ function phiDoyRange(month, period) {
 	return [before + a, before + b];
 }
 /**
- * 計画の行の散布時期と収穫開始を、同じ通し日数の幅にそろえる。
+ * 計画の行の散布時期と、基準の時期(収穫開始・定植・開花などの生育ステージ)を、同じ通し日数の幅にそろえる。
+ * 時期は getTimingText で読む(計画モードの月・旬の選択も、記録モードのラベルも「9月下旬」「2026-09-25」の文字で取れる)。
  * 作期の考え方: 計画表の1行目(防除時期の入った最初の行)を、その作の最初の防除(カウント開始日)とする。ほかの行は並び順に関係なく、
- * すべて今作の防除とみなす。月旬の計画では、1行目の時期から始まる1年間のどこか(月が1行目より前でも翌年とはせず、同じ作期の後半)として数え、
- * 年をまたぐ分は1行目の時期からの日数で自然に配慮する。収穫開始も、1行目の時期以降で最初に来るその月旬とする。
- * 記録モードは日付のとおり。1行目の日付より前の日付は入力の誤り(beforeAnchor)とする。収穫開始は入力した年月日
- * (未入力で月旬だけあれば、1行目の日付以降で最初に来るその月旬)。
- * 戻り値 { spray: Map(行 → { r: [始め, 終わり] | null, label, beforeAnchor }), harvest: [始め, 終わり] | null, harvestLabel,
- *          anchorLabel(カウント開始日の表示), harvestBeforeAnchor(収穫開始日がカウント開始日より前) }
+ * すべて今作の防除とみなす。月旬は、1行目の時期から始まる1年間のどこか(月が1行目より前でも翌年とはせず、同じ作期の後半)として数え、
+ * 年をまたぐ分は1行目の時期からの日数で自然に配慮する。基準の時期の月旬も、1行目の時期以降で最初に来るその月旬とする。
+ * 記録モードで日付の行が1つでもあれば、日付のとおりの通し日数で数える(1行目の日付より前の日付は入力の誤り beforeAnchor)。
+ * 日付の無い行・基準の時期は、月旬(計画モードで入れた時期)を1行目以降で最初に来るその旬として数える(記録の途中の計画にも使えるように)。
+ * 記録モードでも日付の行が無ければ、月旬だけで数える(計画モードと同じ)。基準の時期は、記録モードで日付があれば日付、無ければ月旬
+ * (計画モードで日付しか無いときは、その日付の月旬)。
+ * 戻り値 { spray: Map(行 → { r: [始め, 終わり] | null, label, beforeAnchor }), harvest(基準の時期): [始め, 終わり] | null, harvestLabel,
+ *          anchorLabel(カウント開始日の表示), anchorAt(カウント開始の通し日数。月旬だけのときは 0), harvestBeforeAnchor(基準の時期がカウント開始日より前) }
  */
 function phiTimeline(rows, h) {
 	const spray = new Map();
-	let anchor = null;       // 月旬の計画: 1行目の通算日(始め)。記録モード: 1行目の日付の通し日数
-	let anchorYear = null;   // 記録モード: 1行目の年
-	let anchorLabel = '';
+	const isDate = (t) => /^\d{4}-\d{2}-\d{2}$/.test(t || '');
+	const dayOf = (t) => { const [y, mo, d] = t.split('-').map(Number); return Date.UTC(y, mo - 1, d) / 86400000; };
 	const parsed = rows.map((row) => {
-		const [timing, month, period] = getTimingArray(isRecordMode, row.cells[2]);
-		if (isRecordMode) {
-			if (!/^\d{4}-\d{2}-\d{2}$/.test(timing || '')) return { row, r: null, label: '' };
-			const [y, mo, d] = timing.split('-').map(Number);
-			const t = Date.UTC(y, mo - 1, d) / 86400000;
-			if (anchor === null) { anchor = t; anchorYear = y; anchorLabel = timing; }
-			return { row, r: [t, t], label: timing };
-		}
-		const dr = phiDoyRange(month, period);
-		if (!dr) return { row, r: null, label: '' };
-		if (anchor === null) { anchor = dr[0]; anchorLabel = `${Number(month)}月${period}`; }
-		return { row, dr, label: `${Number(month)}月${period}` };
+		const [timing, month, period] = parseTiming(getTimingText(row.cells[2]) || '');
+		return { row, timing, month, period, date: isDate(timing), dr: phiDoyRange(month, period) };
 	});
+	const absMode = isRecordMode && parsed.some(p => p.date);   // 記録モードで日付の行がある: 日付どおりの通し日数
+	// 基準の時期の月旬(計画モードで日付しか無いときは、その日付の月旬)
+	let hMonth = h.month, hPeriod = h.period;
+	if ((!hMonth || !hPeriod) && isDate(h.date)) [, hMonth, hPeriod] = parseTiming(h.date);
+	const first = parsed.find(p => p.date || p.dr);   // 1行目(カウント開始)
+	let anchor = null, anchorLabel = '', harvest = null, harvestBeforeAnchor = false;
+	let harvestLabel = isRecordMode && isDate(h.date) ? h.date : (hMonth && hPeriod ? `${Number(hMonth)}月${hPeriod}` : '');
+	if (absMode) {
+		// 月旬 → y年のその旬の通し日数の幅
+		const at = (y, month, period) => {
+			const s0 = Date.UTC(y, Number(month) - 1, 1) / 86400000;
+			const last = new Date(Date.UTC(y, Number(month), 0)).getUTCDate();
+			const [a, b] = period === '上旬' ? [1, 10] : period === '中旬' ? [11, 20] : [21, last];
+			return [s0 + a - 1, s0 + b - 1];
+		};
+		const firstDated = parsed.find(p => p.date);
+		const baseYear = Number(firstDated.timing.slice(0, 4));
+		if (first.date) anchor = dayOf(first.timing);
+		else {
+			// 1行目が月旬だけ: 最初の日付以前で最も近いその旬
+			let r = at(baseYear, first.month, first.period);
+			if (r[0] > dayOf(firstDated.timing)) r = at(baseYear - 1, first.month, first.period);
+			anchor = r[0];
+		}
+		anchorLabel = first.date ? first.timing : `${Number(first.month)}月${first.period}`;
+		const ayear = new Date(anchor * 86400000).getUTCFullYear();
+		// 月旬 → カウント開始以降で最初に来るその旬
+		const after = (month, period) => { let r = at(ayear, month, period); if (r[1] < anchor) r = at(ayear + 1, month, period); return r; };
+		parsed.forEach((p) => {
+			if (p.date) { const t = dayOf(p.timing); spray.set(p.row, { r: [t, t], label: p.timing, beforeAnchor: t < anchor }); }
+			else if (p.dr) spray.set(p.row, { r: after(p.month, p.period), label: `${Number(p.month)}月${p.period}`, beforeAnchor: false });
+			else spray.set(p.row, { r: null, label: '', beforeAnchor: false });
+		});
+		if (isRecordMode && isDate(h.date)) { const t = dayOf(h.date); harvest = [t, t]; harvestBeforeAnchor = t < anchor; }
+		else if (phiDoyRange(hMonth, hPeriod)) harvest = after(hMonth, hPeriod);
+		return { spray, harvest, harvestLabel, anchorLabel, anchorAt: anchor, harvestBeforeAnchor };
+	}
+	// 月旬だけ(計画モード、または記録モードで日付の行が無い): 1行目の旬の初日を起点(0)にした日数
+	if (first) { anchor = first.dr ? first.dr[0] : null; anchorLabel = first.dr ? `${Number(first.month)}月${first.period}` : ''; }
 	// 月旬 → 作期の起点(1行目)からの日数(起点より前の月旬は、同じ作期の後半として1年分を足して数える)
 	const place = (dr) => {
 		const off = ((dr[0] - anchor) % 365 + 365) % 365;
 		return [off, off + (dr[1] - dr[0])];
 	};
 	parsed.forEach((p) => spray.set(p.row, {
-		r: isRecordMode ? p.r : (p.dr ? place(p.dr) : null),
-		label: p.label,
-		beforeAnchor: !!(isRecordMode && p.r && p.r[0] < anchor),   // 記録モード: カウント開始日より前の防除日(入力の誤り)
+		r: anchor !== null && p.dr ? place(p.dr) : null,
+		label: p.dr ? `${Number(p.month)}月${p.period}` : '',
+		beforeAnchor: false,
 	}));
-	let harvest = null;
-	let harvestLabel = h.month && h.period ? `${Number(h.month)}月${h.period}` : '';
-	let harvestBeforeAnchor = false;
-	if (isRecordMode && /^\d{4}-\d{2}-\d{2}$/.test(h.date || '')) {
-		// 記録モードで実際の収穫開始年月日がある: その日
-		const [y, mo, d] = h.date.split('-').map(Number);
-		const t = Date.UTC(y, mo - 1, d) / 86400000;
-		harvest = [t, t]; harvestLabel = h.date;
-		harvestBeforeAnchor = anchor !== null && t < anchor;
-	} else {
-		const hd = phiDoyRange(h.month, h.period);
-		if (hd && anchor !== null) {
-			if (isRecordMode) {
-				// 1行目の日付の年のその月旬。1行目の日付より前に終わるなら翌年
-				const at = (y) => {
-					const s0 = Date.UTC(y, Number(h.month) - 1, 1) / 86400000;
-					const last = new Date(Date.UTC(y, Number(h.month), 0)).getUTCDate();
-					const [a, b] = h.period === '上旬' ? [1, 10] : h.period === '中旬' ? [11, 20] : [21, last];
-					return [s0 + a - 1, s0 + b - 1];
-				};
-				harvest = at(anchorYear);
-				if (harvest[1] < anchor) harvest = at(anchorYear + 1);
-			} else {
-				harvest = place(hd);
-			}
-		}
-	}
-	return { spray, harvest, harvestLabel, anchorLabel, harvestBeforeAnchor };
+	const hd = phiDoyRange(hMonth, hPeriod);
+	if (hd && anchor !== null) harvest = place(hd);
+	return { spray, harvest, harvestLabel, anchorLabel, anchorAt: 0, harvestBeforeAnchor };
 }
 
 /**
@@ -4702,7 +5107,7 @@ function judgePhi(rows) {
 	const res = new Map();
 	if (!h.enabled) return res;   // 「収穫前日数を判定する」でなければ判定しない(従来の使用回数の判定だけ)
 	const tl = phiTimeline(rows, h);
-	const harvestSet = (isRecordMode && /^\d{4}-\d{2}-\d{2}$/.test(h.date || '')) || !!phiDoyRange(h.month, h.period);
+	const harvestSet = !!tl.harvest || (isRecordMode && /^\d{4}-\d{2}-\d{2}$/.test(h.date || '')) || !!phiDoyRange(h.month, h.period) || /^\d{4}-\d{2}-\d{2}$/.test(h.date || '');   // 計画モードで日付だけのときは、その日付の月旬
 	rows.forEach((row) => {
 		const rule = phiRuleOfRow(row);
 		const sp = tl.spray.get(row);
@@ -4820,20 +5225,43 @@ function updateYakuzaiCountTable() {
 
 	clearWarnHighlight();   // 表を作り直すので、警告色の表示は解除する(防除計画側だけが残らないように)
 	clearWarnCHighlight();
+	// 段階別使用回数の登録の行の段階(生育ステージの定植の時期・利用者の選択で決める)。成分の判定・内訳枠の文字列に渡すので最初に求める
+	const visiblePlanRows = Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden'));
+	currentRowStages = computeRowStages(visiblePlanRows);
+	currentRowEvents = computeRowEvents(visiblePlanRows);
+	renderStageTable();
+	// 段階別使用回数の登録ごとの判定(本剤の使用回数)。集計の組は内訳枠ごとに分かれるので、登録の全行で先に求める
+	const stageOwn = new Map();   // 通称\u0001使用回数\u0001登録 → { status, facts }
+	{
+		const byReg = new Map();
+		currentRowStages.forEach((info, row) => {
+			const k = (row.cells[4]?.textContent.trim() || '') + '\u0001' + (row.cells[7]?.textContent || '').normalize('NFKC').replace(/\s+/g, '') + '\u0001' + registrationKeyOf(row);
+			if (!byReg.has(k)) byReg.set(k, { st: info.st, rows: [] });
+			byReg.get(k).rows.push(row);
+		});
+		byReg.forEach((g, k) => stageOwn.set(k, judgeStageKaisu(g.rows, g.st, currentRowStages)));
+	}
+	// 段階の決まらない行: 段階の問い(苗床・本圃のどちらか)を出し、同じ行の内訳枠の問い(どの枠に当たるか)は段階が決まるまで出さない
+	const stageOpenRows = new Set([...currentRowStages].filter(([, x]) => x.stage === 'BOTH').map(([row]) => row));
 	// 防除計画の使用行を (通称, 使用回数, 内訳枠の文字列) の3つのキーで集計する(表示の1行。判定はキーに入れない)。
 	// 内訳枠の文字列は、その行の有効成分ごとに、成分回数の規定のどの内訳枠に当たるかを UsageLimit.text で求めて並べたもの。
 	// 本剤の使用回数の照合は、集計の組ではなく、組の中の登録(使用時期×使用方法)ごとに行う(下の regs)
 	const yakuzaiData = new Map();
 	Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden')).forEach(row => {
 		const tsusho = row.cells[4]?.textContent.trim() || '';
-		const kaisu = row.cells[7]?.textContent.trim() || '';
+		const origKaisu = row.cells[7]?.textContent.trim() || '';
 		if (!tsusho) return;
+		// 段階別使用回数の登録で段階の決まった行は、使用上限の欄をその段階だけの表記(「苗床:4回以内」「本圃:3回以内」)にして別の行にまとめる。
+		// 段階の決まらない行は元の表記のまま(表の表示だけのもので、防除計画・.json の使用回数は変えない)
+		const rs0 = currentRowStages.get(row);
+		const kaisu = rs0 && rs0.stage !== 'BOTH' ? rs0.st.filter(x => x.kind === rs0.stage).map(x => `${x.label}:${x.text}`).join(' ') : origKaisu;
 		const slotText = planRowSlotText(row);
 		// 使用回数の文面は空白の有無の違いを同じものとして扱う
 		const key = JSON.stringify([tsusho, kaisu.normalize('NFKC').replace(/\s+/g, ''), slotText]);
 		const currentData = yakuzaiData.get(key) || {
 			tsusho: tsusho,
 			kaisu: kaisu,
+			origKaisu: origKaisu,   // 防除計画の使用回数の表記(段階別使用回数の登録の判定の照合に使う)
 			slotText: slotText,
 			count: 0,
 			rows: [],
@@ -4856,7 +5284,7 @@ function updateYakuzaiCountTable() {
 	collectSeibunData(planTableBody).forEach((data, seibun) => {
 		const noLimit = (data.seibunkaisu === '-' || data.seibunkaisu === '');
 		const verdict = noLimit ? { status: '', flags: new Map(), slotInfo: new Map(), questions: [] } : UsageLimit.judge(data.uses, seibun, { contentPct: contentPctOf, resolve: resolveUsageChoice });
-		allQuestions.push(...(verdict.questions || []));
+		allQuestions.push(...(verdict.questions || []).filter(q => !(q.kind === 'slot' && stageOpenRows.has(q.ref))));
 		// 成分の総使用回数(成分回数の先頭の数字)を超えている場合も、その成分を含む全使用行の薬剤別の判定に NG として出す
 		// (薬剤ごとには上限内でも、同じ成分を含む別の薬剤との合計で超えることがあるため)
 		// 条件付きの上限(「但し降雨等により再処理を行う場合は合計4回以内」)は、通常の上限を超え条件の上限以内なら要確認
@@ -4883,6 +5311,14 @@ function updateYakuzaiCountTable() {
 	);
 
 	// 併用前提の登録の照合結果(行 → 理由)と、相手の薬剤が計画に無い(要確認の)行
+	// 段階の問い: 選択済みの問いと、要確認の原因になっている行(登録の段階別の判定、または成分の判定が要確認)の問いだけを出す
+	currentRowStages.forEach((x, row) => {
+		if (!x.question) return;
+		const k = (row.cells[4]?.textContent.trim() || '') + '\u0001' + (row.cells[7]?.textContent || '').normalize('NFKC').replace(/\s+/g, '') + '\u0001' + registrationKeyOf(row);
+		const needed = x.question.answer !== undefined || stageOwn.get(k)?.status === '要確認'
+			|| (rowVerdicts.get(row) || []).some(v => v.flags.some(f => f.level === '要確認'));
+		if (needed) allQuestions.push(x.question);
+	});
 	const coUse = checkCoUse(Array.from(planTableBody.rows).filter(row => !row.hasAttribute('hidden')));
 	const coUseWarn = new Set([...coUse].filter(([, list]) => list.some(x => x.level === '要確認')).map(([row]) => row));
 	coUse.forEach(list => list.forEach(x => { if (x.question) allQuestions.push(x.question); }));
@@ -4928,6 +5364,18 @@ function updateYakuzaiCountTable() {
 		let over = false;
 		let ownLevel = '';            // 登録ごとの判定のうち最も重いもの
 		regs.forEach((rs, regKey) => {
+			// 段階別使用回数の登録: 登録の全行で求めた段階ごとの判定を使い、段階ごとの回数は判定によらず理由に出す
+			const so = stageOwn.get(data.tsusho + '\u0001' + (data.origKaisu || data.kaisu).normalize('NFKC').replace(/\s+/g, '') + '\u0001' + regKey);
+			if (so) {
+				// 段階ごとの判定: この表の行(段階ごとにまとめた組)の使用行は、その段階の判定。段階の決まらない行は登録全体の判定
+				rs.forEach(row => {
+					const st = so.rowStatus(row);
+					ownByRow.set(row, { status: st });
+					if (st === 'NG') over = true;
+					if (rank[st] > rank[ownLevel]) ownLevel = st;
+				});
+				return;
+			}
 			const own = judgeKaisuTotal(rs.length, data.kaisu, '本剤の使用回数', {
 				key: 'own\u0001' + data.tsusho + '\u0001' + data.kaisu.normalize('NFKC').replace(/\s+/g, '') + '\u0001' + regKey + '\u0001' + rs.length,
 				rows: rs, tsusho: data.tsusho, subject: data.tsusho,
@@ -4938,6 +5386,7 @@ function updateYakuzaiCountTable() {
 			if (rank[own.status] > rank[ownLevel]) ownLevel = own.status;
 		});
 		// 本剤の使用回数(登録ごと)は、表の使用回数・使用上限の列で分かるので、理由には書かず判定(level)にだけ反映する
+		// (段階別使用回数の登録も同じ。段階ごとに表の行を分け、使用上限の欄に段階の上限を出す: 上の stageOwn)
 		if (rank[ownLevel] > rank[level]) level = ownLevel;
 		// 使用回数・成分回数の上限がどちらも「-」(規定なし。銅剤・展着剤など)の薬剤は、超えようがないので判定を ○(OK)にする。
 		// 使用回数・成分回数の文面が空(データなし)や読めない文面のときは、判定なしのまま
@@ -5400,6 +5849,11 @@ window.addEventListener('beforeunload', (event) => {
 				<div id="yakuzaiTekiyo"></div>
 				<div class="captionLabel">防除計画</div>
 				<div id="planContainer"></div>
+				<!-- 生育ステージ: 計画の薬剤が必要とするステージ(苗床・本圃の境目の定植、収穫前日数の収穫開始)だけを出す。.json に保存する -->
+				<div id="stageSection" class="hidden">
+					<div class="captionLabel">生育ステージ</div>
+					<div id="stageContainer"></div>
+				</div>
 				<div class="captionLabel">薬剤別使用回数</div>
 				<div id="yakuzaiCountContainer"></div>
 				<div class="captionLabel">RAC別使用回数</div>
@@ -5411,15 +5865,9 @@ window.addEventListener('beforeunload', (event) => {
 					<label><input type="radio" name="ojasCount" value="jas_tokusai" onchange="onOjasCountChange()">有機JAS・特栽可能性非カウント</label>
 				</div>
 				<div id="seibunContainer"></div>
-				<!-- 収穫前日数: 「収穫前日数を判定する」にチェックしたときだけ表示する -->
+				<!-- 収穫前日数: 「収穫前日数を判定する」にチェックしたときだけ表示する(収穫開始時期は生育ステージの表で入力する) -->
 				<div id="harvestSection" class="hidden">
 					<div class="captionLabel">収穫前日数</div>
-					<div class="checkListItem harvest-setting" title="混植の場合は、収穫のいちばん早い作物の収穫開始時期を入力します。収穫前日数はこの時期から逆算します">
-						<span>収穫開始時期</span>
-						<select id="harvestMonth" class="harvest-month" onchange="onHarvestSettingChange()"><option value="">月</option><option value="1">1月</option><option value="2">2月</option><option value="3">3月</option><option value="4">4月</option><option value="5">5月</option><option value="6">6月</option><option value="7">7月</option><option value="8">8月</option><option value="9">9月</option><option value="10">10月</option><option value="11">11月</option><option value="12">12月</option></select>
-						<select id="harvestPeriod" class="harvest-period" onchange="onHarvestSettingChange()"><option value="">旬</option><option value="上旬">上旬</option><option value="中旬">中旬</option><option value="下旬">下旬</option></select>
-						<input type="date" id="harvestDate" class="harvest-date hidden" onchange="onHarvestSettingChange()" title="記録モード: 実際の収穫開始年月日">
-					</div>
 					<div id="harvestContainer"></div>
 				</div>
 			</div>
