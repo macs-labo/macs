@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -2104,8 +2103,14 @@ function sqlFormatId(name, quote) {
 	return SQL_PLAIN_ID_RE.test(name) ? name : '"' + name.replace(/"/g, '""') + '"';
 }
 
+// 候補の並び順（種類に関係なく、表示文字列をコード単位で単純比較する。大文字の構文キーワードが先頭付近に来る）
+function cmpSqlHint(a, b) {
+	return a.displayText < b.displayText ? -1 : a.displayText > b.displayText ? 1 : 0;
+}
+
 // 文脈から補完候補リストを作る
-function buildSqlHintList(ctx, keywords) {
+// explicit: Ctrl+Space によるインクリメンタルでない明示呼び出しかどうか
+function buildSqlHintList(ctx, keywords, explicit) {
 	const lp = ctx.prefix.toLowerCase();
 	const ok = s => s.toLowerCase().startsWith(lp);
 	const fmt = name => sqlFormatId(name, ctx.quote);
@@ -2126,7 +2131,7 @@ function buildSqlHintList(ctx, keywords) {
 				className: "CodeMirror-hint-table"
 			});
 		});
-		return items.sort((a, b) => a.displayText.localeCompare(b.displayText));
+		return items.sort(cmpSqlHint);
 	};
 
 	const columnItems = obj => sqlGetColumns(obj.schema, obj.name)
@@ -2180,21 +2185,36 @@ function buildSqlHintList(ctx, keywords) {
 			}
 		});
 	});
-	const items = [];
-	cols.forEach(e => items.push({
+	const colItems = [];
+	cols.forEach(e => colItems.push({
 		text: fmt(e.name), displayText: e.name,
 		meta: e.labels.join(", ") + (e.type ? "  " + e.type : "") + (e.pk ? "  PK" : ""),
 		className: "CodeMirror-hint-column"
 	}));
+	const funcItems = [];
+	const keywordItems = [];
 	if (!ctx.quote) {
-		const funcs = sqlGetFunctions();
-		const funcNames = new Set(funcs.map(f => f.name.toLowerCase()));
-		funcs.filter(f => ok(f.name)).forEach(f => items.push(sqlFunctionItem(f)));
-		keywords.filter(k => ok(k) && !funcNames.has(k.toLowerCase())).sort().forEach(k => items.push({ // 関数と重複するキーワードは関数側だけ表示
+		// like / regexp / glob のように構文（演算子）としても関数としても存在する名前は、
+		// 構文（キーワード）側を優先して残し、関数側は除外する（構文として使うことがほとんどのため）
+		const keywordSet = new Set(keywords.map(k => k.toLowerCase()));
+		const funcs = sqlGetFunctions().filter(f => !keywordSet.has(f.name.toLowerCase()));
+		funcs.filter(f => ok(f.name)).forEach(f => funcItems.push(sqlFunctionItem(f)));
+		keywords.filter(ok).forEach(k => keywordItems.push({
 			text: k.toUpperCase(), displayText: k.toUpperCase(), className: "CodeMirror-hint-keyword"
 		}));
 	}
-	return items.concat(tableItems(null));
+	const tblItems = tableItems(null); // 既に文字コード順
+
+	// Ctrl+Space による明示呼び出しで、かつ select / where / and / , などキーワード直後（何も入力していない）の場合は、
+	// 「カラム → テーブル/ビュー → 関数 → 構文」の種別順に並べる（各グループ内は文字コード順）
+	if (explicit && !ctx.prefix) {
+		return colItems.concat(tblItems, funcItems.sort(cmpSqlHint), keywordItems.sort(cmpSqlHint));
+	}
+
+	// それ以外（インクリメンタル入力中、または Ctrl+Space でも何か入力済みの場合）は、
+	// 種類（カラム・関数・構文・テーブル）に関係なく、表示文字列のコード順に単純ソートする。
+	// 大文字の構文キーワードが記号・小文字より先に並ぶため、数文字入力して一覧から選ぶ操作がしやすくなる
+	return colItems.concat(tblItems, funcItems, keywordItems).sort(cmpSqlHint);
 }
 
 // 補完候補の表示（右側に「テーブル名 型」等を薄く表示）
@@ -2218,7 +2238,7 @@ function sqlSmartHint(cm, options, fallbackHint) {
 		const ctx = analyzeSqlContext(cm.getValue(), cm.indexFromPos(cur));
 		if (!ctx || typeof db === "undefined" || db === null) return empty;
 		const keywords = Object.keys(CodeMirror.resolveMode("text/x-sql").keywords || {});
-		const list = buildSqlHintList(ctx, keywords);
+		const list = buildSqlHintList(ctx, keywords, !!(options && options.explicit));
 		if (list.length === 1 && list[0].displayText.toLowerCase() === ctx.prefix.toLowerCase()) return empty; // 既に入力済み
 		list.forEach(item => { if (item.meta) item.render = renderSqlHint; });
 		return { list, from: CodeMirror.Pos(cur.line, cur.ch - ctx.word.length), to: cur };
@@ -2314,7 +2334,8 @@ window.addEventListener('DOMContentLoaded', async function() {
 		mode: 'text/x-sql',
 		autofocus: true
 	};
-	sqlOptions['keyMaps'] = { "Ctrl-Space": "autocomplete" }; // "autocomplete" は CodeMirror.hint.sql を呼び出す
+	// Ctrl+Space は明示呼び出し（インクリメンタルでない）として showHint へ explicit フラグを渡す
+	sqlOptions['keyMaps'] = { "Ctrl-Space": function(cm) { cm.showHint({ completeSingle: false, explicit: true }); } };
 	sqlOptions['toolbar'] = {
 		top: `
 			<input type="file" id="fileInputSQL" accept=".sql,.zip,.var,.html,.htm,.txt,.pdf,.url" class="hidden">
