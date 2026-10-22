@@ -451,6 +451,21 @@ div.handsontable-like {
 #stageTable td.stage-note { white-space: normal; font-size: 0.9em; color: var(--text-color-muted, #6f6f6f); }
 /* 記録モードで、カウント開始日(1行目の防除日)より前の防除日: 日付の修正を促す */
 #planTable td.phi-date-error { outline: 2px solid var(--text-color-warn, red); outline-offset: -2px; background-color: var(--bg-color-warn, #fff3f3); }
+
+#ojasCountSetting {
+	margin: 9px 0 0;
+	font-weight: bold;
+}
+#ojasCountSetting span {
+	cursor: default;
+}
+#ojasCountSetting label {
+	margin-left: 0.5rem;
+	cursor: pointer;
+}
+#ojasCountSetting label:hover {
+	background-color: var(--bg-color-icon-hover);
+}
 </style>
 <!--	タブ専用の view や table の設定 -->
 <script type="text/plain" id="views_or_tables">
@@ -5852,11 +5867,11 @@ window.addEventListener('beforeunload', (event) => {
 				<div id="yakuzaiCountContainer"></div>
 				<div class="captionLabel">RAC・成分別使用回数</div>
 				<!-- 成分回数の合計に数えない成分(kihon ビューの ojas: 有機JAS で使える成分・特栽で数えない可能性がある成分)の選び方。表があるときだけ表示する -->
-				<div id="ojasCountSetting" class="checkListItem ojas-setting hidden" title="特別栽培の節減対象農薬の成分回数のように、有機JASで使用できる成分などを合計に数えないときに選びます(RAC回数・系統回数は変わりません)">
-					<span>成分回数の合計</span>
-					<label><input type="radio" name="ojasCount" value="all" checked onchange="onOjasCountChange()">全カウント</label>
-					<label><input type="radio" name="ojasCount" value="jas" onchange="onOjasCountChange()">有機JAS非カウント</label>
-					<label><input type="radio" name="ojasCount" value="jas_tokusai" onchange="onOjasCountChange()">有機JAS・特栽可能性非カウント</label>
+				<div id="ojasCountSetting" class="ojas-setting hidden">
+					<span title="非カウント対象有効成分を選択することにより、特別栽培の節減対象農薬の成分使用回数の合計が算出できます(RAC回数・系統回数は変わりません)">成分使用回数合計の算出方法</span>
+					<label title="展着剤を除くすべての有効成分を合計します"><input type="radio" name="ojasCount" value="all" checked onchange="onOjasCountChange()">全カウント</label>
+					<label title="展着剤及び有機JAS使用可能成分を除く有効成分を合計します"><input type="radio" name="ojasCount" value="jas" onchange="onOjasCountChange()">有機JAS非カウント</label>
+					<label title="展着剤・有機JAS使用可能成分及び特別栽培で非カウントの可能性がある成分を除く有効成分を合計します"><input type="radio" name="ojasCount" value="jas_tokusai" onchange="onOjasCountChange()">有機JAS・特栽可能性非カウント</label>
 				</div>
 				<div id="seibunContainer"></div>
 				<!-- 収穫前日数: 「収穫前日数を判定する」にチェックしたときだけ表示する(収穫開始時期は生育ステージの表で入力する) -->
