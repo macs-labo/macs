@@ -135,7 +135,6 @@ async function fetchDefaultCss(themeName) {
 		}
 
 		const match = cssText.match(regex);
-		console.log('match: ', match);
 		if (match && match[1]) {
 			return match[1].trim();
 		}
@@ -422,7 +421,7 @@ function deleteCropTreeState() {
 
 // DOM読込完了時の初期設定
 async function init() {
-	if (db === null) await fetchDB();
+	//if (db === null) await fetchDB();
 
 	// --- キャッシュファイル削除機能 ---
 	// イベントリスナーを設定
