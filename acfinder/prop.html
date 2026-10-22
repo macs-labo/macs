@@ -421,7 +421,7 @@ function deleteCropTreeState() {
 
 // DOM読込完了時の初期設定
 async function init() {
-	//if (db === null) await fetchDB();
+	if (db === null) await fetchDB();
 
 	// --- キャッシュファイル削除機能 ---
 	// イベントリスナーを設定
