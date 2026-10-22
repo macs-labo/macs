@@ -361,6 +361,19 @@ function formatToYYMMDD(dateString) {
 	if (!dateString || dateString.length !== 10) return '';
 	return dateString.substring(2); // "YYYY-MM-DD" -> "YY-MM-DD"
 }
+// カレンダーピッカーの初期値（日付ならそのまま、○月×旬なら今年の中日）を取得
+function getTimingPickerDefault(timing, periodStr) {
+	if (timing && /^\d{4}-\d{2}-\d{2}$/.test(timing)) return timing;
+	const match = String(periodStr || timing || '').match(/^(\d{1,2})月(上旬|中旬|下旬)$/);
+	if (match) {
+		const y = new Date().getFullYear();
+		const m = String(match[1]).padStart(2, '0');
+		const d = match[2] === '上旬' ? '05' : match[2] === '中旬' ? '15' : '25';
+		return `${y}-${m}-${d}`;
+	}
+	return '';
+}
+
 
 // 防除記録タブ step.1: 作物選択
 function setupPlanCrop() {
@@ -1201,12 +1214,13 @@ async function setPlanRecord() {
 				const isDate = chem.timing && /^\d{4}-\d{2}-\d{2}$/.test(chem.timing);
 				// Display YY-MM-DD format, but keep full date in input value and data-fulldate
 				const displayVal = isDate ? formatToYYMMDD(chem.timing) : periodStr || '';
+				const defaultDate = getTimingPickerDefault(chem.timing, periodStr);
 				const uniqueId = 'mob_plan_date_' + Math.random().toString(36).substring(2, 7) + '_' + Date.now() + '_' + i;
 
 				timingCell = `<td>` +
 					`<div class="date-picker" onclick="const inp=this.querySelector('input'); if(inp && typeof inp.showPicker==='function'){try{inp.showPicker();}catch(e){}}">` +
 						`<label for="${uniqueId}" data-fulldate="${isDate ? chem.timing : ''}">${displayVal}</label>` +
-						`<input type="date" id="${uniqueId}" value="${isDate ? chem.timing : ''}" ` +
+						`<input type="date" id="${uniqueId}" value="${defaultDate}" ` +
 						`onchange="updatePlanDate(${i}, this.value)" ` +
 						`onclick="event.stopPropagation()">` +
 					`</div>` +

@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="ja">
 <head>
@@ -188,8 +189,13 @@ select option:checked {
 
 /* 計画コンテナ用スタイル調整 */
 #planContainer .checkListItem {
-	margin: 10px 0 5px;
+	display: inline-block;
+	margin: 9px 1.5em 6px 0;
 	font-weight: bold;
+}
+#planContainer .checkListItem input {
+	position: relative;
+	top: 2px;
 }
 #planContainer table {
 	margin-top: 0;
@@ -436,7 +442,6 @@ div.handsontable-like {
 #timingCalendar .tc-grid { display: grid; grid-template-columns: repeat(7, 2.2em); gap: 2px; text-align: center; }
 #timingCalendar .tc-wd { font-size: 0.85em; color: var(--text-color-muted, #6f6f6f); }
 #timingCalendar .tc-day { padding: 3px 0; background-color: var(--bg-color); border-color: transparent; }
-#timingCalendar .tc-day.tc-hint { background-color: var(--bg-color-ok, #f2f8ff); border-color: var(--border-color); }   /* 計画モードで入れた旬(目安) */
 #timingCalendar .tc-day.tc-today { border-color: var(--border-color-strong); }
 #timingCalendar .tc-day.tc-sel { background-color: var(--bg-color-accent); color: var(--text-color-accent); font-weight: bold; }
 #timingCalendar .tc-foot { display: flex; justify-content: flex-end; gap: 4px; margin-top: 4px; }
@@ -1450,13 +1455,13 @@ function createPlanTable() {
 	hasHadOldDataRows = false; // 新しい計画表の作成に伴い、旧データ行の履歴フラグもリセット
 
 	planContainer.innerHTML = `
-		<div class="checkListItem">
+		<div class="checkListItem" title="チェックすると月旬選択からカレンダーからの日付選択に切り替わります。">
 			<input type="checkbox" id="checkRecordMode" onchange="toggleRecordMode(this.checked)" autocomplete="off">
 			<label for="checkRecordMode"> 記録モード (日付入力)</label>
 		</div>
-		<div class="checkListItem">
+		<div class="checkListItem" title="チェックして生育ステージ表の収穫開始時期を設定すると、収穫前日数の判定をします。">
 			<input type="checkbox" id="checkHarvestJudge" onchange="onHarvestSettingChange()" autocomplete="off">
-			<label for="checkHarvestJudge"> 収穫前日数を判定する</label>
+			<label for="checkHarvestJudge"> 収穫前日数判定 (要収穫開始時期設定)</label>
 		</div>
 		<div id="datasetInfo" class="hidden"></div>
 		<div class="handsontable-like">
@@ -2148,7 +2153,7 @@ function addYakuzaiToPlanRow(row, yakuzaiName, data) {
 /**
  * 時期のセル(防除計画の防除時期・生育ステージの時期で共通)を作る。計画モードは月・旬の選択、記録モードは日付(ラベル+隠した日付入力)。
  * onChange(cell): 値が変わったとき(防除計画は updateRowNumbers)。記録モードで日付が空のときは、ラベルの月旬(計画モードで入れた時期)
- * か、上の行の日付の月でカレンダーを開く(timingCalendarView・openTimingCalendar)
+ * か、上の行の日付の月でカレンダーを開く(openTimingCalendar)
  */
 function renderTimingCell(cell, data, onChange = () => updateRowNumbers()) {
 	cell.innerHTML = '';
@@ -2188,8 +2193,7 @@ function renderTimingCell(cell, data, onChange = () => updateRowNumbers()) {
 
 		const open = (e) => {
 			e.stopPropagation();
-			const view = timingCalendarView(dateInput.value, displayLabel.textContent, cell);
-			openTimingCalendar(displayLabel, dateInput.value, view, (v) => {
+			openTimingCalendar(displayLabel, dateInput.value || displayLabel.textContent, (v) => {
 				dateInput.value = v;
 				displayLabel.textContent = v || displayText;
 				// 先頭行が日付になったら、他の行も（もし未設定なら）自動で合わせるためのフックポイント
@@ -2232,42 +2236,33 @@ function renderTimingCell(cell, data, onChange = () => updateRowNumbers()) {
 }
 
 /**
- * 記録モードのカレンダーを開く月と、目安の旬。戻り値 { y, m(1～12), hint: [初日, 末日] | null }
- *   日付があればその月。無ければ、ラベルが「9月下旬」(計画モードで入れた月旬)ならその月(その旬の日を目安として色付け)、
- *   それも無ければ防除計画で上の行の日付の月(生育ステージの表は最後の行の日付)、それも無ければ今月。
- *   年は防除計画の1行目の日付の年(1行目の月より前の月なら翌年)。日付が1つも無ければ今年
- */
-function timingCalendarView(value, labelText, cell) {
-	if (/^\d{4}-\d{2}-\d{2}$/.test(value || '')) return { y: Number(value.slice(0, 4)), m: Number(value.slice(5, 7)), hint: null };
-	const rows = Array.from(document.querySelectorAll('#planTable tbody tr')).filter(r => !r.hasAttribute('hidden'));
-	const dateOf = (r) => { const t = r.cells[2]?.querySelector('input[type="date"]')?.value || ''; return /^\d{4}-\d{2}-\d{2}$/.test(t) ? t : ''; };
-	const first = rows.map(dateOf).find(Boolean);
-	const m = String(labelText || '').match(/^(\d{1,2})月(上旬|中旬|下旬)$/);
-	if (m) {
-		const mo = Number(m[1]);
-		let y = first ? Number(first.slice(0, 4)) : new Date().getFullYear();
-		if (first && mo < Number(first.slice(5, 7))) y++;
-		const last = new Date(y, mo, 0).getDate();
-		return { y, m: mo, hint: m[2] === '上旬' ? [1, 10] : m[2] === '中旬' ? [11, 20] : [21, last] };
-	}
-	const row = cell?.closest('#planTable tbody tr');
-	const prev = (row ? rows.slice(0, rows.indexOf(row)) : rows).map(dateOf).filter(Boolean).pop();
-	if (prev) return { y: Number(prev.slice(0, 4)), m: Number(prev.slice(5, 7)), hint: null };
-	const t = new Date();
-	return { y: t.getFullYear(), m: t.getMonth() + 1, hint: null };
-}
-
-/**
  * 記録モードの日付を選ぶカレンダー(防除時期・生育ステージの時期で共通)。anchor の下に開き、日を押すと onPick(年月日) を呼んで閉じる。
  * 「クリア」は onPick('')。前月・翌月で月を移る。枠の外を押す・Esc で何もせず閉じる。
  * ブラウザの日付入力の部品は、日付が空のときに開く月を指定できないので、この画面で作る
  */
-function openTimingCalendar(anchor, value, view, onPick) {
+function openTimingCalendar(anchor, value, onPick) {
 	closeTimingCalendar();
 	const pad = (n) => String(n).padStart(2, '0');
 	const today = new Date();
 	const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-	let y = view.y, m = view.m;
+
+	let y = today.getFullYear();
+	let m = today.getMonth() + 1;
+
+	if (/^\d{4}-\d{2}-\d{2}$/.test(value || '')) {
+		y = Number(value.slice(0, 4));
+		m = Number(value.slice(5, 7));
+	} else {
+		const match = String(value || '').match(/^(\d{1,2})月(上旬|中旬|下旬)$/);
+		if (match) {
+			m = Number(match[1]);
+			const day = match[2] === '上旬' ? 5 : match[2] === '中旬' ? 15 : 25;
+			value = `${y}-${pad(m)}-${pad(day)}`;
+		} else {
+			value = '';
+		}
+	}
+
 	const pop = document.createElement('div');
 	pop.id = 'timingCalendar';
 	pop.setAttribute('role', 'dialog');
@@ -2275,12 +2270,11 @@ function openTimingCalendar(anchor, value, view, onPick) {
 	const render = () => {
 		const days = new Date(y, m, 0).getDate();
 		const start = new Date(y, m - 1, 1).getDay();
-		const hint = (view.hint && y === view.y && m === view.m) ? view.hint : null;
 		let cells = '';
 		for (let i = 0; i < start; i++) cells += '<span></span>';
 		for (let d = 1; d <= days; d++) {
 			const ds = `${y}-${pad(m)}-${pad(d)}`;
-			const cls = ['tc-day', ds === value ? 'tc-sel' : '', ds === todayStr ? 'tc-today' : '', hint && d >= hint[0] && d <= hint[1] ? 'tc-hint' : ''].filter(Boolean).join(' ');
+			const cls = ['tc-day', ds === value ? 'tc-sel' : '', ds === todayStr ? 'tc-today' : ''].filter(Boolean).join(' ');
 			cells += `<button type="button" class="${cls}" data-date="${ds}">${d}</button>`;
 		}
 		pop.innerHTML = `<div class="tc-head"><button type="button" data-nav="-1" title="前の月">◀</button><span class="tc-title">${y}年${m}月</span><button type="button" data-nav="1" title="次の月">▶</button></div>`
@@ -2309,7 +2303,7 @@ function openTimingCalendar(anchor, value, view, onPick) {
 	pop._onDoc = (e) => { if (!pop.contains(e.target)) closeTimingCalendar(); };
 	pop._onKey = (e) => { if (e.key === 'Escape') closeTimingCalendar(); };
 	setTimeout(() => { document.addEventListener('click', pop._onDoc); document.addEventListener('keydown', pop._onKey); }, 0);
-	(pop.querySelector('.tc-sel') || pop.querySelector('.tc-hint') || pop.querySelector('.tc-day'))?.focus();
+	(pop.querySelector('.tc-sel') || pop.querySelector('.tc-day'))?.focus();
 }
 function closeTimingCalendar() {
 	const pop = document.getElementById('timingCalendar');
