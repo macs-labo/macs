@@ -1669,8 +1669,8 @@ async function handleLocalFileSelection(file) {
 		const templateHtml = await file.text();
 		sessionStorage.setItem('procTemplateHtml', templateHtml);
 		sessionStorage.setItem('procTemplateFileName', file.name);
-		// 現在のタブで読み込み済み .js 等の二重読みを避けるため、proc.html は必ず新規タブで開く
-		window.open('proc.html', '_blank');
+		// proc.html を現在のタブで開く（既に proc.html の場合はリロードされる）
+		window.open('proc.html', '_self');
 	} catch (e) {
 		console.error('ファイルの読み込み中にエラーが発生しました:', e);
 		waiting(false);
