@@ -1670,11 +1670,14 @@ async function handleLocalFileSelection(file) {
 		sessionStorage.setItem('procTemplateHtml', templateHtml);
 		sessionStorage.setItem('procTemplateFileName', file.name);
 		// proc.html を現在のタブで開く（既に proc.html の場合はリロードされる）
-		window.open('proc.html', '_self');
+		//window.open('proc.html', '_self');
+		// proc.html を現在のタブで開くと .js の二重読込が発生するため、常に新規タブで開く
+		window.open('proc.html', '_blank');
 	} catch (e) {
 		console.error('ファイルの読み込み中にエラーが発生しました:', e);
-		waiting(false);
 		alert('ファイルの読み込みに失敗しました。');
+	} finally {
+		waiting(false);
 	}
 }
 
