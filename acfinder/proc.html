@@ -16,8 +16,8 @@
 <!--	タブ専用の script -->
 <script>
 window.addEventListener('DOMContentLoaded', async function() {
-	const templateHtml = sessionStorage.getItem('procTemplateHtml');
-	const templateFileName = sessionStorage.getItem('procTemplateFileName');
+	const templateHtml = localStorage.getItem('procTemplateHtml');
+	const templateFileName = localStorage.getItem('procTemplateFileName');
 	if (templateHtml) {
 		try {
 			// ローディング表示開始（描画を確実にするため await する）
@@ -119,8 +119,8 @@ window.addEventListener('DOMContentLoaded', async function() {
 			if (tabNameEl) tabNameEl.textContent = pageTitle;
 
 			// 復元に成功してからデータを削除
-			sessionStorage.removeItem('procTemplateHtml');
-			if (templateFileName) sessionStorage.removeItem('procTemplateFileName');
+			localStorage.removeItem('procTemplateHtml');
+			if (templateFileName) localStorage.removeItem('procTemplateFileName');
 		} catch (e) {
 			console.error('画面の復元中にエラーが発生しました:', e);
 			alert('画面の復元中にエラーが発生しました。\n' + e.message);
