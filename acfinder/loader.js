@@ -1664,7 +1664,7 @@ let tabExecuted = false;
 async function handleLocalFileSelection(file) {
 	if (!file) return;
 
-	waiting(true, 'ファイルを読み込んでいます...');
+	await waiting(true, 'ファイルを読み込んでいます...');
 	try {
 		const templateHtml = await file.text();
 		sessionStorage.setItem('procTemplateHtml', templateHtml);
@@ -1677,7 +1677,7 @@ async function handleLocalFileSelection(file) {
 		console.error('ファイルの読み込み中にエラーが発生しました:', e);
 		alert('ファイルの読み込みに失敗しました。');
 	} finally {
-		waiting(false);
+		await waiting(false);
 	}
 }
 
