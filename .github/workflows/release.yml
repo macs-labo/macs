@@ -45,7 +45,7 @@ jobs:
             "acisupdate.html" "proc.html" "notice.html"
             "mob-crop.html" "mob-pest.html" "mob-chem.html" "mob-pa-rec.html"
             "common.css" "loader.css" "table.css" "crop.css" "filer.css" "editor.css"
-            "loader.js" "table.js" "crop.js" "pest.js" "chem.js" "filer.js" "theme.js"
+            "loader.js" "table.js" "crop.js" "pest.js" "chem.js" "filer.js" "theme.js" "usagelimit.js"
             "init_create_view.sql" "stdviews.sql" "stdsql.zip"
             "previews/preview.css" "previews/preview.js" "previews/preview.html"
             "previews/autosize.html" "previews/resizable.html"
