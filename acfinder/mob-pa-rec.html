@@ -303,6 +303,7 @@ td em {
 <script>
 var planCropManager, planChemManager;
 var planList = [];
+var stages = {};
 var dbUpdateText = '';
 // 読み込んだ、または一度保存したファイルハンドル及びファイル名を保持する変数
 var currentFileName = '';
@@ -996,6 +997,16 @@ function updatePlanDate(index, date) {
 	setPlanRecord();
 }
 
+function updateStageDate(key, obj) {
+	// If date is an empty string, it means the user cleared the date input.
+	// Otherwise, update with the selected date.
+	const date = obj.value || '';
+	console.log('date:', date);
+	stages[key].date = date; // Set to empty string if date is falsy
+	const label = obj.previousElementSibling;
+	label.textContent = date;
+}
+
 function movePlanRow(index, direction) {
 	if (direction === 'up' && index > 0) {
 		[planList[index - 1], planList[index]] = [planList[index], planList[index - 1]];
@@ -1075,6 +1086,10 @@ async function loadPlanFromJson(data) {
 		planCropManager.checkedCrops = data.crops || [];
 		planList = loadedPlan;
 
+		stages = data.stages || {};
+		delete stages['収穫開始'];
+		console.log('stages:', stages)
+
 		// 作物ツリーのチェック状態を視覚的に復元
 		if (typeof planCropManager.syncCheckState === 'function') {
 			planCropManager.syncCheckState();
@@ -1105,6 +1120,24 @@ function dispJiki(jiki) {
 
 function dispHoho(hoho) {
 	return hoho.length > 15 ? hoho.slice(0, 15) + '…' : hoho;
+}
+
+function makeTimingCell(month, period, date, onchange, idPrefix, idSuffix) {
+	const periodStr = (month && period) ? `${month}月${period}` : '';
+	const isDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date);
+	// Display YY-MM-DD format, but keep full date in input value and data-fulldate
+	const displayVal = isDate ? formatToYYMMDD(date) : periodStr || '';
+	const defaultDate = getTimingPickerDefault(date, periodStr);
+	const uniqueId = idPrefix + Math.random().toString(36).substring(2, 7) + '_' + Date.now() + '_' + idSuffix;
+
+	return `<td>` +
+		`<div class="date-picker" onclick="const inp=this.querySelector('input'); if(inp && typeof inp.showPicker==='function'){try{inp.showPicker();}catch(e){}}">` +
+			`<label for="${uniqueId}" data-fulldate="${isDate ? date : ''}">${displayVal}</label>` +
+			`<input type="date" id="${uniqueId}" value="${isDate ? date : ''}" min="${defaultDate}" max="${defaultDate}"` +
+			`onchange="${onchange}" ` +
+			`onclick="event.stopPropagation()">` +
+		`</div>` +
+		`</td>`;
 }
 
 // 防除記録タブ step.3: 使用予定薬剤及び使用回数集計表示
@@ -1214,24 +1247,7 @@ async function setPlanRecord() {
 			const isFirst = i === 0;
 			const isLast = i === planList.length - 1;
 			const { yakuzai, jiki, hoho, kaisu } = chem;
-			let timingCell = '';
-			if (showTiming) { // This condition is already `planList.length > 0`
-				const periodStr = (chem.timingMonth && chem.timingPeriod) ? `${chem.timingMonth}月${chem.timingPeriod}` : '';
-				const isDate = chem.timing && /^\d{4}-\d{2}-\d{2}$/.test(chem.timing);
-				// Display YY-MM-DD format, but keep full date in input value and data-fulldate
-				const displayVal = isDate ? formatToYYMMDD(chem.timing) : periodStr || '';
-				const defaultDate = getTimingPickerDefault(chem.timing, periodStr);
-				const uniqueId = 'mob_plan_date_' + Math.random().toString(36).substring(2, 7) + '_' + Date.now() + '_' + i;
-
-				timingCell = `<td>` +
-					`<div class="date-picker" onclick="const inp=this.querySelector('input'); if(inp && typeof inp.showPicker==='function'){try{inp.showPicker();}catch(e){}}">` +
-						`<label for="${uniqueId}" data-fulldate="${isDate ? chem.timing : ''}">${displayVal}</label>` +
-						`<input type="date" id="${uniqueId}" value="${defaultDate}" ` +
-						`onchange="updatePlanDate(${i}, this.value)" ` +
-						`onclick="event.stopPropagation()">` +
-					`</div>` +
-					`</td>`;
-			}
+			const timingCell = showTiming ? makeTimingCell(chem.timingMonth, chem.timingPeriod, chem.timing, `updatePlanDate(${i}, this.value)`, 'mob_plan_date_', i) : '';
 
 			// 現在の農薬登録情報で登録が見つからない薬剤（.missing-row と同じ条件でインデックスを収集）
 			const keyTsusho = JSON.stringify([yakuzai, jiki, hoho, kaisu]);
@@ -1248,6 +1264,17 @@ async function setPlanRecord() {
 				`<td class="clickable" onclick="setPlanDetail('${yakuzai}')">${yakuzai}<br><small>${dispJiki(jiki)}/${dispHoho(hoho)}</small></td></tr>`;
 		});
 		html += '</tbody></table>';
+
+		const stageKeys = Object.keys(stages);
+		if (stageKeys.length > 0) {
+			html += '<h3>生育ステージ</h3><table class="std-data-table"><thead><tr><th>ステージ</th><th>時期<th></tr></thead><tbody>';
+			stageKeys.forEach((key, i) => {
+				const {month, period, date } = stages[key];
+				const timingCell = makeTimingCell(month, period, date, `updateStageDate('${key}', this)`, 'mob_stage_date_', i);
+				html += `<tr class="${i % 2 === 0 ? '' : 'even-row'}"><td>${key}</td>${timingCell}</tr>`;
+			});
+			html += '</dbody></table>';
+		}
 
 		const yakuzaiCounts = new Map();
 		const seibunCounts= {};
