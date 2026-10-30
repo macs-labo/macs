@@ -9,8 +9,8 @@
 #timingCalendar button:hover, #timingCalendar button:focus-visible { background-color: var(--bg-color-icon-hover); outline: 1px solid var(--border-color-focus); }
 #timingCalendar .tc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 6px; }
 #timingCalendar .tc-title { font-weight: bold; }
-#timingCalendar .tc-grid { display: grid; grid-template-columns: repeat(7, 2.2em); gap: 2px; text-align: center; }
-#timingCalendar .tc-wd { font-size: 0.85em; color: var(--text-color-muted, #6f6f6f); }
+#timingCalendar .tc-grid { display: grid; grid-template-columns: repeat(7, 2.2rem); gap: 2px; text-align: center; }
+#timingCalendar .tc-wd { font-size: 0.85rem; color: var(--text-color-muted, #6f6f6f); }
 #timingCalendar .tc-day { padding: 3px 0; background-color: var(--bg-color); border-color: transparent; }
 #timingCalendar .tc-day.tc-today { border-color: var(--border-color-strong); }
 #timingCalendar .tc-day.tc-sel { background-color: var(--bg-color-accent); color: var(--text-color-accent); font-weight: bold; }
@@ -18,6 +18,6 @@
 /* 収穫前日数の欄: 収穫開始時期の入力欄(計画モードは月・旬、記録モードは年月日) */
 /* 生育ステージの表: 時期の入力欄(計画モードは月・旬、記録モードは年月日) */
 #stageTable td.stage-input { white-space: nowrap; }
-#stageTable td.stage-note { white-space: normal; font-size: 0.9em; color: var(--text-color-muted, #6f6f6f); }
+#stageTable td.stage-note { white-space: normal; font-size: 0.9rem; color: var(--text-color-muted, #6f6f6f); }
 /* 記録モードで、カウント開始日(1行目の防除日)より前の防除日: 日付の修正を促す */
 #planTable td.phi-date-error { outline: 2px solid var(--text-color-warn, red); outline-offset: -2px; background-color: var(--bg-color-warn, #fff3f3); }
