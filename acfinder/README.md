@@ -1,5 +1,5 @@
-# ACFinderBE / ACFinderBE Mobile
-Agricultural Chemicals Finder Browser Edition / Copyright &copy; 2025-2026 TEAM ACFinder<br>
+# ACFinderBE Desktop / ACFinderBE Mobile
+Agricultural Chemicals Finder Browser Edition for Desktop/ Copyright &copy; 2025-2026 TEAM ACFinder<br>
 Agricultural Chemicals Finder Browser Edition for Mobile/ Copyright &copy; 2026 TEAM ACFinder
 
 Lisenced under the MIT Lisence
