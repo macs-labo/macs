@@ -1132,11 +1132,11 @@ function makeTimingCell(month, period, date, onchange, idPrefix, idSuffix) {
 	const uniqueId = idPrefix + Math.random().toString(36).substring(2, 7) + '_' + Date.now() + '_' + idSuffix;
 
 	return `<td>` +
-		`<div class="date-picker" onclick="const inp=this.querySelector('input'); if(inp && typeof inp.showPicker==='function'){try{inp.showPicker();}catch(e){}}">` +
+		`<div class="date-picker" onclick="openTimingCalendar(this.querySelector('label'), defaultValue, onchange)">` +
 			`<label for="${uniqueId}" data-fulldate="${isDate ? date : ''}">${displayVal}</label>` +
-			`<input type="date" id="${uniqueId}" value="${isDate ? date : ''}" min="${defaultDate}" max="${defaultDate}"` +
-			`onchange="${onchange}" ` +
-			`onclick="event.stopPropagation()">` +
+			`<input type="date" id="${uniqueId}" value="${defaultDate}" hidden>` +
+			//`onchange="${onchange}" ` +
+			//`onclick="event.stopPropagation()">` +
 		`</div>` +
 		`</td>`;
 }

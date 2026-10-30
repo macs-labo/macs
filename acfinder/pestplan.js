@@ -1429,12 +1429,13 @@ return { judge, stageOf, text, eventsIn, EVENT_NAMES: EVENTS.map(([n]) => n) };
 
 
 /**
- * 記録モードの日付を選ぶカレンダー(防除時期・生育ステージの時期で共通)。anchor の下に開き、日を押すと onPick(年月日) を呼んで閉じる。
+ * 記録モードの日付を選ぶカレンダー(防除時期・生育ステージの時期で共通)。label の下に開き、日を押すと onPick(年月日) を呼んで閉じる。
  * 「クリア」は onPick('')。前月・翌月で月を移る。枠の外を押す・Esc で何もせず閉じる。
  * ブラウザの日付入力の部品は、日付が空のときに開く月を指定できないので、この画面で作る
  */
 function openTimingCalendar(anchor, value, onPick) {
 	closeTimingCalendar();
+	//const anchor = document.querySelector(`label[for="${uniqueId}"]`);
 	const pad = (n) => String(n).padStart(2, '0');
 	const today = new Date();
 	const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
