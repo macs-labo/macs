@@ -38,7 +38,8 @@
 <!-- romaji-conv ライブラリ / 作物タブ・病害虫タブ・薬剤タブ -->
 <script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
 <!-- usagelimit ライブラリ / 防除計画(DT)タブ・防除記録(Moblie)タブ用成分使用回数内訳判定 -->
-<script type="text/javascript" src="./usagelimit.js"></script>
+<script type="text/javascript" src="./pestplan.js"></script>
+<link rel="stylesheet" type="text/css" href="./pestplan.css" />
 <!--	タブ専用スタイル -->
 <style>
 
@@ -430,29 +431,6 @@ div.handsontable-like {
 .timing-period {
 	width: auto;
 }
-/* 記録モードの日付のカレンダー(openTimingCalendar)。色はテーマの変数 */
-#timingCalendar {
-	position: fixed; z-index: 1000; padding: 6px; border: 1px solid var(--border-color-strong); border-radius: 4px;
-	background-color: var(--bg-color); color: var(--text-color); box-shadow: 0 2px 8px var(--bg-color-active-header, rgba(0,0,0,0.3)); font-size: 0.9rem;
-}
-#timingCalendar button {
-	color: var(--text-color); background-color: var(--bg-color-button); border: 1px solid var(--border-color); border-radius: 3px; cursor: pointer; padding: 2px 6px;
-}
-#timingCalendar button:hover, #timingCalendar button:focus-visible { background-color: var(--bg-color-icon-hover); outline: 1px solid var(--border-color-focus); }
-#timingCalendar .tc-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 4px; gap: 6px; }
-#timingCalendar .tc-title { font-weight: bold; }
-#timingCalendar .tc-grid { display: grid; grid-template-columns: repeat(7, 2.2em); gap: 2px; text-align: center; }
-#timingCalendar .tc-wd { font-size: 0.85em; color: var(--text-color-muted, #6f6f6f); }
-#timingCalendar .tc-day { padding: 3px 0; background-color: var(--bg-color); border-color: transparent; }
-#timingCalendar .tc-day.tc-today { border-color: var(--border-color-strong); }
-#timingCalendar .tc-day.tc-sel { background-color: var(--bg-color-accent); color: var(--text-color-accent); font-weight: bold; }
-#timingCalendar .tc-foot { display: flex; justify-content: flex-end; gap: 4px; margin-top: 4px; }
-/* 収穫前日数の欄: 収穫開始時期の入力欄(計画モードは月・旬、記録モードは年月日) */
-/* 生育ステージの表: 時期の入力欄(計画モードは月・旬、記録モードは年月日) */
-#stageTable td.stage-input { white-space: nowrap; }
-#stageTable td.stage-note { white-space: normal; font-size: 0.9em; color: var(--text-color-muted, #6f6f6f); }
-/* 記録モードで、カウント開始日(1行目の防除日)より前の防除日: 日付の修正を促す */
-#planTable td.phi-date-error { outline: 2px solid var(--text-color-warn, red); outline-offset: -2px; background-color: var(--bg-color-warn, #fff3f3); }
 
 #ojasCountSetting {
 	margin: 9px 0 0;
@@ -2250,84 +2228,6 @@ function renderTimingCell(cell, data, onChange = () => updateRowNumbers()) {
 		}
 		cell.appendChild(timingDiv);
 	}
-}
-
-/**
- * 記録モードの日付を選ぶカレンダー(防除時期・生育ステージの時期で共通)。anchor の下に開き、日を押すと onPick(年月日) を呼んで閉じる。
- * 「クリア」は onPick('')。前月・翌月で月を移る。枠の外を押す・Esc で何もせず閉じる。
- * ブラウザの日付入力の部品は、日付が空のときに開く月を指定できないので、この画面で作る
- */
-function openTimingCalendar(anchor, value, onPick) {
-	closeTimingCalendar();
-	const pad = (n) => String(n).padStart(2, '0');
-	const today = new Date();
-	const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
-
-	let y = today.getFullYear();
-	let m = today.getMonth() + 1;
-
-	if (/^\d{4}-\d{2}-\d{2}$/.test(value || '')) {
-		y = Number(value.slice(0, 4));
-		m = Number(value.slice(5, 7));
-	} else {
-		const match = String(value || '').match(/^(\d{1,2})月(上旬|中旬|下旬)$/);
-		if (match) {
-			m = Number(match[1]);
-			const day = match[2] === '上旬' ? 5 : match[2] === '中旬' ? 15 : 25;
-			value = `${y}-${pad(m)}-${pad(day)}`;
-		} else {
-			value = '';
-		}
-	}
-
-	const pop = document.createElement('div');
-	pop.id = 'timingCalendar';
-	pop.setAttribute('role', 'dialog');
-	pop.setAttribute('aria-label', '日付の選択');
-	const render = () => {
-		const days = new Date(y, m, 0).getDate();
-		const start = new Date(y, m - 1, 1).getDay();
-		let cells = '';
-		for (let i = 0; i < start; i++) cells += '<span></span>';
-		for (let d = 1; d <= days; d++) {
-			const ds = `${y}-${pad(m)}-${pad(d)}`;
-			const cls = ['tc-day', ds === value ? 'tc-sel' : '', ds === todayStr ? 'tc-today' : ''].filter(Boolean).join(' ');
-			cells += `<button type="button" class="${cls}" data-date="${ds}">${d}</button>`;
-		}
-		pop.innerHTML = `<div class="tc-head"><button type="button" data-nav="-1" title="前の月">◀</button><span class="tc-title">${y}年${m}月</span><button type="button" data-nav="1" title="次の月">▶</button></div>`
-			+ `<div class="tc-grid">${['日', '月', '火', '水', '木', '金', '土'].map(w => `<span class="tc-wd">${w}</span>`).join('')}${cells}</div>`
-			+ `<div class="tc-foot"><button type="button" data-act="clear">クリア</button><button type="button" data-act="today">今日</button><button type="button" data-act="close">閉じる</button></div>`;
-	};
-	render();
-	pop.addEventListener('click', (e) => {
-		e.stopPropagation();
-		const b = e.target.closest('button');
-		if (!b) return;
-		if (b.dataset.nav) { m += Number(b.dataset.nav); if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } render(); return; }
-		if (b.dataset.date) { closeTimingCalendar(); onPick(b.dataset.date); return; }
-		if (b.dataset.act === 'clear') { closeTimingCalendar(); onPick(''); return; }
-		if (b.dataset.act === 'today') { closeTimingCalendar(); onPick(todayStr); return; }
-		if (b.dataset.act === 'close') closeTimingCalendar();
-	});
-	document.body.appendChild(pop);
-	// 位置: anchor の下(画面からはみ出すときは上・左に寄せる)
-	const r = anchor.getBoundingClientRect();
-	const w = pop.offsetWidth, h = pop.offsetHeight;
-	let left = Math.min(r.left, window.innerWidth - w - 8), top = r.bottom + 2;
-	if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 2);
-	pop.style.left = `${Math.max(8, left)}px`;
-	pop.style.top = `${top}px`;
-	pop._onDoc = (e) => { if (!pop.contains(e.target)) closeTimingCalendar(); };
-	pop._onKey = (e) => { if (e.key === 'Escape') closeTimingCalendar(); };
-	setTimeout(() => { document.addEventListener('click', pop._onDoc); document.addEventListener('keydown', pop._onKey); }, 0);
-	(pop.querySelector('.tc-sel') || pop.querySelector('.tc-day'))?.focus();
-}
-function closeTimingCalendar() {
-	const pop = document.getElementById('timingCalendar');
-	if (!pop) return;
-	document.removeEventListener('click', pop._onDoc);
-	document.removeEventListener('keydown', pop._onKey);
-	pop.remove();
 }
 
 // モード切り替え
