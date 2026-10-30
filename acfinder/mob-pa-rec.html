@@ -1132,7 +1132,7 @@ function makeTimingCell(month, period, date, onchange, idPrefix, idSuffix) {
 	const uniqueId = idPrefix + Math.random().toString(36).substring(2, 7) + '_' + Date.now() + '_' + idSuffix;
 
 	return `<td>` +
-		`<div class="date-picker" onclick="openTimingCalendar(this, ${defaultDate}, ${onchange})">` +
+		`<div class="date-picker" onclick="openTimingCalendar(event, ${defaultDate}, ${onchange})">` +
 			`<label for="${uniqueId}" data-fulldate="${isDate ? date : ''}">${displayVal}</label>` +
 			`<input type="date" id="${uniqueId}" value="${defaultDate}" hidden>` +
 			//`onchange="${onchange}" ` +
