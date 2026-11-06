@@ -1488,8 +1488,9 @@ function openTimingCalendar(anchor, value, onPick) {
 	});
 	document.body.appendChild(pop);
 	// 位置: anchor の下(画面からはみ出すときは上・左に寄せる)
+	const currentZoom = parseFloat(localStorage.getItem('appZoom')) || 1.0;
 	const calWidth = pop.offsetWidth, calHeight = pop.offsetHeight;
-	const winWidth = window.innerWidth, winHeight = window.innerHeight;
+	const winWidth = window.innerWidth / currentZoom, winHeight = window.innerHeight / currentZoom;
 	console.log('calendarWidth:', calWidth);
 	console.log('calendarHeight:', calHeight);
 	console.log('windowWidth:', winWidth);
