@@ -1435,9 +1435,6 @@ return { judge, stageOf, text, eventsIn, EVENT_NAMES: EVENTS.map(([n]) => n) };
  */
 function openTimingCalendar(anchor, value, onPick) {
 	closeTimingCalendar();
-	//const anchor = document.querySelector(`label[for="${uniqueId}"]`);
-	//console.log('wrapper:', wrapper);
-	//const anchor = wrapper.querySelector('label');
 	console.log('anchor:', anchor);
 	const pad = (n) => String(n).padStart(2, '0');
 	const today = new Date();
@@ -1491,11 +1488,12 @@ function openTimingCalendar(anchor, value, onPick) {
 	});
 	document.body.appendChild(pop);
 	// 位置: anchor の下(画面からはみ出すときは上・左に寄せる)
+	const calWidth = pop.offsetWidth, calHeight = pop.offsetHeight;
+	const winWidth = window.innerWidth, winHeight = window.innerHeight;
 	const r = anchor.getBoundingClientRect();
-	const w = pop.offsetWidth, h = pop.offsetHeight;
-	let left = Math.min(r.left, window.innerWidth - w - 8), top = r.bottom + 2;
-	if (top + h > window.innerHeight - 8) top = Math.max(8, r.top - h - 2);
-	pop.style.left = `${Math.max(8, left)}px`;
+	const left = r.left + calWidth < winWidth ? r.left:  winWidth - calWidth;
+	const top = r.top + r.height + calHeight < winHeight ? r.top + r.height : r.top - calHeight;
+	pop.style.left = `${left}px`;
 	pop.style.top = `${top}px`;
 	pop._onDoc = (e) => { if (!pop.contains(e.target)) closeTimingCalendar(); };
 	pop._onKey = (e) => { if (e.key === 'Escape') closeTimingCalendar(); };
