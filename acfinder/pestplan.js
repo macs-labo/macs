@@ -1490,7 +1490,15 @@ function openTimingCalendar(anchor, value, onPick) {
 	// 位置: anchor の下(画面からはみ出すときは上・左に寄せる)
 	const calWidth = pop.offsetWidth, calHeight = pop.offsetHeight;
 	const winWidth = window.innerWidth, winHeight = window.innerHeight;
+	console.log('calendarWidth:', calWidth);
+	console.log('calendarHeight:', calHeight);
+	console.log('windowWidth:', winWidth);
+	console.log('windowHeight:', winHeight);
 	const r = anchor.getBoundingClientRect();
+	console.log('anchorLeft:', r.left);
+	console.log('anchorTop:', r.top);
+	console.log('anchorWidth:', r.width);
+	console.log('anchorHeight:', r.height);
 	const left = r.left + calWidth < winWidth ? r.left:  winWidth - calWidth;
 	const top = r.top + r.height + calHeight < winHeight ? r.top + r.height : r.top - calHeight;
 	pop.style.left = `${left}px`;
