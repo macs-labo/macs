@@ -1,6 +1,6 @@
 /* 記録モードの日付のカレンダー(openTimingCalendar)。色はテーマの変数 */
 #timingCalendar {
-	position: fixed; z-index: 1000; padding: 6px; border: 1px solid var(--border-color-strong); border-radius: 4px;
+	position: fixed; z-index: 9999; padding: 6px; border: 1px solid var(--border-color-strong); border-radius: 4px;
 	background-color: var(--bg-color); color: var(--text-color); box-shadow: 0 2px 8px var(--bg-color-active-header, rgba(0,0,0,0.3)); font-size: 0.9rem;
 }
 #timingCalendar button {
