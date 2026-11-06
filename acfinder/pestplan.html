@@ -2188,9 +2188,10 @@ function renderTimingCell(cell, data, onChange = () => updateRowNumbers()) {
 
 		const open = (e) => {
 			e.stopPropagation();
-			openTimingCalendar(displayLabel || displayLabel.textContent, (v) => {
+			openTimingCalendar(displayLabel, displayText, (v) => {
+				if (v === '') return;
 				dateInput.value = v;
-				displayLabel.textContent = v || displayText;
+				displayLabel.textContent = v;
 				// 先頭行が日付になったら、他の行も（もし未設定なら）自動で合わせるためのフックポイント
 				onChange(cell);
 			});
