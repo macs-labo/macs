@@ -308,6 +308,7 @@ td em {
 var planCropManager, planChemManager;
 var planList = [];
 var stages = {};
+var harvest = {};
 var dbUpdateText = '';
 // 読み込んだ、または一度保存したファイルハンドル及びファイル名を保持する変数
 var currentFileName = '';
@@ -538,8 +539,10 @@ function convRecToJson() {
 		dataset: dbUpdateText,
 		sakumotsu: makeCropCondition(crops),
 		crops: planCropManager.checkedCrops,
-		plan: planList,
-		titleText: document.getElementById('planHead2').textContent
+		titleText: document.getElementById('planHead2').textContent,
+		harvest: harvest,
+		stages: stages,
+		plan: planList
 	};
 
 	return JSON.stringify(recData, null, 2);
@@ -1090,8 +1093,7 @@ async function loadPlanFromJson(data) {
 		planList = loadedPlan;
 
 		stages = data.stages || {};
-		delete stages['収穫開始'];
-		console.log('stages:', stages)
+		harvest = data.harvest || {};
 
 		// 作物ツリーのチェック状態を視覚的に復元
 		if (typeof planCropManager.syncCheckState === 'function') {
@@ -1281,6 +1283,7 @@ async function setPlanRecord() {
 		});
 		html += '</tbody></table>';
 
+		//const stageKeys = Object.keys(stages).filter(item => item !== '収穫開始');
 		const stageKeys = Object.keys(stages);
 		if (stageKeys.length > 0) {
 			html += '<h3>生育ステージ</h3><table class="std-data-table"><thead><tr><th>ステージ</th><th>時期<th></tr></thead><tbody>';
