@@ -1435,7 +1435,6 @@ return { judge, stageOf, text, eventsIn, EVENT_NAMES: EVENTS.map(([n]) => n) };
  */
 function openTimingCalendar(anchor, value, onPick) {
 	closeTimingCalendar();
-	console.log('anchor:', anchor);
 	const pad = (n) => String(n).padStart(2, '0');
 	const today = new Date();
 	const todayStr = `${today.getFullYear()}-${pad(today.getMonth() + 1)}-${pad(today.getDate())}`;
@@ -1473,7 +1472,8 @@ function openTimingCalendar(anchor, value, onPick) {
 		}
 		pop.innerHTML = `<div class="tc-head"><button type="button" data-nav="-1" title="前の月">◀</button><span class="tc-title">${y}年${m}月</span><button type="button" data-nav="1" title="次の月">▶</button></div>`
 			+ `<div class="tc-grid">${['日', '月', '火', '水', '木', '金', '土'].map(w => `<span class="tc-wd">${w}</span>`).join('')}${cells}</div>`
-			+ `<div class="tc-foot"><button type="button" data-act="clear">クリア</button><button type="button" data-act="today">今日</button><button type="button" data-act="close">閉じる</button></div>`;
+			+ `<div class="tc-foot"><button type="button" data-act="today">今日</button><button type="button" data-act="close">閉じる</button></div>`;
+			//+ `<div class="tc-foot"><button type="button" data-act="clear">クリア</button><button type="button" data-act="today">今日</button><button type="button" data-act="close">閉じる</button></div>`;
 	};
 	render();
 	pop.addEventListener('click', (e) => {
@@ -1491,17 +1491,9 @@ function openTimingCalendar(anchor, value, onPick) {
 	const currentZoom = window.isMobile ? parseFloat(localStorage.getItem('appZoom')) || 1.0 : 1.0;
 	const calWidth = pop.offsetWidth, calHeight = pop.offsetHeight;
 	const winWidth = window.innerWidth / currentZoom, winHeight = window.innerHeight / currentZoom;
-	console.log('calendarWidth:', calWidth);
-	console.log('calendarHeight:', calHeight);
-	console.log('windowWidth:', winWidth);
-	console.log('windowHeight:', winHeight);
 	const r = anchor.getBoundingClientRect();
 	const ancLeft = r.left / currentZoom, ancTop = r.top / currentZoom;
-	const ancWidth = r.width / currentZoom, ancHeight = r.height / currentZoom;
-	console.log('anchorLeft:', ancLeft);
-	console.log('anchorTop:', ancTop);
-	console.log('anchorWidth:', ancWidth);
-	console.log('anchorHeight:', ancHeight);
+	const ancHeight = r.height / currentZoom;
 	const left = ancLeft + calWidth + 10 < winWidth ? ancLeft:  winWidth - calWidth - 10;
 	const top = ancTop + ancHeight + calHeight < winHeight ? ancTop + ancHeight : ancTop - calHeight;
 	pop.style.left = `${left}px`;

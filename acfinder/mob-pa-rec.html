@@ -1129,10 +1129,9 @@ const openCalendar = (e) => {
 	e.stopPropagation();
 	const anchor = e.target;
 	const displayVal = anchor ? anchor.textContent : '';
-	console.log('date: ', displayVal);
 	openTimingCalendar(anchor, displayVal, (v) => {
 		if (v === '') return;
-		label.textContent = v;
+		anchor.textContent = v;
 		const input = anchor.nextElementSibling;
 		input.value = v;
 		input.dispatchEvent(new Event('change'));
@@ -1153,8 +1152,6 @@ function makeTimingCell(month, period, date, onchange, idPrefix, idSuffix) {
 		`<div class="date-picker">` +
 			`<label for="${uniqueId}" data-fulldate="${isDate ? date : ''}" onclick="openCalendar(event)">${displayVal}</label>` +
 			`<input type="date" id="${uniqueId}" value="${isDate ? date : ''}" onchange="${onchange}(this, ${key})" hidden>` +
-			//`onchange="${onchange}" ` +
-			//`onclick="event.stopPropagation()">` +
 		`</div>` +
 		`</td>`;
 }
