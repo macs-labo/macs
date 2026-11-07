@@ -259,12 +259,12 @@ span.cm-variable-3 { font-weight: bold;  }
 <!--	タブ専用の script -->
 <script>
 
-let sqlEditor; // CodeMirror instance for sql
-let varEditor; // CodeMirror instance for variables
-let currentSqlFileHandle = null;
-let currentVarFileHandle = null;
-let currentSqlFilename = '';
-let currentVarFilename = '';
+var sqlEditor; // CodeMirror instance for sql
+var varEditor; // CodeMirror instance for variables
+var currentSqlFileHandle = null;
+var currentVarFileHandle = null;
+var currentSqlFilename = '';
+var currentVarFilename = '';
 
 // CodeMirrorのプロトタイプにカスタムメソッドを追加
 // 編集されたか（Undoできるか）

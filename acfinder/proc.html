@@ -68,7 +68,14 @@ window.addEventListener('DOMContentLoaded', async function() {
 				await new Promise((resolve) => {
 					const newScript = document.createElement('script');
 					Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-					newScript.textContent = oldScript.textContent;
+					
+					// ★【追加】インラインスクリプトの場合のみ、自動的に {} で囲んでスコープを分ける
+					if (!src && isExecutable && oldScript.textContent) {
+						newScript.textContent = `{\n${oldScript.textContent}\n}`;
+					} else {
+						newScript.textContent = oldScript.textContent;
+					}
+
 					if (src && isExecutable) {
 						newScript.onload = resolve;
 						newScript.onerror = resolve;
@@ -98,7 +105,14 @@ window.addEventListener('DOMContentLoaded', async function() {
 				await new Promise((resolve) => {
 					const newScript = document.createElement('script');
 					Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
-					newScript.textContent = oldScript.textContent;
+
+					// ★【追加】インラインスクリプトの場合のみ、自動的に {} で囲んでスコープを分ける
+					if (!src && isExecutable && oldScript.textContent) {
+						newScript.textContent = `{\n${oldScript.textContent}\n}`;
+					} else {
+						newScript.textContent = oldScript.textContent;
+					}
+
 					if (src && isExecutable) {
 						newScript.onload = resolve;
 						newScript.onerror = resolve;

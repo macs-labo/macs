@@ -1664,17 +1664,18 @@ let tabExecuted = false;
 async function handleLocalFileSelection(file) {
 	if (!file) return;
 
-	waiting(true, 'ファイルを読み込んでいます...');
+	await waiting(true, 'ファイルを読み込んでいます...');
 	try {
 		const templateHtml = await file.text();
+		// proc.html を現在のタブで開く（既に proc.html の場合はリロードされる）
 		sessionStorage.setItem('procTemplateHtml', templateHtml);
 		sessionStorage.setItem('procTemplateFileName', file.name);
-		// proc.html を現在のタブで開く（既に proc.html の場合はリロードされる）
 		window.open('proc.html', '_self');
 	} catch (e) {
 		console.error('ファイルの読み込み中にエラーが発生しました:', e);
-		waiting(false);
 		alert('ファイルの読み込みに失敗しました。');
+	} finally {
+		await waiting(false);
 	}
 }
 
