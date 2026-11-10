@@ -1428,15 +1428,23 @@ async function setPlanRecord() {
 				? [yakuzai, displayLimit, slotText]
 				: [yakuzai, jiki, hoho, displayLimit]);
 			const dataTsusho = yakuzaiCounts.get(key) || {
-				tsusho: yakuzai, kaisu: displayLimit, count: 0, limit: drugLimit, timings: []
+				tsusho: yakuzai, kaisu: displayLimit, count: 0, limit: drugLimit, timings: [], refs: []
 			};
 			dataTsusho.count += 1;
 			dataTsusho.timings.push(`${dispJiki(jiki)}/${dispHoho(hoho)}`);
+			dataTsusho.refs.push(chem);
 			yakuzaiCounts.set(key, dataTsusho);
 		});
 
+		const ingredientOverLimitRefs = new Set();
 		Object.entries(seibunCounts).forEach(([seibun, data]) => {
 			data.verdict = UsageLimit.judge(data.uses, seibun, { contentPct: contentPctOf });
+			if (data.count > data.limit) {
+				data.uses.forEach(use => ingredientOverLimitRefs.add(use.ref));
+			}
+			data.verdict.flags.forEach((flags, ref) => {
+				if (flags.some(flag => flag.level === 'NG')) ingredientOverLimitRefs.add(ref);
+			});
 			const breakdowns = new Map();
 			[...data.verdict.lines, ...data.verdict.okLines].forEach(line => {
 				const match = line.text.match(/^(.+?): 使用回数(\d+)回/);
@@ -1448,13 +1456,17 @@ async function setPlanRecord() {
 			data.breakdowns = [...breakdowns].map(([label, result]) => ({ label, ...result }));
 		});
 
+		yakuzaiCounts.forEach(data => {
+			data.exceeded = data.count > data.limit || data.refs.some(ref => ingredientOverLimitRefs.has(ref));
+		});
+
 		const yakuzaiRows = Array.from(yakuzaiCounts.values())
 			.sort((a, b) => a.tsusho.localeCompare(b.tsusho, 'ja') ||
 				a.kaisu.localeCompare(b.kaisu, 'ja'))
 			.map((o, i) => {
 				let classList = [];
 				if (i % 2 === 1) classList.push('even-row');
-				const count = o.count > o.limit ? `<em>${o.count}</em>` : o.count;
+				const count = o.exceeded ? `<em>${o.count}</em>` : o.count;
 				const timings = o.timings.map(timing => `<small>${timing}</small>`).join('<br>');
 				return `<tr class="${classList.join(' ')}"><td>${o.tsusho}<br>${timings}</td><td>${count}</td><td>${o.kaisu}</td></tr>`;
 			})
