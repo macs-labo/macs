@@ -162,6 +162,44 @@ td em {
 }
 
 .clickable { cursor: pointer; }
+.yakuzai-count-row { cursor: pointer; }
+.yakuzai-count-row:focus-visible { outline: 2px solid var(--text-color-dark); outline-offset: -2px; }
+#seibunCountDialog {
+	width: min(640px, calc(100% - 24px));
+	max-width: none;
+	max-height: 85vh;
+	padding: 0;
+	overflow: hidden;
+	background: var(--bg-color);
+	color: var(--text-color);
+	border: 1px solid var(--border-color-strong);
+	border-radius: 8px;
+}
+#seibunCountDialog::backdrop { background: rgb(0 0 0 / 45%); }
+#seibunCountDialog form { display: flex; flex-direction: column; max-height: 85vh; }
+#seibunCountDialog .seibun-dialog-header {
+	padding: 10px;
+	font-weight: bold;
+	background: var(--bg-color-header);
+	flex: 0 0 auto;
+}
+#seibunCountDialog .seibun-dialog-title {
+	overflow-wrap: anywhere;
+}
+#seibunCountDialog .seibun-dialog-content {
+	overflow-y: auto;
+	padding: 8px;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+#seibunCountDialog .seibun-dialog-footer {
+	display: flex;
+	justify-content: flex-end;
+	padding: 10px;
+	border-top: 1px solid var(--border-color-ht-common);
+	flex: 0 0 auto;
+}
+#seibunCountDialog .std-data-table { margin-bottom: 0; }
 
 /* 作物ツリーロック */
 #planCropTree.locked {
@@ -221,9 +259,11 @@ td em {
 	opacity: 0.4;
 	cursor: not-allowed;
 }
+/*
 #timingCalendar {
 	z-index: 9999;
 }
+*/
 </style>
 </head>
 <body>
@@ -1164,6 +1204,7 @@ async function setPlanRecord() {
 	title.innerHTML = "使用予定薬剤及び使用回数集計";
 
 	const wrapper = document.querySelector('#planRecordWrapper');
+	document.getElementById('seibunCountDialog')?.close();
 	wrapper.innerHTML = '';
 
 	document.querySelector('#planCropTree')?.classList.toggle('locked', planList.length > 0);
@@ -1460,9 +1501,10 @@ async function setPlanRecord() {
 			data.exceeded = data.count > data.limit || data.refs.some(ref => ingredientOverLimitRefs.has(ref));
 		});
 
-		const yakuzaiRows = Array.from(yakuzaiCounts.values())
+		const sortedYakuzaiRows = Array.from(yakuzaiCounts.values())
 			.sort((a, b) => a.tsusho.localeCompare(b.tsusho, 'ja') ||
-				a.kaisu.localeCompare(b.kaisu, 'ja'))
+				a.kaisu.localeCompare(b.kaisu, 'ja'));
+		const yakuzaiRows = sortedYakuzaiRows
 			.map((o, i) => {
 				let classList = [];
 				if (i % 2 === 1) classList.push('even-row');
@@ -1474,7 +1516,7 @@ async function setPlanRecord() {
 
 		if (yakuzaiRows) {
 			html += '<h3>薬剤別使用回数</h3>';
-			html += `<table class="std-data-table"><thead><tr><th>薬剤名</th><th>回数</th><th>上限</th></tr></thead><tbody>${yakuzaiRows}</tbody></table>`;
+			html += `<table id="yakuzaiCountTable" class="std-data-table"><thead><tr><th>薬剤名</th><th>回数</th><th>上限</th></tr></thead><tbody>${yakuzaiRows}</tbody></table>`;
 		}
 
 		const seibunRows = Object.entries(seibunCounts).map(([name, data]) => ({
@@ -1489,25 +1531,6 @@ async function setPlanRecord() {
 			breakdowns: data.breakdowns,
 			verdict: data.verdict
 		})).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja'));
-
-		if (seibunRows.length > 0) {
-			html += '<h3>成分別使用回数</h3>';
-			seibunRows.forEach(data => {
-				const { name, rac, keito, rem, count, kaisu, limit, tsusho, breakdowns, verdict } = data;
-				const countDisplay = count > limit || verdict.status === 'NG' ? '<em>' + count + '</em>' : count;
-				const breakdownDisplay = breakdowns.length
-					? `(${breakdowns.map(item => `${item.label}:${item.level === 'NG' ? `<em>${item.count}</em>` : item.count}`).join(',')})`
-					: '';
-				html += `<div class="row-title">${name}</div>` +
-					`<table class="row-data-table"><tbody>` +
-					`<tr><th>回数</th><td>${countDisplay}${breakdownDisplay}</td></tr>` +
-					`<tr class="even-row"><th>上限</th><td>${kaisu}</td></tr>` +
-					`<tr><th>薬剤</th><td>${tsusho.join(',')}</td></tr>` +
-					`<tr class="even-row"><th>RAC</th><td>${rac}${keito ? ' / ' + keito : ''}${rem ? '<br><small>' + rem + '</small>' : ''}</td></tr>` +
-					`</tbody></table>`;
-			});
-		}
-		html += '<div class="row-data-table"></div>';
 
 		const racRows = Object.entries(racCounts).map(([name, data]) => ({
 			name,
@@ -1533,6 +1556,28 @@ async function setPlanRecord() {
 
 		div.innerHTML = html;
 		wrapper.appendChild(div);
+		const yakuzaiTable = div.querySelector('#yakuzaiCountTable');
+		if (yakuzaiTable) {
+			Array.from(yakuzaiTable.tBodies[0].rows).forEach((row, index) => {
+				const data = sortedYakuzaiRows[index];
+				const ingredientNames = Object.entries(seibunCounts)
+					.filter(([, seibunData]) => seibunData.uses.some(use => data.refs.includes(use.ref)))
+					.map(([name]) => name);
+				if (!ingredientNames.length) return;
+				row.classList.add('yakuzai-count-row');
+				row.tabIndex = 0;
+				row.setAttribute('role', 'button');
+				row.title = 'タップして有効成分別の使用回数を表示';
+				const openDetails = () => openSeibunCountDialog(data.tsusho,
+					seibunRows.filter(seibun => ingredientNames.includes(seibun.name)));
+				row.addEventListener('click', openDetails);
+				row.addEventListener('keydown', event => {
+					if (event.key !== 'Enter' && event.key !== ' ') return;
+					event.preventDefault();
+					openDetails();
+				});
+			});
+		}
 	} catch (e) {
 		console.error(e);
 	} finally {
@@ -1549,6 +1594,42 @@ async function setPlanRecord() {
 	const planSwiper = document.querySelector('.plan-swiper').swiper;
 	if (planSwiper.activeIndex !== 2) planSwiper.slideTo(2);
 
+}
+
+function openSeibunCountDialog(yakuzai, rows) {
+	const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+	})[char]);
+	let dialog = document.getElementById('seibunCountDialog');
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = 'seibunCountDialog';
+		dialog.addEventListener('click', event => {
+			if (event.target === dialog) dialog.close();
+		});
+		document.body.appendChild(dialog);
+	}
+	const details = rows.map(data => {
+		const count = data.count > data.limit || data.verdict.status === 'NG'
+			? `<em>${data.count}</em>` : String(data.count);
+		const breakdown = data.breakdowns.length
+			? `(${data.breakdowns.map(item => `${escapeHtml(item.label)}:${item.level === 'NG' ? `<em>${item.count}</em>` : item.count}`).join(',')})`
+			: '';
+		return `<div class="row-title">${escapeHtml(data.name)}</div>` +
+			`<table class="row-data-table"><tbody>` +
+			`<tr><th>回数</th><td>${count}${breakdown}</td></tr>` +
+			`<tr class="even-row"><th>上限</th><td>${escapeHtml(data.kaisu)}</td></tr>` +
+			`<tr><th>薬剤</th><td>${data.tsusho.map(escapeHtml).join(',')}</td></tr>` +
+			`<tr class="even-row"><th>RAC</th><td>${escapeHtml(data.rac)}${data.keito ? ' / ' + escapeHtml(data.keito) : ''}${data.rem ? '<br><small>' + escapeHtml(data.rem) + '</small>' : ''}</td></tr>` +
+			`</tbody></table>`;
+	}).join('');
+	dialog.innerHTML = `<form method="dialog">` +
+		`<div class="seibun-dialog-header"><div class="seibun-dialog-title"></div></div>` +
+		`<div class="seibun-dialog-content">${details}</div>` +
+		`<div class="seibun-dialog-footer"><button type="submit">閉じる</button></div></form>`;
+	dialog.querySelector('.seibun-dialog-title').textContent = `${yakuzai}：成分別使用回数`;
+	if (typeof dialog.showModal === 'function') dialog.showModal();
+	else dialog.setAttribute('open', '');
 }
 
 // 防除記録タブ step.4: 薬剤適用詳細表示
