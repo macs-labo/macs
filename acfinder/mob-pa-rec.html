@@ -1421,7 +1421,9 @@ async function setPlanRecord() {
 				const text = UsageLimit.text(usageItem, seibun, { contentPct: contentPctOf });
 				return text ? `${seibun}: ${text}` : '';
 			}).filter(Boolean).join(' ・ ');
-			const combineAcrossRegistrations = slotText.includes(' / ') || displayLimit !== kaisu;
+			const totalOnly = usageItems.length > 0
+				&& usageItems.every(({ usageItem }) => !/[（(]/.test(usageItem.seibunkaisu));
+			const combineAcrossRegistrations = slotText.includes(' / ') || displayLimit !== kaisu || totalOnly;
 			const key = JSON.stringify(combineAcrossRegistrations
 				? [yakuzai, displayLimit, slotText]
 				: [yakuzai, jiki, hoho, displayLimit]);
