@@ -81,6 +81,7 @@ async function restoreLocalTab() {
 			}
 
 			// bodyを書き換え
+			await waiting(false); // proc.html のローディング画面を止める
 			document.body.innerHTML = newDoc.body.innerHTML;
 
 			// body内のスクリプトを再実行
@@ -144,7 +145,7 @@ window.addEventListener('load', () => {
 </head>
 <body>
 <!--	全タブ共通ヘッダ -->
-<!-- <div id="loading"></div> --><!-- loading メッセージ表示領域確保 -->
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
 <div id="title-bar"></div><!--	タイトル表示領域確保 -->
 <div id="tab-header" class="tab_header"></div><!--	タブヘッダー表示領域確保 -->
 <!--	このタブの表示内容は動的に挿入されます -->
