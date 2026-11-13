@@ -21,9 +21,6 @@ async function restoreLocalTab() {
 	if (templateHtml) {
 		try {
 			// ローディング表示開始（描画を確実にするため await する）
-			const loading = document.createElement('div');
-			loading.id = 'loading';
-			document.body.prepend(loading);
 			await waiting(true, 'ローカルファイルを復元中...');
 
 			const parser = new DOMParser();
@@ -137,12 +134,11 @@ async function restoreLocalTab() {
 	}
 }
 
-/*
+///*
 window.addEventListener('load', () => {
 	restoreLocalTab();
-	//document.getElementById('tabFile')?.click()
 });
-*/
+//*/
 </script>
 </head>
 <body>
@@ -154,8 +150,10 @@ window.addEventListener('load', () => {
 <div class="tab_content">
 	<p id="noDataMessage" class="hidden" style="text-align: center; padding: 50px;">表示するデータがありません。「＋」メニューから「ローカル」を選択してファイルを開いてください。</p>
 </div>
+<!--
 <script>
 restoreLocalTab();
 </script>
+-->
 </body>
 </html>
