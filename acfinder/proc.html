@@ -15,8 +15,23 @@
 <!-- 最低限必要な外部ライブラリ -->
 <!--	タブ専用の script -->
 <script>
-//window.addEventListener('DOMContentLoaded', async function() {
-window.addEventListener('load', async function() {
+/* window.addEventListener('load', () => {
+	document.getElementById('tabFile')?.click()
+});
+ */
+</script>
+</head>
+<body>
+<!--	全タブ共通ヘッダ -->
+<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
+<div id="title-bar"></div><!--	タイトル表示領域確保 -->
+<div id="tab-header" class="tab_header"></div><!--	タブヘッダー表示領域確保 -->
+<!--	このタブの表示内容は動的に挿入されます -->
+<div class="tab_content">
+	<p id="noDataMessage" class="hidden" style="text-align: center; padding: 50px;">表示するデータがありません。「＋」メニューから「ローカル」を選択してファイルを開いてください。</p>
+</div>
+<script>
+async function restoreLocalTab() {
 	const templateHtml = sessionStorage.getItem('procTemplateHtml');
 	const templateFileName = sessionStorage.getItem('procTemplateFileName');
 	if (templateHtml) {
@@ -147,20 +162,8 @@ window.addEventListener('load', async function() {
 		// テンプレートがない場合（誤ってリロードした際など）のみメッセージを表示
 		document.getElementById('noDataMessage')?.classList.remove('hidden');
 	}
-});
-
-/* window.addEventListener('load', () => {
-	document.getElementById('tabFile')?.click()
-});
- */
+}
+restoreLocalTab();
 </script>
-</head>
-<body>
-<!--	全タブ共通ヘッダ -->
-<div id="loading"></div><!-- loading メッセージ表示領域確保 -->
-<div id="title-bar"></div><!--	タイトル表示領域確保 -->
-<div id="tab-header" class="tab_header"></div><!--	タブヘッダー表示領域確保 -->
-<!--	このタブの表示内容は動的に挿入されます -->
-<div class="tab_content">
-	<p id="noDataMessage" class="hidden" style="text-align: center; padding: 50px;">表示するデータがありません。「＋」メニューから「ローカル」を選択してファイルを開いてください。</p>
-</div>
+</body>
+</html>

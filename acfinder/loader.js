@@ -1909,11 +1909,6 @@ window.addEventListener('DOMContentLoaded', function() {
 		loading.appendChild(wait);
 	}
 
-//});
-
-// ページロード完了時の初期設定
-//window.addEventListener('DOMContentLoaded', async function() {
-
 	// conditionPane が存在すれば conditionPane 開閉機能設定
 	document.getElementById('sideToggler')?.remove(); // #sideToggler があれば削除
 	const conditionPane = document.getElementById('conditionPane');
@@ -2030,7 +2025,6 @@ window.addEventListener('DOMContentLoaded', function() {
 			document.addEventListener('touchend', onTouchEnd);
 		});
 	}
-
 
 	// conditionPane に #h-splitter が存在すれば、リサイズ機能設定 (タッチ対応)
 	if (conditionPane) {
