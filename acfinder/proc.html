@@ -134,10 +134,12 @@ async function restoreLocalTab() {
 	}
 }
 
+/*
 window.addEventListener('load', () => {
 	restoreLocalTab();
 	//document.getElementById('tabFile')?.click()
 });
+*/
 </script>
 </head>
 <body>
@@ -150,6 +152,7 @@ window.addEventListener('load', () => {
 	<p id="noDataMessage" class="hidden" style="text-align: center; padding: 50px;">表示するデータがありません。「＋」メニューから「ローカル」を選択してファイルを開いてください。</p>
 </div>
 <script>
+restoreLocalTab();
 </script>
 </body>
 </html>
