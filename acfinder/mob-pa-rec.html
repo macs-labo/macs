@@ -162,6 +162,44 @@ td em {
 }
 
 .clickable { cursor: pointer; }
+.yakuzai-count-row { cursor: pointer; }
+.yakuzai-count-row:focus-visible { outline: 2px solid var(--text-color-dark); outline-offset: -2px; }
+#seibunCountDialog {
+	width: min(640px, calc(100% - 24px));
+	max-width: none;
+	max-height: 85vh;
+	padding: 0;
+	overflow: hidden;
+	background: var(--bg-color);
+	color: var(--text-color);
+	border: 1px solid var(--border-color-strong);
+	border-radius: 8px;
+}
+#seibunCountDialog::backdrop { background: rgb(0 0 0 / 45%); }
+#seibunCountDialog form { display: flex; flex-direction: column; max-height: 85vh; }
+#seibunCountDialog .seibun-dialog-header {
+	padding: 10px;
+	font-weight: bold;
+	background: var(--bg-color-header);
+	flex: 0 0 auto;
+}
+#seibunCountDialog .seibun-dialog-title {
+	overflow-wrap: anywhere;
+}
+#seibunCountDialog .seibun-dialog-content {
+	overflow-y: auto;
+	padding: 8px;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+#seibunCountDialog .seibun-dialog-footer {
+	display: flex;
+	justify-content: flex-end;
+	padding: 10px;
+	border-top: 1px solid var(--border-color-ht-common);
+	flex: 0 0 auto;
+}
+#seibunCountDialog .std-data-table { margin-bottom: 0; }
 
 /* 作物ツリーロック */
 #planCropTree.locked {
@@ -221,9 +259,11 @@ td em {
 	opacity: 0.4;
 	cursor: not-allowed;
 }
+/*
 #timingCalendar {
 	z-index: 9999;
 }
+*/
 </style>
 </head>
 <body>
@@ -1164,6 +1204,7 @@ async function setPlanRecord() {
 	title.innerHTML = "使用予定薬剤及び使用回数集計";
 
 	const wrapper = document.querySelector('#planRecordWrapper');
+	document.getElementById('seibunCountDialog')?.close();
 	wrapper.innerHTML = '';
 
 	document.querySelector('#planCropTree')?.classList.toggle('locked', planList.length > 0);
@@ -1210,9 +1251,7 @@ async function setPlanRecord() {
 		// 集計結果が取得できたか（未取得時は全行 missing 扱いになるので削除ボタンの安全弁にする）
 		hasTsushoLimitResult = !!res?.[0];
 		const tsushoLimit = new Map();
-		const tsushoSeibun = {};
-		const seibunInfo = {};
-		const seibunRac = {};
+		const registrationSeibun = new Map();
 		missingPlanIndexes = []; // 描画ごとに再計算
 		if (hasTsushoLimitResult) {
 			res[0].values.forEach(row => {
@@ -1233,8 +1272,6 @@ async function setPlanRecord() {
 					limit: limit
 				};
 				tsushoLimit.set(keyTsusho, dataTsusho);
-				if (!tsushoSeibun[tsusho]) tsushoSeibun[tsusho] = [];
-				if (!tsushoSeibun[tsusho].includes(seibun)) tsushoSeibun[tsusho].push(seibun);
 				const dataSeibun = {
 						rac: rac || '-',
 						keito: keito,
@@ -1242,13 +1279,8 @@ async function setPlanRecord() {
 						kaisu: seibunkaisu,
 						limit: parseInt(seibunkaisu.match(/^\d+/)?.[0] || '999', 10)
 				};
-				if (!seibunInfo[seibun] || seibunInfo[seibun].limit < dataSeibun.limit) {
-					seibunInfo[seibun] = dataSeibun;
-				}
-				if (rac) {
-					if (!seibunRac[seibun]) seibunRac[seibun] = [];
-					if (!seibunRac[seibun].includes(rac)) seibunRac[seibun].push(rac);
-				}
+				if (!registrationSeibun.has(keyTsusho)) registrationSeibun.set(keyTsusho, new Map());
+				registrationSeibun.get(keyTsusho).set(seibun, dataSeibun);
 			});
 		}
 
@@ -1296,71 +1328,195 @@ async function setPlanRecord() {
 		}
 
 		const yakuzaiCounts = new Map();
-		const seibunCounts= {};
+		const seibunCounts = {};
 		const racCounts = {};
+		const parseList = value => String(value || '').split(/<br\s*\/?>/i)
+			.map(item => item.replace(/<[^>]*>/g, '').trim()).filter(Boolean);
+		const formCache = new Map();
+		const contentPctCache = new Map();
+		const zaikeiOf = yakuzai => {
+			if (formCache.has(yakuzai)) return formCache.get(yakuzai);
+			let zaikei = '';
+			if (typeof db !== 'undefined' && db) {
+				try {
+					const escapedName = yakuzai.replace(/'/g, "''");
+					const rows = db.exec(`select distinct zaikei from m_kihon where tsusho = '${escapedName}'`);
+					const forms = (rows[0]?.values || []).map(row => row[0]).filter(Boolean);
+					if (forms.length === 1) zaikei = String(forms[0]);
+				} catch (e) {
+					if (typeof debug !== 'undefined' && debug) console.warn('剤型の取得に失敗しました:', yakuzai, e);
+				}
+			}
+			formCache.set(yakuzai, zaikei);
+			return zaikei;
+		};
+		const contentPctOf = (yakuzai, seibun) => {
+			if (typeof db === 'undefined' || !db) return null;
+			const cacheKey = JSON.stringify([yakuzai, seibun]);
+			if (contentPctCache.has(cacheKey)) return contentPctCache.get(cacheKey);
+			try {
+				const escapedName = String(seibun || '').replace(/'/g, "''");
+				const escapedYakuzai = String(yakuzai || '').replace(/'/g, "''");
+				const rows = db.exec(`select distinct nodo from kihon where tsusho = '${escapedYakuzai}' and (seibun = '${escapedName}' or ippanmei = '${escapedName}')`);
+				const rates = (rows[0]?.values || []).map(row => String(row[0] || '').match(/([\d.]+)\s*%/)?.[1]).filter(Boolean);
+				const uniqueRates = [...new Set(rates.map(Number))];
+				const rate = uniqueRates.length === 1 ? uniqueRates[0] : null;
+				contentPctCache.set(cacheKey, rate);
+				return rate;
+			} catch (e) {
+				if (typeof debug !== 'undefined' && debug) console.warn('含有率の取得に失敗しました:', seibun, e);
+				return null;
+			}
+		};
+		const timingPosition = chem => {
+			const timingText = String(chem.timing || '');
+			const date = timingText.match(/^\d{4}-(\d{2})-(\d{2})$/);
+			const month = Number(chem.timingMonth || date?.[1] || timingText.match(/(\d{1,2})月/)?.[1] || 0);
+			const day = date ? Number(date[2]) : 0;
+			const period = chem.timingPeriod || (day ? day <= 10 ? '上旬' : day <= 20 ? '中旬' : '下旬' : '')
+				|| timingText.match(/(上旬|中旬|下旬)/)?.[1] || '';
+			if (!month || !period) return null;
+			return month * 3 + ({ 上旬: 0, 中旬: 1, 下旬: 2 }[period] ?? 0);
+		};
+		const stageOf = chem => {
+			const transplant = stages['定植'];
+			if (!transplant) return undefined;
+			const timing = timingPosition(chem);
+			const stageMonth = Number(transplant.month || String(transplant.date || '').slice(5, 7));
+			const stagePeriod = transplant.period || (transplant.date ? (() => {
+				const day = Number(transplant.date.slice(8, 10));
+				return day <= 10 ? '上旬' : day <= 20 ? '中旬' : '下旬';
+			})() : '');
+			if (timing == null || !stageMonth || !stagePeriod) return 'BOTH';
+			return timing < stageMonth * 3 + ({ 上旬: 0, 中旬: 1, 下旬: 2 }[stagePeriod] ?? 0) ? 'NURSERY' : 'FIELD';
+		};
+		const stageLimitOf = (kaisu, stage) => {
+			if (stage !== 'NURSERY' && stage !== 'FIELD') return kaisu;
+			const target = stage === 'NURSERY' ? /苗床|育苗/ : /本圃|本田/;
+			const matches = [...String(kaisu || '').matchAll(/([^:\s]+)\s*:\s*([^ \t]+)/g)];
+			const match = matches.find(item => target.test(item[1]));
+			return match ? `${match[1]}:${match[2]}` : kaisu;
+		};
 		planList.forEach(chem => {
 			const { yakuzai, jiki, hoho, kaisu } = chem;
 			const keyTsusho = JSON.stringify([yakuzai, jiki, hoho, kaisu]);
 			const dataLimit = tsushoLimit.get(keyTsusho);
-			const isMissing = !dataLimit;
-			if (isMissing) return;
-			const dataTsusho = yakuzaiCounts.get(keyTsusho) || {
-				tsusho: yakuzai,
-				jiki: jiki,
-				hoho: hoho,
-				kaisu: kaisu,
-				count: 0,
-				isMissing: isMissing,
-				limit: isMissing ? '×' : dataLimit.limit
-			};
-			dataTsusho.count += 1;
-			yakuzaiCounts.set(keyTsusho, dataTsusho);
-			const seibuns = tsushoSeibun[yakuzai];
-			seibuns.forEach(seibun => {
-				const { rac, keito, rem, kaisu, limit } = seibunInfo[seibun];
+			if (!dataLimit) return;
+			const stage = stageOf(chem);
+			const displayLimit = stageLimitOf(kaisu, stage);
+			const limitMatch = String(displayLimit || '').match(/(?:^|:)\s*(\d+)/);
+			const drugLimit = limitMatch ? Number(limitMatch[1]) : dataLimit.limit;
+
+			const registration = registrationSeibun.get(keyTsusho) || new Map();
+			const seibuns = parseList(chem.seibun);
+			const rules = parseList(chem.seibunkaisu);
+			const mids = parseList(chem.mid);
+			const names = seibuns.length ? seibuns : Array.from(registration.keys());
+			const usageItems = [];
+			names.forEach((seibun, index) => {
+				const registrationData = registration.get(seibun) || {};
+				const seibunkaisu = rules[index] || registrationData.kaisu || '';
+				const midParts = (mids[index] || '').split('/');
+				const rac = registrationData.rac && registrationData.rac !== '-'
+					? registrationData.rac : (midParts[0] || '-');
+				const keito = registrationData.keito || (rac.startsWith('F:') ? midParts[2] : midParts[1]) || '';
+				const rem = registrationData.rem || midParts[3] || '';
+				const ruleLimit = parseInt(seibunkaisu.match(/^\s*(\d+)/)?.[1] || '0', 10);
 				const dataSeibun = seibunCounts[seibun] || {
-					count: 0,
-					rac: rac,
-					keito: keito,
-					rem: rem,
-					kaisu: kaisu,
-					limit: limit,
-					tsusho: []
+					count: 0, rac, keito, rem, kaisu: seibunkaisu, limit: ruleLimit || 999,
+					limitRank: ruleLimit, tsusho: [], uses: []
 				};
 				dataSeibun.count += 1;
+				if (ruleLimit > dataSeibun.limitRank || !dataSeibun.kaisu) {
+					dataSeibun.kaisu = seibunkaisu;
+					dataSeibun.limit = ruleLimit || 999;
+					dataSeibun.limitRank = ruleLimit;
+					dataSeibun.rac = rac;
+					dataSeibun.keito = keito;
+					dataSeibun.rem = rem;
+				}
 				if (!dataSeibun.tsusho.includes(yakuzai)) dataSeibun.tsusho.push(yakuzai);
+				const usageItem = {
+					...chem,
+					yakuzai,
+					zaikei: chem.zaikei || zaikeiOf(yakuzai),
+					seibunkaisu,
+					stage,
+					ref: chem
+				};
+				dataSeibun.uses.push(usageItem);
 				seibunCounts[seibun] = dataSeibun;
-				seibunRac[seibun].forEach(rac => {
-					const dataRac = racCounts[rac] || {
-						count: 0,
-						rem: rem,
-						keito: [],
-						seibun: [],
-						tsusho: []
-					}
+				usageItems.push({ seibun, usageItem });
+
+				if (rac !== '-') {
+					const dataRac = racCounts[rac] || { count: 0, rem, keito: [], seibun: [], tsusho: [] };
 					dataRac.count += 1;
-					if (!dataRac.keito.includes(keito)) dataRac.keito.push(keito);
+					if (keito && !dataRac.keito.includes(keito)) dataRac.keito.push(keito);
 					if (!dataRac.seibun.includes(seibun)) dataRac.seibun.push(seibun);
 					if (!dataRac.tsusho.includes(yakuzai)) dataRac.tsusho.push(yakuzai);
 					racCounts[rac] = dataRac;
-				});
+				}
 			});
+
+			const slotText = usageItems.map(({ seibun, usageItem }) => {
+				const text = UsageLimit.text(usageItem, seibun, { contentPct: contentPctOf });
+				return text ? `${seibun}: ${text}` : '';
+			}).filter(Boolean).join(' ・ ');
+			const totalOnly = usageItems.length > 0
+				&& usageItems.every(({ usageItem }) => !/[（(]/.test(usageItem.seibunkaisu));
+			const combineAcrossRegistrations = slotText.includes(' / ') || displayLimit !== kaisu || totalOnly;
+			const key = JSON.stringify(combineAcrossRegistrations
+				? [yakuzai, displayLimit, slotText]
+				: [yakuzai, jiki, hoho, displayLimit]);
+			const dataTsusho = yakuzaiCounts.get(key) || {
+				tsusho: yakuzai, kaisu: displayLimit, count: 0, limit: drugLimit, timings: [], refs: []
+			};
+			dataTsusho.count += 1;
+			dataTsusho.timings.push(`${dispJiki(jiki)}/${dispHoho(hoho)}`);
+			dataTsusho.refs.push(chem);
+			yakuzaiCounts.set(key, dataTsusho);
 		});
 
-		const yakuzaiRows = Array.from(yakuzaiCounts.values())
-			.sort((a, b) => a.tsusho.localeCompare(b.tsusho, 'ja'))
+		const ingredientOverLimitRefs = new Set();
+		Object.entries(seibunCounts).forEach(([seibun, data]) => {
+			data.verdict = UsageLimit.judge(data.uses, seibun, { contentPct: contentPctOf });
+			if (data.count > data.limit) {
+				data.uses.forEach(use => ingredientOverLimitRefs.add(use.ref));
+			}
+			data.verdict.flags.forEach((flags, ref) => {
+				if (flags.some(flag => flag.level === 'NG')) ingredientOverLimitRefs.add(ref);
+			});
+			const breakdowns = new Map();
+			[...data.verdict.lines, ...data.verdict.okLines].forEach(line => {
+				const match = line.text.match(/^(.+?): 使用回数(\d+)回/);
+				if (!match) return;
+				const current = breakdowns.get(match[1]);
+				const level = line.level === 'NG' || current?.level === 'NG' ? 'NG' : 'OK';
+				breakdowns.set(match[1], { count: Number(match[2]), level });
+			});
+			data.breakdowns = [...breakdowns].map(([label, result]) => ({ label, ...result }));
+		});
+
+		yakuzaiCounts.forEach(data => {
+			data.exceeded = data.count > data.limit || data.refs.some(ref => ingredientOverLimitRefs.has(ref));
+		});
+
+		const sortedYakuzaiRows = Array.from(yakuzaiCounts.values())
+			.sort((a, b) => a.tsusho.localeCompare(b.tsusho, 'ja') ||
+				a.kaisu.localeCompare(b.kaisu, 'ja'));
+		const yakuzaiRows = sortedYakuzaiRows
 			.map((o, i) => {
 				let classList = [];
-				if (o.isMissing) classList.push('missing-row');
 				if (i % 2 === 1) classList.push('even-row');
-				const count = o.count > o.limit ? `<em>${o.count}</em>` : o.count;
-				return `<tr class="${classList.join(' ')}"><td>${o.tsusho}<br><small>${dispJiki(o.jiki)}/${dispHoho(o.hoho)}</small></td><td>${count}</td><td>${o.kaisu}</td></tr>`;
+				const count = o.exceeded ? `<em>${o.count}</em>` : o.count;
+				const timings = o.timings.map(timing => `<small>${timing}</small>`).join('<br>');
+				return `<tr class="${classList.join(' ')}"><td>${o.tsusho}<br>${timings}</td><td>${count}</td><td>${o.kaisu}</td></tr>`;
 			})
 			.join('');
 
 		if (yakuzaiRows) {
 			html += '<h3>薬剤別使用回数</h3>';
-			html += `<table class="std-data-table"><thead><tr><th>薬剤名</th><th>回数</th><th>上限</th></tr></thead><tbody>${yakuzaiRows}</tbody></table>`;
+			html += `<table id="yakuzaiCountTable" class="std-data-table"><thead><tr><th>薬剤名</th><th>回数</th><th>上限</th></tr></thead><tbody>${yakuzaiRows}</tbody></table>`;
 		}
 
 		const seibunRows = Object.entries(seibunCounts).map(([name, data]) => ({
@@ -1371,23 +1527,10 @@ async function setPlanRecord() {
 			count: data.count,
 			kaisu: data.kaisu,
 			limit: data.limit,
-			tsusho: data.tsusho
+			tsusho: data.tsusho,
+			breakdowns: data.breakdowns,
+			verdict: data.verdict
 		})).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja'));
-
-		if (seibunRows.length > 0) {
-			html += '<h3>成分別使用回数</h3>';
-			seibunRows.forEach(data => {
-				const { name, rac, keito, rem, count, kaisu, limit, tsusho } = data;
-				html += `<div class="row-title">${name}</div>` +
-					`<table class="row-data-table"><tbody>` +
-					`<tr><th>回数</th><td>${count > limit ? '<em>' + count + '</em>' : count}</td></tr>` +
-					`<tr class="even-row"><th>上限</th><td>${kaisu}</td></tr>` +
-					`<tr><th>薬剤</th><td>${tsusho.join(',')}</td></tr>` +
-					`<tr class="even-row"><th>RAC</th><td>${rac}${keito ? ' / ' + keito : ''}${rem ? '<br><small>' + rem + '</small>' : ''}</td></tr>` +
-					`</tbody></table>`;
-			});
-		}
-		html += '<div class="row-data-table"></div>';
 
 		const racRows = Object.entries(racCounts).map(([name, data]) => ({
 			name,
@@ -1413,6 +1556,28 @@ async function setPlanRecord() {
 
 		div.innerHTML = html;
 		wrapper.appendChild(div);
+		const yakuzaiTable = div.querySelector('#yakuzaiCountTable');
+		if (yakuzaiTable) {
+			Array.from(yakuzaiTable.tBodies[0].rows).forEach((row, index) => {
+				const data = sortedYakuzaiRows[index];
+				const ingredientNames = Object.entries(seibunCounts)
+					.filter(([, seibunData]) => seibunData.uses.some(use => data.refs.includes(use.ref)))
+					.map(([name]) => name);
+				if (!ingredientNames.length) return;
+				row.classList.add('yakuzai-count-row');
+				row.tabIndex = 0;
+				row.setAttribute('role', 'button');
+				row.title = 'タップして有効成分別の使用回数を表示';
+				const openDetails = () => openSeibunCountDialog(data.tsusho,
+					seibunRows.filter(seibun => ingredientNames.includes(seibun.name)));
+				row.addEventListener('click', openDetails);
+				row.addEventListener('keydown', event => {
+					if (event.key !== 'Enter' && event.key !== ' ') return;
+					event.preventDefault();
+					openDetails();
+				});
+			});
+		}
 	} catch (e) {
 		console.error(e);
 	} finally {
@@ -1429,6 +1594,42 @@ async function setPlanRecord() {
 	const planSwiper = document.querySelector('.plan-swiper').swiper;
 	if (planSwiper.activeIndex !== 2) planSwiper.slideTo(2);
 
+}
+
+function openSeibunCountDialog(yakuzai, rows) {
+	const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({
+		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+	})[char]);
+	let dialog = document.getElementById('seibunCountDialog');
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = 'seibunCountDialog';
+		dialog.addEventListener('click', event => {
+			if (event.target === dialog) dialog.close();
+		});
+		document.body.appendChild(dialog);
+	}
+	const details = rows.map(data => {
+		const count = data.count > data.limit || data.verdict.status === 'NG'
+			? `<em>${data.count}</em>` : String(data.count);
+		const breakdown = data.breakdowns.length
+			? `(${data.breakdowns.map(item => `${escapeHtml(item.label)}:${item.level === 'NG' ? `<em>${item.count}</em>` : item.count}`).join(',')})`
+			: '';
+		return `<div class="row-title">${escapeHtml(data.name)}</div>` +
+			`<table class="row-data-table"><tbody>` +
+			`<tr><th>回数</th><td>${count}${breakdown}</td></tr>` +
+			`<tr class="even-row"><th>上限</th><td>${escapeHtml(data.kaisu)}</td></tr>` +
+			`<tr><th>薬剤</th><td>${data.tsusho.map(escapeHtml).join(',')}</td></tr>` +
+			`<tr class="even-row"><th>RAC</th><td>${escapeHtml(data.rac)}${data.keito ? ' / ' + escapeHtml(data.keito) : ''}${data.rem ? '<br><small>' + escapeHtml(data.rem) + '</small>' : ''}</td></tr>` +
+			`</tbody></table>`;
+	}).join('');
+	dialog.innerHTML = `<form method="dialog">` +
+		`<div class="seibun-dialog-header"><div class="seibun-dialog-title"></div></div>` +
+		`<div class="seibun-dialog-content">${details}</div>` +
+		`<div class="seibun-dialog-footer"><button type="submit">閉じる</button></div></form>`;
+	dialog.querySelector('.seibun-dialog-title').textContent = `${yakuzai}：成分別使用回数`;
+	if (typeof dialog.showModal === 'function') dialog.showModal();
+	else dialog.setAttribute('open', '');
 }
 
 // 防除記録タブ step.4: 薬剤適用詳細表示
