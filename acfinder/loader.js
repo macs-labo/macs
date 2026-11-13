@@ -1909,10 +1909,10 @@ window.addEventListener('DOMContentLoaded', function() {
 		loading.appendChild(wait);
 	}
 
-});
+//});
 
 // ページロード完了時の初期設定
-window.addEventListener('DOMContentLoaded', async function() {
+//window.addEventListener('DOMContentLoaded', async function() {
 
 	// conditionPane が存在すれば conditionPane 開閉機能設定
 	document.getElementById('sideToggler')?.remove(); // #sideToggler があれば削除
