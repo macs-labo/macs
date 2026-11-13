@@ -15,7 +15,8 @@
 <!-- 最低限必要な外部ライブラリ -->
 <!--	タブ専用の script -->
 <script>
-window.addEventListener('DOMContentLoaded', async function() {
+//window.addEventListener('DOMContentLoaded', async function() {
+window.addEventListener('load', async function() {
 	const templateHtml = sessionStorage.getItem('procTemplateHtml');
 	const templateFileName = sessionStorage.getItem('procTemplateFileName');
 	if (templateHtml) {
@@ -70,11 +71,11 @@ window.addEventListener('DOMContentLoaded', async function() {
 					Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
 					
 					// ★【追加】インラインスクリプトの場合のみ、自動的に {} で囲んでスコープを分ける
-					if (!src && isExecutable && oldScript.textContent) {
-						newScript.textContent = `{\n${oldScript.textContent}\n}`;
-					} else {
+					//if (!src && isExecutable && oldScript.textContent) {
+					//	newScript.textContent = `{\n${oldScript.textContent}\n}`;
+					//} else {
 						newScript.textContent = oldScript.textContent;
-					}
+					//}
 
 					if (src && isExecutable) {
 						newScript.onload = resolve;
@@ -107,11 +108,11 @@ window.addEventListener('DOMContentLoaded', async function() {
 					Array.from(oldScript.attributes).forEach(attr => newScript.setAttribute(attr.name, attr.value));
 
 					// ★【追加】インラインスクリプトの場合のみ、自動的に {} で囲んでスコープを分ける
-					if (!src && isExecutable && oldScript.textContent) {
-						newScript.textContent = `{\n${oldScript.textContent}\n}`;
-					} else {
+					//if (!src && isExecutable && oldScript.textContent) {
+					//	newScript.textContent = `{\n${oldScript.textContent}\n}`;
+					//} else {
 						newScript.textContent = oldScript.textContent;
-					}
+					//}
 
 					if (src && isExecutable) {
 						newScript.onload = resolve;
