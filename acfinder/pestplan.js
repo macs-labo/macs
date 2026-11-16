@@ -61,6 +61,7 @@
  *
  *  【公開】 UsageLimit.judge(items, 成分名, { contentPct(農薬名, 成分名), resolve(問い) })、
  *          UsageLimit.text(item, 成分名, { contentPct })(使用行が当たる内訳枠の規定文の文言。薬剤別の集計キー用。選択は反映しない)、
+ *          UsageLimit.methodKey(使用方法)(成分判定と同じ方法区分に正規化した集計キー)、
  *          UsageLimit.stageOf(時期)(現在の表示では使っていない)。ほかはすべてこの関数の内部用。
  *   items の各行: { no, ref, sakumotsu, yakuzai, zaikei, jiki, hoho, ekiryo, baisu(希釈倍数), byochu(病害虫名・使用目的), seibunkaisu,
  *                   stage(段階別使用回数の登録の行だけ: 'NURSERY'=苗床・育苗 / 'FIELD'=本圃・本田 / 'BOTH'=決まらない。normalizeRowRaw 参照),
@@ -1424,7 +1425,12 @@ function text(item, seibun, opts = {}) {
 
 /** 文字列に出てくる出来事(開花・出穂・入水など。EVENTS の名前)の配列。生育ステージの表に出す出来事を決めるのに使う */
 function eventsIn(t) { return [...eventsOf(t).keys()]; }
-return { judge, stageOf, text, eventsIn, EVENT_NAMES: EVENTS.map(([n]) => n) };
+/** 使用方法を成分使用回数の判定と同じ方法区分へ正規化する */
+function methodKey(t) {
+	const methods = [...scanMethods(t)].sort();
+	return methods.length ? methods.join('|') : norm(t);
+}
+return { judge, stageOf, text, methodKey, eventsIn, EVENT_NAMES: EVENTS.map(([n]) => n) };
 })();
 
 

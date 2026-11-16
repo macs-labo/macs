@@ -1308,6 +1308,7 @@ async function setPlanRecord() {
 		}
 
 		const yakuzaiCounts = new Map();
+		const yakuzaiUses = [];
 		const seibunCounts = {};
 		const racCounts = {};
 		const parseList = value => String(value || '').split(/<br\s*\/?>/i)
@@ -1438,22 +1439,66 @@ async function setPlanRecord() {
 				}
 			});
 
-			const slotText = usageItems.map(({ seibun, usageItem }) => {
-				const text = UsageLimit.text(usageItem, seibun, { contentPct: contentPctOf });
-				return text ? `${seibun}: ${text}` : '';
-			}).filter(Boolean).join(' ・ ');
-			const totalOnly = usageItems.length > 0
-				&& usageItems.every(({ usageItem }) => !/[（(]/.test(usageItem.seibunkaisu));
-			const combineAcrossRegistrations = slotText.includes(' / ') || displayLimit !== kaisu || totalOnly;
-			const key = JSON.stringify(combineAcrossRegistrations
-				? [yakuzai, displayLimit, slotText]
-				: [yakuzai, jiki, hoho, displayLimit]);
+			const components = usageItems.map(({ seibun, usageItem }) => ({
+				seibun,
+				usageItem,
+				text: UsageLimit.text(usageItem, seibun, { contentPct: contentPctOf })
+			}));
+			yakuzaiUses.push({
+				yakuzai, jiki, hoho, kaisu, displayLimit, drugLimit, chem,
+				components,
+				slotText: components.map(({ seibun, text }) => text ? `${seibun}: ${text}` : '')
+					.filter(Boolean).join(' ・ ')
+			});
+		});
+
+		const partialRuleStats = new Map();
+		yakuzaiUses.forEach(use => use.components.forEach(({ seibun, usageItem, text }) => {
+			const rule = String(usageItem.seibunkaisu || '');
+			const ruleKey = JSON.stringify([seibun, rule]);
+			if (!partialRuleStats.has(ruleKey)) {
+				const innerRule = rule.match(/[（(]([\s\S]*?)[）)]/)?.[1] || '';
+				const innerLimitTotal = [...innerRule.normalize('NFKC').matchAll(/(\d+)\s*回(?:以内)?/g)]
+					.reduce((total, match) => total + Number(match[1]), 0);
+				partialRuleStats.set(ruleKey, {
+					limit: Number(rule.match(/^\s*(\d+)/)?.[1] || 0),
+					innerLimitTotal,
+					restrictedUses: 0
+				});
+			}
+			if (text.includes(' / ')) partialRuleStats.get(ruleKey).restrictedUses += 1;
+		}));
+		yakuzaiUses.forEach(use => {
+			const remainderRules = use.components.map(({ seibun, usageItem, text }) => {
+				if (text.includes(' / ')) return null;
+				const rule = String(usageItem.seibunkaisu || '');
+				const ruleKey = JSON.stringify([seibun, rule]);
+				const stats = partialRuleStats.get(ruleKey);
+				if (!stats || !stats.restrictedUses || !stats.limit) return null;
+				const limit = stats.innerLimitTotal > 0 && stats.innerLimitTotal < stats.limit
+					? stats.limit : Math.max(0, stats.limit - stats.restrictedUses);
+				return { key: ruleKey, limit };
+			}).filter(Boolean).sort((a, b) => a.key.localeCompare(b.key, 'ja'));
+			const totalOnly = use.components.length > 0
+				&& use.components.every(({ usageItem }) => !/[（(]/.test(usageItem.seibunkaisu));
+			const remainderLimit = remainderRules.length
+				? Math.min(...remainderRules.map(rule => rule.limit)) : null;
+			const kaisu = remainderLimit !== null ? `${remainderLimit}回以内` : use.displayLimit;
+			const limit = remainderLimit !== null ? remainderLimit : use.drugLimit;
+			const methodKey = UsageLimit.methodKey(use.hoho);
+			const combineAcrossRegistrations = use.slotText.includes(' / ')
+				|| use.displayLimit !== use.kaisu || totalOnly || remainderRules.length > 0;
+			const key = JSON.stringify(remainderRules.length
+				? [use.yakuzai, use.displayLimit, 'remainder', remainderRules.map(rule => rule.key)]
+				: combineAcrossRegistrations
+					? [use.yakuzai, use.displayLimit, use.slotText]
+					: [use.yakuzai, use.jiki, methodKey, use.displayLimit]);
 			const dataTsusho = yakuzaiCounts.get(key) || {
-				tsusho: yakuzai, kaisu: displayLimit, count: 0, limit: drugLimit, timings: [], refs: []
+				tsusho: use.yakuzai, kaisu, count: 0, limit, timings: [], refs: []
 			};
 			dataTsusho.count += 1;
-			dataTsusho.timings.push(`${dispJiki(jiki)}/${dispHoho(hoho)}`);
-			dataTsusho.refs.push(chem);
+			dataTsusho.timings.push(`${dispJiki(use.jiki)}/${dispHoho(use.hoho)}`);
+			dataTsusho.refs.push(use.chem);
 			yakuzaiCounts.set(key, dataTsusho);
 		});
 
