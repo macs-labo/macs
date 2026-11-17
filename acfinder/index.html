@@ -167,6 +167,7 @@ const urlParams = new URLSearchParams(window.location.search);
 <script type="text/javascript" src="./pest.js"></script>
 <script type="text/javascript" src="./chem.js"></script>
 <script type="text/javascript" src="./table.js"></script>
+<script type="text/javascript" src="./pestplan.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
@@ -177,6 +178,7 @@ const urlParams = new URLSearchParams(window.location.search);
 <link rel="stylesheet" type="text/css" href="./common.css" />
 <link rel="stylesheet" type="text/css" href="./loader.css" />
 <link rel="stylesheet" type="text/css" href="./crop.css" />
+<link rel="stylesheet" type="text/css" href="./pestplan.css" />
 <style>
 :root,
 [data-theme="dark"] {
@@ -1480,15 +1482,18 @@ function closeTab(indexToClose) {
 	// 4. Swiperを更新し、必要に応じてアクティブなタブを調整 & 閉じるSwiperを破棄
 	mainSwiper.update();
 
-	// 閉じたタブがアクティブだった場合、または最後のタブだった場合、作物タブに移動
+	// 閉じたタブがアクティブだった場合、または最後のタブだった場合、有効なタブに移動
+/*
 	if (mainSwiper.activeIndex >= mainSwiper.slides.length) {
-		//mainJump(Math.max(0, mainSwiper.slides.length - 1));
-		mainJump(0);
+		mainJump(Math.max(0, mainSwiper.slides.length - 1));
 	} else {
 		// 閉じたタブより前のタブがアクティブだった場合、Swiperは自動でインデックスを調整するが、
 		// UIの状態を確実に同期するため、現在のactiveIndexに再度slideToを呼び出す
 		mainSwiper.slideTo(mainSwiper.activeIndex);
 	}
+*/
+	// オプションタブを閉じた場合は、作物タブに移動
+	mainJump(0);
 	// Swiperインスタンスを破棄
 	if (swiperToDestroy && typeof swiperToDestroy.destroy === 'function') {
 		swiperToDestroy.destroy(true, true); // true, true でDOM要素とイベントリスナーを完全にクリーンアップ
