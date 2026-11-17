@@ -286,6 +286,7 @@ select { height: 28px; }
 }
 .main-btn {
 	flex: 1 1 0;
+	min-width: 0;
 	border: none;
 	border-radius: 0;
 	font-size: 14px;
@@ -299,11 +300,13 @@ select { height: 28px; }
 	white-space: nowrap;
 */
 }
+/*
 .main-nav.compact .main-btn { min-width: var(--inactive-tab-width); }
 .main-nav.compact .main-btn:not(.active) { flex: 0 1 var(--inactive-tab-width); width: var(--inactive-tab-width); padding-left: 2px; padding-right: 2px; }
 .main-nav.compact .main-btn.active { flex: 1 1 0; min-width: var(--inactive-tab-width); }
+*/
 .main-btn:hover { color: var(--border-color); background: var(--bg-color-button); }
-.main-btn.active { width: 30%; color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
+.main-btn.active { flex: 0 0 30%; color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
 
 /* 外側のSwiper */
 .main-swiper {
@@ -792,7 +795,7 @@ function updateMainTabs(index) {
 			btn.classList.remove('active');
 		}
 	});
-	updateMainTabLayout();
+	//updateMainTabLayout();
 }
 
 function updateMainTabLayout() {
@@ -805,12 +808,11 @@ function updateMainTabLayout() {
 	const aveWidth = viewportWidth / buttons.length;
 	const maxWidth = viewportWidth * 0.3;
 	const tabWidth = (viewportWidth - maxWidth) / (buttons.length - 1);
-	//nav.style.setProperty('--inactive-tab-width', `${40 / zoom}px`);
 	nav.style.setProperty('--inactive-tab-width', `${tabWidth}px`);
 	nav.classList.toggle('compact', aveWidth < maxWidth);
 }
 
-window.addEventListener('resize', updateMainTabLayout);
+//window.addEventListener('resize', updateMainTabLayout);
 
 // ステップバーの更新
 function updateStepBar(swiperInstance, maxStep) {
@@ -1204,7 +1206,7 @@ function applyZoom(scale) {
 	localStorage.setItem('appZoom', newZoom);
 	const zoomLevelEl = document.querySelector('#main-menu-dialog #zoom-level');
 	if (zoomLevelEl) zoomLevelEl.textContent = `${Math.round(newZoom * 100)}%`;
-	updateMainTabLayout();
+	//updateMainTabLayout();
 }
 
 function openLocalTabPicker() {
@@ -1436,7 +1438,7 @@ addDynamicTab = async function(title, source, isContent = false, allowDuplicate 
 		initializedTabs[index] = false; // 動的に追加されたタブは未初期化状態
 		tabLoaded[index] = true;
 		tabLoadPromises[index] = Promise.resolve(initFnName);
-		updateMainTabLayout();
+		//updateMainTabLayout();
 
 		// 6. 移動
 		mainJump(index);
@@ -1529,7 +1531,7 @@ function closeTab(indexToClose) {
 			}
 		};
 	});
-	updateMainTabLayout();
+	//updateMainTabLayout();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -1626,7 +1628,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 	// 初期状態のインジケータをセット
 	updateMainTabs(0);
-	updateMainTabLayout();
+	//updateMainTabLayout();
 	mainJump(initTab);
 	activateTab(initTab);
 
