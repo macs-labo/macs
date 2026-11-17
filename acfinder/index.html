@@ -787,7 +787,8 @@ function updateMainTabLayout() {
 	const zoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-zoom')) || 1;
 	const viewportWidth = window.innerWidth / zoom;
 	const buttons = nav.querySelectorAll('.main-btn');
-	nav.style.setProperty('--inactive-tab-width', `${40 / zoom}px`);
+	//nav.style.setProperty('--inactive-tab-width', `${40 / zoom}px`);
+	nav.style.setProperty('--inactive-tab-width', '40px');
 	nav.classList.toggle('compact', buttons.length > 1 && viewportWidth / buttons.length < 72);
 }
 
