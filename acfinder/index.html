@@ -284,12 +284,26 @@ select { height: 28px; }
 	touch-action: none;
 	overflow: hidden;
 }
-.main-btn { flex: 1 1 0; min-width: 40px; border: none; border-radius: 0; font-size: 14px; color: var(--border-color); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.main-btn {
+	flex: 1 1 0;
+	border: none;
+	border-radius: 0;
+	font-size: 14px;
+	color: var(--border-color);
+	line-height: 1.2;
+	overflow-y: hidden;
+/*
+	min-width: 40px;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+*/
+}
 .main-nav.compact .main-btn { min-width: var(--inactive-tab-width); }
 .main-nav.compact .main-btn:not(.active) { flex: 0 1 var(--inactive-tab-width); width: var(--inactive-tab-width); padding-left: 2px; padding-right: 2px; }
 .main-nav.compact .main-btn.active { flex: 1 1 0; min-width: var(--inactive-tab-width); }
 .main-btn:hover { color: var(--border-color); background: var(--bg-color-button); }
-.main-btn.active { color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
+.main-btn.active { width: 30%; color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
 
 /* 外側のSwiper */
 .main-swiper {
