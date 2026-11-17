@@ -787,9 +787,13 @@ function updateMainTabLayout() {
 	const zoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-zoom')) || 1;
 	const viewportWidth = window.innerWidth / zoom;
 	const buttons = nav.querySelectorAll('.main-btn');
+	if (buttons.length <= 3) return;
+	const aveWidth = viewportWidth / buttons.length;
+	const maxWidth = viewportWidth * 0.3;
+	const tabWidth = (viewportWidth - maxWidth) / (buttons.length - 1);
 	//nav.style.setProperty('--inactive-tab-width', `${40 / zoom}px`);
-	nav.style.setProperty('--inactive-tab-width', '40px');
-	nav.classList.toggle('compact', buttons.length > 1 && viewportWidth / buttons.length < 72);
+	nav.style.setProperty('--inactive-tab-width', `${tabWidth}px`);
+	nav.classList.toggle('compact', aveWidth < maxWidth);
 }
 
 window.addEventListener('resize', updateMainTabLayout);
