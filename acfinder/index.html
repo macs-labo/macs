@@ -1480,9 +1480,10 @@ function closeTab(indexToClose) {
 	// 4. Swiperを更新し、必要に応じてアクティブなタブを調整 & 閉じるSwiperを破棄
 	mainSwiper.update();
 
-	// 閉じたタブがアクティブだった場合、または最後のタブだった場合、有効なタブに移動
+	// 閉じたタブがアクティブだった場合、または最後のタブだった場合、作物タブに移動
 	if (mainSwiper.activeIndex >= mainSwiper.slides.length) {
-		mainJump(Math.max(0, mainSwiper.slides.length - 1));
+		//mainJump(Math.max(0, mainSwiper.slides.length - 1));
+		mainJump(0);
 	} else {
 		// 閉じたタブより前のタブがアクティブだった場合、Swiperは自動でインデックスを調整するが、
 		// UIの状態を確実に同期するため、現在のactiveIndexに再度slideToを呼び出す
