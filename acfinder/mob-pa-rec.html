@@ -6,9 +6,6 @@
 <meta name="initFn" content="initPaRec">
 <title>防除記録</title>
 <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
-<!-- usagelimit ライブラリ / 防除計画(DT)タブ・防除記録(Moblie)タブ用成分使用回数内訳判定 -->
-<script type="text/javascript" src="./pestplan.js"></script>
-<link rel="stylesheet" type="text/css" href="./pestplan.css" />
 <style>
 /* ファイルバー設定 */
 .filebar {	
@@ -1148,19 +1145,6 @@ function dispHoho(hoho) {
 	return hoho.length > 15 ? hoho.slice(0, 15) + '…' : hoho;
 }
 
-const openCalendar = (e) => {
-	e.stopPropagation();
-	const anchor = e.target;
-	const displayVal = anchor ? anchor.textContent : '';
-	openTimingCalendar(anchor, displayVal, (v) => {
-		if (v === '') return;
-		anchor.textContent = v;
-		const input = anchor.nextElementSibling;
-		input.value = v;
-		input.dispatchEvent(new Event('change'));
-	});
-};
-
 function makeTimingCell(month, period, date, onchange, idPrefix, idSuffix) {
 	const periodStr = (month && period) ? `${month}月${period}` : '';
 	const isDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date);
@@ -1474,8 +1458,11 @@ async function setPlanRecord() {
 				const rule = String(usageItem.seibunkaisu || '');
 				const ruleKey = JSON.stringify([seibun, rule]);
 				const stats = partialRuleStats.get(ruleKey);
-				if (!stats || !stats.restrictedUses || !stats.limit) return null;
-				const limit = stats.innerLimitTotal > 0 && stats.innerLimitTotal < stats.limit
+				if (!stats || !stats.limit) return null;
+				const hasUnusedInnerAllowance = stats.innerLimitTotal > 0
+					&& stats.innerLimitTotal < stats.limit;
+				if (!stats.restrictedUses && !hasUnusedInnerAllowance) return null;
+				const limit = hasUnusedInnerAllowance
 					? stats.limit : Math.max(0, stats.limit - stats.restrictedUses);
 				return { key: ruleKey, limit };
 			}).filter(Boolean).sort((a, b) => a.key.localeCompare(b.key, 'ja'));

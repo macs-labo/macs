@@ -1,14 +1,20 @@
 /* 共通ヘッダ用グローバル変数 */
 
 // バージョン
-const appVer = '2026.1116.1157';
+const appVer = '2026.1117.1846';
 
 // 基本タブメニュー設定
 // ここに、ファイル名とタブ名を設定することで、オリジナルタブを追加可能
+// mobile: true のタブは、対応する mob-付きHTMLをモバイル版の標準タブとして起動する
+// デスクトップ版を持たないモバイル専用タブは mobileOnlyTabs に指定する
+const mobileOnlyTabs = [
+	{ name: '防除記録', mobileFile: 'mob-pa-rec.html', title: '防除記録' }
+];
+
 let tabs = [
-	{ name: '作物', file: 'crop.html', title: '作物名から農薬を検索' },
-	{ name: '病害虫', file: 'pest.html', title: '病害虫名等から農薬を検索' },
-	{ name: '薬剤', file: 'chem.html', title: '農薬名等から農薬を検索' },
+	{ name: '作物', file: 'crop.html', title: '作物名から農薬を検索', mobile: true },
+	{ name: '病害虫', file: 'pest.html', title: '病害虫名等から農薬を検索', mobile: true },
+	{ name: '薬剤', file: 'chem.html', title: '農薬名等から農薬を検索', mobile: true },
 	{ name: 'SQL', file: 'sql.html', title: '農薬DBをカスタム検索' },
 	{ name: '防除計画', file: 'pestplan.html', title: '防除計画(防除暦)作成支援ツール' },
 	{ name: '農薬病害虫対応表', file: 'pesticides-pests.html', title: '複数の病害虫に対する各農薬の対応表を作成' },
