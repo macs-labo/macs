@@ -1458,8 +1458,11 @@ async function setPlanRecord() {
 				const rule = String(usageItem.seibunkaisu || '');
 				const ruleKey = JSON.stringify([seibun, rule]);
 				const stats = partialRuleStats.get(ruleKey);
-				if (!stats || !stats.restrictedUses || !stats.limit) return null;
-				const limit = stats.innerLimitTotal > 0 && stats.innerLimitTotal < stats.limit
+				if (!stats || !stats.limit) return null;
+				const hasUnusedInnerAllowance = stats.innerLimitTotal > 0
+					&& stats.innerLimitTotal < stats.limit;
+				if (!stats.restrictedUses && !hasUnusedInnerAllowance) return null;
+				const limit = hasUnusedInnerAllowance
 					? stats.limit : Math.max(0, stats.limit - stats.restrictedUses);
 				return { key: ruleKey, limit };
 			}).filter(Boolean).sort((a, b) => a.key.localeCompare(b.key, 'ja'));
