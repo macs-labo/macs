@@ -10,15 +10,12 @@
 <script>
 var initTab = 0;
 const urlParams = new URLSearchParams(window.location.search);
-const isLocalTabWindow = urlParams.has('localTabWindow');
 (function() {
 	// `tab `URL パラメータ取得
 	const pTab = urlParams.get('tab')?.toLocaleLowerCase();
 	urlParams.delete('tab');
 	if (pTab === 'pest' || pTab === 1) initTab = 1;
 	if (pTab === 'chem' || pTab === 2) initTab = 2;
-	if (isLocalTabWindow) initTab = 0;
-
 	// ディスプレイの論理幅が 1280px 以上ならデスクトップ版にリダイレクト
 	const isDesktopSize = window.screen.width >= 1280;
 	if (isDesktopSize) {
@@ -899,7 +896,7 @@ function showMainMenu() {
 		<div class="menu-container">
 			${zoomControlsHtml}
 			<ul class="menu-list">
-				<li class="menu-item" onclick="showAddTabMenu();">
+				<li class="menu-item" onclick="openLocalTabPicker();">
 					<div class="menu-item-name">➕ 新規タブ</div>
 				</li>
 				<li class="menu-item" onclick="showThemeSelection()">
@@ -1189,48 +1186,9 @@ function applyZoom(scale) {
 	updateMainTabLayout();
 }
 
-// オプションタブ追加メニューの表示
-function showAddTabMenu() {
+function openLocalTabPicker() {
 	document.getElementById('main-menu-dialog')?.close(); // メインメニューを閉じる
-
-	const dialogId = 'add-tab-menu-dialog';
-	let dialog = document.getElementById(dialogId);
-	
-	if (!dialog) {
-		dialog = document.createElement('dialog');
-		dialog.id = dialogId;
-		dialog.className = 'menu-dialog';
-		document.body.appendChild(dialog);
-	}
-
-	// 位置をアイコンの直下に固定 (メインメニューと同じ位置)
-	const icon = document.querySelector('header .menu');
-	const rect = icon.getBoundingClientRect();
-	dialog.style.position = 'fixed';
-	dialog.style.margin = '0';
-	dialog.style.top = (rect.bottom + 5) + 'px';
-	dialog.style.right = '10px';
-	dialog.style.left = 'auto';
-
-	dialog.innerHTML = `
-		<div class="menu-container">
-			<ul class="menu-list">
-				<li class="menu-item" onclick="document.getElementById('localTabFileInput').click(); document.getElementById('${dialogId}').close();">
-					<div class="menu-item-name">📂 ローカルファイル</div>
-				</li>
-			</ul>
-		</div>
-		<form method="dialog">
-			<span>新規タブ</span><button>閉じる</button>
-		</form>
-	`;
-
-	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
-	dialog.showModal();
-
-	// ローカルファイル入力のイベントリスナー
-	const localFileInput = document.getElementById('localTabFileInput');
-	localFileInput.onchange = loadLocalTabFile;
+	document.getElementById('localTabFileInput').click();
 }
 
 // すべてのスライドの一時ズームをリセットする
@@ -1282,9 +1240,7 @@ function createZoomableSwiper(selector, mainSwiperInstance, slideChangeCallback 
 
 let mainJump, stepJump, stepMove, addDynamicTab;
 let mainSwiper; // mainSwiper をグローバル変数として宣言
-const mobileTabs = isLocalTabWindow
-	? [{ name: 'ローカル' }]
-	: tabs.filter(tab => tab.mobile).concat(mobileOnlyTabs);
+const mobileTabs = tabs.filter(tab => tab.mobile).concat(mobileOnlyTabs);
 let initializedTabs = mobileTabs.map(() => false);
 let tabSwiperInstances = []; // 各タブの Swiper インスタンスを格納する配列
 const tabTitles = mobileTabs.map(tab => tab.name);
@@ -1408,19 +1364,22 @@ function activateTab(index) {
  * @param {string} title タブの表示名
  * @param {string} source タブコンテンツのURLまたはHTML文字列
  * @param {boolean} isContent sourceがHTML文字列であるか
+ * @param {boolean} allowDuplicate ローカルファイルの同名タブ追加を許可するか
  */
-addDynamicTab = async function(title, source, isContent = false) {
+addDynamicTab = async function(title, source, isContent = false, allowDuplicate = false) {
 	document.getElementById('main-menu-dialog')?.close();
 	document.getElementById('add-tab-menu-dialog')?.close(); // オプションタブメニューも閉じる
 	await waiting(true, `${title}を読み込み中...`);
 	try {
 		// 2重起動防止: 同じ名前（タイトル）または同じソースのタブが既に開かれているかチェック
-		const existingIndex = (tabTitles.indexOf(title) !== -1) ? tabTitles.indexOf(title) : tabSources.indexOf(source);
-		if (existingIndex !== -1) {
-			mainJump(existingIndex);
-			showToast(`「${title}」は既に開いています`);
-			waiting(false);
-			return;
+		if (!allowDuplicate) {
+			const existingIndex = (tabTitles.indexOf(title) !== -1) ? tabTitles.indexOf(title) : tabSources.indexOf(source);
+			if (existingIndex !== -1) {
+				mainJump(existingIndex);
+				showToast(`「${title}」は既に開いています`);
+				waiting(false);
+				return;
+			}
 		}
 
 		const nav = document.querySelector('.main-nav');
@@ -1469,12 +1428,11 @@ addDynamicTab = async function(title, source, isContent = false) {
 };
 
 /**
- * ローカルHTMLファイルを別ウィンドウで読み込む
+ * ローカルHTMLファイルを動的タブとして読み込む
  */
 async function loadLocalTabFile(event) {
 	const file = event.target.files[0];
 	if (!file) return;
-	const sendToLocalTabWindow = isLocalTabWindow ? null : openLocalTabWindow();
 
 	const reader = new FileReader();
 	reader.onload = async (e) => {
@@ -1486,56 +1444,11 @@ async function loadLocalTabFile(event) {
 		if (titleElement && titleElement.textContent.trim() !== '') {
 			tabName = titleElement.textContent.trim();
 		}
-		if (isLocalTabWindow) {
-			try {
-				tabTitles[0] = tabName;
-				tabSources[0] = `local:${file.name}`;
-				document.querySelector('.main-nav .main-btn').textContent = tabName;
-				tabInits[0] = await loadTabContent(`#${tabPlaceholderIds[0]}`, htmlContent, true);
-				tabLoaded[0] = true;
-				tabLoadPromises[0] = Promise.resolve(tabInits[0]);
-				activateTab(0);
-			} catch (error) {
-				console.error('ローカルタブの読み込みに失敗しました:', error);
-				alert('ローカルタブの読み込みに失敗しました。');
-			}
-		} else {
-			sendToLocalTabWindow(tabName, htmlContent);
-		}
+		await addDynamicTab(tabName, htmlContent, true, true);
 	};
 	reader.onerror = () => alert('ローカルタブファイルを読み込めませんでした。');
 	reader.readAsText(file);
 	event.target.value = ''; // 同じファイルを再度選択できるように、inputの値をクリアする
-}
-
-function openLocalTabWindow() {
-	const popupUrl = new URL(window.location.href);
-	popupUrl.searchParams.set('localTabWindow', '1');
-	popupUrl.searchParams.set('mode', 'mobile');
-	popupUrl.hash = '';
-	const popup = window.open(popupUrl.toString(), '_blank');
-	if (!popup) {
-		alert('ローカルタブ用ウィンドウを開けませんでした。ポップアップを許可してください。');
-		return () => {};
-	}
-
-	let isReady = false;
-	let tabContent = null;
-	const deliverTab = () => {
-		if (!isReady || !tabContent) return;
-		window.removeEventListener('message', receiveReady);
-		popup.postMessage({ type: 'load-local-tab', ...tabContent }, location.origin === 'null' ? '*' : location.origin);
-	};
-	const receiveReady = event => {
-		if (event.source !== popup || event.data?.type !== 'local-tab-window-ready') return;
-		isReady = true;
-		deliverTab();
-	};
-	window.addEventListener('message', receiveReady);
-	return (title, html) => {
-		tabContent = { title, html };
-		deliverTab();
-	};
 }
 
 
@@ -1595,6 +1508,8 @@ function closeTab(indexToClose) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+	document.getElementById('localTabFileInput').addEventListener('change', loadLocalTabFile);
+
 	// 1. データベース読込 (最優先で実行)
 	if (db === null) await fetchDB();
 
@@ -1690,30 +1605,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 	mainJump(initTab);
 	activateTab(initTab);
 
-	if (isLocalTabWindow && window.opener) {
-		window.opener.postMessage({ type: 'local-tab-window-ready' }, location.origin === 'null' ? '*' : location.origin);
-	}
-
-});
-
-window.addEventListener('message', event => {
-	if (!isLocalTabWindow || event.source !== window.opener || event.data?.type !== 'load-local-tab') return;
-	if (location.origin !== 'null' && event.origin !== location.origin) return;
-	const { title, html } = event.data;
-	(async () => {
-		try {
-			tabTitles[0] = title;
-			tabSources[0] = `local:${title}`;
-			document.querySelector('.main-nav .main-btn').textContent = title;
-			tabInits[0] = await loadTabContent(`#${tabPlaceholderIds[0]}`, html, true);
-			tabLoaded[0] = true;
-			tabLoadPromises[0] = Promise.resolve(tabInits[0]);
-			activateTab(0);
-		} catch (error) {
-			console.error('ローカルタブの読み込みに失敗しました:', error);
-			alert('ローカルタブの読み込みに失敗しました。');
-		}
-	})();
 });
 
 let backTapCount = 0;
