@@ -293,18 +293,7 @@ select { height: 28px; }
 	color: var(--border-color);
 	line-height: 1.2;
 	overflow-y: hidden;
-/*
-	min-width: 40px;
-	overflow: hidden;
-	text-overflow: ellipsis;
-	white-space: nowrap;
-*/
 }
-/*
-.main-nav.compact .main-btn { min-width: var(--inactive-tab-width); }
-.main-nav.compact .main-btn:not(.active) { flex: 0 1 var(--inactive-tab-width); width: var(--inactive-tab-width); padding-left: 2px; padding-right: 2px; }
-.main-nav.compact .main-btn.active { flex: 1 1 0; min-width: var(--inactive-tab-width); }
-*/
 .main-btn:hover { color: var(--border-color); background: var(--bg-color-button); }
 .main-btn.active { flex: 0 0 30%; color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
 
@@ -795,24 +784,7 @@ function updateMainTabs(index) {
 			btn.classList.remove('active');
 		}
 	});
-	//updateMainTabLayout();
 }
-
-function updateMainTabLayout() {
-	const nav = document.querySelector('.main-nav');
-	if (!nav) return;
-	const zoom = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--app-zoom')) || 1;
-	const viewportWidth = window.innerWidth / zoom;
-	const buttons = nav.querySelectorAll('.main-btn');
-	if (buttons.length <= 3) return;
-	const aveWidth = viewportWidth / buttons.length;
-	const maxWidth = viewportWidth * 0.3;
-	const tabWidth = (viewportWidth - maxWidth) / (buttons.length - 1);
-	nav.style.setProperty('--inactive-tab-width', `${tabWidth}px`);
-	nav.classList.toggle('compact', aveWidth < maxWidth);
-}
-
-//window.addEventListener('resize', updateMainTabLayout);
 
 // ステップバーの更新
 function updateStepBar(swiperInstance, maxStep) {
@@ -1206,7 +1178,6 @@ function applyZoom(scale) {
 	localStorage.setItem('appZoom', newZoom);
 	const zoomLevelEl = document.querySelector('#main-menu-dialog #zoom-level');
 	if (zoomLevelEl) zoomLevelEl.textContent = `${Math.round(newZoom * 100)}%`;
-	//updateMainTabLayout();
 }
 
 function openLocalTabPicker() {
@@ -1438,7 +1409,6 @@ addDynamicTab = async function(title, source, isContent = false, allowDuplicate 
 		initializedTabs[index] = false; // 動的に追加されたタブは未初期化状態
 		tabLoaded[index] = true;
 		tabLoadPromises[index] = Promise.resolve(initFnName);
-		//updateMainTabLayout();
 
 		// 6. 移動
 		mainJump(index);
@@ -1503,16 +1473,6 @@ function closeTab(indexToClose) {
 	// 4. Swiperを更新し、必要に応じてアクティブなタブを調整 & 閉じるSwiperを破棄
 	mainSwiper.update();
 
-	// 閉じたタブがアクティブだった場合、または最後のタブだった場合、有効なタブに移動
-/*
-	if (mainSwiper.activeIndex >= mainSwiper.slides.length) {
-		mainJump(Math.max(0, mainSwiper.slides.length - 1));
-	} else {
-		// 閉じたタブより前のタブがアクティブだった場合、Swiperは自動でインデックスを調整するが、
-		// UIの状態を確実に同期するため、現在のactiveIndexに再度slideToを呼び出す
-		mainSwiper.slideTo(mainSwiper.activeIndex);
-	}
-*/
 	// オプションタブを閉じた場合は、作物タブに移動
 	mainJump(0);
 	// Swiperインスタンスを破棄
@@ -1531,7 +1491,6 @@ function closeTab(indexToClose) {
 			}
 		};
 	});
-	//updateMainTabLayout();
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
@@ -1628,7 +1587,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 	// 初期状態のインジケータをセット
 	updateMainTabs(0);
-	//updateMainTabLayout();
 	mainJump(initTab);
 	activateTab(initTab);
 
