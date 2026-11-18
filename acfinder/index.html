@@ -1358,22 +1358,19 @@ function activateTab(index) {
  * @param {string} title タブの表示名
  * @param {string} source タブコンテンツのURLまたはHTML文字列
  * @param {boolean} isContent sourceがHTML文字列であるか
- * @param {boolean} allowDuplicate ローカルファイルの同名タブ追加を許可するか
  */
-addDynamicTab = async function(title, source, isContent = false, allowDuplicate = false) {
+addDynamicTab = async function(title, source, isContent = false) {
 	document.getElementById('main-menu-dialog')?.close();
 	document.getElementById('add-tab-menu-dialog')?.close(); // オプションタブメニューも閉じる
 	await waiting(true, `${title}を読み込み中...`);
 	try {
 		// 2重起動防止: 同じ名前（タイトル）または同じソースのタブが既に開かれているかチェック
-		if (!allowDuplicate) {
-			const existingIndex = (tabTitles.indexOf(title) !== -1) ? tabTitles.indexOf(title) : tabSources.indexOf(source);
-			if (existingIndex !== -1) {
-				mainJump(existingIndex);
-				showToast(`「${title}」は既に開いています`);
-				waiting(false);
-				return;
-			}
+		const existingIndex = (tabTitles.indexOf(title) !== -1) ? tabTitles.indexOf(title) : tabSources.indexOf(source);
+		if (existingIndex !== -1) {
+			mainJump(existingIndex);
+			showToast(`「${title}」は既に開いています`);
+			waiting(false);
+			return;
 		}
 
 		const nav = document.querySelector('.main-nav');
@@ -1420,6 +1417,43 @@ addDynamicTab = async function(title, source, isContent = false, allowDuplicate 
 	}
 };
 
+async function loadLocalTabIntoStandardTab(index, htmlContent) {
+	await waiting(true, `${tabTitles[index]}を読み込み中...`);
+	try {
+		const pendingLoad = tabLoadPromises[index];
+		if (pendingLoad && !tabLoaded[index]) {
+			try {
+				await pendingLoad;
+			} catch (error) {
+				console.warn(`標準タブ「${tabTitles[index]}」の読み込みに失敗しました。ローカルファイルで置き換えます:`, error);
+			}
+		}
+
+		const swiperToDestroy = tabSwiperInstances[index];
+		if (swiperToDestroy && typeof swiperToDestroy.destroy === 'function') {
+			swiperToDestroy.destroy(true, true);
+		}
+		tabSwiperInstances[index] = null;
+		initializedTabs[index] = false;
+		tabLoaded[index] = false;
+
+		const initFnName = await loadTabContent(`#${tabPlaceholderIds[index]}`, htmlContent, true);
+		tabInits[index] = initFnName;
+		tabSources[index] = htmlContent;
+		tabLoaded[index] = true;
+		tabLoadPromises[index] = Promise.resolve(initFnName);
+
+		const wasActive = mainSwiper.activeIndex === index;
+		mainJump(index);
+		if (wasActive) activateTab(index);
+	} catch (error) {
+		console.error(`標準タブ「${tabTitles[index]}」の置き換えに失敗しました:`, error);
+		alert('ローカルタブファイルを標準タブに読み込めませんでした。');
+	} finally {
+		waiting(false);
+	}
+}
+
 /**
  * ローカルHTMLファイルを動的タブとして読み込む
  */
@@ -1437,13 +1471,17 @@ async function loadLocalTabFile(event) {
 		if (titleElement && titleElement.textContent.trim() !== '') {
 			tabName = titleElement.textContent.trim();
 		}
-		await addDynamicTab(tabName, htmlContent, true, true);
+		const standardTabIndex = mobileTabs.findIndex(tab => tab.name === tabName);
+		if (standardTabIndex !== -1) {
+			await loadLocalTabIntoStandardTab(standardTabIndex, htmlContent);
+		} else {
+			await addDynamicTab(tabName, htmlContent, true);
+		}
 	};
 	reader.onerror = () => alert('ローカルタブファイルを読み込めませんでした。');
 	reader.readAsText(file);
 	event.target.value = ''; // 同じファイルを再度選択できるように、inputの値をクリアする
 }
-
 
 /**
  * 動的に追加されたタブを閉じる
@@ -1473,8 +1511,9 @@ function closeTab(indexToClose) {
 	// 4. Swiperを更新し、必要に応じてアクティブなタブを調整 & 閉じるSwiperを破棄
 	mainSwiper.update();
 
-	// オプションタブを閉じた場合は、作物タブに移動
-	mainJump(0);
+	// オプションタブを閉じた場合は、iniTab に移動
+	mainJump(initTab);
+	//activateTab(initTab);
 	// Swiperインスタンスを破棄
 	if (swiperToDestroy && typeof swiperToDestroy.destroy === 'function') {
 		swiperToDestroy.destroy(true, true); // true, true でDOM要素とイベントリスナーを完全にクリーンアップ
