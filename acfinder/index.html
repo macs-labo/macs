@@ -34,14 +34,12 @@ function findTargetIndex(arr, keyword) {
 	if (pTab === 'pest' || pTab === 1) initTab = 1;
 	if (pTab === 'chem' || pTab === 2) initTab = 2;
 	// ディスプレイの論理幅が 1280px 以上ならデスクトップ版にリダイレクト
-	const desktopTabs = tabs.filter(tab => tab.file);
-	console.log('mobileTabs:', mobileTabs); 
-	console.log('desktopTabs:', desktopTabs); 
 	const isDesktopSize = window.screen.width >= 1280;
 	// URLパラメータでデバッグ用に回避できるようにしておく
 	const forceMobile = urlParams.get('mode')?.toLocaleLowerCase() === 'mobile';
 	urlParams.delete('mode');
 	if (isDesktopSize && !forceMobile) {
+		const desktopTabs = tabs.filter(tab => tab.file);
 		initTab = findTargetIndex(desktopTabs, pTab);
 		let url = desktopTabs[initTab].file;
 		if (urlParams.size > 0) url += '?' + urlParams.toString();

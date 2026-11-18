@@ -1,3 +1,20 @@
+/* システム初期化処理 header.js から移動 */
+
+// FOUC (Flash of Unstyled Content) を防ぐため、CSS読み込み前にテーマを適用
+(function() {
+	const theme = localStorage.getItem('theme') || 'light';
+	document.documentElement.setAttribute('data-theme', theme);
+})();
+
+// Service Worker の登録
+if ('serviceWorker' in navigator) {
+	window.addEventListener('load', () => {
+		navigator.serviceWorker.register('./sw.js')
+			.then(reg => console.log('[PWA] ServiceWorker registered'))
+			.catch(err => console.error('[PWA] ServiceWorker registration failed', err));
+	});
+}
+
 /* 共通ヘッダー表示＆データベースローダー */
 
 // 利用上の注意点修正日

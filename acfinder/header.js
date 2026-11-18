@@ -25,18 +25,3 @@ let tabs = [
 	{ name: 'ローカル', title: 'PC上のタブファイルを実行' },
 	{ name: '設定', file: 'prop.html', title: '各種動作モード設定' }
 ];
-
-// FOUC (Flash of Unstyled Content) を防ぐため、CSS読み込み前にテーマを適用
-(function() {
-	const theme = localStorage.getItem('theme') || 'light';
-	document.documentElement.setAttribute('data-theme', theme);
-})();
-
-// Service Worker の登録
-if ('serviceWorker' in navigator) {
-	window.addEventListener('load', () => {
-		navigator.serviceWorker.register('./sw.js')
-			.then(reg => console.log('[PWA] ServiceWorker registered'))
-			.catch(err => console.error('[PWA] ServiceWorker registration failed', err));
-	});
-}
