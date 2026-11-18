@@ -1,14 +1,14 @@
 /* 共通ヘッダ用グローバル変数 */
 
 // バージョン
-const appVer = '2026.1117.1846';
+const appVer = '2026.1117.1627';
 
 // 基本タブメニュー設定
 // ここに、ファイル名とタブ名を設定することで、オリジナルタブを追加可能
 // mobile: true のタブは、対応する mob-付きHTMLをモバイル版の標準タブとして起動する
 // デスクトップ版を持たないモバイル専用タブは mobileOnlyTabs に指定する
 const mobileOnlyTabs = [
-	{ name: '防除記録', mobileFile: 'mob-pa-rec.html', title: '防除記録' }
+	{ name: '防除記録', file: 'pa-rec.html', title: '防除記録' }
 ];
 
 let tabs = [
