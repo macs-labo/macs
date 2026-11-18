@@ -7,9 +7,26 @@
 <link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
 <link rel="manifest" href="./manifest.json">
 <title>ACFinderBE Mobile</title>
+<script type="text/javascript" src="./header.js"></script>
 <script>
 var initTab = 0;
 const urlParams = new URLSearchParams(window.location.search);
+const mobileTabs = tabs.filter(tab => tab.mobile).concat(mobileOnlyTabs);
+function findTargetIndex(arr, keyword) {
+	const numKeyword = Number(keyword);
+	const index = arr.findIndex((item, idx) => {
+		// 1. indexが完全一致するかどうか
+		if (idx === numKeyword) {
+			return true;
+		}
+		// 2. オブジェクトの各プロパティの値にキーワードが部分一致するかどうか
+		return Object.values(item).some(val => 
+			val != null && String(val).includes(keyword)
+		);
+	});
+	// 見つからない(-1)場合は 0 を返す
+	return index === -1 ? 0 : index;
+}
 (function() {
 	// `tab `URL パラメータ取得
 	const pTab = urlParams.get('tab')?.toLocaleLowerCase();
@@ -18,17 +35,17 @@ const urlParams = new URLSearchParams(window.location.search);
 	if (pTab === 'chem' || pTab === 2) initTab = 2;
 	// ディスプレイの論理幅が 1280px 以上ならデスクトップ版にリダイレクト
 	const isDesktopSize = window.screen.width >= 1280;
-	if (isDesktopSize) {
-		// URLパラメータでデバッグ用に回避できるようにしておく
-		const mode = urlParams.get('mode')?.toLocaleLowerCase();
-		urlParams.delete('mode');
-		if (mode !== 'mobile') {
-			const tabs = ['crop.html', 'pest.html', 'chem.html'];
-			let url = tabs[initTab];
-			if (urlParams.size > 0) url += '?' + urlParams.toString();
-			window.location.href = url;
-		}
+	// URLパラメータでデバッグ用に回避できるようにしておく
+	const forceMobile = urlParams.get('mode')?.toLocaleLowerCase() === 'mobile';
+	urlParams.delete('mode');
+	if (isDesktopSize && !forceMobile) {
+		const desktopTabs = tabs.filter(tab => tab.file);
+		initTab = findTargetIndex(desktopTabs, pTab);
+		let url = desktopTabs[initTab].file;
+		if (urlParams.size > 0) url += '?' + urlParams.toString();
+		window.location.href = url;
 	}
+	initTab = findTargetIndex(mobileTabs, pTab);
 
 	// タッチデバイスでない場合はここで終了
 	if (!('ontouchstart' in window)) return;
@@ -160,7 +177,6 @@ const urlParams = new URLSearchParams(window.location.search);
 	});
 })();
 </script>
-<script type="text/javascript" src="./header.js"></script>
 <script type="text/javascript" src="./loader.js"></script>
 <script type="text/javascript" src="./theme.js"></script>
 <script type="text/javascript" src="./crop.js"></script>
@@ -295,7 +311,7 @@ select { height: 28px; }
 	overflow-y: hidden;
 }
 .main-btn:hover { color: var(--border-color); background: var(--bg-color-button); }
-.main-btn.active { flex: 0 0 30%; color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
+.main-btn.active { min-width: 80px; color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
 
 /* 外側のSwiper */
 .main-swiper {
@@ -1234,11 +1250,10 @@ function createZoomableSwiper(selector, mainSwiperInstance, slideChangeCallback 
 
 let mainJump, stepJump, stepMove, addDynamicTab;
 let mainSwiper; // mainSwiper をグローバル変数として宣言
-const mobileTabs = tabs.filter(tab => tab.mobile).concat(mobileOnlyTabs);
 let initializedTabs = mobileTabs.map(() => false);
 let tabSwiperInstances = []; // 各タブの Swiper インスタンスを格納する配列
 const tabTitles = mobileTabs.map(tab => tab.name);
-const tabSources = mobileTabs.map(tab => tab.mobileFile || (tab.file ? `mob-${tab.file}` : ''));
+const tabSources = mobileTabs.map(tab => tab.file ? `mob-${tab.file}` : '');
 const tabPlaceholderIds = mobileTabs.map((_, index) => `standard-tab-${index}`);
 let tabInits = mobileTabs.map(() => null);
 let tabLoaded = mobileTabs.map(() => false);
@@ -1358,22 +1373,19 @@ function activateTab(index) {
  * @param {string} title タブの表示名
  * @param {string} source タブコンテンツのURLまたはHTML文字列
  * @param {boolean} isContent sourceがHTML文字列であるか
- * @param {boolean} allowDuplicate ローカルファイルの同名タブ追加を許可するか
  */
-addDynamicTab = async function(title, source, isContent = false, allowDuplicate = false) {
+addDynamicTab = async function(title, source, isContent = false) {
 	document.getElementById('main-menu-dialog')?.close();
 	document.getElementById('add-tab-menu-dialog')?.close(); // オプションタブメニューも閉じる
 	await waiting(true, `${title}を読み込み中...`);
 	try {
 		// 2重起動防止: 同じ名前（タイトル）または同じソースのタブが既に開かれているかチェック
-		if (!allowDuplicate) {
-			const existingIndex = (tabTitles.indexOf(title) !== -1) ? tabTitles.indexOf(title) : tabSources.indexOf(source);
-			if (existingIndex !== -1) {
-				mainJump(existingIndex);
-				showToast(`「${title}」は既に開いています`);
-				waiting(false);
-				return;
-			}
+		const existingIndex = (tabTitles.indexOf(title) !== -1) ? tabTitles.indexOf(title) : tabSources.indexOf(source);
+		if (existingIndex !== -1) {
+			mainJump(existingIndex);
+			showToast(`「${title}」は既に開いています`);
+			waiting(false);
+			return;
 		}
 
 		const nav = document.querySelector('.main-nav');
@@ -1420,6 +1432,43 @@ addDynamicTab = async function(title, source, isContent = false, allowDuplicate 
 	}
 };
 
+async function loadLocalTabIntoStandardTab(index, htmlContent) {
+	await waiting(true, `${tabTitles[index]}を読み込み中...`);
+	try {
+		const pendingLoad = tabLoadPromises[index];
+		if (pendingLoad && !tabLoaded[index]) {
+			try {
+				await pendingLoad;
+			} catch (error) {
+				console.warn(`標準タブ「${tabTitles[index]}」の読み込みに失敗しました。ローカルファイルで置き換えます:`, error);
+			}
+		}
+
+		const swiperToDestroy = tabSwiperInstances[index];
+		if (swiperToDestroy && typeof swiperToDestroy.destroy === 'function') {
+			swiperToDestroy.destroy(true, true);
+		}
+		tabSwiperInstances[index] = null;
+		initializedTabs[index] = false;
+		tabLoaded[index] = false;
+
+		const initFnName = await loadTabContent(`#${tabPlaceholderIds[index]}`, htmlContent, true);
+		tabInits[index] = initFnName;
+		tabSources[index] = htmlContent;
+		tabLoaded[index] = true;
+		tabLoadPromises[index] = Promise.resolve(initFnName);
+
+		const wasActive = mainSwiper.activeIndex === index;
+		mainJump(index);
+		if (wasActive) activateTab(index);
+	} catch (error) {
+		console.error(`標準タブ「${tabTitles[index]}」の置き換えに失敗しました:`, error);
+		alert('ローカルタブファイルを標準タブに読み込めませんでした。');
+	} finally {
+		waiting(false);
+	}
+}
+
 /**
  * ローカルHTMLファイルを動的タブとして読み込む
  */
@@ -1437,13 +1486,17 @@ async function loadLocalTabFile(event) {
 		if (titleElement && titleElement.textContent.trim() !== '') {
 			tabName = titleElement.textContent.trim();
 		}
-		await addDynamicTab(tabName, htmlContent, true, true);
+		const standardTabIndex = mobileTabs.findIndex(tab => tab.name === tabName);
+		if (standardTabIndex !== -1) {
+			await loadLocalTabIntoStandardTab(standardTabIndex, htmlContent);
+		} else {
+			await addDynamicTab(tabName, htmlContent, true);
+		}
 	};
 	reader.onerror = () => alert('ローカルタブファイルを読み込めませんでした。');
 	reader.readAsText(file);
 	event.target.value = ''; // 同じファイルを再度選択できるように、inputの値をクリアする
 }
-
 
 /**
  * 動的に追加されたタブを閉じる
@@ -1473,8 +1526,9 @@ function closeTab(indexToClose) {
 	// 4. Swiperを更新し、必要に応じてアクティブなタブを調整 & 閉じるSwiperを破棄
 	mainSwiper.update();
 
-	// オプションタブを閉じた場合は、作物タブに移動
-	mainJump(0);
+	// オプションタブを閉じた場合は、iniTab に移動
+	mainJump(initTab);
+	//activateTab(initTab);
 	// Swiperインスタンスを破棄
 	if (swiperToDestroy && typeof swiperToDestroy.destroy === 'function') {
 		swiperToDestroy.destroy(true, true); // true, true でDOM要素とイベントリスナーを完全にクリーンアップ

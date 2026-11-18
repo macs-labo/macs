@@ -1,14 +1,14 @@
 /* 共通ヘッダ用グローバル変数 */
 
 // バージョン
-const appVer = '2026.1117.1846';
+const appVer = '2026.1118.1502';
 
 // 基本タブメニュー設定
 // ここに、ファイル名とタブ名を設定することで、オリジナルタブを追加可能
 // mobile: true のタブは、対応する mob-付きHTMLをモバイル版の標準タブとして起動する
 // デスクトップ版を持たないモバイル専用タブは mobileOnlyTabs に指定する
 const mobileOnlyTabs = [
-	{ name: '防除記録', mobileFile: 'mob-pa-rec.html', title: '防除記録' }
+	{ name: '防除記録', file: 'pa-rec.html', title: '防除記録' }
 ];
 
 let tabs = [
@@ -25,18 +25,3 @@ let tabs = [
 	{ name: 'ローカル', title: 'PC上のタブファイルを実行' },
 	{ name: '設定', file: 'prop.html', title: '各種動作モード設定' }
 ];
-
-// FOUC (Flash of Unstyled Content) を防ぐため、CSS読み込み前にテーマを適用
-(function() {
-	const theme = localStorage.getItem('theme') || 'light';
-	document.documentElement.setAttribute('data-theme', theme);
-})();
-
-// Service Worker の登録
-if ('serviceWorker' in navigator) {
-	window.addEventListener('load', () => {
-		navigator.serviceWorker.register('./sw.js')
-			.then(reg => console.log('[PWA] ServiceWorker registered'))
-			.catch(err => console.error('[PWA] ServiceWorker registration failed', err));
-	});
-}
