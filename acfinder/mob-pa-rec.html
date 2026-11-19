@@ -1103,6 +1103,11 @@ async function loadPlanFromJson(data) {
 	try {
 		const loadedPlan = data.plan || data.planList;
 		if (!loadedPlan) throw new Error('Invalid format');
+		// json データの jiki, kaisu が空文字列の場合 '-' に正規化
+		loadedPlan.forEach(item => {
+			item.jiki = item.jiki || '-';
+			item.kaisu = item.kaisu || '-';
+		});
 
 		// 前回のDB登録更新日取得
 		dbUpdateText = data.dataset;
