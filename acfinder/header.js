@@ -20,7 +20,7 @@ let tabs = [
 	{ name: '農薬病害虫対応表', file: 'pesticides-pests.html', title: '複数の病害虫に対する各農薬の対応表を作成' },
 	{ name: '農薬作物対応表', file: 'pesticides-crops.html', title: '複数の作物に対する各農薬の対応表を作成' },
 	{ name: 'RAC作用機構', file: 'rac_moa.html', title: '薬剤のRAC作用機構分類表を作成(複数作物指定時 AND 検索)' },
-	{ name: '飼料用稲・籾米', file: 'feedrice.html', title: 'WCS用稲や出穂期以降の飼料用籾米に使用可能な薬剤の検索' },
+	{ name: '飼料用稲・籾米', file: 'feedrice.html', title: 'WCS用稲や出穂期以降の飼料用籾米に使用可能な薬剤の検索', mobile: true },
 	{ name: '登録更新履歴', file: 'acisupdate.html', title: 'FAMIC農薬登録情報・速報の更新履歴' },
 	{ name: 'ローカル', title: 'PC上のタブファイルを実行' },
 	{ name: '設定', file: 'prop.html', title: '各種動作モード設定' }

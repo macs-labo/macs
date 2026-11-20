@@ -162,7 +162,6 @@ async function setupPestChem() {
 	const pestSwiper = document.querySelector('.pest-swiper').swiper;
 	await waiting(true, '薬剤リストを作成中...');
 	try {
-		const chemListbox = document.getElementById("pestChemList");
 		const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(',');
 		const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
 		// Step 2 で作成された ttTekiyoByochu を使用して薬剤を抽出
