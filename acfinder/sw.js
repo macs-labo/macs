@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v5.92r4'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v5.92r5'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -18,6 +18,7 @@ const ASSETS_TO_CACHE = [
 	'./mob-pest.html',
 	'./mob-chem.html',
 	'./mob-pa-rec.html',
+	'./mob-feedrice.html',
 	'./stdsql.zip',
 	'./custom.js',
 	'./header.js',
