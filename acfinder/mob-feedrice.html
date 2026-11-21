@@ -220,6 +220,7 @@ async function setupFeedPest() {
 		} else {
 			await feedPestManager.update([]);
 		}
+		updateStepBar(feedSwiper, 0);
 	} catch (e) {
 		console.error("病害虫リスト取得エラー:", e);
 	} finally {

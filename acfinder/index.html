@@ -11,7 +11,6 @@
 <script>
 var initTab = 0;
 const urlParams = new URLSearchParams(window.location.search);
-const mobileTabs = tabs.filter(tab => tab.mobile).concat(mobileOnlyTabs);
 function findTargetIndex(arr, keyword) {
 	const numKeyword = Number(keyword);
 	const index = arr.findIndex((item, idx) => {
