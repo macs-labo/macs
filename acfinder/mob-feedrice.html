@@ -5,6 +5,27 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <meta name="initFn" content="initFeedTab">
 <title>飼料用稲・籾米</title>
+<style>
+.feedtype {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	gap: 6px;
+	margin-bottom: 8px;
+
+}
+
+.rowflex {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+}
+
+#ex4hppd {
+	margin-top: -2px;
+	margin-bottom: 0px;
+}
+</style>
 </head>
 <body>
 <!-- 【飼料用稲・籾米タブ】 -->
@@ -15,7 +36,6 @@
 		<div class="step-item active" onclick="stepJump(0)">1</div>
 		<div class="step-item" onclick="stepJump(1)">2</div>
 		<div class="step-item" onclick="stepJump(2)">3</div>
-		<div class="step-item" onclick="stepJump(3)">4</div>
 		<div class="next-step" onclick="stepMove('next')">▶</div>
 	</div>
 
@@ -26,83 +46,43 @@
 			<!-- ① 検索条件設定 -->
 			<div class="swiper-slide no-swipe">
 				<div class="step-fixed">
-					<div class="selector">
-						<h3>飼料種別</h3>
-						<select id="catSelect" onchange="catChange(event)">
-							<option value="ine">WCS用稲</option>
-							<option value="momi" selected>籾米(出穂期以降)</option>
-						</select>
-					</div>
-					<div id="momiCond">
-						<div class="selector">
-							<h3>薬剤種別</h3>
-							<select id="momiYotoSelect" onchange="momiYotoChange(event)">
-								<option value="'殺虫剤','殺菌剤','殺虫殺菌剤'" selected>殺虫剤・殺菌剤</option>
-								<option value="'殺虫剤','殺虫殺菌剤'">殺虫剤</option>
-								<option value="'殺菌剤','殺虫殺菌剤'">殺菌剤</option>
-								<option value="'除草剤'">除草剤</option>
+					<div class="feedtype">
+						<h3>飼料種別／栽培様式等</h3>
+						<div class="rowflex">
+							<select id="feedCategory" onchange="catChange(event)">
+								<option value="ine">WCS用稲</option>
+								<option value="momi" selected>籾米(出穂期以降)</option>
 							</select>
-						</div>
-						<div id="momiAddition" class="selector hidden">
-							<h3>栽培様式</h3>
 							<select id="momiMethod" onchange="momiMethodChange(event)">
 								<option value="移植" selected>移植</option>
 								<option value="直播">直播</option>
 							</select>
-						</div>
-					</div>
-					<div id="ineCond" class="hidden">
-						<div class="selector">
-							<h3>薬剤種別</h3>
-							<select id="ineYotoSelect" onchange="ineYotoChange(event)">
-								<option value="'殺虫剤','殺菌剤','殺虫殺菌剤'" selected>殺虫剤・殺菌剤</option>
-								<option value="'殺虫剤','殺虫殺菌剤'">殺虫剤</option>
-								<option value="'殺菌剤','殺虫殺菌剤'">殺菌剤</option>
-								<option value="'除草剤'">除草剤</option>
-								<option value="'農薬肥料','植物成長調整剤'">農薬肥料・植調剤</option>
-							</select>
-						</div>
-						<div class="selector">
-							<h3>栽培様式</h3>
-							<select id="ineMethod" onchange="ineMethodChange(event)">
+							<select id="ineMethod" onchange="ineMethodChange(event)" class="hidden">
 								<option value="移植" selected>移植</option>
 								<option value="湛水直播">湛水直播</option>
 								<option value="乾田直播">乾田直播</option>
 							</select>
 						</div>
-						<div id="4hppd" class="selector hidden">
-							<h3>4-HPPD阻害剤</h3>
-							<select id="4hppdSelect" onchange="exclude4hppdChange(event)">
-								<option value="" selected>含む</option>
-								<option value="1">除く</option>
-							</select>
+						<div id="ex4hppd" class="checkListItem disabled">
+							<input type="checkbox" id="exclude4hppd" onchange="exclude4hppdChange(event)">
+							<label for="exclude4hppd">4-HPPD阻害除草剤を除外する</label>
 						</div>
 					</div>
-					<div class="inputbar">
-						<button onclick="setupFeedPest()">検索</button>
-					</div>
-				</div>
-			</div>
-
-			<!-- ② 病害虫選択 -->
-			<div class="swiper-slide no-swipe">
-				<h2 id="feedHead2"></h2>
-				<div class="step-fixed">
 					<div id="feedPestWrapper" class="flex-wrapper"></div>
 				</div>
 			</div>
 
-			<!-- ③ 農薬選択 -->
+			<!-- ② 農薬選択 -->
 			<div class="swiper-slide no-swipe">
-				<h2 id="feedHead3"></h2>
+				<h2 id="feedHead2"></h2>
 				<div class="step-fixed">
 					<div id="feedChemWrapper" class="flex-wrapper"></div>
 				</div>
 			</div>
 
-			<!-- ④ 詳細表示 -->
+			<!-- ③ 詳細表示 -->
 			<div class="swiper-slide">
-				<h2 id="feedHead4" class="no-swipe"></h2>
+				<h2 id="feedHead3" class="no-swipe"></h2>
 				<div class="step-scrollable">
 					<div id="feedDetailWrapper" class="flex-wrapper"></div>
 				</div>
@@ -114,42 +94,33 @@
 
 <script>
 var feedPestManager, feedChemManager, feedDetailManager; // 飼料用稲・籾米タブ用
-var currentCat, currentMomiYoto, currentIneYoto, currentMomiMethod, currentIneMethod, currentExclude4hppd;
+var currentCat, currentMomiMethod, currentIneMethod, currentExclude4hppd;
 
 function setupFeedCondition() {
-	const momi = currentCat === "momi";
-	document.getElementById("momiCond").classList.toggle("hidden", !momi);
-	document.getElementById("ineCond").classList.toggle("hidden", momi);
-	const harbicide = currentMomiYoto === "'除草剤'";
-	document.getElementById("momiAddition").classList.toggle("hidden", currentMomiYoto !== "'除草剤'");
-	document.getElementById("4hppd").classList.toggle("hidden", currentIneYoto !== "'除草剤'");
 }
 
 function catChange(event) {
 	currentCat = event.target.value;
-	setupFeedCondition();
-}
-
-function momiYotoChange(event) {
-	currentMomiYoto = event.target.value;
-	setupFeedCondition();
+	const momi = currentCat === "momi";
+	document.getElementById("momiMethod").classList.toggle("hidden", !momi);
+	document.getElementById("ineMethod").classList.toggle("hidden", momi);
+	document.getElementById("ex4hppd").classList.toggle("disabled", momi);
+	setupFeedPest();
 }
 
 function momiMethodChange(event) {
 	currentMomiMethod = event.target.value;
-}
-
-function ineYotoChange(event) {
-	currentIneYoto = event.target.value;
-	setupFeedCondition();
+	setupFeedPest();
 }
 
 function ineMethodChange(event) {
 	currentIneMethod = event.target.value;
+	setupFeedPest();
 }
 
 function exclude4hppdChange(event) {
-	currentExclude4hppd = event.target.value;
+	currentExclude4hppd = event.target.checked;
+	setupFeedPest();
 }
 
 // 飼料用稲・籾米タブ初期化： ナビゲーションでこのタブが選ばれた時に index.html から一度だけ呼ばれる
@@ -159,10 +130,8 @@ function initFeedTab() {
 		const checkedPests = feedPestManager.checkedPests;
 		const feedSwiper = document.querySelector('.feed-swiper').swiper;
 		if (checkedPests.length > 0) {
-			updateStepBar(feedSwiper, Math.max(feedSwiper.maxReachedStep, 2));
+			updateStepBar(feedSwiper, Math.max(feedSwiper.maxReachedStep, 1));
 			setupFeedChem();
-		} else {
-			updateStepBar(feedSwiper, 1);
 		}
 	});
 	feedPestManager.init({ title: '病害虫等選択', showCategory: true });
@@ -171,7 +140,7 @@ function initFeedTab() {
 	feedChemManager = new ChemListManager('#feedChemWrapper', (chem) => {
 		const feedSwiper = document.querySelector('.feed-swiper').swiper;
 		if (chem) {
-			updateStepBar(feedSwiper, Math.max(feedSwiper.maxReachedStep, 3));
+			updateStepBar(feedSwiper, Math.max(feedSwiper.maxReachedStep, 2));
 			setupFeedDetail();
 		}
 	});
@@ -182,13 +151,11 @@ function initFeedTab() {
 	feedDetailManager.init();
 
 	// 飼料用稲・籾米タブ検索条件初期化
-	currentCat = document.getElementById("catSelect").value;
-	currentMomiYoto = document.getElementById("momiYotoSelect").value;
+	currentCat = document.getElementById("feedCategory").value;
 	currentMomiMethod = document.getElementById("momiMethod").value;
-	currentIneYoto = document.getElementById("ineYotoSelect").value;
 	currentIneMethod = document.getElementById("ineMethod").value;
-	currentExclude4hppd = document.getElementById("4hppdSelect").value;
-	setupFeedCondition();
+	currentExclude4hppd = document.getElementById("exclude4hppd").checked;
+	setupFeedPest();
 
 	// 内部Swiperの初期化と返却
 	const feedSwiperInstance = createZoomableSwiper('.feed-swiper', mainSwiper, function() {
@@ -198,23 +165,16 @@ function initFeedTab() {
 	return feedSwiperInstance; // Swiperインスタンスを返す
 
 }
-// 飼料用稲・籾米タブ step.2: 病害虫選択
+
+// 飼料用稲・籾米タブ step.1: 病害虫選択
 async function setupFeedPest() {
-	// ヘッダ設定
-	const title = document.querySelector('#feedHead2');
-	const catSelect = document.getElementById("catSelect");
-	const crop = catSelect.options[catSelect.selectedIndex].textContent;
-	const yoto = currentCat === 'ine' ? currentIneYoto : currentMomiYoto;
-	title.innerHTML = `${crop} ／ ${yoto.replaceAll("'", '')}`;
-
-
 	// 病害虫リスト作成
 	const feedSwiper = document.querySelector('.feed-swiper').swiper;
 	await waiting(true, '病害虫リストを取得中...');
 	try{
-		const method = currentCat === 'ine' ? currentIneMethod : currentMomiYoto === "'除草剤'" ? currentMomiMethod : '';
+		const method = currentCat === 'ine' ? currentIneMethod : currentMomiMethod;
 		const feedCond = currentCat === 'momi' ? "momi = 1" :
-						currentIneYoto !== "'除草剤'" || currentExclude4hppd === '' ? 'ine = 1' :
+						!currentExclude4hppd ? "ine = 1" :
 						"and tsusho not in (select tsusho from feedrice left join kihon using(shurui) where mid like '%H:27%')";
 		const cropCond = currentCat === 'momi' ? "sakumotsu not like '%苗%' and jiki not regexp '種前|種時|緑化|耕起|移植時'" :
 						currentIneMethod === '湛水直播' ? "sakumotsu not like '%乾田%' and hoho not like '%育苗箱%' and jiki not regexp '移植|田植|苗代|乾田' and chokuha = 1" :
@@ -225,7 +185,6 @@ async function setupFeedPest() {
 			create temp table t_feedTekiyo as
 			with t_tekiyo as (select * from tv_tsushoTekiyo left join feedrice using(shurui) where
 				${feedCond} and 
-				seizaiyoto in (${yoto}) and
 				sakumotsu in (select sakumotsu from m_sakumotsu where idsaku regexp (select '^('||n_concat('|',substr(idsaku,1,12),substr(idsaku,1,6)||'000000',substr(idsaku,1,4)||'00000000')||')' from m_sakumotsu where sakumotsu = '${method}水稲')) and
 				${cropCond} and
 				tsusho not in (select tsusho from feedrice left join kihon using(shurui) where ippanmei = jogaiseibun and extnum('%', nodo) > jogainodo)
@@ -251,7 +210,6 @@ async function setupFeedPest() {
 				betsumei: row[2]
 			}));
 			await feedPestManager.update(pests); // スライドを病害虫選択まで開放（次以降は未開放にする）
-			updateStepBar(feedSwiper, 1);
 
 			// urlParams に pests があれば、選択病害虫を設定
 			const pPests = urlParams.get('pests');
@@ -261,22 +219,18 @@ async function setupFeedPest() {
 			}
 		} else {
 			await feedPestManager.update([]);
-			feedSwiper.slideTo(0);
-			updateStepBar(feedSwiper, 0);
 		}
 	} catch (e) {
 		console.error("病害虫リスト取得エラー:", e);
 	} finally {
 		waiting(false);
 	}
-
-	if (feedSwiper.activeIndex !== 1) feedSwiper.slideTo(1);
 }
 
-// 飼料用稲・籾米タブ step.3: 薬剤選択
+// 飼料用稲・籾米タブ step.2: 薬剤選択
 async function setupFeedChem() {
 	// ヘッダ設定
-	const title = document.querySelector('#feedHead3');
+	const title = document.querySelector('#feedHead2');
 	const checkedPests = feedPestManager.checkedPests.sort((a, b) => a.id.localeCompare(b.id)); // id 順にソートした配列
 	let normalizedPests = [];
 	let currentId = '';
@@ -339,10 +293,10 @@ async function setupFeedChem() {
 			}));
 			feedChemManager.update(chems);
 			// スライドを薬剤選択まで開放（次以降は未開放にする）
-			updateStepBar(feedSwiper, 2);
+			updateStepBar(feedSwiper, 1);
 		} else {
 			feedChemManager.update([]);
-			updateStepBar(feedSwiper, 1);
+			updateStepBar(feedSwiper, 0);
 		}
 	} catch (e) {
 		console.error("薬剤リスト作成エラー:", e);
@@ -350,19 +304,19 @@ async function setupFeedChem() {
 		waiting(false);
 	}
 
-	if (feedSwiper.activeIndex !== 2) feedSwiper.slideTo(2);
+	if (feedSwiper.activeIndex !== 1) feedSwiper.slideTo(1);
 }
 
-// 飼料用稲・籾米タブ step.4: 詳細表示
+// 飼料用稲・籾米タブ step.3: 詳細表示
 async function setupFeedDetail() {
-	const title = document.querySelector('#feedHead4');
+	const title = document.querySelector('#feedHead3');
 	const chem = feedChemManager.selectedChem;
 
 	title.innerHTML = chem;
 	await feedDetailManager.update(chem, 't_feedTekiyo');
 
 	const feedSwiper = document.querySelector('.feed-swiper').swiper;
-	if (feedSwiper.activeIndex !== 3) feedSwiper.slideTo(3);
+	if (feedSwiper.activeIndex !== 2) feedSwiper.slideTo(2);
 }
 </script>
 </body>
