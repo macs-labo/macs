@@ -1,3 +1,20 @@
+/* システム初期化処理 header.js から移動 */
+
+// FOUC (Flash of Unstyled Content) を防ぐため、CSS読み込み前にテーマを適用
+(function() {
+	const theme = localStorage.getItem('theme') || 'light';
+	document.documentElement.setAttribute('data-theme', theme);
+})();
+
+// Service Worker の登録
+if ('serviceWorker' in navigator) {
+	window.addEventListener('load', () => {
+		navigator.serviceWorker.register('./sw.js')
+			.then(reg => console.log('[PWA] ServiceWorker registered'))
+			.catch(err => console.error('[PWA] ServiceWorker registration failed', err));
+	});
+}
+
 /* 共通ヘッダー表示＆データベースローダー */
 
 // 利用上の注意点修正日
@@ -19,22 +36,6 @@ const subdb  = 'spec';
 const local  = window.location.protocol.indexOf('file:') === 0;
 const isElectron = typeof window.electronAPI !== 'undefined';
 const isFileSystemAccessSupported = 'showOpenFilePicker' in window; // File System Access API サポート判定
-const isDesktop = isDesktopSecure();
-
-function isDesktopSecure() {
-	// 1. 「デスクトップ環境」であることの確定検出
-	// マウス等の精密なポインタがあり、かつ「ホバー（カーソルを合わせる）」が可能なデバイス特性
-	const isDesktopFormFactor = window.matchMedia("(pointer: fine)").matches && window.matchMedia("(hover: hover)").matches;
-
-	// 2. Android / iOS / macOS ではない（Windows や Linux 等のファイルシステム挙動）の検出
-	// Android専用の "virtualKeyboard" が「存在しない」ことを確認
-	const isNotAndroid = !("virtualKeyboard" in navigator);
-	// iOS専用のタッチ特性やスタンドアロン特性が無いことを確認
-	const isNotIOS = !("standalone" in window.navigator);
-
-	// すべてを満たせば「Windows または Linux 版の Chromium」と確定
-	return isDesktopFormFactor && isNotAndroid && isNotIOS;
-}
 
 // 公開用の自動ログキャンセル
 if (!debug) {
@@ -67,6 +68,125 @@ function openDB(dbName) {
 			reject(event.target.error);
 		};
 	});
+}
+
+// ===== ファイルハンドル キャッシュ（IndexedDB）=====
+// localStorage キャッシュ（例: mob-pa-rec の pestRecData:xxx）と「同一キー」で対にして保存する。
+// ハンドルは FileSystemFileHandle をそのまま structured clone で格納できる。
+// localStorage 側のキャッシュを削除する際は、必ず同じキーのハンドルも deleteCachedFileHandle() で削除すること
+// （放置するとハンドルキャッシュだけが増え続けるため）。
+const handleDbName = 'fileHandleDB';
+const handleStoreName = 'handles';
+
+function openHandleDB() {
+	return new Promise((resolve, reject) => {
+		const request = indexedDB.open(handleDbName, 1);
+		request.onupgradeneeded = (event) => {
+			const db = event.target.result;
+			if (!db.objectStoreNames.contains(handleStoreName)) {
+				db.createObjectStore(handleStoreName, { keyPath: 'key' });
+			}
+		};
+		request.onsuccess = (event) => resolve(event.target.result);
+		request.onerror = (event) => reject(event.target.error);
+	});
+}
+
+// ファイルハンドルをキャッシュに保存
+async function putCachedFileHandle(cacheKey, handle, fileName = '') {
+	if (!cacheKey || !handle) return;
+	try {
+		const hdb = await openHandleDB();
+		await new Promise((resolve, reject) => {
+			const tx = hdb.transaction(handleStoreName, 'readwrite');
+			tx.objectStore(handleStoreName).put({
+				key: cacheKey,
+				handle,
+				fileName: fileName || handle.name || '',
+				savedAt: Date.now()
+			});
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error);
+			tx.onabort = () => reject(tx.error);
+		});
+		hdb.close();
+	} catch (err) {
+		console.warn('[handleCache] 保存に失敗しました:', err);
+	}
+}
+
+// キャッシュからファイルハンドルを取得。expectedFileName を指定した場合は
+// 保存時とファイル名が一致する場合のみ返す（単一スロットキーの取り違え防止）
+async function getCachedFileHandle(cacheKey, expectedFileName = '') {
+	if (!cacheKey) return null;
+	try {
+		const hdb = await openHandleDB();
+		const record = await new Promise((resolve, reject) => {
+			const tx = hdb.transaction(handleStoreName, 'readonly');
+			const req = tx.objectStore(handleStoreName).get(cacheKey);
+			req.onsuccess = () => resolve(req.result || null);
+			req.onerror = () => reject(req.error);
+		});
+		hdb.close();
+		if (!record || !record.handle) return null;
+		if (expectedFileName && record.fileName && record.fileName !== expectedFileName) return null;
+		return record.handle;
+	} catch (err) {
+		console.warn('[handleCache] 取得に失敗しました:', err);
+		return null;
+	}
+}
+
+// キャッシュからファイルハンドルを削除（localStorage キャッシュ削除と必ず連動させること）
+async function deleteCachedFileHandle(cacheKey) {
+	if (!cacheKey) return;
+	try {
+		const hdb = await openHandleDB();
+		await new Promise((resolve, reject) => {
+			const tx = hdb.transaction(handleStoreName, 'readwrite');
+			tx.objectStore(handleStoreName).delete(cacheKey);
+			tx.oncomplete = () => resolve();
+			tx.onerror = () => reject(tx.error);
+			tx.onabort = () => reject(tx.error);
+		});
+		hdb.close();
+	} catch (err) {
+		console.warn('[handleCache] 削除に失敗しました:', err);
+	}
+}
+
+// キャッシュ済みファイルハンドルを全件取得（ハンドル一覧ツール用）
+async function getAllCachedFileHandles() {
+	try {
+		const hdb = await openHandleDB();
+		const records = await new Promise((resolve, reject) => {
+			const tx = hdb.transaction(handleStoreName, 'readonly');
+			const req = tx.objectStore(handleStoreName).getAll();
+			req.onsuccess = () => resolve(req.result || []);
+			req.onerror = () => reject(req.error);
+		});
+		hdb.close();
+		return records;
+	} catch (err) {
+		console.warn('[handleCache] 一覧取得に失敗しました:', err);
+		return [];
+	}
+}
+
+// ハンドルが「上書き書き込み可能」な状態か確認し、失効していれば再要求する。
+// requestPermission() はユーザー操作（保存ボタンのクリックなど）の文脈内で呼び出すこと。
+async function ensureFileHandleWritePermission(handle) {
+	if (!handle || typeof handle.queryPermission !== 'function') return false;
+	try {
+		let permission = await handle.queryPermission({ mode: 'readwrite' });
+		if (permission !== 'granted') {
+			permission = await handle.requestPermission({ mode: 'readwrite' });
+		}
+		return permission === 'granted';
+	} catch (err) {
+		console.warn('[handleCache] 書き込み許可の取得に失敗しました:', err);
+		return false;
+	}
 }
 
 // IndexedDBからファイルのメタデータを取得
@@ -1561,17 +1681,18 @@ let tabExecuted = false;
 async function handleLocalFileSelection(file) {
 	if (!file) return;
 
-	waiting(true, 'ファイルを読み込んでいます...');
+	await waiting(true, 'ファイルを読み込んでいます...');
 	try {
 		const templateHtml = await file.text();
+		// proc.html を現在のタブで開く（既に proc.html の場合はリロードされる）
 		sessionStorage.setItem('procTemplateHtml', templateHtml);
 		sessionStorage.setItem('procTemplateFileName', file.name);
-		// proc.html を現在のタブで開く（既に proc.html の場合はリロードされる）
 		window.open('proc.html', '_self');
 	} catch (e) {
 		console.error('ファイルの読み込み中にエラーが発生しました:', e);
-		waiting(false);
 		alert('ファイルの読み込みに失敗しました。');
+	} finally {
+		await waiting(false);
 	}
 }
 
@@ -1805,11 +1926,6 @@ window.addEventListener('DOMContentLoaded', function() {
 		loading.appendChild(wait);
 	}
 
-});
-
-// ページロード完了時の初期設定
-window.addEventListener('DOMContentLoaded', async function() {
-
 	// conditionPane が存在すれば conditionPane 開閉機能設定
 	document.getElementById('sideToggler')?.remove(); // #sideToggler があれば削除
 	const conditionPane = document.getElementById('conditionPane');
@@ -1926,7 +2042,6 @@ window.addEventListener('DOMContentLoaded', async function() {
 			document.addEventListener('touchend', onTouchEnd);
 		});
 	}
-
 
 	// conditionPane に #h-splitter が存在すれば、リサイズ機能設定 (タッチ対応)
 	if (conditionPane) {

@@ -7,29 +7,45 @@
 <link rel="icon" type="image/png" href="../android-chrome-192x192.png" sizes="192x192">
 <link rel="manifest" href="./manifest.json">
 <title>ACFinderBE Mobile</title>
+<script type="text/javascript" src="./header.js"></script>
 <script>
 var initTab = 0;
 const urlParams = new URLSearchParams(window.location.search);
+const mobileTabs = tabs.filter(tab => tab.mobile).concat(mobileOnlyTabs);
+function findTargetIndex(arr, keyword) {
+	const numKeyword = Number(keyword);
+	const index = arr.findIndex((item, idx) => {
+		// 1. indexが完全一致するかどうか
+		if (idx === numKeyword) {
+			return true;
+		}
+		// 2. オブジェクトの各プロパティの値にキーワードが部分一致するかどうか
+		return Object.values(item).some(val => 
+			val != null && String(val).includes(keyword)
+		);
+	});
+	// 見つからない(-1)場合は 0 を返す
+	return index === -1 ? 0 : index;
+}
 (function() {
 	// `tab `URL パラメータ取得
 	const pTab = urlParams.get('tab')?.toLocaleLowerCase();
 	urlParams.delete('tab');
 	if (pTab === 'pest' || pTab === 1) initTab = 1;
 	if (pTab === 'chem' || pTab === 2) initTab = 2;
-
 	// ディスプレイの論理幅が 1280px 以上ならデスクトップ版にリダイレクト
 	const isDesktopSize = window.screen.width >= 1280;
-	if (isDesktopSize) {
-		// URLパラメータでデバッグ用に回避できるようにしておく
-		const mode = urlParams.get('mode')?.toLocaleLowerCase();
-		urlParams.delete('mode');
-		if (mode !== 'mobile') {
-			const tabs = ['crop.html', 'pest.html', 'chem.html'];
-			let url = tabs[initTab];
-			if (urlParams.size > 0) url += '?' + urlParams.toString();
-			window.location.href = url;
-		}
+	// URLパラメータでデバッグ用に回避できるようにしておく
+	const forceMobile = urlParams.get('mode')?.toLocaleLowerCase() === 'mobile';
+	urlParams.delete('mode');
+	if (isDesktopSize && !forceMobile) {
+		const desktopTabs = tabs.filter(tab => tab.file);
+		initTab = findTargetIndex(desktopTabs, pTab);
+		let url = desktopTabs[initTab].file;
+		if (urlParams.size > 0) url += '?' + urlParams.toString();
+		window.location.href = url;
 	}
+	initTab = findTargetIndex(mobileTabs, pTab);
 
 	// タッチデバイスでない場合はここで終了
 	if (!('ontouchstart' in window)) return;
@@ -118,6 +134,15 @@ const urlParams = new URLSearchParams(window.location.search);
 
 	document.documentElement.appendChild(div);
 
+	// ハンバーガーメニューからもログ画面を開けるようにグローバルへ公開する
+	// force を省略すると表示/非表示のトグルになる
+	window.showPwaLogger = function(force) {
+		const show = force === undefined ? div.style.display === 'none' : !!force;
+		div.style.display = show ? 'block' : 'none';
+		// 開いた瞬間に、通常ログの最下部（最新）へスクロールさせる
+		if (show) div.scrollTop = div.scrollHeight;
+	};
+
 	const originalLog = console.log;
 	console.log = function(...args) {
 		originalLog.apply(console, args);
@@ -138,37 +163,27 @@ const urlParams = new URLSearchParams(window.location.search);
 		div.style.display = 'block'; // 隠れていても強制表示
 	});
 
-	// 👈 【追加】画面を「3本指でタップ」するたびに、ログ画面を表示・非表示にする
+	// 👈 画面を「3本指でタップ」するたびに、ログ画面を表示・非表示にする
 	window.addEventListener('touchstart', function(e) {
 		if (e.touches.length === 3) { // 3本指タッチを検知
-			if (div.style.display === 'none') {
-				div.style.display = 'block';
-				// 開いた瞬間に、通常ログの最下部（最新）へスクロールさせる
-				div.scrollTop = div.scrollHeight;
-			} else {
-				div.style.display = 'none';
-			}
+			window.showPwaLogger();
 		}
 	});
 
 	// ブラウザのタッチエミュレータの場合はマウス右ボタンででログ表示
 	window.addEventListener('contextmenu', function(e) {
 		e.preventDefault();
-		if (div.style.display === 'none') {
-			div.style.display = 'block';
-		} else {
-			div.style.display = 'none';
-		}
+		window.showPwaLogger();
 	});
 })();
 </script>
-<script type="text/javascript" src="./header.js"></script>
 <script type="text/javascript" src="./loader.js"></script>
 <script type="text/javascript" src="./theme.js"></script>
 <script type="text/javascript" src="./crop.js"></script>
 <script type="text/javascript" src="./pest.js"></script>
 <script type="text/javascript" src="./chem.js"></script>
 <script type="text/javascript" src="./table.js"></script>
+<script type="text/javascript" src="./pestplan.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
@@ -179,6 +194,7 @@ const urlParams = new URLSearchParams(window.location.search);
 <link rel="stylesheet" type="text/css" href="./common.css" />
 <link rel="stylesheet" type="text/css" href="./loader.css" />
 <link rel="stylesheet" type="text/css" href="./crop.css" />
+<link rel="stylesheet" type="text/css" href="./pestplan.css" />
 <style>
 :root,
 [data-theme="dark"] {
@@ -282,10 +298,20 @@ select { height: 28px; }
 	background: var(--bg-color-button);
 	border-bottom: 1px solid var(--border-color);
 	touch-action: none;
+	overflow: hidden;
 }
-.main-btn { flex: 1; border: none; border-radius: 0; font-size: 14px; color: var(--border-color); }
+.main-btn {
+	flex: 1 1 0;
+	min-width: 0;
+	border: none;
+	border-radius: 0;
+	font-size: 14px;
+	color: var(--border-color);
+	line-height: 1.2;
+	overflow-y: hidden;
+}
 .main-btn:hover { color: var(--border-color); background: var(--bg-color-button); }
-.main-btn.active { color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
+.main-btn.active { min-width: 80px; color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
 
 /* 外側のSwiper */
 .main-swiper {
@@ -638,6 +664,79 @@ table.row-data-table {
 	color: var(--text-color-light);
 	cursor: pointer;
 }
+/* ファイルハンドルキャッシュ一覧ダイアログ */
+#handle-menu {
+	max-width: min(96vw, 640px);
+	width: 100%;
+}
+#handle-menu .menu-container {
+	padding: 12px 16px;
+}
+#handle-menu p.handle-desc {
+	font-size: 12px;
+	padding: 0 0 8px;
+	text-align: left;
+	color: var(--text-color);
+}
+#handle-menu .handle-toolbar {
+	display: flex;
+	gap: 8px;
+	align-items: center;
+	margin-bottom: 8px;
+	flex-wrap: wrap;
+}
+#handle-menu .handle-toolbar button {
+	cursor: pointer;
+	font-size: 12px;
+}
+#handle-menu .handle-toolbar #handle-summary {
+	margin-left: auto;
+	font-size: 12px;
+}
+#handle-menu table {
+	width: 100%;
+	border-collapse: collapse;
+	font-size: 12px;
+	margin-bottom: 8px;
+}
+#handle-menu th, #handle-menu td {
+	border: 1px solid var(--border-color);
+	padding: 4px 6px;
+	text-align: left;
+	word-break: break-all;
+}
+#handle-menu .badge {
+	display: inline-block;
+	padding: 0 4px;
+	border-radius: 4px;
+	font-size: 11px;
+}
+#handle-menu .badge.ok {
+	color: green;
+}
+#handle-menu .badge.warn {
+	color: red;
+}
+#handle-menu .row-del, #handle-menu .handle-del-all {
+	cursor: pointer;
+	font-size: 12px;
+}
+#handle-menu .handle-cache-only {
+	font-size: 12px;
+	margin: 0;
+	padding-left: 20px;
+	word-break: break-all;
+}
+#handle-menu .handle-section-title {
+	font-size: 12px;
+	font-weight: bold;
+	margin: 8px 0 4px;
+}
+#handle-menu .empty {
+	color: var(--text-color-light);
+	font-style: italic;
+	font-size: 12px;
+}
 </style>
 <script>
 window.isMobile = true;
@@ -793,11 +892,22 @@ function showMainMenu() {
 		</div>
 	`;
 
+	// 開発版（debug）限定のメニュー項目（ハンドル一覧・ログ表示）
+	// ファイルハンドルアイコン候補 🔧; ログ表示アイコン候補 📃
+	const debugMenuHtml = debug ? `
+				<li class="menu-item" onclick="showHandleListFromMenu();">
+					<div class="menu-item-name">📁 ファイルハンドル一覧</div>
+				</li>
+				<li class="menu-item" onclick="showPwaLoggerFromMenu();">
+					<div class="menu-item-name">📜 ログ表示</div>
+				</li>
+	` : '';
+
 	dialog.innerHTML = `
 		<div class="menu-container">
 			${zoomControlsHtml}
 			<ul class="menu-list">
-				<li class="menu-item" onclick="showAddTabMenu();">
+				<li class="menu-item" onclick="openLocalTabPicker();">
 					<div class="menu-item-name">➕ 新規タブ</div>
 				</li>
 				<li class="menu-item" onclick="showThemeSelection()">
@@ -822,7 +932,7 @@ function showMainMenu() {
 				</li>
 				<li class="menu-item" onclick="showVersionInfo()">
 					<div class="menu-item-name">ℹ️ バージョン情報</div>
-				</li>
+				</li>${debugMenuHtml}
 				<li class="menu-item" onclick="hardReload();">
 					<div class="menu-item-name">🔄 リロード</div>
 				</li>
@@ -910,6 +1020,171 @@ function showVersionInfo() {
 	dialog.showModal();
 }
 
+// ファイルハンドルキャッシュ一覧ダイアログの表示
+// mob-pa-rec.html の localStorage キャッシュ（pestRecData:*）と同一キーで対になった
+// IndexedDB「fileHandleDB」の内容を表示し、行単位・一括で削除できる
+async function showHandleListDialog() {
+	const dialogId = 'handle-menu';
+	let dialog = document.getElementById(dialogId);
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = dialogId;
+		dialog.className = 'menu-dialog';
+		dialog.style.outline = 'none'; // 初回表示時（フォーカス時）の太い外郭線を消す
+		document.body.appendChild(dialog);
+	}
+
+	dialog.innerHTML = `
+		<div class="menu-container">
+			<p class="handle-desc">IndexedDB「fileHandleDB」に保存されている <code>FileSystemFileHandle</code> の一覧です。
+			防除記録の localStorage キャッシュ（<code>pestRecData:*</code>）と同一キーで対になっており、
+			キャッシュを削除すると対応するハンドルも連動削除されます。
+			⚠ 付きは「ハンドルはあるが localStorage キャッシュが無い」孤児状態です。</p>
+			<div class="handle-toolbar">
+				<button type="button" id="handle-refresh">再読込</button>
+				<button type="button" id="handle-delete-all">ハンドルを全削除</button>
+				<span id="handle-summary">読み込み中...</span>
+			</div>
+			<table id="handle-table">
+				<thead>
+					<tr><th>ファイル名</th><th>キャッシュキー</th><th>保存日時</th><th>書込許可</th><th>localStorage</th><th>操作</th></tr>
+				</thead>
+				<tbody></tbody>
+			</table>
+			<p class="empty" style="display:none;">保存されているファイルハンドルはありません。</p>
+			<p class="handle-section-title">localStorage キャッシュのみ（ハンドル未登録。次回の保存/読込時にハンドルが登録されます）</p>
+			<ul class="handle-cache-only"></ul>
+		</div>
+		<form method="dialog"><span>ファイルハンドル一覧</span><button>閉じる</button></form>
+	`;
+	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
+	dialog.querySelector('#handle-refresh').addEventListener('click', renderHandleList);
+	dialog.querySelector('#handle-delete-all').classList.add('handle-del-all');
+	dialog.querySelector('#handle-delete-all').addEventListener('click', async () => {
+		const records = await getAllCachedFileHandles();
+		if (records.length === 0) {
+			alert('削除対象のファイルハンドルはありません。');
+			return;
+		}
+		if (!confirm('ファイルハンドルを全 ' + records.length + ' 件削除しますか？\n（localStorage キャッシュは残ります）')) return;
+		for (const rec of records) {
+			await deleteCachedFileHandle(rec.key);
+		}
+		renderHandleList();
+	});
+
+	dialog.showModal();
+	renderHandleList();
+}
+
+// ファイルハンドル一覧ダイアログの内容を描画する
+// （再読込連打などで同時実行されても行が二重追加されないよう、常に最新の呼び出しだけを有効にする）
+async function renderHandleList() {
+	const dialog = document.getElementById('handle-menu');
+	if (!dialog) return;
+	const renderToken = (window.handleListRenderToken || 0) + 1;
+	window.handleListRenderToken = renderToken;
+	const tbody = dialog.querySelector('#handle-table tbody');
+	const summary = dialog.querySelector('#handle-summary');
+	const cacheOnlyList = dialog.querySelector('.handle-cache-only');
+	const emptyMsg = dialog.querySelector('.empty');
+	tbody.innerHTML = '';
+	cacheOnlyList.innerHTML = '';
+
+	const escapeHandleHtml = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+		'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+	}[c]));
+
+	const queryHandlePermission = async (handle) => {
+		if (!handle || typeof handle.queryPermission !== 'function') return { label: '取得不可', cls: 'warn' };
+		try {
+			const p = await handle.queryPermission({ mode: 'readwrite' });
+			if (p === 'granted') return { label: 'granted', cls: 'ok' };
+			if (p === 'denied') return { label: 'denied', cls: 'warn' };
+			return { label: p || 'prompt', cls: 'info' };
+		} catch (e) {
+			return { label: 'エラー', cls: 'warn' };
+		}
+	};
+
+	let records = [];
+	try {
+		records = (await getAllCachedFileHandles()).sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+	} catch (e) {
+		summary.textContent = '一覧の取得に失敗しました。';
+		return;
+	}
+	if (renderToken !== window.handleListRenderToken) return; // 新しい描画が始まっていたら中断
+
+	// localStorage の pestRecData:* キー一覧
+	const lsKeys = [];
+	for (let i = 0; i < localStorage.length; i++) {
+		const k = localStorage.key(i);
+		if (k && k.indexOf('pestRecData:') === 0) lsKeys.push(k);
+	}
+	const recordKeys = records.map(r => r.key);
+
+	let orphanCount = 0;
+	for (const rec of records) {
+		const hasLs = localStorage.getItem(rec.key) !== null;
+		if (!hasLs) orphanCount++;
+		const perm = await queryHandlePermission(rec.handle);
+		const permBadge = '<span class="badge ' + perm.cls + '">' + escapeHandleHtml(perm.label) + '</span>';
+		const lsBadge = hasLs
+			? '<span class="badge ok">あり</span>'
+			: '<span class="badge warn">⚠ なし（孤児）</span>';
+		const tr = document.createElement('tr');
+		tr.innerHTML =
+			'<td>' + escapeHandleHtml(rec.fileName || (rec.handle && rec.handle.name) || '-') + '</td>' +
+			'<td>' + escapeHandleHtml(rec.key) + '</td>' +
+			'<td>' + escapeHandleHtml(rec.savedAt ? new Date(rec.savedAt).toLocaleString('ja-JP') : '-') + '</td>' +
+			'<td>' + permBadge + '</td>' +
+			'<td>' + lsBadge + '</td>' +
+			'<td><button class="row-del" type="button">削除</button></td>';
+		tr.querySelector('.row-del').addEventListener('click', async () => {
+			if (!confirm(`ファイルハンドル「${rec.fileName || rec.key}」を削除しますか？
+（localStorage キャッシュは残ります）`)) return;
+			await deleteCachedFileHandle(rec.key);
+			renderHandleList();
+		});
+		tbody.appendChild(tr);
+	}
+
+	emptyMsg.style.display = records.length ? 'none' : 'block';
+	summary.textContent = 'ハンドル ' + records.length + ' 件（孤児 ' + orphanCount + ' 件）／ localStorage キャッシュ ' + lsKeys.length + ' 件';
+
+	// localStorage 側のみ（ハンドル未登録）の一覧
+	const onlyLs = lsKeys.filter(k => recordKeys.indexOf(k) < 0);
+	if (onlyLs.length === 0) {
+		const li = document.createElement('li');
+		li.className = 'empty';
+		li.textContent = '（ありません）';
+		cacheOnlyList.appendChild(li);
+	} else {
+		onlyLs.forEach(k => {
+			const li = document.createElement('li');
+			li.textContent = k;
+			cacheOnlyList.appendChild(li);
+		});
+	}
+}
+
+// ハンバーガーメニューからファイルハンドル一覧を開く（メニューを閉じてから開く）
+function showHandleListFromMenu() {
+	document.getElementById('main-menu-dialog')?.close();
+	showHandleListDialog();
+}
+
+// ハンバーガーメニューから開発版ログ画面（pwa-logger-v2）を開く
+function showPwaLoggerFromMenu() {
+	document.getElementById('main-menu-dialog')?.close();
+	if (typeof window.showPwaLogger === 'function') {
+		window.showPwaLogger(true);
+	} else {
+		alert('ログ画面は開発版でのみ利用できます。');
+	}
+}
+
 // ズーム操作の適用
 function applyZoom(scale) {
 	const newZoom = Math.max(0.5, Math.min(2.0, Math.round(scale * 20) / 20));
@@ -921,51 +1196,9 @@ function applyZoom(scale) {
 	if (zoomLevelEl) zoomLevelEl.textContent = `${Math.round(newZoom * 100)}%`;
 }
 
-// オプションタブ追加メニューの表示
-function showAddTabMenu() {
+function openLocalTabPicker() {
 	document.getElementById('main-menu-dialog')?.close(); // メインメニューを閉じる
-
-	const dialogId = 'add-tab-menu-dialog';
-	let dialog = document.getElementById(dialogId);
-	
-	if (!dialog) {
-		dialog = document.createElement('dialog');
-		dialog.id = dialogId;
-		dialog.className = 'menu-dialog';
-		document.body.appendChild(dialog);
-	}
-
-	// 位置をアイコンの直下に固定 (メインメニューと同じ位置)
-	const icon = document.querySelector('header .menu');
-	const rect = icon.getBoundingClientRect();
-	dialog.style.position = 'fixed';
-	dialog.style.margin = '0';
-	dialog.style.top = (rect.bottom + 5) + 'px';
-	dialog.style.right = '10px';
-	dialog.style.left = 'auto';
-
-	dialog.innerHTML = `
-		<div class="menu-container">
-			<ul class="menu-list">
-				<li class="menu-item" onclick="addDynamicTab('防除記録', 'mob-pa-rec.html'); document.getElementById('${dialogId}').close();">
-					<div class="menu-item-name">✍ 防除記録</div>
-				</li>
-				<li class="menu-item" onclick="document.getElementById('localTabFileInput').click(); document.getElementById('${dialogId}').close();">
-					<div class="menu-item-name">📂 ローカルファイル</div>
-				</li>
-			</ul>
-		</div>
-		<form method="dialog">
-			<span>新規タブ</span><button>閉じる</button>
-		</form>
-	`;
-
-	dialog.onclick = (e) => { if (e.target === dialog) dialog.close(); };
-	dialog.showModal();
-
-	// ローカルファイル入力のイベントリスナー
-	const localFileInput = document.getElementById('localTabFileInput');
-	localFileInput.onchange = loadLocalTabFile;
+	document.getElementById('localTabFileInput').click();
 }
 
 // すべてのスライドの一時ズームをリセットする
@@ -1017,11 +1250,34 @@ function createZoomableSwiper(selector, mainSwiperInstance, slideChangeCallback 
 
 let mainJump, stepJump, stepMove, addDynamicTab;
 let mainSwiper; // mainSwiper をグローバル変数として宣言
-let initializedTabs = []; // 全てのタブは初期ロード時に未初期化状態
+let initializedTabs = mobileTabs.map(() => false);
 let tabSwiperInstances = []; // 各タブの Swiper インスタンスを格納する配列
-const tabTitles = tabs.slice(0, 3).map(tab => tab.name); // タブの表示名管理 (header.js の tabs から初期化)
-const tabSources = tabs.slice(0, 3).map(tab => `mob-${tab.file}`); // タブのソース管理 (header.js の tabs から初期化)
-let tabInits = []; // タブごとの初期化関数名
+const tabTitles = mobileTabs.map(tab => tab.name);
+const tabSources = mobileTabs.map(tab => tab.file ? `mob-${tab.file}` : '');
+const tabPlaceholderIds = mobileTabs.map((_, index) => `standard-tab-${index}`);
+let tabInits = mobileTabs.map(() => null);
+let tabLoaded = mobileTabs.map(() => false);
+let tabLoadPromises = [];
+
+function renderStandardTabs() {
+	const nav = document.querySelector('.main-nav');
+	const wrapper = document.querySelector('.main-swiper > .swiper-wrapper');
+	nav.innerHTML = '';
+	wrapper.innerHTML = '';
+
+	mobileTabs.forEach((tab, index) => {
+		const button = document.createElement('button');
+		button.className = 'main-btn' + (index === 0 ? ' active' : '');
+		button.textContent = tab.name;
+		button.onclick = () => mainJump(index);
+		nav.appendChild(button);
+
+		const slide = document.createElement('div');
+		slide.className = 'swiper-slide';
+		slide.id = tabPlaceholderIds[index];
+		wrapper.appendChild(slide);
+	});
+}
 
 /**
  * 外部HTMLファイルを読み込んで要素に注入し、スタイルとスクリプトを適用する
@@ -1077,6 +1333,41 @@ async function loadTabContent(selector, source, isContent = false) { // isConten
 	return initFnName;
 }
 
+async function ensureTabInitialized(index) {
+	if (!tabSources[index]) return;
+	if (!tabLoaded[index]) {
+		if (!tabLoadPromises[index]) {
+			tabLoadPromises[index] = loadTabContent(`#${tabPlaceholderIds[index]}`, tabSources[index])
+				.then(initFnName => {
+					tabInits[index] = initFnName;
+					tabLoaded[index] = true;
+					return initFnName;
+				})
+				.catch(error => {
+					tabLoadPromises[index] = null;
+					throw error;
+				});
+		}
+		await tabLoadPromises[index];
+	}
+
+	const initFnName = tabInits[index];
+	if (!initializedTabs[index] && initFnName && typeof window[initFnName] === 'function') {
+		tabSwiperInstances[index] = window[initFnName]();
+		initializedTabs[index] = true;
+	}
+	return tabSwiperInstances[index];
+}
+
+function activateTab(index) {
+	ensureTabInitialized(index)
+		.then(swiper => updateStepBar(swiper))
+		.catch(error => {
+			console.error(`タブ「${tabTitles[index]}」の読み込みに失敗しました:`, error);
+			showToast(`「${tabTitles[index]}」を読み込めませんでした`);
+		});
+}
+
 /**
  * メニューから動的にタブを追加し、表示・初期化する
  * @param {string} title タブの表示名
@@ -1128,6 +1419,8 @@ addDynamicTab = async function(title, source, isContent = false) {
 		tabSources.push(source);
 		tabTitles.push(title);
 		initializedTabs[index] = false; // 動的に追加されたタブは未初期化状態
+		tabLoaded[index] = true;
+		tabLoadPromises[index] = Promise.resolve(initFnName);
 
 		// 6. 移動
 		mainJump(index);
@@ -1139,8 +1432,45 @@ addDynamicTab = async function(title, source, isContent = false) {
 	}
 };
 
+async function loadLocalTabIntoStandardTab(index, htmlContent) {
+	await waiting(true, `${tabTitles[index]}を読み込み中...`);
+	try {
+		const pendingLoad = tabLoadPromises[index];
+		if (pendingLoad && !tabLoaded[index]) {
+			try {
+				await pendingLoad;
+			} catch (error) {
+				console.warn(`標準タブ「${tabTitles[index]}」の読み込みに失敗しました。ローカルファイルで置き換えます:`, error);
+			}
+		}
+
+		const swiperToDestroy = tabSwiperInstances[index];
+		if (swiperToDestroy && typeof swiperToDestroy.destroy === 'function') {
+			swiperToDestroy.destroy(true, true);
+		}
+		tabSwiperInstances[index] = null;
+		initializedTabs[index] = false;
+		tabLoaded[index] = false;
+
+		const initFnName = await loadTabContent(`#${tabPlaceholderIds[index]}`, htmlContent, true);
+		tabInits[index] = initFnName;
+		tabSources[index] = htmlContent;
+		tabLoaded[index] = true;
+		tabLoadPromises[index] = Promise.resolve(initFnName);
+
+		const wasActive = mainSwiper.activeIndex === index;
+		mainJump(index);
+		if (wasActive) activateTab(index);
+	} catch (error) {
+		console.error(`標準タブ「${tabTitles[index]}」の置き換えに失敗しました:`, error);
+		alert('ローカルタブファイルを標準タブに読み込めませんでした。');
+	} finally {
+		waiting(false);
+	}
+}
+
 /**
- * ローカルHTMLファイルを読み込んで動的タブとして追加する
+ * ローカルHTMLファイルを動的タブとして読み込む
  */
 async function loadLocalTabFile(event) {
 	const file = event.target.files[0];
@@ -1156,12 +1486,17 @@ async function loadLocalTabFile(event) {
 		if (titleElement && titleElement.textContent.trim() !== '') {
 			tabName = titleElement.textContent.trim();
 		}
-		await addDynamicTab(tabName, htmlContent, true); // isContent = true を追加
+		const standardTabIndex = mobileTabs.findIndex(tab => tab.name === tabName);
+		if (standardTabIndex !== -1) {
+			await loadLocalTabIntoStandardTab(standardTabIndex, htmlContent);
+		} else {
+			await addDynamicTab(tabName, htmlContent, true);
+		}
 	};
+	reader.onerror = () => alert('ローカルタブファイルを読み込めませんでした。');
 	reader.readAsText(file);
 	event.target.value = ''; // 同じファイルを再度選択できるように、inputの値をクリアする
 }
-
 
 /**
  * 動的に追加されたタブを閉じる
@@ -1184,19 +1519,16 @@ function closeTab(indexToClose) {
 	tabSources.splice(indexToClose, 1);
 	tabTitles.splice(indexToClose, 1);
 	initializedTabs.splice(indexToClose, 1);
+	tabLoaded.splice(indexToClose, 1);
+	tabLoadPromises.splice(indexToClose, 1);
 	tabSwiperInstances.splice(indexToClose, 1); // Swiperインスタンスも削除
 
 	// 4. Swiperを更新し、必要に応じてアクティブなタブを調整 & 閉じるSwiperを破棄
 	mainSwiper.update();
 
-	// 閉じたタブがアクティブだった場合、または最後のタブだった場合、有効なタブに移動
-	if (mainSwiper.activeIndex >= mainSwiper.slides.length) {
-		mainJump(Math.max(0, mainSwiper.slides.length - 1));
-	} else {
-		// 閉じたタブより前のタブがアクティブだった場合、Swiperは自動でインデックスを調整するが、
-		// UIの状態を確実に同期するため、現在のactiveIndexに再度slideToを呼び出す
-		mainSwiper.slideTo(mainSwiper.activeIndex);
-	}
+	// オプションタブを閉じた場合は、iniTab に移動
+	mainJump(initTab);
+	//activateTab(initTab);
 	// Swiperインスタンスを破棄
 	if (swiperToDestroy && typeof swiperToDestroy.destroy === 'function') {
 		swiperToDestroy.destroy(true, true); // true, true でDOM要素とイベントリスナーを完全にクリーンアップ
@@ -1216,24 +1548,16 @@ function closeTab(indexToClose) {
 }
 
 window.addEventListener('DOMContentLoaded', async () => {
+	document.getElementById('localTabFileInput').addEventListener('change', loadLocalTabFile);
+
 	// 1. データベース読込 (最優先で実行)
 	if (db === null) await fetchDB();
+
+	renderStandardTabs();
 
 	if (debug) {
 		const title = document.querySelector('h1');
 		if (title) title.textContent += ' 開発版';
-	}
-
-	// 2. 各タブのコンテンツを非同期で読み込む (init*Tab 関数が window スコープに定義される)
-	try {
-		tabInits = await Promise.all([
-			loadTabContent('#crop-tab-placeholder', tabSources[0], false), // isContent: false を明示
-			loadTabContent('#pest-tab-placeholder', tabSources[1], false), // isContent: false を明示
-			loadTabContent('#chem-tab-placeholder', tabSources[2], false)  // isContent: false を明示
-		]); // Initial tabs are loaded. Dynamic tabs will be appended.
-		initializedTabs = tabInits.map(() => false);
-	} catch (e) { // catch ブロックを追加
-		console.error("初期タブの読み込みに失敗しました:", e);
 	}
 
 	// 初期ズーム適用
@@ -1261,14 +1585,7 @@ window.addEventListener('DOMContentLoaded', async () => {
 			slideChange: function() {
 				clearAllSlideZoom();
 				updateMainTabs(this.activeIndex);
-				// 該当タブの初期化関数が未実行なら呼び出す
-				const initFn = tabInits[this.activeIndex];
-				if (initFn && !initializedTabs[this.activeIndex]) {
-					if (typeof window[initFn] === 'function') {
-						tabSwiperInstances[this.activeIndex] = window[initFn](); // Swiperインスタンスを格納
-						initializedTabs[this.activeIndex] = true;
-					}
-				}
+				activateTab(this.activeIndex);
 			},
 			// After main tab changes, update the step navigation buttons for the new active nested Swiper
 			transitionEnd: function() { // transitionEnd を使用して、スライドが完全に切り替わってから実行
@@ -1277,13 +1594,6 @@ window.addEventListener('DOMContentLoaded', async () => {
 			}
 		}
 	});
-
-	// 4. 作物タブの初期化 (db と mainSwiper が利用可能になった後)
-	const initFn = tabInits[0];
-	if (initFn && typeof window[initFn] === 'function') {
-		tabSwiperInstances[0] = window[initFn](); // Swiperインスタンスを格納
-		initializedTabs[0] = true;
-	}
 
 	// 5. グローバル関数の定義
 	// クリック時のジャンプ
@@ -1331,8 +1641,8 @@ window.addEventListener('DOMContentLoaded', async () => {
 
 	// 初期状態のインジケータをセット
 	updateMainTabs(0);
-	updateStepBar(tabSwiperInstances[0], 0); // Initial step bar and navigation update
 	mainJump(initTab);
+	activateTab(initTab);
 
 });
 
@@ -1412,22 +1722,10 @@ function showToast(message) {
 </header>
 
 <nav class="main-nav">
-	<button class="main-btn active" onclick="mainJump(0)"></button>
-	<button class="main-btn" onclick="mainJump(1)"></button>
-	<button class="main-btn" onclick="mainJump(2)"></button>
 </nav>
 
 <div class="swiper main-swiper">
 	<div class="swiper-wrapper">
-		
-		<!-- 【作物タブ】 -->
-		<div class="swiper-slide" id="crop-tab-placeholder"></div>
-
-		<!-- 【病害虫タブ】 -->
-		<div class="swiper-slide" id="pest-tab-placeholder"></div>
-
-		<!-- 【薬剤タブ】 -->
-		<div class="swiper-slide" id="chem-tab-placeholder"></div>
 	</div>
 </div>
 <input type="file" id="localTabFileInput" accept=".html" class="hidden">

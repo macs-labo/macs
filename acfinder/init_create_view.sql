@@ -464,6 +464,12 @@ left join racinfo r2 on r2.ippanmei = seibun2
 left join racinfo r3 on r3.ippanmei = seibun3
 left join racinfo r4 on r4.ippanmei = seibun4
 left join racinfo r5 on r5.ippanmei = seibun5;
+/* RAC コードがない成分の有効成分名追加 2026.9.25 追加 */
+update t_tekiyo set yuko1 = re_replace('(' + replace(re_replace('[^ァ-ヺ・]+', shurui, ''), '・', '|') + ')', seibun1, '$1') where shurui not like '%展着剤' and yuko1 is null and seibun1 is not null;
+update t_tekiyo set yuko2 = re_replace('(' + replace(re_replace('[^ァ-ヺ・]+', shurui, ''), '・', '|') + ')', seibun2, '$1') where shurui not like '%展着剤' and yuko2 is null and seibun2 is not null;
+update t_tekiyo set yuko3 = re_replace('(' + replace(re_replace('[^ァ-ヺ・]+', shurui, ''), '・', '|') + ')', seibun3, '$1') where shurui not like '%展着剤' and yuko3 is null and seibun3 is not null;
+update t_tekiyo set yuko4 = re_replace('(' + replace(re_replace('[^ァ-ヺ・]+', shurui, ''), '・', '|') + ')', seibun4, '$1') where shurui not like '%展着剤' and yuko4 is null and seibun4 is not null;
+update t_tekiyo set yuko5 = re_replace('(' + replace(re_replace('[^ァ-ヺ・]+', shurui, ''), '・', '|') + ')', seibun5, '$1') where shurui not like '%展着剤' and yuko5 is null and seibun5 is not null;
 /* t_tekiyo index 2025.10.13 追加 */
 drop index if exists t_tekiyoIdx;
 create index t_tekiyoIdx on t_tekiyo (bango, meisho, tsusho, shurui,sakumotsu, byochu, mokuteki, mid1, mid2, mid3, mid4, mid5);

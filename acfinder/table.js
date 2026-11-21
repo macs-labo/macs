@@ -1367,7 +1367,7 @@ async function updateTableWidth(hot, containerWidth) {
 	if (!hot) return;
 	//const containerWidth = document.querySelector('#resultPane').getBoundingClientRect().width - 30;
 	const tableWidth = hot.getTableWidth();
-	//const tableContainer = hot.rootElement;
+	const tableContainer = hot.rootElement;
 	//const wtHolder = tableContainer.querySelector('.wtHolder').style;
 	const wtHider = tableContainer.querySelector('.wtHider').style;
 	const wtHiderWidth = parseFloat(wtHider.width);

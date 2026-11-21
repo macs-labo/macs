@@ -95,6 +95,9 @@
 	color: var(--text-color);
 	text-align: left;
 }
+div.row-data-table {
+	margin-bottom: 10px;
+}
 .row-data-table .actions, .std-data-table .actions {
 	display: flex;
 	gap: 3px;
@@ -130,6 +133,10 @@ td .svg_button {
 	white-space: nowrap;
 	overflow-x: auto;
 }
+.row-title span {
+	font-size: 12px;
+	font-weight: normal;
+}
 .row-data-table .even-row, .std-data-table .even-row {
 	background-color: var(--bg-color-even-row);
 }
@@ -137,16 +144,104 @@ tr.missing-row {
 	text-decoration: line-through;
 	background-color: rgb(from var(--border-color-ht-common) r g b / 0.5);
 }
+.missing-row td small,
 .missing-row td {
 	color: var(--border-color-strong);
 }
-clickable { cursor: pointer; }
+td small {
+	font-size: 11px;
+	color: var(--text-color-light);
+}
+td em {
+	font-style: normal;
+	font-weight: bold;
+	color: var(--text-color-warn, red);
+}
+
+.clickable { cursor: pointer; }
+.yakuzai-count-row { cursor: pointer; }
+/* RAC別使用回数：開閉テーブル */
+.rac-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rac-toggle-all { font-size: 12px; padding: 2px 8px; margin-left: auto; white-space: nowrap; cursor: pointer; }
+.rac-count-table td { padding: 4px 3px; }
+.rac-count-row { cursor: pointer; }
+.rac-count-row:focus-visible { outline: 2px solid var(--text-color-dark); outline-offset: -2px; }
+.rac-count-row .rac-toggle { width: 1.5em; text-align: center; padding-right: 0; }
+.rac-count-row .rac-arrow { display: inline-block; font-size: 10px; transition: transform 0.15s; }
+.rac-count-row.open .rac-arrow { transform: rotate(90deg); }
+.rac-detail-row[hidden] { display: none; }
+.rac-detail-row > td { padding: 4px; background-color: var(--bg-color); }
+.rac-detail-row .row-data-table { margin-bottom: 0; }
+.yakuzai-count-row:focus-visible { outline: 2px solid var(--text-color-dark); outline-offset: -2px; }
+.yakuzai-count-row .rac-arrow { margin-right: 4px; }
+.yakuzai-count-row.open .rac-arrow { transform: rotate(90deg); }
+.yakuzai-detail-row[hidden] { display: none; }
+.yakuzai-detail-row > td { padding: 4px; background-color: var(--bg-color); }
+.yakuzai-detail-row .row-data-table { margin-bottom: 0; }
 
 /* 作物ツリーロック */
 #planCropTree.locked {
 	pointer-events: none;
 	opacity: 0.6;
 }
+
+/* 復元キャッシュ選択ダイアログ（index.html の showThemeSelection と同系スタイル） */
+#recCacheDialog {
+	max-width: min(100%, 512px);
+	width: 100%;
+	padding: 0;
+}
+#recCacheDialog .menu-list {
+	overflow-y: auto;
+}
+#recCacheDialog .menu-item {
+	height: min-content;
+	overflow-x: auto;
+	overflow-y: hidden;
+	white-space: nowrap;
+}
+/* 操作対象の選択ハイライト（チェックマークとは別表示。背景のみで示す） */
+#recCacheDialog .menu-item.selected {
+	background-color: var(--bg-color-icon-hover);
+}
+/* 現在表示キャッシュのチェックマーク（選択操作では付け替えない専用クラス） */
+#recCacheDialog .menu-item.is-current {
+	position: relative;
+}
+#recCacheDialog .menu-item.is-current::after {
+	content: '';
+	position: absolute;
+	right: 15px;
+	top: 50%;
+	transform: translateY(-50%);
+	width: 16px;
+	height: 16px;
+	background-color: var(--text-color-dark);
+	-webkit-mask: var(--svg-checkmark) no-repeat center;
+	mask: var(--svg-checkmark) no-repeat center;
+	pointer-events: none;
+}
+#recCacheDialog .rec-cache-empty {
+	padding: 20px;
+	text-align: center;
+	font-size: 13px;
+}
+#recCacheDialog form .rec-cache-buttons {
+	display: flex;
+	gap: 8px;
+}
+#recCacheDialog form .rec-cache-buttons button {
+	min-width: 3.5em;
+}
+#recCacheDialog form .rec-cache-buttons button:disabled {
+	opacity: 0.4;
+	cursor: not-allowed;
+}
+/*
+#timingCalendar {
+	z-index: 9999;
+}
+*/
 </style>
 </head>
 <body>
@@ -171,15 +266,15 @@ clickable { cursor: pointer; }
 				<div class="step-fixed">
 					<div class="filebar">
 						<h3>防除計画／防除記録読込</h3>
+						<svg id="btnRestoreRec" class="icon disabled" onclick="restoreRecData()">
+							<title>自動保存データ読込</title>
+							<use href="icons.svg?v=3#restore"></use>
+						</svg>
 						<svg class="icon" onclick="openFileApi()">
 							<title>防除計画/防除記録ファイル読込</title>
 							<use href="icons.svg?v=3#folder-open"></use>
 						</svg>
 						<input type="file" id="fallbackInput" accept=".json" class="hidden" onchange="openFileInput(event)">
-						<svg id="btnRestoreRec" class="icon disabled" onclick="restoreRecData()">
-							<title>前回の未保存データを復元</title>
-							<use href="icons.svg?v=3#restore"></use>
-						</svg>
 					</div>
 					<div id="planCropTree" class="flex-wrapper"></div>
 				</div>
@@ -230,6 +325,8 @@ clickable { cursor: pointer; }
 <script>
 var planCropManager, planChemManager;
 var planList = [];
+var stages = {};
+var harvest = {};
 var dbUpdateText = '';
 // 読み込んだ、または一度保存したファイルハンドル及びファイル名を保持する変数
 var currentFileName = '';
@@ -247,15 +344,17 @@ var hasTsushoLimitResult = false;
 function initPaRec() {
 	// 薬剤マネージャ初期化
 	planChemManager = new ChemListManager('#planChemWrapper', (selectedChemValue) => {
+		console.log(selectedChemValue);
 		const planSwiper = document.querySelector('.plan-swiper').swiper;
 		if (selectedChemValue) {
 			// Step 2 で選択された薬剤をリストに追加
-			// selectedChemValue は "bango meisho" 形式の文字列
-			const [bango, meisho] = selectedChemValue.split(' ');
+			// selectedChemValue は "tusho;kjiki;hoho;kaisu" 形式の文字列
+			const [tsusho, jiki, hoho, kaisu] = selectedChemValue.split(';');
 			const chemObject = {
-				yakuzai: selectedChemValue, // Store the full string for display
-				bango: bango,
-				meisho: meisho,
+				yakuzai: tsusho,
+				jiki: jiki,
+				hoho: hoho,
+				kaisu: kaisu,
 				// 手動追加時にも防除時期の列が表示されるように初期値を設定
 				timingMonth: '',
 				timingPeriod: '',
@@ -281,7 +380,7 @@ function initPaRec() {
 	});
 
 	// 前回の未保存データがあれば復元ボタンを表示（自動復元はしない）
-	if (localStorage.getItem('pestRecData')) showRestoreButton();
+	if (getRecCacheEntries().length > 0) showRestoreButton();
 
 	// Swiperインスタンスを返す
 	return planSwiperInstance;
@@ -292,6 +391,19 @@ function formatToYYMMDD(dateString) {
 	if (!dateString || dateString.length !== 10) return '';
 	return dateString.substring(2); // "YYYY-MM-DD" -> "YY-MM-DD"
 }
+// カレンダーピッカーの初期値（日付ならそのまま、○月×旬なら今年の中日）を取得
+function getTimingPickerDefault(timing, periodStr) {
+	if (timing && /^\d{4}-\d{2}-\d{2}$/.test(timing)) return timing;
+	const match = String(periodStr || timing || '').match(/^(\d{1,2})月(上旬|中旬|下旬)$/);
+	if (match) {
+		const y = new Date().getFullYear();
+		const m = String(match[1]).padStart(2, '0');
+		const d = match[2] === '上旬' ? '05' : match[2] === '中旬' ? '15' : '25';
+		return `${y}-${m}-${d}`;
+	}
+	return '';
+}
+
 
 // 防除記録タブ step.1: 作物選択
 function setupPlanCrop() {
@@ -330,6 +442,7 @@ async function setupPlanChem(moveThis = true) {
 	const title = document.querySelector('#planHead2');
 	const crops = planCropManager.checkedCrops.map(item => item.sakumotsu);
 	title.innerHTML = crops.join(' & ');
+	const cropQuery = makeCropCondition(crops);
 
 	// step.2 作成
 	await waiting(true, '薬剤リストを作成中...');
@@ -342,33 +455,61 @@ async function setupPlanChem(moveThis = true) {
 				ifnull(jiki, '-') as jiki, ifnull(kaisu, '-') as kaisu, ifnull(hoho, '-') as hoho,
 				iif(basho = '-', null, basho) as basho, iif(jikan = '-', null, jikan) as jikan, iif(ondo ='-', null, ondo) as ondo,
 				iif(dojo = '-', null, dojo) as dojo, iif(chitai ='-', null, chitai) as chitai, tekiyaku,
-				seibun1, yuko1, kaisu1, mid1, keito1, rem1, risk1,
-				seibun2, yuko2, kaisu2, mid2, keito2, rem2, risk2,
-				seibun3, yuko3, kaisu3, mid3, keito3, rem3, risk3,
-				seibun4, yuko4, kaisu4, mid4, keito4, rem4, risk4,
-				seibun5, yuko5, kaisu5, mid5, keito5, rem5, risk5,
+				seibun1, yuko1, ifnull(kaisu1, '-') as kaisu1, mid1, keito1, rem1, risk1,
+				seibun2, yuko2, ifnull(kaisu2, '-') as kaisu2, mid2, keito2, rem2, risk2,
+				seibun3, yuko3, ifnull(kaisu3, '-') as kaisu3, mid3, keito3, rem3, risk3,
+				seibun4, yuko4, ifnull(kaisu4, '-') as kaisu4, mid4, keito4, rem4, risk4,
+				seibun5, yuko5, ifnull(kaisu5, '-') as kaisu5, mid5, keito5, rem5, risk5,
 				kongo, seizaiyoto, seizaikoka, seizaiojas
 			from t_tekiyo left join tsushoruby as t using (tsusho) left join m_sakumotsu as s using (sakumotsu) left join m_byochu as b using (byochu)
 			order by t.ruby, s.ruby, idbyochu;
 			drop table if exists t_planTekiyo;
-			create temp table t_planTekiyo as select * from tv_tsushoTekiyo2 where sakumotsu in (${makeCropCondition(crops)});
-			with t_tekiyo1 as (select tsusho, ruby, sakumotsu,
-				gn_concat(',', iif(jiki='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(kaisu='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(hoho='-','方法無指定',hoho)) as hoho,
+			create temp table t_planTekiyo as select * from tv_tsushoTekiyo2 where sakumotsu in (${cropQuery});
+			with t_tekiyo1 as (select tsusho, sakumotsu, jiki, kaisu, baisu, hoho, baisu, gn_concat(',', n_concat('&', byochu, mokuteki)) as byochu,
 				n_concat('|', ifnull(seizaidokusei, '-'), shurui, n_concat('/', keito1, mid1, rem1), n_concat('/', keito2, mid2, rem2), n_concat('/', keito3, mid3, rem3), n_concat('/', keito4, mid4, rem4), n_concat('/', keito5, mid5, rem5), seizaiyoto, seizaikoka, ruby) as keywords
-				from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu
+				from t_planTekiyo left join tsushoruby using(tsusho) group by tsusho, sakumotsu, jiki, kaisu, baisu, hoho order by ruby
 			),
-			t_tekiyo2 as (select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo1 group by tsusho order by ruby)
+			t_tekiyo2 as (select tsusho, jiki, hoho, kaisu, gn_concat('|', n_concat('≫', sakumotsu, baisu, byochu)) as tekiyo, keywords from t_tekiyo1 group by tsusho, jiki, kaisu, hoho)
 			select * from t_tekiyo2;
 		`;
+		console.log('${cropQuery} = {', cropQuery, '}');
 		const sqlResult = db.exec(sql);
 
 		if (sqlResult?.[0]?.values) {
 			const chems = sqlResult[0].values.map(row => ({
 				tsusho: row[0],
-				tekiyo: row[1],
-				keywords: row[2]
+				jiki: row[1],
+				hoho: row[2],
+				kaisu: row[3],
+				tekiyo: row[4],
+				keywords: row[5]
 			}));
-			planChemManager.update(chems);
+			let group = '';
+			const renderer = (row) => {
+				const tsusho = row.tsusho;
+				const info = row.keywords;
+				let groupItem = '';
+				if (group !== tsusho) {
+					group = tsusho;
+					groupItem = `
+						<div class="checkListItem" data-group data-info="${tsusho}|${info}" title="${tsusho}"><em>${tsusho}</em> ${info}</div>
+					`;
+				}
+				const jiki = row.jiki === '-' ? '時期無指定' : row.jiki;
+				const hoho = row.hoho === '-' ? '方法無指定' : row.hoho;
+				const kaisu = row.kaisu === '-' ? '回数無指定' : row.kaisu;
+				const kubun = `${jiki};${hoho};${kaisu}`;
+				const id = `${tsusho};${kubun}`;
+				const tekiyo =`${kubun}|${row.tekiyo}`;
+				//const bango = row.bango;
+				//const name = `${bango} ${row.meisho}`;
+				return `${groupItem}
+					<div class="checkListItem" data-info="${tsusho}|${info}|${kubun}" title="${tsusho}">
+						<input type="radio" name="chemSelect" value="${id}" id="${id}"><label for="${id}">${tekiyo}</label>
+					</div>
+				`;
+			};
+			await planChemManager.update(chems, renderer);
 		} else {
 			planChemManager.update([]);
 		}
@@ -416,20 +557,128 @@ function convRecToJson() {
 		dataset: dbUpdateText,
 		sakumotsu: makeCropCondition(crops),
 		crops: planCropManager.checkedCrops,
-		plan: planList,
-		titleText: document.getElementById('planHead2').textContent
+		titleText: document.getElementById('planHead2').textContent,
+		harvest: harvest,
+		stages: stages,
+		plan: planList
 	};
 
 	return JSON.stringify(recData, null, 2);
 }
 
 // 防除記録を localStorage に保存（システムダウン対策のキャッシュ＝復元候補）
+// item 名は fileName 付き（'pestRecData:<fileName>'）で複数キャッシュできる
+var REC_CACHE_PREFIX = 'pestRecData:';
+var REC_CACHE_LEGACY_KEY = 'pestRecData';
+var recCacheList = []; // 復元ダイアログ表示用の一覧（getRecCacheEntries の結果を保持）
+var selectedRecCacheIndex = -1; // ダイアログで選択中のキャッシュ（一覧のインデックス。操作対象）
+var dialogCurrentRecCacheKey = ''; // ダイアログ表示中の現在表示キャッシュ（チェックマーク用。選択では移動しない）
+
+function getRecCacheKey(fileName) {
+	return REC_CACHE_PREFIX + (fileName || '(無題)');
+}
+
+// 現在編集中データに対応するキャッシュキー。fileName が未確定の場合は
+// タイトル（作物名）で代用して、無題同士の上書きをできるだけ避ける
+function getCurrentRecCacheKey() {
+	const titleText = document.getElementById('planHead2')?.textContent?.trim() || '';
+	const cacheFileName = currentFileName || titleText || '(無題)';
+	return getRecCacheKey(cacheFileName);
+}
+
+// 旧形式（単一キー 'pestRecData'）のキャッシュを新形式へ移行する（一度だけ）
+function migrateLegacyRecCache() {
+	let raw = null;
+	try {
+		raw = localStorage.getItem(REC_CACHE_LEGACY_KEY);
+	} catch (err) {
+		return;
+	}
+	if (!raw) return;
+	// すでに新形式があれば旧キーは単に除去、なければ移行する
+	try {
+		const appData = JSON.parse(raw);
+		let moveKey = null;
+		if (appData && appData.planData) {
+			let titleText = '';
+			try {
+				const planData = typeof appData.planData === 'string' ? JSON.parse(appData.planData) : appData.planData;
+				titleText = planData?.titleText || '';
+			} catch (e) {}
+			const cacheFileName = appData.fileName || titleText || '(無題)';
+			moveKey = getRecCacheKey(cacheFileName);
+			if (!localStorage.getItem(moveKey)) {
+				if (!appData.savedAt) appData.savedAt = Date.now();
+				try {
+					localStorage.setItem(moveKey, JSON.stringify(appData));
+				} catch (e) {}
+			}
+		}
+	} catch (err) {
+		console.error('旧キャッシュの移行に失敗しました:', err);
+	} finally {
+		try {
+			localStorage.removeItem(REC_CACHE_LEGACY_KEY);
+		} catch (e) {}
+	}
+}
+
+// 全キャッシュを取得（item 名から FileName を取り出した一覧用）
+function getRecCacheEntries() {
+	migrateLegacyRecCache();
+	const entries = [];
+	for (let i = 0; i < localStorage.length; i++) {
+		const key = localStorage.key(i);
+		if (!key || !key.startsWith(REC_CACHE_PREFIX)) continue;
+		const fileName = key.substring(REC_CACHE_PREFIX.length) || '(無題)';
+		let appData = null;
+		let broken = false;
+		try {
+			appData = JSON.parse(localStorage.getItem(key));
+		} catch (err) {
+			broken = true;
+		}
+		if (!appData || !appData.planData) broken = true;
+		let planCount = 0;
+		let titleText = '';
+		if (!broken) {
+			try {
+				const planData = typeof appData.planData === 'string' ? JSON.parse(appData.planData) : appData.planData;
+				const loadedPlan = planData?.plan || planData?.planList || [];
+				planCount = Array.isArray(loadedPlan) ? loadedPlan.length : 0;
+				titleText = planData?.titleText || '';
+			} catch (err) {
+				broken = true;
+			}
+		}
+		entries.push({
+			key: key,
+			fileName: fileName,
+			appData: appData,
+			broken: broken,
+			planCount: planCount,
+			titleText: titleText,
+			savedAt: appData?.savedAt || 0
+		});
+	}
+	// 新しいものから表示
+	entries.sort((a, b) => (b.savedAt - a.savedAt) || a.fileName.localeCompare(b.fileName, 'ja'));
+	return entries;
+}
+
 function saveRecDataToCache() {
+	const planJson = convRecToJson();
+	if (!planJson) return;
 	const appData = {
-		planData: convRecToJson(),
-		fileName: currentFileName
+		planData: planJson,
+		fileName: currentFileName,
+		savedAt: Date.now()
 	};
-	localStorage.setItem('pestRecData', JSON.stringify(appData));
+	try {
+		localStorage.setItem(getCurrentRecCacheKey(), JSON.stringify(appData));
+	} catch (err) {
+		console.error('キャッシュの保存に失敗しました:', err);
+	}
 	showRestoreButton(); // 編集/保存でキャッシュを更新したので復元ボタンを復活させる
 }
 
@@ -443,49 +692,224 @@ function hideRestoreButton() {
 }
 
 // 復元候補（キャッシュ）を破棄する
-function discardRecCache() {
-	localStorage.removeItem('pestRecData');
-	hideRestoreButton();
+// cacheKey 省略時は現在編集中データに対応するキャッシュのみ破棄する（他ファイルのキャッシュは残す）
+function discardRecCache(cacheKey) {
+	const key = cacheKey || getCurrentRecCacheKey();
+	try {
+		localStorage.removeItem(key);
+	} catch (err) {}
+	// 対応するファイルハンドルキャッシュも連動削除
+	deleteCachedFileHandle(key);
+	if (getRecCacheEntries().length === 0) hideRestoreButton();
+}
+
+// HTMLエスケープ（キャッシュ一覧の fileName 表示用）
+function escapeRecCacheHtml(text) {
+	return String(text ?? '')
+		.replace(/&/g, '&amp;')
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/"/g, '&quot;');
 }
 
 // 前回の未保存データを復元（自動復元はせず、ユーザ操作でのみ実行する）
+// キャッシュ一覧ダイアログから使用するキャッシュを選択する
 async function restoreRecData() {
-	const savedString = localStorage.getItem('pestRecData');
-	if (!savedString) {
+	const entries = getRecCacheEntries();
+	if (entries.length === 0) {
 		showToast('復元できるデータがありません。');
 		return;
 	}
-	if (planList.length > 0 && !confirm('現在の防除計画/記録をクリアして、前回の未保存データを復元しますか？')) return;
+	openRecCacheDialog(entries);
+}
 
-	// キャッシュが壊れている場合は復元候補として残しても意味がないので破棄する
-	let appData;
+// キャッシュ一覧ダイアログを開く（showThemeSelection と同様にリスト＋下部ボタン）
+function openRecCacheDialog(entries) {
+	recCacheList = entries || getRecCacheEntries();
+	// ダイアログ表示中の現在表示キャッシュを固定（選択操作では移動しない）
+	dialogCurrentRecCacheKey = getCurrentRecCacheKey();
+	// デフォルト選択：現在使用しているキャッシュがあればそれ、無ければ先頭
+	selectedRecCacheIndex = recCacheList.findIndex(entry => entry.key === dialogCurrentRecCacheKey);
+	if (selectedRecCacheIndex < 0 && recCacheList.length > 0) selectedRecCacheIndex = 0;
+	let dialog = document.getElementById('recCacheDialog');
+	if (!dialog) {
+		dialog = document.createElement('dialog');
+		dialog.id = 'recCacheDialog';
+		dialog.className = 'menu-dialog';
+		document.body.appendChild(dialog);
+		dialog.addEventListener('click', (e) => { if (e.target === dialog) dialog.close(); });
+	}
+	renderRecCacheDialog();
+	if (typeof dialog.showModal === 'function') {
+		if (!dialog.open) dialog.showModal();
+	} else {
+		dialog.setAttribute('open', '');
+	}
+}
+
+// ダイアログ内のキャッシュ一覧を描画する
+function renderRecCacheDialog() {
+	const dialog = document.getElementById('recCacheDialog');
+	if (!dialog) return;
+	const prevSelectedKey = recCacheList[selectedRecCacheIndex]?.key || '';
+	recCacheList = getRecCacheEntries();
+	// 再描画後も操作対象の選択のみ維持する。
+	// チェックマーク（dialogCurrentRecCacheKey）はダイアログ表示中は固定し、選択では移動しない
+	let keepIndex = recCacheList.findIndex(entry => entry.key === prevSelectedKey);
+	if (keepIndex < 0 && recCacheList.length > 0) keepIndex = 0;
+	selectedRecCacheIndex = recCacheList.length > 0 ? keepIndex : -1;
+
+	let listHtml = '';
+	if (recCacheList.length === 0) {
+		listHtml = '<div class="rec-cache-empty">復元できるデータがありません。</div>';
+	} else {
+		listHtml = recCacheList.map((entry, i) => {
+			const savedText = entry.savedAt ? new Date(entry.savedAt).toLocaleString('ja-JP') : '-';
+			const meta = entry.broken
+				? 'データが壊れています（削除できます）'
+				: `${escapeRecCacheHtml(savedText)} ／ ${escapeRecCacheHtml(entry.titleText || '')} ／ ${entry.planCount}件`;
+			// is-current＝現在表示キャッシュのチェックマーク（固定）。selected＝操作対象の選択（背景のみ）
+			const itemClass = `menu-item${entry.key === dialogCurrentRecCacheKey ? ' is-current' : ''}${i === selectedRecCacheIndex ? ' selected' : ''}`;
+			return `<li class="${itemClass}" onclick="selectRecCache(${i})">` +
+				`<div><div class="menu-item-name">${escapeRecCacheHtml(basename(entry.fileName))}</div>` +
+				`<div class="menu-item-title">${meta}</div></div>` +
+			`</li>`;
+		}).join('');
+	}
+
+	dialog.innerHTML =
+		`<div class="menu-container"><ul class="menu-list">${listHtml}</ul></div>` +
+		`<form method="dialog"><span>自動保存データ選択</span>` +
+			`<div class="rec-cache-buttons">` +
+				`<button type="button" id="recCacheRestoreBtn" onclick="restoreSelectedRecCache()">読込</button>` +
+				`<button type="button" id="recCacheDeleteBtn" onclick="deleteSelectedRecCache()">削除</button>` +
+				`<button>閉じる</button>` +
+			`</div>` +
+		`</form>`;
+	updateRecCacheButtons();
+}
+
+// 一覧の選択を切り替える（チェックマークは移動しない。操作対象の選択のみ変更）
+function selectRecCache(index) {
+	if (index < 0 || index >= recCacheList.length) return;
+	selectedRecCacheIndex = index;
+	document.querySelectorAll('#recCacheDialog .menu-item').forEach((el, i) => {
+		el.classList.toggle('selected', i === selectedRecCacheIndex);
+	});
+	updateRecCacheButtons();
+}
+
+// 下部ボタンの有効／無効を更新する
+function updateRecCacheButtons() {
+	const entry = recCacheList[selectedRecCacheIndex];
+	const restoreBtn = document.getElementById('recCacheRestoreBtn');
+	const deleteBtn = document.getElementById('recCacheDeleteBtn');
+	if (restoreBtn) restoreBtn.disabled = !entry || entry.broken;
+	if (deleteBtn) deleteBtn.disabled = !entry;
+}
+
+// 選択中のキャッシュを取得する
+function getSelectedRecCacheEntry() {
+	if (selectedRecCacheIndex < 0 || selectedRecCacheIndex >= recCacheList.length) return null;
+	const fresh = getRecCacheEntries();
+	const selectedKey = recCacheList[selectedRecCacheIndex]?.key;
+	const found = fresh.findIndex(entry => entry.key === selectedKey);
+	if (found >= 0) {
+		selectedRecCacheIndex = found;
+		return fresh[found];
+	}
+	return recCacheList[selectedRecCacheIndex] || null;
+}
+
+// 選択中のキャッシュを復元する（復元時はそのままダイアログを抜ける）
+async function restoreSelectedRecCache() {
+	const entry = getSelectedRecCacheEntry();
+	if (!entry) return;
+	await restoreRecCacheByIndex(recCacheList.findIndex(item => item.key === entry.key));
+}
+
+// 選択中のキャッシュを削除する（ダイアログは維持して管理を続けられる）
+function deleteSelectedRecCache() {
+	const entry = getSelectedRecCacheEntry();
+	if (!entry) return;
+	deleteRecCacheByKey(entry.key);
+}
+
+// キー指定でキャッシュを削除する
+function deleteRecCacheByKey(cacheKey) {
+	const entries = getRecCacheEntries();
+	const entry = entries.find(item => item.key === cacheKey) || recCacheList.find(item => item.key === cacheKey);
+	if (!entry) return;
+	if (!confirm(`キャッシュ「${entry.fileName}」を削除しますか？`)) return;
 	try {
-		appData = JSON.parse(savedString);
-	} catch (err) {
-		console.error('復元データの解析に失敗しました:', err);
-		showToast('前回の未保存データが壊れているため復元できません。');
-		discardRecCache();
+		localStorage.removeItem(entry.key);
+	} catch (err) {}
+	// 対応するファイルハンドルキャッシュも連動削除（ハンドルの無限増殖防止）
+	deleteCachedFileHandle(entry.key);
+	showToast(`キャッシュ「${entry.fileName}」を削除しました。`);
+	if (getRecCacheEntries().length === 0) {
+		hideRestoreButton();
+		document.getElementById('recCacheDialog')?.close();
 		return;
+	}
+	renderRecCacheDialog();
+}
+
+// 一覧から選択したキャッシュを復元する
+async function restoreRecCacheByIndex(index) {
+	const entry = getRecCacheEntries()[index] || recCacheList[index];
+	if (!entry) return;
+	if (entry.broken) {
+		showToast('選択したキャッシュは壊れているため復元できません。');
+		return;
+	}
+	if (planList.length > 0 && !confirm(`現在の防除計画/記録をクリアして、「${entry.fileName}」の未保存データを復元しますか？`)) return;
+
+	let appData = entry.appData;
+	if (!appData) {
+		try {
+			appData = JSON.parse(localStorage.getItem(entry.key));
+		} catch (err) {
+			console.error('復元データの解析に失敗しました:', err);
+			showToast('選択したキャッシュが壊れているため復元できません。');
+			discardRecCache(entry.key);
+			renderRecCacheDialog();
+			return;
+		}
 	}
 
 	try {
 		// planData は JSON 文字列で保存されている（読込系は JSON.parse 済みオブジェクトを渡す仕様のため、ここで parse する）
 		const planData = typeof appData.planData === 'string' ? JSON.parse(appData.planData) : appData.planData;
+		if (!planData || (!planData.plan && !planData.planList)) throw new Error('Invalid format');
 		currentFileName = appData.fileName || '';
+		// 対応するファイルハンドルも復元（次回保存を上書きにできる状態にする。許可確認は保存ボタン内で行う）
+		currentFileHandle = await getCachedFileHandle(entry.key, currentFileName);
 		// 作物ツリーの構築完了を待つ（チェック状態の見た目を復元するため）
 		await planCropReady;
 		// タブを開いた直後に押された場合に備えてレイアウトを再計算
 		planSwiperInstance?.update();
+		document.getElementById('recCacheDialog')?.close();
 		await loadPlanFromJson(planData);
 		// キャッシュは復元後も残す（システムダウン対策として有効なまま。ボタンも表示継続）
 	} catch (err) {
 		console.error('データの復元に失敗しました:', err);
-		showToast('前回の未保存データの復元に失敗しました。');
+		showToast('選択した未保存データの復元に失敗しました。');
 	}
 }
 
+// 一覧から選択したキャッシュを削除する
+function deleteRecCacheByIndex(index) {
+	const entries = getRecCacheEntries();
+	const entry = entries[index] || recCacheList[index];
+	if (!entry) return;
+	deleteRecCacheByKey(entry.key);
+}
+
 // 防除記録をJSON形式で保存
-async function saveRecFile(overwrite) {
+// overwrite のデフォルトは true（省略時 = 上書き保存ボタン）。未指定のまま呼び出すと
+// 上書き分支が常に false になってピッカーが毎回表示されるため、必ずデフォルト値を付けること
+async function saveRecFile(overwrite = true) {
 	if (planList.length === 0) return;
 
 	const saveData = convRecToJson();
@@ -507,9 +931,16 @@ async function saveRecFile(overwrite) {
 		return;
 	}
 
+	// セッション跨ぎ: メモリ上のハンドルが無ければ、localStorage キャッシュと同一キーで保存したハンドルを復元
+	if (overwrite && !currentFileHandle) {
+		currentFileHandle = await getCachedFileHandle(getRecCacheKey(filename), filename)
+			|| await getCachedFileHandle(getCurrentRecCacheKey(), filename);
+	}
 	// overwrite = true でファイルハンドルがあり、filename が一致している場合は「上書き」
 	if (overwrite && currentFileHandle && currentFileName === filename) {
 		try {
+			// 復元したハンドルは書き込み許可が失効している場合がある（拒否時は例外にして新規保存へフォールバック）
+			if (!(await ensureFileHandleWritePermission(currentFileHandle))) throw new Error('書き込み許可が得られませんでした');
 			const writable = await currentFileHandle.createWritable();
 			await writable.write(saveData);
 			await writable.close();
@@ -528,15 +959,26 @@ async function saveRecFile(overwrite) {
 			types: [{ description: 'JSON Files', accept: { 'application/json': ['.json'] } }]
 		});
 		
-		
 		const writable = await fileHandle.createWritable();
 		await writable.write(saveData);
 		await writable.close();
 
+		const oldCacheKey = getCurrentRecCacheKey();
 		currentFileHandle = fileHandle; // 次回上書き用にハンドルを記憶
 		currentFileName = fileHandle.name;
 		saveRecDataToCache();
-		if (isDesktop) alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
+		// ハンドルも localStorage キャッシュと同一キーで永続化（次回セッションの上書き保存用）
+		await putCachedFileHandle(getCurrentRecCacheKey(), fileHandle, currentFileName);
+		// 無題（fileName 未確定時のタイトル代用キー）の孤児キャッシュが残らないよう除去（ハンドルも連動削除）
+		try {
+			const newCacheKey = getCurrentRecCacheKey();
+			if (oldCacheKey !== newCacheKey) {
+				localStorage.removeItem(oldCacheKey);
+				deleteCachedFileHandle(oldCacheKey);
+			}
+		} catch (e) {}
+		if (getRecCacheEntries().length > 0) showRestoreButton();
+		alert('新しくファイルを保存しました。次回からは自動で上書きされます。');
 		
 	} catch (err) {
 		if (err.name !== 'AbortError') {
@@ -573,10 +1015,19 @@ async function deletePlanRow(index) {
 	updateRowDeleteButton(); // 削除で .missing-row が無くなった場合は無効化する
 }
 
-function updatePlanDate(index, date) {
+function updatePlanDate(obj, index) {
 	// If date is an empty string, it means the user cleared the date input.
 	// Otherwise, update with the selected date.
+	const date = obj.value;
 	planList[index].timing = date || ''; // Set to empty string if date is falsy
+	setPlanRecord();
+}
+
+function updateStageDate(obj, key) {
+	// If date is an empty string, it means the user cleared the date input.
+	// Otherwise, update with the selected date.
+	const date = obj.value;
+	stages[key].date = date || ''; // Set to empty string if date is falsy
 	setPlanRecord();
 }
 
@@ -608,6 +1059,8 @@ async function openFileApi() {
 		const file = await fileHandle.getFile();
 		currentFileHandle = fileHandle; // ハンドルを記憶
 		loadPlanFile(file); // データ読み込み共通関数へ
+		// ハンドルも localStorage キャッシュと同一キーで永続化（次回セッションの上書き保存用）
+		await putCachedFileHandle(getRecCacheKey(currentFileName), fileHandle, currentFileName);
 	} catch (err) {
 		if (err.name !== 'AbortError') {
 			console.error(err);
@@ -655,7 +1108,15 @@ async function loadPlanFromJson(data) {
 		dbUpdateText = data.dataset;
 		// 選択作物の初期化と再設定
 		planCropManager.checkedCrops = data.crops || [];
-		planList = loadedPlan;
+		// json データの jiki, kaisu が空文字列の場合 '-' に正規化して planList に格納
+		planList = loadedPlan.map(item => ({
+			...item,
+			jiki: item.jiki || '-',
+			kaisu: item.kaisu || '-'
+		}));
+
+		stages = data.stages || {};
+		harvest = data.harvest || {};
 
 		// 作物ツリーのチェック状態を視覚的に復元
 		if (typeof planCropManager.syncCheckState === 'function') {
@@ -679,6 +1140,29 @@ async function loadPlanFromJson(data) {
 		currentFileHandle = null;
 		currentFileName = '';
 	}
+}
+
+function dispJiki(jiki) {
+	return jiki.includes('全期間') ? '-' : jiki;
+}
+
+function dispHoho(hoho) {
+	return hoho.length > 15 ? hoho.slice(0, 15) + '…' : hoho;
+}
+
+function makeTimingCell(month, period, date, onchange, idPrefix, idSuffix) {
+	const periodStr = (month && period) ? `${month}月${period}` : '';
+	const isDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date);
+	const displayVal = isDate ? date : periodStr || '';
+	const uniqueId = idPrefix + Math.random().toString(36).substring(2, 7) + '_' + Date.now() + '_' + idSuffix;
+	const key = typeof idSuffix === 'string' ? `'${idSuffix}'` : idSuffix;
+
+	return `<td>` +
+		`<div class="date-picker">` +
+			`<label for="${uniqueId}" data-fulldate="${isDate ? date : ''}" onclick="openCalendar(event)">${displayVal}</label>` +
+			`<input type="date" id="${uniqueId}" value="${isDate ? date : ''}" onchange="${onchange}(this, ${key})" hidden>` +
+		`</div>` +
+		`</td>`;
 }
 
 // 防除記録タブ step.3: 使用予定薬剤及び使用回数集計表示
@@ -720,41 +1204,51 @@ async function setPlanRecord() {
 		let res = null;
 		if (crops.length > 0 && uniqueKeys) {
 			const sql = `
-				select yuko1 as seibun, kaisu1 as seibunkaisu, d_concat('/', mid1, keito1, replace(rem1, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko1 IS NOT NULL
-				UNION select yuko2 as seibun, kaisu2 as seibunkaisu, d_concat('/', mid2, keito2, replace(rem2, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko2 IS NOT NULL
-				UNION select yuko3 as seibun, kaisu3 as seibunkaisu, d_concat('/', mid3, keito3, replace(rem3, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko3 IS NOT NULL
-				UNION select yuko4 as seibun, kaisu4 as seibunkaisu, d_concat('/', mid4, keito4, replace(rem4, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko4 IS NOT NULL
-				UNION select yuko5 as seibun, kaisu5 as seibunkaisu, d_concat('/', mid5, keito5, replace(rem5, 'FRAC系統名: ', '')) as rac, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko5 IS NOT NULL
+				select yuko1 as seibun, max(kaisu1) as seibunkaisu, mid1 as rac, iif(instr(mid1, 'F:'), replace(rem1, 'FRAC系統名: ', ''), keito1) as keito, risk1 as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko1 IS NOT NULL group by tsusho, jiki, hoho, kaisu
+				UNION select yuko2 as seibun, max(kaisu2) as seibunkaisu, mid2 as rac, iif(instr(mid2, 'F:'), replace(rem2, 'FRAC系統名: ', ''), keito2) as keito, risk2 as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko2 IS NOT NULL group by tsusho, jiki, hoho, kaisu
+				UNION select yuko3 as seibun, max(kaisu3) as seibunkaisu, mid3 as rac, iif(instr(mid3, 'F:'), replace(rem3, 'FRAC系統名: ', ''), keito3) as keito, risk3 as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko3 IS NOT NULL group by tsusho, jiki, hoho, kaisu
+				UNION select yuko4 as seibun, max(kaisu4) as seibunkaisu, mid4 as rac, iif(instr(mid4, 'F:'), replace(rem4, 'FRAC系統名: ', ''), keito4) as keito, risk4 as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko4 IS NOT NULL group by tsusho, jiki, hoho, kaisu
+				UNION select yuko5 as seibun, max(kaisu5) as seibunkaisu, mid5 as rac, iif(instr(mid5, 'F:'), replace(rem5, 'FRAC系統名: ', ''), keito5) as keito, risk5 as rem, jiki, hoho, kaisu, tsusho FROM t_planTekiyo WHERE tsusho IN (${uniqueKeys}) AND yuko5 IS NOT NULL group by tsusho, jiki, hoho, kaisu;
 			`;
-			console.log(sql);
+			console.log('${uniqueKeys} = {', uniqueKeys, '}');
 			res = db.exec(sql);
 		}
 
 		// 集計結果が取得できたか（未取得時は全行 missing 扱いになるので削除ボタンの安全弁にする）
 		hasTsushoLimitResult = !!res?.[0];
-		const ingredientInfo = {};
-		const tsushoLimit = {};
+		const tsushoLimit = new Map();
+		const registrationSeibun = new Map();
 		missingPlanIndexes = []; // 描画ごとに再計算
-		if (res?.[0]) {
+		if (hasTsushoLimitResult) {
 			res[0].values.forEach(row => {
-				const [seibun, seibunkaisu, rac, kaisu, tsusho] = row;
-				if (!tsushoLimit[tsusho]) tsushoLimit[tsusho] = kaisu;
-				if (!ingredientInfo[seibun]) {
-					ingredientInfo[seibun] = {
-						count: 0,
-						limit: seibunkaisu || '-',
-						rac: rac || '-',
-					};
+				const [seibun, seibunkaisu, rac, keito, rem, jiki, hoho, kaisu, tsusho] = row;
+				const keyTsusho = JSON.stringify([tsusho, jiki, hoho, kaisu]);
+				const matches = kaisu.match(/(?<=^|:)\d+/g);
+				let limit = 0;
+				if (matches) {
+					matches.forEach(d => limit += parseInt(d, 10));
+				} else {
+					limit = 999;
 				}
-				ingredientInfo[seibun].count += tsushoCounts[tsusho];
+				const dataTsusho = {
+					tsusho: tsusho,
+					jiki: jiki,
+					hoho: hoho,
+					kaisu: kaisu,
+					limit: limit
+				};
+				tsushoLimit.set(keyTsusho, dataTsusho);
+				const dataSeibun = {
+						rac: rac || '-',
+						keito: keito,
+						rem: rem,
+						kaisu: seibunkaisu,
+						limit: parseInt(seibunkaisu.match(/^\d+/)?.[0] || '999', 10)
+				};
+				if (!registrationSeibun.has(keyTsusho)) registrationSeibun.set(keyTsusho, new Map());
+				registrationSeibun.get(keyTsusho).set(seibun, dataSeibun);
 			});
 		}
-		const summary = Object.entries(ingredientInfo).map(([name, data]) => ({
-			name,
-			count: data.count,
-			limit: data.limit,
-			rac: data.rac
-		})).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja'));
 
 		const div = document.createElement('div');
 		div.className = 'step-zoom-target';
@@ -768,27 +1262,12 @@ async function setPlanRecord() {
 		planList.forEach((chem, i) => {
 			const isFirst = i === 0;
 			const isLast = i === planList.length - 1;
-			const chemName = chem.yakuzai;
-			let timingCell = '';
-			if (showTiming) { // This condition is already `planList.length > 0`
-				const periodStr = (chem.timingMonth && chem.timingPeriod) ? `${chem.timingMonth}月${chem.timingPeriod}` : '';
-				const isDate = chem.timing && /^\d{4}-\d{2}-\d{2}$/.test(chem.timing);
-				// Display YY-MM-DD format, but keep full date in input value and data-fulldate
-				const displayVal = isDate ? formatToYYMMDD(chem.timing) : periodStr || '';
-				const uniqueId = 'mob_plan_date_' + Math.random().toString(36).substring(2, 7) + '_' + Date.now() + '_' + i;
-
-				timingCell = `<td>` +
-					`<div class="date-picker" onclick="const inp=this.querySelector('input'); if(inp && typeof inp.showPicker==='function'){try{inp.showPicker();}catch(e){}}">` +
-						`<label for="${uniqueId}" data-fulldate="${isDate ? chem.timing : ''}">${displayVal}</label>` +
-						`<input type="date" id="${uniqueId}" value="${isDate ? chem.timing : ''}" ` +
-						`onchange="updatePlanDate(${i}, this.value)" ` +
-						`onclick="event.stopPropagation()">` +
-					`</div>` +
-					`</td>`;
-			}
+			const { yakuzai, jiki, hoho, kaisu } = chem;
+			const timingCell = showTiming ? makeTimingCell(chem.timingMonth, chem.timingPeriod, chem.timing, 'updatePlanDate', 'mob_plan_date_', i) : '';
 
 			// 現在の農薬登録情報で登録が見つからない薬剤（.missing-row と同じ条件でインデックスを収集）
-			const isMissing = !tsushoLimit[chemName];
+			const keyTsusho = JSON.stringify([yakuzai, jiki, hoho, kaisu]);
+			const isMissing = !tsushoLimit.get(keyTsusho);
 			if (isMissing) missingPlanIndexes.push(i);
 
 			html += `<tr class="${i % 2 === 0 ? '' : 'even-row'}${isMissing ? ' missing-row' : ''}">` +
@@ -798,42 +1277,407 @@ async function setPlanRecord() {
 				`<svg class="svg_button ${isLast ? 'disabled' : ''}" onclick="movePlanRow(${i}, 'down')"><use href="icons.svg?v=3#arrow-down"></use></svg></div></td>` +
 				`<td class="center">${i+1}</td>` +
 				timingCell +
-				`<td class="clickable" onclick="setPlanDetail('${chemName}')">${chemName}</td></tr>`;
+				`<td class="clickable" onclick="setPlanDetail('${yakuzai}')">${yakuzai}<br><small>${dispJiki(jiki)}/${dispHoho(hoho)}</small></td></tr>`;
 		});
 		html += '</tbody></table>';
 
-		const yakuzaiCounts = {};
-		planList.forEach((chem) => {
-			const chemName = chem.yakuzai;
-			if (!chemName) return;
-			yakuzaiCounts[chemName] = (yakuzaiCounts[chemName] || 0) + 1;
+		//const stageKeys = Object.keys(stages).filter(item => item !== '収穫開始');
+		const stageKeys = Object.keys(stages);
+		if (stageKeys.length > 0) {
+			html += '<h3>生育ステージ</h3><table class="std-data-table"><thead><tr><th>ステージ</th><th>時期<th></tr></thead><tbody>';
+			stageKeys.forEach((key, i) => {
+				const { month, period, date } = stages[key];
+				const timingCell = makeTimingCell(month, period, date, 'updateStageDate', 'mob_stage_date_', key);
+				html += `<tr class="${i % 2 === 0 ? '' : 'even-row'}"><td>${key}</td>${timingCell}</tr>`;
+			});
+			html += '</dbody></table>';
+		}
+
+		const yakuzaiCounts = new Map();
+		const yakuzaiUses = [];
+		const seibunCounts = {};
+		const racCounts = {};
+		const parseList = value => String(value || '').split(/<br\s*\/?>/i)
+			.map(item => item.replace(/<[^>]*>/g, '').trim()).filter(Boolean);
+		const formCache = new Map();
+		const contentPctCache = new Map();
+		const zaikeiOf = yakuzai => {
+			if (formCache.has(yakuzai)) return formCache.get(yakuzai);
+			let zaikei = '';
+			if (typeof db !== 'undefined' && db) {
+				try {
+					const escapedName = yakuzai.replace(/'/g, "''");
+					const rows = db.exec(`select distinct zaikei from m_kihon where tsusho = '${escapedName}'`);
+					const forms = (rows[0]?.values || []).map(row => row[0]).filter(Boolean);
+					if (forms.length === 1) zaikei = String(forms[0]);
+				} catch (e) {
+					if (typeof debug !== 'undefined' && debug) console.warn('剤型の取得に失敗しました:', yakuzai, e);
+				}
+			}
+			formCache.set(yakuzai, zaikei);
+			return zaikei;
+		};
+		const contentPctOf = (yakuzai, seibun) => {
+			if (typeof db === 'undefined' || !db) return null;
+			const cacheKey = JSON.stringify([yakuzai, seibun]);
+			if (contentPctCache.has(cacheKey)) return contentPctCache.get(cacheKey);
+			try {
+				const escapedName = String(seibun || '').replace(/'/g, "''");
+				const escapedYakuzai = String(yakuzai || '').replace(/'/g, "''");
+				const rows = db.exec(`select distinct nodo from kihon where tsusho = '${escapedYakuzai}' and (seibun = '${escapedName}' or ippanmei = '${escapedName}')`);
+				const rates = (rows[0]?.values || []).map(row => String(row[0] || '').match(/([\d.]+)\s*%/)?.[1]).filter(Boolean);
+				const uniqueRates = [...new Set(rates.map(Number))];
+				const rate = uniqueRates.length === 1 ? uniqueRates[0] : null;
+				contentPctCache.set(cacheKey, rate);
+				return rate;
+			} catch (e) {
+				if (typeof debug !== 'undefined' && debug) console.warn('含有率の取得に失敗しました:', seibun, e);
+				return null;
+			}
+		};
+		const timingPosition = chem => {
+			const timingText = String(chem.timing || '');
+			const date = timingText.match(/^\d{4}-(\d{2})-(\d{2})$/);
+			const month = Number(chem.timingMonth || date?.[1] || timingText.match(/(\d{1,2})月/)?.[1] || 0);
+			const day = date ? Number(date[2]) : 0;
+			const period = chem.timingPeriod || (day ? day <= 10 ? '上旬' : day <= 20 ? '中旬' : '下旬' : '')
+				|| timingText.match(/(上旬|中旬|下旬)/)?.[1] || '';
+			if (!month || !period) return null;
+			return month * 3 + ({ 上旬: 0, 中旬: 1, 下旬: 2 }[period] ?? 0);
+		};
+		const stageOf = chem => {
+			const transplant = stages['定植'];
+			if (!transplant) return undefined;
+			const timing = timingPosition(chem);
+			const stageMonth = Number(transplant.month || String(transplant.date || '').slice(5, 7));
+			const stagePeriod = transplant.period || (transplant.date ? (() => {
+				const day = Number(transplant.date.slice(8, 10));
+				return day <= 10 ? '上旬' : day <= 20 ? '中旬' : '下旬';
+			})() : '');
+			if (timing == null || !stageMonth || !stagePeriod) return 'BOTH';
+			return timing < stageMonth * 3 + ({ 上旬: 0, 中旬: 1, 下旬: 2 }[stagePeriod] ?? 0) ? 'NURSERY' : 'FIELD';
+		};
+		const stageLimitOf = (kaisu, stage) => {
+			if (stage !== 'NURSERY' && stage !== 'FIELD') return kaisu;
+			const target = stage === 'NURSERY' ? /苗床|育苗/ : /本圃|本田/;
+			const matches = [...String(kaisu || '').matchAll(/([^:\s]+)\s*:\s*([^ \t]+)/g)];
+			const match = matches.find(item => target.test(item[1]));
+			return match ? `${match[1]}:${match[2]}` : kaisu;
+		};
+		planList.forEach(chem => {
+			const { yakuzai, jiki, hoho, kaisu } = chem;
+			const keyTsusho = JSON.stringify([yakuzai, jiki, hoho, kaisu]);
+			const dataLimit = tsushoLimit.get(keyTsusho);
+			if (!dataLimit) return;
+			const stage = stageOf(chem);
+			const displayLimit = stageLimitOf(kaisu, stage);
+			const limitMatch = String(displayLimit || '').match(/(?:^|:)\s*(\d+)/);
+			const drugLimit = limitMatch ? Number(limitMatch[1]) : dataLimit.limit;
+
+			const registration = registrationSeibun.get(keyTsusho) || new Map();
+			const seibuns = parseList(chem.seibun);
+			const rules = parseList(chem.seibunkaisu);
+			const mids = parseList(chem.mid);
+			const names = seibuns.length ? seibuns : Array.from(registration.keys());
+			const usageItems = [];
+			names.forEach((seibun, index) => {
+				const registrationData = registration.get(seibun) || {};
+				const seibunkaisu = rules[index] || registrationData.kaisu || '';
+				const midParts = (mids[index] || '').split('/');
+				const rac = registrationData.rac && registrationData.rac !== '-'
+					? registrationData.rac : (midParts[0] || '-');
+				const keito = registrationData.keito || (rac.startsWith('F:') ? midParts[2] : midParts[1]) || '';
+				const rem = registrationData.rem || midParts[3] || '';
+				const ruleLimit = parseInt(seibunkaisu.match(/^\s*(\d+)/)?.[1] || '0', 10);
+				const dataSeibun = seibunCounts[seibun] || {
+					count: 0, rac, keito, rem, kaisu: seibunkaisu, limit: ruleLimit || 999,
+					limitRank: ruleLimit, tsusho: [], uses: []
+				};
+				dataSeibun.count += 1;
+				if (ruleLimit > dataSeibun.limitRank || !dataSeibun.kaisu) {
+					dataSeibun.kaisu = seibunkaisu;
+					dataSeibun.limit = ruleLimit || 999;
+					dataSeibun.limitRank = ruleLimit;
+					dataSeibun.rac = rac;
+					dataSeibun.keito = keito;
+					dataSeibun.rem = rem;
+				}
+				if (!dataSeibun.tsusho.includes(yakuzai)) dataSeibun.tsusho.push(yakuzai);
+				const usageItem = {
+					...chem,
+					yakuzai,
+					zaikei: chem.zaikei || zaikeiOf(yakuzai),
+					seibunkaisu,
+					stage,
+					ref: chem
+				};
+				dataSeibun.uses.push(usageItem);
+				seibunCounts[seibun] = dataSeibun;
+				usageItems.push({ seibun, usageItem });
+
+				if (rac !== '-') {
+					const dataRac = racCounts[rac] || { count: 0, rem, keito: [], seibun: [], tsusho: [] };
+					dataRac.count += 1;
+					if (keito && !dataRac.keito.includes(keito)) dataRac.keito.push(keito);
+					if (!dataRac.seibun.includes(seibun)) dataRac.seibun.push(seibun);
+					if (!dataRac.tsusho.includes(yakuzai)) dataRac.tsusho.push(yakuzai);
+					racCounts[rac] = dataRac;
+				}
+			});
+
+			const components = usageItems.map(({ seibun, usageItem }) => ({
+				seibun,
+				usageItem,
+				text: UsageLimit.text(usageItem, seibun, { contentPct: contentPctOf })
+			}));
+			yakuzaiUses.push({
+				yakuzai, jiki, hoho, kaisu, displayLimit, drugLimit, chem,
+				components,
+				slotText: components.map(({ seibun, text }) => text ? `${seibun}: ${text}` : '')
+					.filter(Boolean).join(' ・ ')
+			});
 		});
 
-		const yakuzaiRows = Object.entries(yakuzaiCounts)
-			.sort(([a], [b]) => a.localeCompare(b, 'ja'))
-			.map(([name, count]) => `<tr class="${tsushoLimit[name] ? '': 'missing-row'}"><td>${name}</td><td>${count}</td><td>${tsushoLimit[name] || '×'}</td></tr>`)
+		const partialRuleStats = new Map();
+		yakuzaiUses.forEach(use => use.components.forEach(({ seibun, usageItem, text }) => {
+			const rule = String(usageItem.seibunkaisu || '');
+			const ruleKey = JSON.stringify([seibun, rule]);
+			if (!partialRuleStats.has(ruleKey)) {
+				const innerRule = rule.match(/[（(]([\s\S]*?)[）)]/)?.[1] || '';
+				const innerLimitTotal = [...innerRule.normalize('NFKC').matchAll(/(\d+)\s*回(?:以内)?/g)]
+					.reduce((total, match) => total + Number(match[1]), 0);
+				partialRuleStats.set(ruleKey, {
+					limit: Number(rule.match(/^\s*(\d+)/)?.[1] || 0),
+					innerLimitTotal,
+					restrictedUses: 0
+				});
+			}
+			if (text.includes(' / ')) partialRuleStats.get(ruleKey).restrictedUses += 1;
+		}));
+		yakuzaiUses.forEach(use => {
+			const remainderRules = use.components.map(({ seibun, usageItem, text }) => {
+				if (text.includes(' / ')) return null;
+				const rule = String(usageItem.seibunkaisu || '');
+				const ruleKey = JSON.stringify([seibun, rule]);
+				const stats = partialRuleStats.get(ruleKey);
+				if (!stats || !stats.limit) return null;
+				const hasUnusedInnerAllowance = stats.innerLimitTotal > 0
+					&& stats.innerLimitTotal < stats.limit;
+				if (!stats.restrictedUses && !hasUnusedInnerAllowance) return null;
+				const limit = hasUnusedInnerAllowance
+					? stats.limit : Math.max(0, stats.limit - stats.restrictedUses);
+				return { key: ruleKey, limit };
+			}).filter(Boolean).sort((a, b) => a.key.localeCompare(b.key, 'ja'));
+			const totalOnly = use.components.length > 0
+				&& use.components.every(({ usageItem }) => !/[（(]/.test(usageItem.seibunkaisu));
+			const remainderLimit = remainderRules.length
+				? Math.min(...remainderRules.map(rule => rule.limit)) : null;
+			const kaisu = remainderLimit !== null ? `${remainderLimit}回以内` : use.displayLimit;
+			const limit = remainderLimit !== null ? remainderLimit : use.drugLimit;
+			const methodKey = UsageLimit.methodKey(use.hoho);
+			const combineAcrossRegistrations = use.slotText.includes(' / ')
+				|| use.displayLimit !== use.kaisu || totalOnly || remainderRules.length > 0;
+			const key = JSON.stringify(remainderRules.length
+				? [use.yakuzai, use.displayLimit, 'remainder', remainderRules.map(rule => rule.key)]
+				: combineAcrossRegistrations
+					? [use.yakuzai, use.displayLimit, use.slotText]
+					: [use.yakuzai, use.jiki, methodKey, use.displayLimit]);
+			const dataTsusho = yakuzaiCounts.get(key) || {
+				tsusho: use.yakuzai, kaisu, count: 0, limit, timings: [], refs: []
+			};
+			dataTsusho.count += 1;
+			dataTsusho.timings.push(`${dispJiki(use.jiki)}/${dispHoho(use.hoho)}`);
+			dataTsusho.refs.push(use.chem);
+			yakuzaiCounts.set(key, dataTsusho);
+		});
+
+		const ingredientOverLimitRefs = new Set();
+		Object.entries(seibunCounts).forEach(([seibun, data]) => {
+			data.verdict = UsageLimit.judge(data.uses, seibun, { contentPct: contentPctOf });
+			if (data.count > data.limit) {
+				data.uses.forEach(use => ingredientOverLimitRefs.add(use.ref));
+			}
+			data.verdict.flags.forEach((flags, ref) => {
+				if (flags.some(flag => flag.level === 'NG')) ingredientOverLimitRefs.add(ref);
+			});
+			const breakdowns = new Map();
+			[...data.verdict.lines, ...data.verdict.okLines].forEach(line => {
+				const match = line.text.match(/^(.+?): 使用回数(\d+)回/);
+				if (!match) return;
+				const current = breakdowns.get(match[1]);
+				const level = line.level === 'NG' || current?.level === 'NG' ? 'NG' : 'OK';
+				breakdowns.set(match[1], { count: Number(match[2]), level });
+			});
+			data.breakdowns = [...breakdowns].map(([label, result]) => ({ label, ...result }));
+		});
+
+		yakuzaiCounts.forEach(data => {
+			data.exceeded = data.count > data.limit || data.refs.some(ref => ingredientOverLimitRefs.has(ref));
+		});
+
+		const sortedYakuzaiRows = Array.from(yakuzaiCounts.values())
+			.sort((a, b) => a.tsusho.localeCompare(b.tsusho, 'ja') ||
+				a.kaisu.localeCompare(b.kaisu, 'ja'));
+		const yakuzaiRows = sortedYakuzaiRows
+			.map((o, i) => {
+				let classList = [];
+				if (i % 2 === 1) classList.push('even-row');
+				const count = o.exceeded ? `<em>${o.count}</em>` : o.count;
+				const timings = o.timings.map(timing => `<small>${timing}</small>`).join('<br>');
+				return `<tr class="${classList.join(' ')}"><td>${o.tsusho}<br>${timings}</td><td>${count}</td><td>${o.kaisu}</td></tr>`;
+			})
 			.join('');
 
 		if (yakuzaiRows) {
-			html += '<h3>薬剤別使用回数</h3>';
-			html += `<table class="std-data-table"><thead><tr><th>薬剤名</th><th>回数</th><th>上限</th></tr></thead><tbody>${yakuzaiRows}</tbody></table>`;
+			html += `<h3 class="rac-head"><span>薬剤別使用回数</span>` +
+				`<button type="button" id="yakuzaiToggleAll" class="rac-toggle-all" aria-pressed="false" title="成分別使用回数を全行開閉">成分全展開</button></h3>`;
+			html += `<table id="yakuzaiCountTable" class="std-data-table"><thead><tr><th>薬剤名</th><th>回数</th><th>上限</th></tr></thead><tbody>${yakuzaiRows}</tbody></table>`;
 		}
 
-		if (summary.length > 0) {
-			html += '<h3>成分別使用回数</h3>';
-			summary.forEach((data) => {
-				html += `<div class="row-title">${data.name}</div>` +
-					`<table class="row-data-table"><tbody>` +
-					`<tr><th>RAC</th><td>${data.rac}</td></tr>` +
-					`<tr class="even-row"><th>回数</th><td>${data.count}</td></tr>` +
-					`<tr><th>上限</th><td>${data.limit}</td></tr>` +
-					`</tbody></table>`;
+		const seibunRows = Object.entries(seibunCounts).map(([name, data]) => ({
+			name,
+			rac: data.rac,
+			keito: data.keito,
+			rem: data.rem,
+			count: data.count,
+			kaisu: data.kaisu,
+			limit: data.limit,
+			tsusho: data.tsusho,
+			breakdowns: data.breakdowns,
+			verdict: data.verdict
+		})).sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, 'ja'));
+
+		const racRows = Object.entries(racCounts).map(([name, data]) => ({
+			name,
+			count: data.count,
+			rem: data.rem,
+			keito: data.keito,
+			seibun: data.seibun,
+			tsusho: data.tsusho
+		})).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+
+		if (racRows.length > 0) {
+			html += `<h3 class="rac-head"><span>RAC別使用回数</span>` +
+				`<button type="button" id="racToggleAll" class="rac-toggle-all" aria-pressed="false" title="全行を開閉">詳細全展開</button></h3>`;
+			html += `<table id="racCountTable" class="std-data-table rac-count-table"><tbody>`;
+			racRows.forEach((data, i) => {
+				const { name, count, rem, keito, seibun, tsusho } = data;
+				const esc = escapeRecCacheHtml;
+				const remHtml = rem ? `<small>　${esc(rem)}</small>` : '';
+				html += `<tr class="rac-count-row" tabindex="0" role="button" aria-expanded="false" aria-controls="racDetail${i}" title="タップして詳細を表示">` +
+						`<td class="rac-toggle"><span class="rac-arrow" aria-hidden="true">▶</span></td>` +
+						`<td><b>${esc(name)}</b></td>` +
+						`<td>${count}回${remHtml}</td>` +
+					`</tr>` +
+					`<tr class="rac-detail-row" id="racDetail${i}" hidden>` +
+						`<td colspan="3">` +
+							`<table class="row-data-table"><tbody>` +
+							`<tr><th>RAC系統</th><td>${esc(keito.join(','))}</td></tr>` +
+							`<tr class="even-row"><th>成分</th><td>${esc(seibun.join(','))}</td></tr>` +
+							`<tr><th>薬剤</th><td>${esc(tsusho.join(','))}</td></tr>` +
+							`</tbody></table>` +
+						`</td>` +
+					`</tr>`;
 			});
+			html += `</tbody></table>`;
 		}
 
-		html += '<div class="bottom-spacer"></div>';
 		div.innerHTML = html;
 		wrapper.appendChild(div);
+		const racTable = div.querySelector('#racCountTable');
+		if (racTable) {
+			const racToggleAll = div.querySelector('#racToggleAll');
+			const racRowEls = () => Array.from(racTable.querySelectorAll('.rac-count-row'));
+			const setRacOpen = (row, open) => {
+				const detail = row.nextElementSibling;
+				if (!detail || !detail.classList.contains('rac-detail-row')) return;
+				detail.hidden = !open;
+				row.setAttribute('aria-expanded', String(open));
+				row.classList.toggle('open', open);
+			};
+			// 全行が開いている場合のみ「全て閉じる」表示にする
+			const syncRacToggleAll = () => {
+				if (!racToggleAll) return;
+				const allOpen = racRowEls().every(row => row.classList.contains('open'));
+				racToggleAll.textContent = allOpen ? '全て閉じる' : '詳細全展開';
+				racToggleAll.setAttribute('aria-pressed', String(allOpen));
+			};
+			const toggleRac = row => {
+				setRacOpen(row, !row.classList.contains('open'));
+				syncRacToggleAll();
+			};
+			racToggleAll?.addEventListener('click', () => {
+				const open = racToggleAll.getAttribute('aria-pressed') !== 'true';
+				racRowEls().forEach(row => setRacOpen(row, open));
+				syncRacToggleAll();
+			});
+			racTable.addEventListener('click', event => {
+				const row = event.target.closest('.rac-count-row');
+				if (row && racTable.contains(row)) toggleRac(row);
+			});
+			racTable.addEventListener('keydown', event => {
+				if (event.key !== 'Enter' && event.key !== ' ') return;
+				const row = event.target.closest('.rac-count-row');
+				if (!row) return;
+				event.preventDefault();
+				toggleRac(row);
+			});
+		}
+		const yakuzaiTable = div.querySelector('#yakuzaiCountTable');
+		if (yakuzaiTable) {
+			const yakuzaiToggleAll = div.querySelector('#yakuzaiToggleAll');
+			const yakuzaiToggles = []; // { row, detail } 成分を持つ薬剤行
+			const syncYakuzaiToggleAll = () => {
+				if (!yakuzaiToggleAll) return;
+				const allOpen = yakuzaiToggles.length > 0 && yakuzaiToggles.every(({ row }) => row.classList.contains('open'));
+				yakuzaiToggleAll.textContent = allOpen ? '全て閉じる' : '成分全展開';
+				yakuzaiToggleAll.setAttribute('aria-pressed', String(allOpen));
+			};
+			Array.from(yakuzaiTable.tBodies[0].rows).forEach((row, index) => { // 走査中に詳細行を挿入するため、先に行配列を確定
+				const data = sortedYakuzaiRows[index];
+				const ingredientNames = Object.entries(seibunCounts)
+					.filter(([, seibunData]) => seibunData.uses.some(use => data.refs.includes(use.ref)))
+					.map(([name]) => name);
+				if (!ingredientNames.length) return;
+				row.classList.add('yakuzai-count-row');
+				row.tabIndex = 0;
+				row.setAttribute('role', 'button');
+				row.setAttribute('aria-expanded', 'false');
+				row.title = 'タップして有効成分別の使用回数を表示';
+				row.cells[0].insertAdjacentHTML('afterbegin', '<span class="rac-arrow" aria-hidden="true">▶</span>');
+				const detail = document.createElement('tr');
+				detail.className = 'yakuzai-detail-row';
+				detail.hidden = true;
+				detail.innerHTML = `<td colspan="${row.cells.length}">${buildSeibunDetailHtml(
+					seibunRows.filter(seibun => ingredientNames.includes(seibun.name)))}</td>`;
+				row.after(detail);
+				yakuzaiToggles.push({ row, detail });
+				const setOpen = open => {
+					detail.hidden = !open;
+					row.setAttribute('aria-expanded', String(open));
+					row.classList.toggle('open', open);
+				};
+				row._setOpen = setOpen;
+				const toggleDetails = () => {
+					setOpen(detail.hidden);
+					syncYakuzaiToggleAll();
+				};
+				row.addEventListener('click', toggleDetails);
+				row.addEventListener('keydown', event => {
+					if (event.key !== 'Enter' && event.key !== ' ') return;
+					event.preventDefault();
+					toggleDetails();
+				});
+			});
+			if (yakuzaiToggleAll) {
+				yakuzaiToggleAll.disabled = yakuzaiToggles.length === 0;
+				yakuzaiToggleAll.addEventListener('click', () => {
+					const open = yakuzaiToggleAll.getAttribute('aria-pressed') !== 'true';
+					yakuzaiToggles.forEach(({ row }) => row._setOpen(open));
+					syncYakuzaiToggleAll();
+				});
+			}
+		}
 	} catch (e) {
 		console.error(e);
 	} finally {
@@ -843,14 +1687,32 @@ async function setPlanRecord() {
 	// 表の再描画に合わせて削除ボタンの有効/無効を更新
 	updateRowDeleteButton();
 
-	//if (!isFileSystemAccessSupported) {
-	if (!isFileSystemAccessSupported || !isDesktop) {
+	if (!isFileSystemAccessSupported) {
 		document.querySelector('#btnSaveRec title').textContent = '防除記録を保存';
 		document.querySelector('#btnSaveRecAs')?.classList.add('hidden');
 	}
 	const planSwiper = document.querySelector('.plan-swiper').swiper;
 	if (planSwiper.activeIndex !== 2) planSwiper.slideTo(2);
 
+}
+
+// 薬剤別使用回数：成分別使用回数の詳細HTML
+function buildSeibunDetailHtml(rows) {
+	const escapeHtml = escapeRecCacheHtml;
+	return rows.map(data => {
+		const count = data.count > data.limit || data.verdict.status === 'NG'
+			? `<em>${data.count}</em>` : String(data.count);
+		const breakdown = data.breakdowns.length
+			? `(${data.breakdowns.map(item => `${escapeHtml(item.label)}:${item.level === 'NG' ? `<em>${item.count}</em>` : item.count}`).join(',')})`
+			: '';
+		return `<div class="row-title">${escapeHtml(data.name)}</div>` +
+			`<table class="row-data-table"><tbody>` +
+			`<tr><th>回数</th><td>${count}${breakdown}</td></tr>` +
+			`<tr class="even-row"><th>上限</th><td>${escapeHtml(data.kaisu)}</td></tr>` +
+			`<tr><th>薬剤</th><td>${data.tsusho.map(escapeHtml).join(',')}</td></tr>` +
+			`<tr class="even-row"><th>RAC</th><td>${escapeHtml(data.rac)}${data.keito ? ' / ' + escapeHtml(data.keito) : ''}${data.rem ? '<br><small>' + escapeHtml(data.rem) + '</small>' : ''}</td></tr>` +
+			`</tbody></table>`;
+	}).join('');
 }
 
 // 防除記録タブ step.4: 薬剤適用詳細表示
