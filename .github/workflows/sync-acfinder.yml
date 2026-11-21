@@ -1,9 +1,9 @@
 name: Sync ACFinderBE
 
 on:
-  push:
-    paths:
-      - 'acfinder/acfinder[0-9]*.zip' # acfinder2026.0306.1200.zip 等の追加で発動
+  #push:
+    #paths:
+      #- 'acfinder/acfinder[0-9]*.zip' # acfinder2026.0306.1200.zip 等の追加で発動
   workflow_dispatch:
     inputs:
       run_mode:
