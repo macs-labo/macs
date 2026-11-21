@@ -180,29 +180,7 @@ class ChemListManager {
 
 		let isNoData = true;
 		let visibleCount = 0;
-		let currentGroup = null;
-		let currentGroupVisibleCount = 0;
-
-		// 前のグループの表示/非表示を確定するヘルパー
-		const finalizeGroup = () => {
-			if (!currentGroup) return;
-			const isVisible = currentGroupVisibleCount > 0;
-			currentGroup.classList.toggle('hidden', !isVisible);
-			currentGroup.classList.toggle('categoryHidden', !isVisible);
-		};
-
 		this.container.querySelectorAll('.checkListItem').forEach(item => {
-			// グループヘッダーの場合
-			if (item.hasAttribute('data-group')) {
-				finalizeGroup();
-				currentGroup = item;
-				currentGroupVisibleCount = 0;
-				// ヘッダーは一旦非表示にしておき、配下に表示アイテムがあれば後で表示する
-				item.classList.add('hidden', 'categoryHidden');
-				return;
-			}
-
-			// 通常アイテムの判定
 			// カテゴリーマッチ判定
 			const matchesCat = catText === '' || !!item.dataset.info.match(new RegExp(catText));
 			// テキストマッチ判定 (AND検索)
@@ -217,15 +195,9 @@ class ChemListManager {
 
 			if (visible) {
 				isNoData = false;
-				visibleCount++;
-				if (currentGroup) {
-					currentGroupVisibleCount++;
-				}
+				if (!item.hasAttribute('data-group')) visibleCount++;
 			}
 		});
-		// 最後のグループを確定
-		finalizeGroup();
-
 		this.container.querySelector('.nodata')?.classList.toggle('hidden', !isNoData);
 		const countEl = this.wrapper.querySelector('h3 .count');
 		if (countEl) {

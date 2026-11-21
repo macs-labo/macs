@@ -15,7 +15,7 @@
 <!-- 最低限必要な外部ライブラリ -->
 <!--	タブ専用の script -->
 <script>
-async function restoreLocalTab() {
+window.addEventListener('DOMContentLoaded', async function() {
 	const templateHtml = sessionStorage.getItem('procTemplateHtml');
 	const templateFileName = sessionStorage.getItem('procTemplateFileName');
 	if (templateHtml) {
@@ -132,13 +132,12 @@ async function restoreLocalTab() {
 		// テンプレートがない場合（誤ってリロードした際など）のみメッセージを表示
 		document.getElementById('noDataMessage')?.classList.remove('hidden');
 	}
-}
-
-///*
-window.addEventListener('load', () => {
-	restoreLocalTab();
 });
-//*/
+
+/* window.addEventListener('load', () => {
+	document.getElementById('tabFile')?.click()
+});
+ */
 </script>
 </head>
 <body>
@@ -150,10 +149,3 @@ window.addEventListener('load', () => {
 <div class="tab_content">
 	<p id="noDataMessage" class="hidden" style="text-align: center; padding: 50px;">表示するデータがありません。「＋」メニューから「ローカル」を選択してファイルを開いてください。</p>
 </div>
-<!--
-<script>
-restoreLocalTab();
-</script>
--->
-</body>
-</html>

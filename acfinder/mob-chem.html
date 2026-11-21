@@ -137,6 +137,7 @@ async function setupChemChem() {
 	await waiting(true, '薬剤リストを作成中...');
 	try {
 		const chemSwiper = document.querySelector('.chem-swiper').swiper;
+		const chemListbox = document.getElementById("chemChemList");
 		const expandCropCondition = crops.map(crop => `(${expandCrops(crop)})`).join(' or ');
 		const expandCropFlags = crops.map(crop => `(${expandCrops(crop)}) as ${normalizeColName(crop)}`).join(', ');
 		const cropFlags = crops.map(crop => `max(${normalizeColName(crop)}) as ${normalizeColName(crop)}`).join(', ');
@@ -148,7 +149,7 @@ async function setupChemChem() {
 			select * from t_tekiyo left join t_sakumotsu using(sakumotsu) where (${normalizeColName(crops.join(' or '))});
 			delete from t_chemTekiyo where bango not in (
 				with t_bango as (select bango, ${cropFlags} from t_chemTekiyo group by bango)
-				select bango from t_bango where (${normalizeColName(crops.join(chemCropManager.searchMethod))})
+				select bango from t_bango where (${normalizeColName(crops.join(cropCropManager.searchMethod))})
 			);
 			with t_tekiyo1 as (select bango, meisho, tsusho, ruby, sakumotsu,
 				gn_concat(',', iif(ifnull(jiki,'-')='-','時期無指定',jiki)) as jiki, gn_concat(',', iif(ifnull(kaisu,'-')='-','回数無指定',kaisu)) as kaisu, gn_concat(',', iif(ifnull(hoho,'-')='-','方法無指定',hoho)) as hoho,
