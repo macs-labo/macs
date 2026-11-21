@@ -275,7 +275,7 @@ p.error {
 */
 
 .menu-dialog .menu-item:hover {
-	background-color: var(--bg-color-button);
+	background-color: var(--bg-color--icon-hover);
 }
 
 .menu-dialog .menu-item-name {
