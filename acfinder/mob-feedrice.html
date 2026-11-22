@@ -150,6 +150,16 @@ function initFeedTab() {
 	feedDetailManager = new ChemDetailManager('#feedDetailWrapper');
 	feedDetailManager.init();
 
+	// t_feedTsusho 作成
+	const sql = `
+		drop table if exists t_feedTsusho;
+		create temp table t_feedTsusho as
+		with t_tsusho as (select distinct tsusho, a.yoto as yoto, ishoku, chokuha, ine, momi, jogaiseibun, jogainodo from feedrice as a left join m_kihon using(shurui)),
+		t_nodo as (select distinct tsusho, ippanmei, extnum('%', nodo) as nodo from kihon where tsusho in (select tsusho from t_tsusho))
+		select * from t_tsusho where tsusho not in (select distinct tsusho from t_tsusho left join t_nodo using(tsusho) where ippanmei = jogaiseibun and nodo > jogainodo);
+	`;
+	db.exec(sql);
+
 	// 飼料用稲・籾米タブ検索条件初期化
 	currentCat = document.getElementById("feedCategory").value;
 	currentMomiMethod = document.getElementById("momiMethod").value;
@@ -175,7 +185,8 @@ async function setupFeedPest() {
 		const method = currentCat === 'ine' ? currentIneMethod : currentMomiMethod;
 		const feedCond = currentCat === 'momi' ? "momi = 1" :
 						!currentExclude4hppd ? "ine = 1" :
-						"and tsusho not in (select tsusho from feedrice left join kihon using(shurui) where mid like '%H:27%')";
+						"ine = 1 and n_concat(',', mid1, mid2, mid3, mid4, mid5) not like '%H:27%'";
+						//"ine = 1 and not like_in(shurui, (select json_group_array('%'||ippanmei||'%') from rac2 where mid like '%H:27%'))";
 		const cropCond = currentCat === 'momi' ? "sakumotsu not like '%苗%' and jiki not regexp '種前|種時|緑化|耕起|移植時'" :
 						currentIneMethod === '湛水直播' ? "sakumotsu not like '%乾田%' and hoho not like '%育苗箱%' and jiki not regexp '移植|田植|苗代|乾田' and chokuha = 1" :
 						currentIneMethod === '乾田直播' ? "sakumotsu not like '%湛水%' and hoho not regexp '育苗箱|種同時' and jiki not regexp '移植|田植|苗代|湛水直播' and chokuha = 1" :
@@ -183,11 +194,10 @@ async function setupFeedPest() {
 		const sql = `
 			drop table if exists t_feedTekiyo;
 			create temp table t_feedTekiyo as
-			with t_tekiyo as (select * from tv_tsushoTekiyo left join feedrice using(shurui) where
-				${feedCond} and 
+			with t_tekiyo as (select * from tv_tsushoTekiyo left join t_feedTsusho using(tsusho) where
+				tsusho in (select tsusho from t_feedTsusho) and ${feedCond} and
 				sakumotsu in (select sakumotsu from m_sakumotsu where idsaku regexp (select '^('||n_concat('|',substr(idsaku,1,12),substr(idsaku,1,6)||'000000',substr(idsaku,1,4)||'00000000')||')' from m_sakumotsu where sakumotsu = '${method}水稲')) and
-				${cropCond} and
-				tsusho not in (select tsusho from feedrice left join kihon using(shurui) where ippanmei = jogaiseibun and extnum('%', nodo) > jogainodo)
+				${cropCond}
 			),
 			t_byochu1 as (select idbyochu, byochu as byochu2, betsumei as byochuruby from m_byochu),
 			t_byochu2 as (select distinct ifnull(byochu, ifnull(mokuteki, hoho)) as byochu2 from m_tekiyo),
@@ -199,7 +209,9 @@ async function setupFeedPest() {
 				select distinct idbyochu, byochu2, byochuruby from t_feedTekiyo where byochu not regexp '菌(\\)|による)'
 				union select idbyochu, byochu, byochuruby from t_gByochu order by idbyochu;
 		`;
-		if (debug) console.log(sql.replace(/^\t+/gm, ''));
+		console.log('${method} = {', method, '}');
+		console.log('${feedCond} = {', feedCond, '}');
+		console.log('${cropCond} = {', cropCond, '}');
 
 		const sqlResult = db.exec(sql);
 
@@ -269,7 +281,7 @@ async function setupFeedChem() {
 		const pestColumns = results.map(r => r.col).join(', ');
 		const pestAggColumns = checkedPests.map(pest => `max(${normalizeColName(pest.byochu)}) as ${normalizeColName(pest.byochu)}`).join(' , ');
 
-		// Step 2 で作成された t_feedTekiyo を使用して薬剤を抽出
+		// Step 1 で作成された t_feedTekiyo を使用して薬剤を抽出
 		const sql = `
 			with t_byochu as (select distinct byochu2, ${pestColumns} from t_feedTekiyo where (${pestCondition})),
 			t_tsusho1 as (select tsusho, ${pestAggColumns} from t_byochu left join t_feedTekiyo using(byochu2) where (${pestCondition}) group by tsusho),
@@ -282,7 +294,10 @@ async function setupFeedChem() {
 			)
 			select tsusho, gn_concat('|', format('%s:%s/%s/%s', sakumotsu, jiki, kaisu, hoho)) as tekiyo, keywords from t_tekiyo group by tsusho;
 		`;
-		if (debug) console.log(sql.replace(/^\t+/gm, ''));
+		console.log('${pestColumns} = {', pestColumns, '}');
+		console.log('${pestAggColumns} = {', pestAggColumns, '}');
+		console.log('${pestCondition} = {', pestCondition, '}');
+		console.log('${pestFlags} = {', pestFlags, '}');
 
 		const sqlResult = db.exec(sql);
 
