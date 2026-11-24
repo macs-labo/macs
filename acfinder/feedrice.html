@@ -12,9 +12,10 @@
 <script type="text/javascript" src="./loader.js"></script>
 <script type="text/javascript" src="./table.js"></script>
 <script type="text/javascript" src="./crop.js"></script>
+<script type="text/javascript" src="./pest.js"></script>
 <link rel="stylesheet" type="text/css" href="./common.css" />
 <link rel="stylesheet" type="text/css" href="./loader.css" />
-<link rel="stylesheet" type="text/css" href="./crop.css" />
+<!-- <link rel="stylesheet" type="text/css" href="./crop.css" /> -->
 <!-- 本プロジェクト共通外部ライブラリ -->
 <!-- SQL.js ライブラリ -->
 <script src="https://cdn.jsdelivr.net/npm/sql.js@1.14.2/dist/sql-wasm.min.js"></script>
@@ -34,9 +35,44 @@
 <script src="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.min.js"></script>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/infinite-tree@1.18.0/dist/infinite-tree.css">
 <!-- タブ専用外部ライブラリ -->
+<!-- romaji-conv ライブラリ / 作物タブ・病害虫タブ・薬剤タブ -->
+<script src="https://cdn.jsdelivr.net/npm/@koozaki/romaji-conv@2.0.35/dist/romaji-conv.js"></script>
 <!--	タブ専用スタイル -->
 <style>
+.feedtype {
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	gap: 6px;
+	margin-bottom: 8px;
 
+}
+
+.rowflex {
+	display: flex;
+	flex-direction: row;
+	justify-content: space-between;
+}
+
+.disabled {
+	pointer-events: none !important;
+	color: var(--border-color);
+	opacity: 0.4; /* 矢印やタッチバーを薄く表示 */
+}
+
+#ex4hppd {
+	margin-top: -2px;
+	margin-bottom: 0px;
+}
+
+#selectPest {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	flex: 1;
+	min-height: 0px;
+	margin-top: 0px;
+}
 </style>
 <!--	タブ専用の view や table の設定 -->
 <script type="text/plain" id="views_or_tables">
@@ -44,65 +80,66 @@
 <!--	タブ専用の script -->
 <script>
 
+let pestManager;
 let currentListing;
 let currentCat;
-let currentMomiYoto;
-let currentIneYoto;
 let currentMomiMethod;
 let currentIneMethod;
 let currentExclude4hppd;
 
-async function search() {
-	const catSelect = document.getElementById("catSelect");
-	const crop = catSelect.options[catSelect.selectedIndex].textContent;
-	let yoto = currentMomiYoto;
-	if (currentCat === "ine") yoto = currentIneYoto;
-	yoto = yoto.replaceAll("'", '');
+async function appSearch() {
+	const feedCategory = document.getElementById("feedCategory");
+	const crop = feedCategory.options[feedCategory.selectedIndex].textContent;
+	const method = currentCat === 'ine' ? currentIneMethod : currentMomiMethod;
 	const title = document.getElementById("title");
-	title.innerHTML = `${crop} ／ ${yoto}`;
+	const checkedPests = pestManager.checkedPests.sort((a, b) => a.id.localeCompare(b.id)); // id 順にソートした配列
+	let normalizedPests = [];
+	let currentId = '';
+	let byochu = [];
+	checkedPests.forEach(pest => {
+		if (pest.id.slice(0, 4) !== currentId) {
+			if (byochu.length > 0) {
+				normalizedPests.push(`(${byochu.join(' or ')})`);
+				byochu = [];
+			}
+		}
+		const colName = normalizeColName(pest.byochu);
+		if ('15'.includes(pest.id[0]) || pest.id.endsWith('%')) {
+			currentId = pest.id;
+			normalizedPests.push(colName);
+		} else {
+			currentId = pest.id.slice(0, 4);
+			byochu.push(colName);
+		}
+	});
+	if (byochu.length > 0) normalizedPests.push(`(${byochu.join(' or ')})`);
+
+	const pestFlags = normalizedPests.join(' and ');
+	const pests = pestFlags.replaceAll('(', '{').replaceAll(')', '}').replaceAll('or', '|').replaceAll('and', '&').toHan();
+	title.innerHTML = `${crop}${method}栽培` + (checkedPests.length > 0 ? ` ／ ${pests}` : '');
 	title.classList.remove("hidden");
 	tables = resetTables(tables);
 
-	let sql;
-	if (currentCat === "momi") {
-		const momiMethod = currentMomiYoto === "'除草剤'" ? currentMomiMethod : '';
-		sql = `
-			with feedTekiyo as (
-				select * from tv_tsushoTekiyo left join feedrice using(shurui) left join tsushoruby using(tsusho) where
-				momi = 1 and
-				seizaiyoto in (${currentMomiYoto}) and
-				sakumotsu in (select sakumotsu from m_sakumotsu where idsaku regexp (select '^('||n_concat('|',substr(idsaku,1,12),substr(idsaku,1,6)||'000000',substr(idsaku,1,4)||'00000000')||')' from m_sakumotsu where sakumotsu = '${momiMethod}水稲')) and
-				sakumotsu not like '%苗%' and jiki not regexp '種前|種時|緑化|耕起|移植時' and
-				tsusho not in (select tsusho from feedrice left join kihon using(shurui) where ippanmei = jogaiseibun and extnum('%', nodo) > jogainodo)
-			)
-		`;
-	} else {
-		let cropCond;
-		switch (currentIneMethod) {
-			case "湛水直播":
-				cropCond = "sakumotsu not like '%乾田%' and hoho not like '%育苗箱%' and jiki not regexp '移植|田植|苗代|乾田' and chokuha = 1";
-				break;
-			case "乾田直播":
-				cropCond = "sakumotsu not like '%湛水%' and hoho not regexp '育苗箱|種同時' and jiki not regexp '移植|田植|苗代|湛水直播' and chokuha = 1";
-				break;
-			default:
-				cropCond = "jiki not like '%直播%' and not(jiki like '%種時' and baisu like '%/10a') and ishoku = 1";
-		}
-		const _4hppd = currentIneYoto !== "'除草剤'" ? '' : currentExclude4hppd === "" ? '' : "tsusho not in (select tsusho from feedrice left join kihon using(shurui) where mid like '%H:27%') and";
-		sql = `
-			with feedTekiyo as (
-				select * from tv_tsushoTekiyo left join feedrice using(shurui) left join tsushoruby using(tsusho) where
-				ine = 1 and ${_4hppd}
-				seizaiyoto in (${currentIneYoto}) and
-				sakumotsu in (select sakumotsu from m_sakumotsu where idsaku regexp (select '^('||n_concat('|',substr(idsaku,1,12),substr(idsaku,1,6)||'000000',substr(idsaku,1,4)||'00000000')||')' from m_sakumotsu where sakumotsu = '${currentIneMethod}水稲')) and
-				${cropCond} and
-				tsusho not in (select tsusho from feedrice left join kihon using(shurui) where ippanmei = jogaiseibun and extnum('%', nodo) > jogainodo)
-			)
-		`;
-	}
+	const results = checkedPests.map(pest => {
+		const cond = pest.id.includes('%') ? `idbyochu like '${pest.id}'` : `byochu2 = '${pest.byochu}'`;
+		return { cond, col: `(${cond}) as ${normalizeColName(pest.byochu)}` };
+	});
+	const pestCondition = results.map(r => r.cond).join(' or ');
+	const pestColumns = results.map(r => r.col).join(', ');
+	const pestAggColumns = checkedPests.map(pest => `max(${normalizeColName(pest.byochu)}) as ${normalizeColName(pest.byochu)}`).join(' , ');
 	const listing = currentListing ? "gn_concat(', ', ifnull(if(byochu = '-', null, byochu), mokuteki))" : "ifnull(if(byochu = '-', null, byochu), mokuteki)";
-	sql += `
-		select
+	const grouping = currentListing ? "group by tsusho, jiki, baisu, ekiryo, hoho order by ruby": "order by ruby";
+	let pestCte = '', pestWhere = '';
+	if (checkedPests.length > 0) {
+		pestCte = `
+			with t_byochu as (select distinct byochu2, ${pestColumns} from t_feedTekiyo where (${pestCondition})),
+			t_tsusho1 as (select tsusho, ${pestAggColumns} from t_byochu left join t_feedTekiyo using(byochu2) where (${pestCondition}) group by tsusho),
+			t_tsusho2 as (select tsusho from t_tsusho1 where (${pestFlags}))
+		`;
+		pestWhere = "where tsusho in (select tsusho from t_tsusho2) ";
+	}
+	const sql = `
+		${pestCte}select
 			tsusho, shurui, zaikei, seizaidokusei, sakumotsu, ${listing} as byochu, baisu, ekiryo, jiki, kaisu, hoho,
 			basho, jikan, ondo, dojo, chitai, tekiyaku,
 			seibun1, kaisu1, mid1, keito1, rem1, risk1,
@@ -111,72 +148,111 @@ async function search() {
 			seibun4, kaisu4, mid4, keito4, rem4, risk4,
 			seibun5, kaisu5, mid5, keito5, rem5, risk5,
 			kongo, seizaiyoto, seizaikoka, seizaiojas
-		from feedTekiyo
+		from t_feedTekiyo left join tsushoruby using(tsusho)
+		${pestWhere}${grouping};
 	`;
-	if (currentListing) sql += "group by tsusho, jiki, baisu, ekiryo, hoho ";
-	sql += "order by ruby;";
+	console.log('${pestCte} = {', pestCte, '}');
+	console.log('${pestWhere} = {', pestWhere, '}');
+	console.log('${listing} = {', listing, '}');
+	console.log('${grouping} = {', grouping, '}');
 
-	await new Promise((resolve) => {
-		// ローディング画面を確実に表示
-		waiting(true, 'データベース検索中');
-		// UI更新を反映させるためにsetTimeoutを使用
-		setTimeout(() => {
-			requestAnimationFrame(() => {
-				try {
-					let searchTime = -performance.now();
-					let result = db.exec(sql);
-					searchTime += performance.now();
-					tables = outputTable('#result', result, { caption: `${crop}に使用可能な「${yoto}」の適用`, hideFooterU20: false });
-				} catch (error) {
-					console.error(`エラー: ${error.message}`);
-				} finally {
-					// クエリ実行後にローディング画面を非表示
-					waiting(false);
-				}
-				resolve();
-			});
-		}, 0); // 0msで次のイベントループに処理を移す
-	});
+	waiting(true, 'データベース検索中');
+	try {
+		let searchTime = -performance.now();
+		const result = db.exec(sql);
+		searchTime += performance.now();
+		const pest = pests === '' ? '' : `の「${pests.replace(/[{}]/g, '').replaceAll(' & ', '」「').replaceAll(' | ', '、')}」`;
+		tables = outputTable('#result', result, { caption: `「${crop}${method}栽培」${pest}に使用可能な薬剤の適用`, hideFooterU20: false });
+	} catch (error) {
+		console.error(`エラー: ${error.message}`);
+	} finally {
+		// クエリ実行後にローディング画面を非表示
+		waiting(false);
+	}
 }
 
-function setupCondition() {
-	const momi = currentCat === "momi";
-	document.getElementById("momiCond").classList.toggle("hidden", !momi);
-	document.getElementById("ineCond").classList.toggle("hidden", momi);
-	const harbicide = currentMomiYoto === "'除草剤'";
-	document.getElementById("momiAddition").classList.toggle("hidden", currentMomiYoto !== "'除草剤'");
-	document.getElementById("4hppd").classList.toggle("hidden", currentIneYoto !== "'除草剤'");
+async function initSearch() {
+	const method = currentCat === 'ine' ? currentIneMethod : currentMomiMethod;
+/*
+	const feedCond = currentCat === 'momi' ? "momi = 1" :
+					!currentExclude4hppd ? "ine = 1" :
+					"ine = 1 and n_concat(',', mid1, mid2, mid3, mid4, mid5) not like '%H:27%'";
+					//"ine = 1 and not like_in(shurui, (select json_group_array('%'||ippanmei||'%') from rac2 where mid like '%H:27%'))";
+*/
+	const feedCond = `${currentCat} = 1` + (currentCat === 'ine' && currentExclude4hppd ? " and n_concat(',', mid1, mid2, mid3, mid4, mid5) not like '%H:27%'" : '');
+	const cropCond = currentCat === 'momi' ? "sakumotsu not like '%苗%' and jiki not regexp '種前|種時|緑化|耕起|移植時'" :
+					currentIneMethod === '湛水直播' ? "sakumotsu not like '%乾田%' and hoho not like '%育苗箱%' and jiki not regexp '移植|田植|苗代|乾田' and chokuha = 1" :
+					currentIneMethod === '乾田直播' ? "sakumotsu not like '%湛水%' and hoho not regexp '育苗箱|種同時' and jiki not regexp '移植|田植|苗代|湛水直播' and chokuha = 1" :
+					"jiki not like '%直播%' and not(jiki like '%種時' and baisu like '%/10a') and ishoku = 1";
+	const sql = `
+		drop table if exists t_feedTekiyo;
+		create temp table t_feedTekiyo as
+		with t_tekiyo as (select * from tv_tsushoTekiyo left join t_feedTsusho using(tsusho) where
+			tsusho in (select tsusho from t_feedTsusho) and ${feedCond} and
+			sakumotsu in (select sakumotsu from m_sakumotsu where idsaku regexp (select '^('||n_concat('|',substr(idsaku,1,12),substr(idsaku,1,6)||'000000',substr(idsaku,1,4)||'00000000')||')' from m_sakumotsu where sakumotsu = '${method}水稲')) and
+			${cropCond}
+		),
+		t_byochu1 as (select idbyochu, byochu as byochu2, betsumei as byochuruby from m_byochu),
+		t_byochu2 as (select distinct ifnull(byochu, ifnull(mokuteki, hoho)) as byochu2 from m_tekiyo),
+		t_byochu3 as (select ifnull(idbyochu, '59999999') as idbyochu, byochu2, iif(byochu2 = '添加', 'てんか', byochuruby) as byochuruby from t_byochu2 left join t_byochu1 using(byochu2) order by idbyochu)
+		select * from t_tekiyo left join t_byochu3 on ifnull(byochu, ifnull(mokuteki, hoho)) = byochu2;
+		with t_byochu as (select distinct byochu2 as byochu from t_feedTekiyo),
+		t_gByochu as (select cid, gid, format('%d%03d%', cid, gid) as idbyochu, gname as byochu, strconv(gname) as byochuruby
+		from t_byochu left join m_byochu using(byochu) left join gbyochu using(cid, gid) where gname is not null)
+			select distinct idbyochu, byochu2, byochuruby from t_feedTekiyo where byochu not regexp '菌(\\)|による)'
+			union select idbyochu, byochu, byochuruby from t_gByochu order by idbyochu;
+	`;
+	console.log('${method} = {', method, '}');
+	console.log('${feedCond} = {', feedCond, '}');
+	console.log('${cropCond} = {', cropCond, '}');
+	//await pestManager.reset(true);
+
+	waiting(true, '病害虫リストを取得中');
+	try {
+		const result = db.exec(sql);
+		if (result?.[0]?.values) {
+			const pests = result[0].values.map(row => ({
+				idbyochu: row[0],
+				byochu: row[1],
+				betsumei: row[2]
+			}));
+			await pestManager.update(pests, true);
+			appSearch();
+		}
+	} catch (error) {
+		console.error(`エラー: ${error.message}`);
+	} finally {
+		waiting(false);
+	}
 }
 
 function listingChange(event) {
 	currentListing = event.target.value;
+	initSearch();
 }
 
 function catChange(event) {
 	currentCat = event.target.value;
-	setupCondition();
-}
-
-function momiYotoChange(event) {
-	currentMomiYoto = event.target.value;
-	setupCondition();
+	const momi = currentCat === "momi";
+	document.getElementById("momiMethod").classList.toggle("hidden", !momi);
+	document.getElementById("ineMethod").classList.toggle("hidden", momi);
+	document.getElementById("ex4hppd").classList.toggle("disabled", momi);
+	initSearch();
 }
 
 function momiMethodChange(event) {
 	currentMomiMethod = event.target.value;
-}
-
-function ineYotoChange(event) {
-	currentIneYoto = event.target.value;
-	setupCondition();
+	initSearch();
 }
 
 function ineMethodChange(event) {
 	currentIneMethod = event.target.value;
+	initSearch();
 }
 
-function exclude4hppdChange(event) {
-	currentExclude4hppd = event.target.value;
+async function exclude4hppdChange(event) {
+	currentExclude4hppd = event.target.checked;
+	await initSearch();
 }
 
 // DOM読込完了時の初期設定
@@ -184,15 +260,27 @@ window.addEventListener('DOMContentLoaded', async function() {
 	//データベース読込
 	if (db === null) await fetchDB();
 
+	// t_feedTsusho 作成
+	const sql = `
+		drop table if exists t_feedTsusho;
+		create temp table t_feedTsusho as
+		with t_tsusho as (select distinct tsusho, a.yoto as yoto, ishoku, chokuha, ine, momi, jogaiseibun, jogainodo from feedrice as a left join m_kihon using(shurui)),
+		t_nodo as (select distinct tsusho, ippanmei, extnum('%', nodo) as nodo from kihon where tsusho in (select tsusho from t_tsusho))
+		select * from t_tsusho where tsusho not in (select distinct tsusho from t_tsusho left join t_nodo using(tsusho) where ippanmei = jogaiseibun and nodo > jogainodo);
+	`;
+	db.exec(sql);
+
+	// 病害虫選択マネージャ初期化
+	pestManager = new PestListManager('#selectPest', () => { appSearch(); });
+	pestManager.init({ title: '病害虫等選択', showCategory: true });
+
 	// 各セレクタ現在値取得
 	currentListing = document.getElementById("listing").value;
-	currentCat = document.getElementById("catSelect").value;
-	currentMomiYoto = document.getElementById("momiYotoSelect").value;
+	currentCat = document.getElementById("feedCategory").value;
 	currentMomiMethod = document.getElementById("momiMethod").value;
-	currentIneYoto = document.getElementById("ineYotoSelect").value;
 	currentIneMethod = document.getElementById("ineMethod").value;
-	currentExclude4hppd = document.getElementById("4hppdSelect").value;
-	setupCondition();
+	currentExclude4hppd = document.getElementById("exclude4hppd").checked;
+	initSearch();
 
 });
 </script>
@@ -212,61 +300,29 @@ window.addEventListener('DOMContentLoaded', async function() {
 					<option value="byochu">病害虫名を集約</option>
 				</select>
 			</div>
-			<div class="selector">
-				<h3>飼料種別</h3>
-				<select id="catSelect" onchange="catChange(event)">
-					<option value="ine">WCS用稲</option>
-					<option value="momi" selected>籾米(出穂期以降)</option>
-				</select>
-			</div>
-			<div id="momiCond">
-				<div class="selector">
-					<h3>薬剤種別</h3>
-					<select id="momiYotoSelect" onchange="momiYotoChange(event)">
-						<option value="'殺虫剤','殺菌剤','殺虫殺菌剤'" selected>殺虫剤・殺菌剤</option>
-						<option value="'殺虫剤','殺虫殺菌剤'">殺虫剤</option>
-						<option value="'殺菌剤','殺虫殺菌剤'">殺菌剤</option>
-						<option value="'除草剤'">除草剤</option>
+			<div class="feedtype">
+				<h3>飼料種別／栽培様式等</h3>
+				<div class="rowflex">
+					<select id="feedCategory" onchange="catChange(event)">
+						<option value="ine">WCS用稲</option>
+						<option value="momi" selected>籾米(出穂期以降)</option>
 					</select>
-				</div>
-				<div id="momiAddition" class="selector hidden">
-					<h3>栽培様式</h3>
 					<select id="momiMethod" onchange="momiMethodChange(event)">
 						<option value="移植" selected>移植</option>
 						<option value="直播">直播</option>
 					</select>
-				</div>
-			</div>
-			<div id="ineCond" class="hidden">
-				<div class="selector">
-					<h3>薬剤種別</h3>
-					<select id="ineYotoSelect" onchange="ineYotoChange(event)">
-						<option value="'殺虫剤','殺菌剤','殺虫殺菌剤'" selected>殺虫剤・殺菌剤</option>
-						<option value="'殺虫剤','殺虫殺菌剤'">殺虫剤</option>
-						<option value="'殺菌剤','殺虫殺菌剤'">殺菌剤</option>
-						<option value="'除草剤'">除草剤</option>
-						<option value="'農薬肥料','植物成長調整剤'">農薬肥料・植調剤</option>
-					</select>
-				</div>
-				<div class="selector">
-					<h3>栽培様式</h3>
-					<select id="ineMethod" onchange="ineMethodChange(event)">
+					<select id="ineMethod" onchange="ineMethodChange(event)" class="hidden">
 						<option value="移植" selected>移植</option>
 						<option value="湛水直播">湛水直播</option>
 						<option value="乾田直播">乾田直播</option>
 					</select>
 				</div>
-				<div id="4hppd" class="selector hidden">
-					<h3>4-HPPD阻害剤</h3>
-					<select id="4hppdSelect" onchange="exclude4hppdChange(event)">
-						<option value="" selected>含む</option>
-						<option value="1">除く</option>
-					</select>
+				<div id="ex4hppd" class="checkListItem disabled">
+					<input type="checkbox" id="exclude4hppd" onchange="exclude4hppdChange(event)">
+					<label for="exclude4hppd">4-HPPD阻害除草剤を除外する</label>
 				</div>
 			</div>
-			<div class="inputbar">
-				<button onclick="search()">検索</button>
-			</div>
+			<div id="selectPest"></div>
 		</div>
 		<div id="resultPane">
 			<h3 id="title" class="hidden"></h3>

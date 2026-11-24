@@ -1,27 +1,28 @@
 /* 共通ヘッダ用グローバル変数 */
 
 // バージョン
-const appVer = '2026.1120.0004';
+const appVer = '2026.1124.2129';
 
 // 基本タブメニュー設定
 // ここに、ファイル名とタブ名を設定することで、オリジナルタブを追加可能
-// mobile: true のタブは、対応する mob-付きHTMLをモバイル版の標準タブとして起動する
-// デスクトップ版を持たないモバイル専用タブは mobileOnlyTabs に指定する
-const mobileOnlyTabs = [
-	{ name: '防除記録', file: 'pa-rec.html', title: '防除記録' }
-];
+// mobile または mobileOnly が true のタブは、対応する mob-付きHTMLをモバイル版の標準タブとして起動する
+// デスクトップ版を持たないモバイル専用タブは mobileOnly: true にする
 
-let tabs = [
+const allTabs = [
 	{ name: '作物', file: 'crop.html', title: '作物名から農薬を検索', mobile: true },
 	{ name: '病害虫', file: 'pest.html', title: '病害虫名等から農薬を検索', mobile: true },
 	{ name: '薬剤', file: 'chem.html', title: '農薬名等から農薬を検索', mobile: true },
 	{ name: 'SQL', file: 'sql.html', title: '農薬DBをカスタム検索' },
 	{ name: '防除計画', file: 'pestplan.html', title: '防除計画(防除暦)作成支援ツール' },
+	{ name: '防除記録', file: 'pa-rec.html', title: '防除記録', mobileOnly: true },
 	{ name: '農薬病害虫対応表', file: 'pesticides-pests.html', title: '複数の病害虫に対する各農薬の対応表を作成' },
 	{ name: '農薬作物対応表', file: 'pesticides-crops.html', title: '複数の作物に対する各農薬の対応表を作成' },
 	{ name: 'RAC作用機構', file: 'rac_moa.html', title: '薬剤のRAC作用機構分類表を作成(複数作物指定時 AND 検索)' },
-	{ name: '飼料用稲・籾米', file: 'feedrice.html', title: 'WCS用稲や出穂期以降の飼料用籾米に使用可能な薬剤の検索' },
+	{ name: '飼料用稲・籾米', file: 'feedrice.html', title: 'WCS用稲や出穂期以降の飼料用籾米に使用可能な薬剤の検索', mobile: true },
 	{ name: '登録更新履歴', file: 'acisupdate.html', title: 'FAMIC農薬登録情報・速報の更新履歴' },
 	{ name: 'ローカル', title: 'PC上のタブファイルを実行' },
 	{ name: '設定', file: 'prop.html', title: '各種動作モード設定' }
 ];
+
+const mobileTabs = allTabs.filter(tab => tab.mobile || tab.mobileOnly);
+const tabs = allTabs.filter(tab => !tab.mobileOnly);

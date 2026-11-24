@@ -1103,17 +1103,17 @@ async function loadPlanFromJson(data) {
 	try {
 		const loadedPlan = data.plan || data.planList;
 		if (!loadedPlan) throw new Error('Invalid format');
-		// json データの jiki, kaisu が空文字列の場合 '-' に正規化
-		loadedPlan.forEach(item => {
-			item.jiki = item.jiki || '-';
-			item.kaisu = item.kaisu || '-';
-		});
 
 		// 前回のDB登録更新日取得
 		dbUpdateText = data.dataset;
 		// 選択作物の初期化と再設定
 		planCropManager.checkedCrops = data.crops || [];
-		planList = loadedPlan;
+		// json データの jiki, kaisu が空文字列の場合 '-' に正規化して planList に格納
+		planList = loadedPlan.map(item => ({
+			...item,
+			jiki: item.jiki || '-',
+			kaisu: item.kaisu || '-'
+		}));
 
 		stages = data.stages || {};
 		harvest = data.harvest || {};
@@ -1153,10 +1153,7 @@ function dispHoho(hoho) {
 function makeTimingCell(month, period, date, onchange, idPrefix, idSuffix) {
 	const periodStr = (month && period) ? `${month}月${period}` : '';
 	const isDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date);
-	// Display YY-MM-DD format, but keep full date in input value and data-fulldate
-	//const displayVal = isDate ? formatToYYMMDD(date) : periodStr || '';
 	const displayVal = isDate ? date : periodStr || '';
-	//const defaultDate = getTimingPickerDefault(date, periodStr);
 	const uniqueId = idPrefix + Math.random().toString(36).substring(2, 7) + '_' + Date.now() + '_' + idSuffix;
 	const key = typeof idSuffix === 'string' ? `'${idSuffix}'` : idSuffix;
 

@@ -11,7 +11,6 @@
 <script>
 var initTab = 0;
 const urlParams = new URLSearchParams(window.location.search);
-const mobileTabs = tabs.filter(tab => tab.mobile).concat(mobileOnlyTabs);
 function findTargetIndex(arr, keyword) {
 	const numKeyword = Number(keyword);
 	const index = arr.findIndex((item, idx) => {
@@ -309,9 +308,11 @@ select { height: 28px; }
 	color: var(--border-color);
 	line-height: 1.2;
 	overflow-y: hidden;
+	padding-top: 4px;
+	border-bottom: 3px solid transparent;
 }
 .main-btn:hover { color: var(--border-color); background: var(--bg-color-button); }
-.main-btn.active { min-width: 80px; color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
+.main-btn.active { min-width: 70px; color: var(--text-color-dark); font-weight: bold; border-bottom: 3px solid var(--bg-color-accent); background: var(--bg-color-icon-hover); }
 
 /* 外側のSwiper */
 .main-swiper {

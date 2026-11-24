@@ -953,7 +953,7 @@ async function getYakuzaiCandidates(yakuzaiName) {
 		SELECT sakumotsu, 
 		gn_concat('<br>',json_array(byochu)) as byochu,
 		gn_concat('<br>',json_array(mokuteki)) as mokuteki,
-		jiki, kaisu, baisu, ekiryo, hoho, 
+		ifnullstr(jiki, '-') as jiki, ifnullstr(kaisu, '-') as kaisu, baisu, ekiryo, hoho, 
 		concat_ws('<br>', MAX(yuko1), MAX(yuko2), MAX(yuko3), MAX(yuko4), MAX(yuko5)) as seibun,
 		concat_ws('<br>', MAX(kaisu1), MAX(kaisu2), MAX(kaisu3), MAX(kaisu4), MAX(kaisu5)) as seibunkaisu,
 		concat_ws('<br>',
@@ -1785,7 +1785,11 @@ async function loadPlanFromJson(jsonText, msg) {
 
 	try {
 		const loadedData = JSON.parse(jsonText);
-		const planData = loadedData.plan;
+		const planData = loadedData.plan.map(item => ({
+			...item,
+			jiki: item.jiki || '-',
+			kaisu: item.kaisu || '-'
+		}));
 
 		// 先頭行が日付形式なら記録モードを自動有効化
 		const firstRow = planData[0];

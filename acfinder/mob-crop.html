@@ -154,7 +154,7 @@ async function setupCropPest() {
 			t_byochu1 as (select idbyochu, byochu as byochu2, betsumei as byochuruby from m_byochu),
 			t_byochu2 as (select distinct ifnull(byochu, ifnull(mokuteki, hoho)) as byochu2 from m_tekiyo),
 			t_byochu3 as (select ifnull(idbyochu, '59999999') as idbyochu, byochu2, iif(byochu2 = '添加', 'てんか', byochuruby) as byochuruby from t_byochu2 left join t_byochu1 using(byochu2) order by idbyochu)
-			select * from t_tekiyo left join t_sakumotsu using(sakumotsu) left join  t_byochu3 on ifnull(byochu, ifnull(mokuteki, hoho)) = byochu2;
+			select * from t_tekiyo left join t_sakumotsu using(sakumotsu) left join t_byochu3 on ifnull(byochu, ifnull(mokuteki, hoho)) = byochu2;
 			delete from t_cropTekiyo where tsusho not in (
 				with t_tsusho1 as (select tsusho, ${cropFlags} from t_cropTekiyo group by tsusho)
 				select tsusho from t_tsusho1 where ${normalizeColName(crops.join(searchMethod))}
@@ -180,7 +180,7 @@ async function setupCropPest() {
 
 			// urlParams に pests があれば、選択病害虫を設定
 			const pPests = urlParams.get('pests');
-			if (pPests && typeof cropCropManager.syncCheckState === 'function') {
+			if (pPests && typeof cropPestManager.syncCheckState === 'function') {
 				await cropPestManager.syncCheckState(pPests);
 				setupCropChem();
 			}
@@ -230,7 +230,6 @@ async function setupCropChem() {
 	const cropSwiper = document.querySelector('.crop-swiper').swiper;
 	await waiting(true, '薬剤リストを作成中...');
 	try {
-		const chemListbox = document.getElementById("cropChemList");
 		const results = checkedPests.map(pest => {
 			const cond = pest.id.includes('%') ? `idbyochu like '${pest.id}'` : `byochu2 = '${pest.byochu}'`;
 			return { cond, col: `(${cond}) as ${normalizeColName(pest.byochu)}` };
