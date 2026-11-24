@@ -96,9 +96,6 @@
 var feedPestManager, feedChemManager, feedDetailManager; // 飼料用稲・籾米タブ用
 var currentCat, currentMomiMethod, currentIneMethod, currentExclude4hppd;
 
-function setupFeedCondition() {
-}
-
 function catChange(event) {
 	currentCat = event.target.value;
 	const momi = currentCat === "momi";
@@ -183,10 +180,7 @@ async function setupFeedPest() {
 	await waiting(true, '病害虫リストを取得中...');
 	try{
 		const method = currentCat === 'ine' ? currentIneMethod : currentMomiMethod;
-		const feedCond = currentCat === 'momi' ? "momi = 1" :
-						!currentExclude4hppd ? "ine = 1" :
-						"ine = 1 and n_concat(',', mid1, mid2, mid3, mid4, mid5) not like '%H:27%'";
-						//"ine = 1 and not like_in(shurui, (select json_group_array('%'||ippanmei||'%') from rac2 where mid like '%H:27%'))";
+		const feedCond = `${currentCat} = 1` + (currentCat === 'ine' && currentExclude4hppd ? " and n_concat(',', mid1, mid2, mid3, mid4, mid5) not like '%H:27%'" : '');
 		const cropCond = currentCat === 'momi' ? "sakumotsu not like '%苗%' and jiki not regexp '種前|種時|緑化|耕起|移植時'" :
 						currentIneMethod === '湛水直播' ? "sakumotsu not like '%乾田%' and hoho not like '%育苗箱%' and jiki not regexp '移植|田植|苗代|乾田' and chokuha = 1" :
 						currentIneMethod === '乾田直播' ? "sakumotsu not like '%湛水%' and hoho not regexp '育苗箱|種同時' and jiki not regexp '移植|田植|苗代|湛水直播' and chokuha = 1" :

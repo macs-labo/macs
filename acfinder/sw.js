@@ -1,4 +1,4 @@
-const CACHE_NAME = 'acfinder-assets-v5.92r14'; // バージョンを上げる
+const CACHE_NAME = 'acfinder-assets-v5.92r15'; // バージョンを上げる
 const ASSETS_TO_CACHE = [
 	'./crop.html',
 	'./pest.html',
@@ -277,38 +277,86 @@ self.addEventListener('fetch', (event) => {
 		return;
 	}
 
+	// 1. CDN（バージョン固定ライブラリ）はキャッシュ優先（Cache First）
+	if (url.hostname === 'cdn.jsdelivr.net') {
+		event.respondWith(
+			(async () => {
+				const cachedResponse = await caches.match(event.request.url, { ignoreSearch: true });
+				if (cachedResponse) {
+					return cachedResponse;
+				}
+				// キャッシュにない場合のみネットワークから取得（念のため5秒タイムアウト付き）
+				const controller = new AbortController();
+				const timeoutId = setTimeout(() => controller.abort(), 5000);
+				try {
+					const networkResponse = await fetch(event.request, {
+						redirect: 'follow',
+						signal: controller.signal
+					});
+					clearTimeout(timeoutId);
+					if (networkResponse && networkResponse.ok) {
+						const cache = await caches.open(CACHE_NAME);
+						await cache.put(event.request.url, networkResponse.clone());
+					}
+					return networkResponse;
+				} catch (err) {
+					clearTimeout(timeoutId);
+					return new Response('CDN Offline', { status: 503, statusText: 'Service Unavailable' });
+				}
+			})()
+		);
+		return;
+	}
+
+	// 2. 自サーバーのファイルはネットワーク優先 ＋ HEAD/GET 両方にタイムアウト設定
 	event.respondWith(
 		(async () => {
-			const controller = new AbortController();
-			const timeoutId = setTimeout(() => controller.abort(), 1000); // 1秒タイムアウト
+			// HEAD 用タイムアウト（1秒）
+			const headController = new AbortController();
+			const headTimeoutId = setTimeout(() => headController.abort(), 1000);
+
+			// GET 用タイムアウト（3秒：stdsql.zip 等のサイズを考慮して少し長めに設定）
+			const getController = new AbortController();
+			let getTimeoutId;
 
 			try {
 				// 1. まず HEAD リクエストでネットワークの疎通と応答速度を確認
-				// cache: 'no-cache' を使用して 304 を許容し、速度を稼ぐ
 				await fetch(event.request, { 
 					method: 'HEAD', 
 					cache: 'no-cache', 
-					signal: controller.signal 
-				}).catch(() => { throw new Error('offline'); });
-				clearTimeout(timeoutId);
+					signal: headController.signal 
+				});
+				clearTimeout(headTimeoutId);
 
-				// 2. 1秒以内に HEAD が成功したなら GET で実データを取得
-				const networkResponse = await fetch(event.request, { redirect: "follow", cache: 'no-cache' });
+				// 2. HEAD が成功したら、GET 用のタイムアウトを開始して実データを取得
+				getTimeoutId = setTimeout(() => getController.abort(), 5000);
+				const networkResponse = await fetch(event.request, { 
+					redirect: 'follow', 
+					cache: 'no-cache',
+					signal: getController.signal
+				});
+				clearTimeout(getTimeoutId);
 
-				// 正常なレスポンスのみキャッシュを更新（不完全なデータや404を防ぐ）
+				// 正常なレスポンスのみキャッシュを更新
 				if (networkResponse && networkResponse.ok) {
-					// custom.js 等、意図的に 404 になる可能性のあるものは無視
 					const isStaticAsset = ASSETS_TO_CACHE.some(asset => new URL(asset, self.location.href).href === event.request.url);
-					const isCdn = event.request.url.includes('cdn.jsdelivr.net');
-					if (isStaticAsset || isCdn) {
+					if (isStaticAsset) {
 						const cache = await caches.open(CACHE_NAME);
-						await cache.put(event.request, networkResponse.clone());
+						await cache.put(event.request.url, networkResponse.clone());
 					}
 				}
 				return networkResponse;
 			} catch (err) {
-				// 3. タイムアウト(1秒超過)またはオフライン時は、SWキャッシュを返す
-				return await caches.match(event.request, { ignoreSearch: true });
+				clearTimeout(headTimeoutId);
+				if (getTimeoutId) clearTimeout(getTimeoutId);
+
+				// 3. タイムアウトまたは通信切断時は SW キャッシュを返す
+				const cachedResponse = await caches.match(event.request.url, { ignoreSearch: true });
+				if (cachedResponse) {
+					return cachedResponse;
+				}
+				// キャッシュにも無い場合（例: オフライン時の custom.js など）は明確な 503 レスポンスを返す
+				return new Response('Offline', { status: 503, statusText: 'Service Unavailable' });
 			}
 		})()
 	);
