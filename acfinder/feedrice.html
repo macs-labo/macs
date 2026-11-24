@@ -11,6 +11,7 @@
 <script type="text/javascript" src="./custom.js"></script>
 <script type="text/javascript" src="./loader.js"></script>
 <script type="text/javascript" src="./table.js"></script>
+<script type="text/javascript" src="./crop.js"></script>
 <script type="text/javascript" src="./pest.js"></script>
 <link rel="stylesheet" type="text/css" href="./common.css" />
 <link rel="stylesheet" type="text/css" href="./loader.css" />
@@ -112,9 +113,10 @@ async function appSearch() {
 		}
 	});
 	if (byochu.length > 0) normalizedPests.push(`(${byochu.join(' or ')})`);
+
 	const pestFlags = normalizedPests.join(' and ');
 	const pests = pestFlags.replaceAll('(', '{').replaceAll(')', '}').replaceAll('or', '|').replaceAll('and', '&').toHan();
-	title.innerHTML = `${crop}の${method}栽培` + (checkedPests.length > 0 ? ` ／ ${pests}` : '');
+	title.innerHTML = `${crop}${method}栽培` + (checkedPests.length > 0 ? ` ／ ${pests}` : '');
 	title.classList.remove("hidden");
 	tables = resetTables(tables);
 
@@ -127,9 +129,17 @@ async function appSearch() {
 	const pestAggColumns = checkedPests.map(pest => `max(${normalizeColName(pest.byochu)}) as ${normalizeColName(pest.byochu)}`).join(' , ');
 	const listing = currentListing ? "gn_concat(', ', ifnull(if(byochu = '-', null, byochu), mokuteki))" : "ifnull(if(byochu = '-', null, byochu), mokuteki)";
 	const grouping = currentListing ? "group by tsusho, jiki, baisu, ekiryo, hoho order by ruby": "order by ruby";
-
+	let pestCte = '', pestWhere = '';
+	if (checkedPests.length > 0) {
+		pestCte = `
+			with t_byochu as (select distinct byochu2, ${pestColumns} from t_feedTekiyo where (${pestCondition})),
+			t_tsusho1 as (select tsusho, ${pestAggColumns} from t_byochu left join t_feedTekiyo using(byochu2) where (${pestCondition}) group by tsusho),
+			t_tsusho2 as (select tsusho from t_tsusho1 where (${pestFlags}))
+		`;
+		pestWhere = "where tsusho in (select tsusho from t_tsusho2) ";
+	}
 	const sql = `
-		select
+		${pestCte}select
 			tsusho, shurui, zaikei, seizaidokusei, sakumotsu, ${listing} as byochu, baisu, ekiryo, jiki, kaisu, hoho,
 			basho, jikan, ondo, dojo, chitai, tekiyaku,
 			seibun1, kaisu1, mid1, keito1, rem1, risk1,
@@ -138,38 +148,27 @@ async function appSearch() {
 			seibun4, kaisu4, mid4, keito4, rem4, risk4,
 			seibun5, kaisu5, mid5, keito5, rem5, risk5,
 			kongo, seizaiyoto, seizaikoka, seizaiojas
-		from t_feedTekiyo left join tsushoruby using(tsusho) ${grouping};
+		from t_feedTekiyo left join tsushoruby using(tsusho)
+		${pestWhere}${grouping};
 	`;
-	console.log('${pestFlags} = {', pestFlags, '}');
-	console.log('${pestCondition} = {', pestCondition, '}');
-	console.log('${pestColumns} = {', pestColumns, '}');
-	console.log('${pestAggColumns} = {', pestAggColumns, '}');
+	console.log('${pestCte} = {', pestCte, '}');
+	console.log('${pestWhere} = {', pestWhere, '}');
 	console.log('${listing} = {', listing, '}');
 	console.log('${grouping} = {', grouping, '}');
 
-	await new Promise((resolve) => {
-		// ローディング画面を確実に表示
-		waiting(true, 'データベース検索中');
-		// UI更新を反映させるためにsetTimeoutを使用
-		setTimeout(() => {
-			requestAnimationFrame(() => {
-				try {
-
-					let searchTime = -performance.now();
-					const result = db.exec(sql);
-					searchTime += performance.now();
-					const pest = pests === '' ? '' : `の「${pests.replace(/[{}]/g, '').replaceAll(' & ', '」「').replaceAll(' | ', '、')}」`;
-					tables = outputTable('#result', result, { caption: `「${crop}の${method}栽培」${pest}に使用可能な薬剤の適用`, hideFooterU20: false });
-				} catch (error) {
-					console.error(`エラー: ${error.message}`);
-				} finally {
-					// クエリ実行後にローディング画面を非表示
-					waiting(false);
-				}
-				resolve();
-			});
-		}, 0); // 0msで次のイベントループに処理を移す
-	});
+	waiting(true, 'データベース検索中');
+	try {
+		let searchTime = -performance.now();
+		const result = db.exec(sql);
+		searchTime += performance.now();
+		const pest = pests === '' ? '' : `の「${pests.replace(/[{}]/g, '').replaceAll(' & ', '」「').replaceAll(' | ', '、')}」`;
+		tables = outputTable('#result', result, { caption: `「${crop}${method}栽培」${pest}に使用可能な薬剤の適用`, hideFooterU20: false });
+	} catch (error) {
+		console.error(`エラー: ${error.message}`);
+	} finally {
+		// クエリ実行後にローディング画面を非表示
+		waiting(false);
+	}
 }
 
 async function initSearch() {
@@ -206,6 +205,7 @@ async function initSearch() {
 	console.log('${method} = {', method, '}');
 	console.log('${feedCond} = {', feedCond, '}');
 	console.log('${cropCond} = {', cropCond, '}');
+	//await pestManager.reset(true);
 
 	waiting(true, '病害虫リストを取得中');
 	try {
@@ -216,8 +216,8 @@ async function initSearch() {
 				byochu: row[1],
 				betsumei: row[2]
 			}));
-			await pestManager.update(pests);
-			//await appSearch();
+			await pestManager.update(pests, true);
+			appSearch();
 		}
 	} catch (error) {
 		console.error(`エラー: ${error.message}`);
@@ -250,9 +250,9 @@ function ineMethodChange(event) {
 	initSearch();
 }
 
-function exclude4hppdChange(event) {
+async function exclude4hppdChange(event) {
 	currentExclude4hppd = event.target.checked;
-	initSearch();
+	await initSearch();
 }
 
 // DOM読込完了時の初期設定
