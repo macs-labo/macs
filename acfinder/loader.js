@@ -1203,132 +1203,138 @@ function basename(filename) {
 
 // SqlJs 互換メソッドラッパー
 function applySqlJsCompat(sqlite3) {
-  const DBProto = sqlite3.oo1.DB.prototype;
+	const DBProto = sqlite3.oo1.DB.prototype;
 
-  // 二重適用防止
-  if (DBProto._sqlJsCompatApplied) return;
-  DBProto._sqlJsCompatApplied = true;
+	// 二重適用防止
+	if (DBProto._sqlJsCompatApplied) return;
+	DBProto._sqlJsCompatApplied = true;
 
-  const origExec = DBProto.exec;
+	const origExec = DBProto.exec;
 
-  // 1. sql.js 互換 exec(sql, params)
-  DBProto.exec = function (sql, params) {
-    if (typeof sql === 'object' && sql !== null) {
-      return origExec.call(this, sql);
-    }
-    const results = [];
-    let currentResult = null;
-    origExec.call(this, {
-      sql: sql,
-      bind: params,
-      rowMode: 'array',
-      callback: function (row, stmt) {
-        const colNames = stmt.getColumnNames();
-        if (!currentResult || currentResult._stmt !== stmt) {
-          currentResult = { columns: colNames, values: [], _stmt: stmt };
-          results.push(currentResult);
-        }
-        currentResult.values.push(row);
-      }
-    });
-    for (const res of results) delete res._stmt;
-    return results;
-  };
+	// 1. sql.js 互換 exec(sql, params)
+	DBProto.exec = function (sql, params) {
+		if (typeof sql === 'object' && sql !== null) {
+			return origExec.call(this, sql);
+		}
+		const results = [];
+		let currentResult = null;
+		origExec.call(this, {
+			sql: sql,
+			bind: params,
+			rowMode: 'array',
+			callback: function (row, stmt) {
+				const colNames = stmt.getColumnNames();
+				if (!currentResult || currentResult._stmt !== stmt) {
+					currentResult = { columns: colNames, values: [], _stmt: stmt };
+					results.push(currentResult);
+				}
+				currentResult.values.push(row);
+			}
+		});
+		for (const res of results) delete res._stmt;
+		return results;
+	};
 
-  // 2. sql.js 互換 run(sql, params)
-  DBProto.run = function (sql, params) {
-    origExec.call(this, { sql: sql, bind: params });
-    return this;
-  };
+	// 2. sql.js 互換 run(sql, params)
+	DBProto.run = function (sql, params) {
+		origExec.call(this, { sql: sql, bind: params });
+		return this;
+	};
 
-  // 3. sql.js 互換 create_function(name, func, numArgs = -1)
-  DBProto.create_function = function (name, func, numArgs = -1) {
-    this.createFunction({
-      name: name,
-      arity: numArgs,
-      deterministic: true,
-      xFunc: (pCtx, ...args) => func(...args)
-    });
-    return this;
-  };
+	// 3. sql.js 互換 create_function(name, func, numArgs = -1)
+	DBProto.create_function = function (name, func, numArgs = -1) {
+		this.createFunction({
+			name: name,
+			arity: numArgs,
+			deterministic: true,
+			xFunc: (pCtx, ...args) => func(...args)
+		});
+		return this;
+	};
 
-  // 4. sql.js 互換 create_aggregate(name, { init, step, finalize }, numArgs = -1)
-  DBProto.create_aggregate = function (name, { init, step, finalize }, numArgs = -1) {
-    const contexts = new Map();
-    this.createFunction({
-      name: name,
-      arity: numArgs,
-      xStep: (pCtx, ...args) => {
-        const prevState = contexts.has(pCtx)
-          ? contexts.get(pCtx)
-          : (init ? init() : undefined);
-        const nextState = step(prevState, ...args);
-        contexts.set(pCtx, nextState);
-      },
-      xFinal: (pCtx) => {
-        const finalState = contexts.has(pCtx)
-          ? contexts.get(pCtx)
-          : (init ? init() : undefined);
-        try {
-          return finalize ? finalize(finalState) : finalState;
-        } finally {
-          contexts.delete(pCtx);
-        }
-      }
-    });
-    return this;
-  };
+	// 4. sql.js 互換 create_aggregate(name, { init, step, finalize }, numArgs = -1)
+	DBProto.create_aggregate = function (name, { init, step, finalize }, numArgs = -1) {
+		const contexts = new Map();
+		this.createFunction({
+			name: name,
+			arity: numArgs,
+			xStep: (pCtx, ...args) => {
+				const prevState = contexts.has(pCtx)
+					? contexts.get(pCtx)
+					: (init ? init() : undefined);
+				const nextState = step(prevState, ...args);
+				contexts.set(pCtx, nextState);
+			},
+			xFinal: (pCtx) => {
+				const finalState = contexts.has(pCtx)
+					? contexts.get(pCtx)
+					: (init ? init() : undefined);
+				try {
+					return finalize ? finalize(finalState) : finalState;
+				} finally {
+					contexts.delete(pCtx);
+				}
+			}
+		});
+		return this;
+	};
 
-  // 5. サブ DB を後からスキーマ名（dbname）付きで読み込むヘルパーメソッド
-  DBProto.attachArrayBuffer = function (data, dbname = 'sub') {
-    if (!data) return this;
-    // 指定スキーマが未アタッチなら空のインメモリ DB として ATTACH
-    origExec.call(this, `ATTACH DATABASE ':memory:' AS "${dbname.replace(/"/g, '""')}"`);
+	// ヘルパー：指定スキーマへ Uint8Array / ArrayBuffer を安全にデシリアライズする
+	function deserializeToSchema(db, data, dbname) {
+		const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+		if (bytes.byteLength === 0) return;
 
-    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-    const pData = sqlite3.wasm.allocFromTypedArray(bytes);
-    const rc = sqlite3.capi.sqlite3_deserialize(
-      this.pointer,
-      dbname,
-      pData,
-      bytes.byteLength,
-      bytes.byteLength,
-      sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_READONLY
-    );
-    if (rc !== sqlite3.capi.SQLITE_OK) {
-      throw new Error(`sqlite3_deserialize (${dbname}) failed: ${rc}`);
-    }
-    return this;
-  };
+		const pData = sqlite3.wasm.allocFromTypedArray(bytes);
+		const flags =
+			sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE |
+			sqlite3.capi.SQLITE_DESERIALIZE_RESIZEABLE;
 
-  // 6. sql.js 互換コンストラクタ: new sqlite3.Database(data, dbname = 'main')
-  sqlite3.Database = function (data, dbname = 'main') {
-    const db = new sqlite3.oo1.DB(':memory:', 'c');
+		const rc = sqlite3.capi.sqlite3_deserialize(
+			db.pointer,
+			dbname,
+			pData,
+			bytes.byteLength,
+			bytes.byteLength,
+			flags
+		);
 
-    if (data) {
-      // 'main' 以外のスキーマ名を指定して新規作成された場合は先に ATTACH する
-      if (dbname !== 'main') {
-        origExec.call(db, `ATTACH DATABASE ':memory:' AS "${dbname.replace(/"/g, '""')}"`);
-      }
+		if (rc !== sqlite3.capi.SQLITE_OK) {
+			// 失敗時は確保した WASM メモリを自力で解放する
+			sqlite3.wasm.dealloc(pData);
+			throw new Error(`sqlite3_deserialize (${dbname}) failed: ${rc}`);
+		}
+	}
 
-      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
-      const pData = sqlite3.wasm.allocFromTypedArray(bytes);
-      const rc = sqlite3.capi.sqlite3_deserialize(
-        db.pointer,
-        dbname,
-        pData,
-        bytes.byteLength,
-        bytes.byteLength,
-        sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_READONLY
-      );
-      if (rc !== sqlite3.capi.SQLITE_OK) {
-        db.close();
-        throw new Error(`sqlite3_deserialize (${dbname}) failed: ${rc}`);
-      }
-    }
+	// 5. サブ DB を後からスキーマ名（dbname）付きで読み込むヘルパーメソッド
+	DBProto.attachArrayBuffer = function (data, dbname = 'sub') {
+		if (!data) return this;
+		const escaped = dbname.replace(/"/g, '""');
+		// :memory: ではなく空文字列 ''（一時DB）として ATTACH すると deserialize が確実に通ります
+		origExec.call(this, `ATTACH DATABASE '' AS "${escaped}"`);
+		deserializeToSchema(this, data, dbname);
+		return this;
+	};
 
-    return db;
-  };
+	// 6. sql.js 互換コンストラクタ: new sqlite3.Database(data, dbname = 'main')
+	sqlite3.Database = function (data, dbname = 'main') {
+		// 第2引数は省略（デフォルトの読み書き可能インメモリDB）にする
+		const db = new sqlite3.oo1.DB(':memory:');
+
+		if (data) {
+			try {
+				if (dbname !== 'main') {
+					const escaped = dbname.replace(/"/g, '""');
+					origExec.call(db, `ATTACH DATABASE '' AS "${escaped}"`);
+				}
+				deserializeToSchema(db, data, dbname);
+			} catch (e) {
+				db.close();
+				throw e;
+			}
+		}
+
+		return db;
+	};
 }
 
 // DB ロード(新版): サーバ DB ファイルと IndexedDB 保存ファイルのタイムスタンプを比較して、サーバが新しければサーバからフェッチ、それ以外なら IndexedDB からロード
