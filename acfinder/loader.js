@@ -1379,8 +1379,8 @@ async function fetchDB(optiondb = '') {
 		console.log('Loading main DB...');
 		await waiting(true, 'メインデータベース読込中...');
 		var dbname = basename(files[0].fileName) + '.db';
-		db = new SQL.Database(await unzip(new Uint8Array(await blobs[0].arrayBuffer()), dbname));
-		//db = new SQL.Database(await unzip(new Uint8Array(await blobs[0].arrayBuffer())));
+		//db = new SQL.Database(await unzip(new Uint8Array(await blobs[0].arrayBuffer()), dbname));
+		db = new SQL.Database(await unzip(new Uint8Array(await blobs[0].arrayBuffer())), 'main');
 		initDB();
 		console.log(`Main database loaded from ${dbname}.`);
 		
