@@ -1043,7 +1043,7 @@ async function waiting(sw = true, msg = '', msg2 = '') {
 //DBオブジェクト初期化
 function initDB() {
 	registerCustomFunctions(); // ユーザ定義関数を登録
-	db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成
+	//db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成
 	console.log("Database initialized.");
 	lastUpdate = db.exec("select * from info where item = 'LastUpdate'")[0].values[0][1];
 	currentDbUpdate = lastUpdate;
@@ -1216,11 +1216,12 @@ function applySqlJsCompat(sqlite3) {
 		if (typeof sql === 'object' && sql !== null) {
 			return origExec.call(this, sql);
 		}
+
 		const results = [];
 		let currentResult = null;
-		origExec.call(this, {
+
+		const opts = {
 			sql: sql,
-			bind: params,
 			rowMode: 'array',
 			callback: function (row, stmt) {
 				const colNames = stmt.getColumnNames();
@@ -1230,25 +1231,29 @@ function applySqlJsCompat(sqlite3) {
 				}
 				currentResult.values.push(row);
 			}
-		});
+		};
+
+		// ★ params が指定されたときだけ bind プロパティを追加する（undefined を渡さない）
+		if (params !== undefined) {
+			opts.bind = params;
+		}
+
+		origExec.call(this, opts);
+
 		for (const res of results) delete res._stmt;
 		return results;
 	};
 
 	// 2. sql.js 互換 run(sql, params)
 	DBProto.run = function (sql, params) {
-		origExec.call(this, { sql: sql, bind: params });
-		return this;
-	};
+		const opts = { sql: sql };
 
-	// 3. sql.js 互換 create_function(name, func, numArgs = -1)
-	DBProto.create_function = function (name, func, numArgs = -1) {
-		this.createFunction({
-			name: name,
-			arity: numArgs,
-			deterministic: true,
-			xFunc: (pCtx, ...args) => func(...args)
-		});
+		// ★ params が指定されたときだけ bind プロパティを追加する
+		if (params !== undefined) {
+			opts.bind = params;
+		}
+
+		origExec.call(this, opts);
 		return this;
 	};
 
