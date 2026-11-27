@@ -1349,8 +1349,12 @@ function applySqlJsCompat(sqlite3) {
 			if (params !== undefined) {
 				this.bind(params);
 			}
-			// 純正 WASM の stmt.get() は「引数なし」で呼ぶと1行分の配列を返す
-			return origGet.call(this);
+			const count = this.columnCount;
+			const row = new Array(count);
+			for (let i = 0; i < count; i++) {
+				row[i] = origGet.call(this, i);
+			}
+			return row;
 		};
 
 		// sql.js 互換: stmt.getAsObject(params) -> { カラム名: 値, ... } のオブジェクトを返す
@@ -1359,12 +1363,21 @@ function applySqlJsCompat(sqlite3) {
 				this.bind(params);
 			}
 			const cols = this.getColumnNames();
-			const vals = origGet.call(this);
 			const obj = {};
 			for (let i = 0; i < cols.length; i++) {
-				obj[cols[i]] = vals[i];
+				obj[cols[i]] = origGet.call(this, i);
 			}
 			return obj;
+		};
+
+		// sql.js 互換: step() 前でも確実にカラム名配列を返す
+		stmt.getColumnNames = function () {
+			const count = sqlite3.capi.sqlite3_column_count(this.pointer);
+			const names = new Array(count);
+			for (let i = 0; i < count; i++) {
+				names[i] = sqlite3.capi.sqlite3_column_name(this.pointer, i);
+			}
+			return names;
 		};
 
 		// sql.js 互換: stmt.free()
