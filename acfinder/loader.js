@@ -1300,6 +1300,13 @@ function applySqlJsCompat(sqlite3) {
 		const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
 		if (bytes.byteLength === 0) return;
 
+		// ★ 元DBファイルが WAL モード(ヘッダの18,19バイト目が2)で保存されている場合、
+		// メモリ展開時に -wal/-shm ファイルを開こうとしてエラー14になるのを防ぐため DELETE/ROLLBACK モード(1)に書き換える
+		if (bytes.byteLength >= 20 && (bytes[18] === 2 || bytes[19] === 2)) {
+			bytes[18] = 1;
+			bytes[19] = 1;
+		}
+
 		const pData = sqlite3.wasm.allocFromTypedArray(bytes);
 		const flags =
 			sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE |
@@ -1315,7 +1322,6 @@ function applySqlJsCompat(sqlite3) {
 		);
 
 		if (rc !== sqlite3.capi.SQLITE_OK) {
-			// 失敗時は確保した WASM メモリを自力で解放する
 			sqlite3.wasm.dealloc(pData);
 			throw new Error(`sqlite3_deserialize (${dbname}) failed: ${rc}`);
 		}
@@ -1325,27 +1331,28 @@ function applySqlJsCompat(sqlite3) {
 	DBProto.attachArrayBuffer = function (data, dbname = 'sub') {
 		if (!data) return this;
 		const escaped = dbname.replace(/"/g, '""');
-		// :memory: ではなく空文字列 ''（一時DB）として ATTACH すると deserialize が確実に通ります
-		origExec.call(this, `ATTACH DATABASE '' AS "${escaped}"`);
+		// ★ '' ではなく ':memory:' を使う（'' は一時ファイルを作ろうとするためエラー14になる）
+		origExec.call(this, `ATTACH DATABASE ':memory:' AS "${escaped}"`);
 		deserializeToSchema(this, data, dbname);
+		origExec.call(this, `PRAGMA "${escaped}".journal_mode = MEMORY;`);
 		return this;
 	};
 
 	// 6. sql.js 互換コンストラクタ: new sqlite3.Database(data, dbname = 'main')
 	sqlite3.Database = function (data, dbname = 'main') {
-		// 第2引数は省略（デフォルトの読み書き可能インメモリDB）にする
 		const db = new sqlite3.oo1.DB(':memory:');
 
-		// ★ テンポラリ領域（TEMP VIEW / TEMP TABLE / ソート用一時ファイル）を必ずメモリ上に作る
-		origExec.call(db, 'PRAGMA temp_store = 2;');
+		// テンポラリ領域とジャーナルをすべてメモリに固定
+		origExec.call(db, 'PRAGMA temp_store = MEMORY; PRAGMA journal_mode = MEMORY;');
 
 		if (data) {
 			try {
 				if (dbname !== 'main') {
 					const escaped = dbname.replace(/"/g, '""');
-					origExec.call(db, `ATTACH DATABASE '' AS "${escaped}"`);
+					origExec.call(db, `ATTACH DATABASE ':memory:' AS "${escaped}"`);
 				}
 				deserializeToSchema(db, data, dbname);
+				origExec.call(db, `PRAGMA "${dbname.replace(/"/g, '""')}".journal_mode = MEMORY;`);
 			} catch (e) {
 				db.close();
 				throw e;
