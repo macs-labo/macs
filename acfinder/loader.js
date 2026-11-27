@@ -1043,7 +1043,7 @@ async function waiting(sw = true, msg = '', msg2 = '') {
 //DBオブジェクト初期化
 function initDB() {
 	registerCustomFunctions(); // ユーザ定義関数を登録
-	//db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成
+	db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成
 	console.log("Database initialized.");
 	lastUpdate = db.exec("select * from info where item = 'LastUpdate'")[0].values[0][1];
 	currentDbUpdate = lastUpdate;
