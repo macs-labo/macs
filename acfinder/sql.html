@@ -2050,10 +2050,25 @@ function sqlSnapshot() {
 }
 
 // 指定テーブルのカラム名を取得（pragma_table_info にスキーマも渡す）
+/*
 function sqlGetColumns(schema, table) {
 	try {
 		return sqlRows("SELECT name, type, pk FROM pragma_table_info(?, ?)", [table, schema])
 			.map(r => ({ name: r[0], type: r[1], pk: r[2] }));
+	} catch (e) {
+		console.warn("pragma_table_info failed for " + schema + "." + table + ":", e);
+		return [];
+	}
+}
+*/
+function sqlGetColumns(schema, table) {
+	try {
+		return db.exec({
+			sql: "SELECT name, type, pk FROM pragma_table_info(?, ?)",
+			bind: [table, schema],
+			returnValue: 'resultRows',
+			rowMode: 'object'
+		});
 	} catch (e) {
 		console.warn("pragma_table_info failed for " + schema + "." + table + ":", e);
 		return [];
