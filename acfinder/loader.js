@@ -1342,26 +1342,31 @@ function applySqlJsCompat(sqlite3) {
 	const origPrepare = DBProto.prepare;
 	DBProto.prepare = function (sql) {
 		const stmt = origPrepare.call(this, sql);
-
-		// sql.js 互換: stmt.getAsObject(params)
-		stmt.getAsObject = function (params) {
-			if (params !== undefined) {
-				this.bind(params);
-			}
-			return this.get({});
-		};
-
-		// sql.js 互換: stmt.get(params)
-		// ※ 純正の stmt.get() は引数なしで配列を返すが、sql.js は params を渡せるためラップ
 		const origGet = stmt.get;
+
+		// sql.js 互換: stmt.get(params) -> カラム値の配列を返す
 		stmt.get = function (params) {
 			if (params !== undefined) {
 				this.bind(params);
 			}
+			// 純正 WASM の stmt.get() は「引数なし」で呼ぶと1行分の配列を返す
 			return origGet.call(this);
 		};
 
-		// sql.js 互換: stmt.getColumnNames() は純正にも同名メソッドあり
+		// sql.js 互換: stmt.getAsObject(params) -> { カラム名: 値, ... } のオブジェクトを返す
+		stmt.getAsObject = function (params) {
+			if (params !== undefined) {
+				this.bind(params);
+			}
+			const cols = this.getColumnNames();
+			const vals = origGet.call(this);
+			const obj = {};
+			for (let i = 0; i < cols.length; i++) {
+				obj[cols[i]] = vals[i];
+			}
+			return obj;
+		};
+
 		// sql.js 互換: stmt.free()
 		stmt.free = function () {
 			return this.finalize();
