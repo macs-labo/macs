@@ -879,62 +879,62 @@ function registerCustomFunctions() {
 	// ACFinder 互換 ifnullstr
 	db.create_function('IFNULLSTR', function(x, y) {
 		return x === null || x === '' ? y : x;
-	});
+	}, 2);
 
 	// ACFinder 互換 if
 	db.create_function('IF', function(cond1, true1) {
 		//return _if(cond1, true1);
 		return Boolean(cond1) ? true1 : null;
-			});
+	}, 2);
 	db.create_function('IF', function(cond1, true1, false1) {
 		//return _if(cond1, true1, false1);
 		return Boolean(cond1) ? true1 : false1;
-	});
+	}, 3);
 	db.create_function('IF2', function(cond1, true1, cond2, true2) {
 		//return _if(cond1, true1, cond2, true2);
 		return Boolean(cond1) ? true1 : (Boolean(cond2) ? true2 : null);
-	});
+	}, 4);
 	db.create_function('IF2', function(cond1, true1, cond2, true2, false2) {
 		//return _if(cond1, true1, cond2, true2, false2);
 		return Boolean(cond1) ? true1 : (Boolean(cond2) ? true2 : false2);
-	});
+	}, 5);
 	db.create_function('IF3', function(cond1, true1, cond2, true2, cond3, true3) {
 		//return _if(cond1, true1, cond2, true2, cond3, true3);
 		return Boolean(cond1) ? true1 : (Boolean(cond2) ? true2 : (Boolean(cond3) ? true3 : null));
-	});
+	}, 6);
 	db.create_function('IF3', function(cond1, true1, cond2, true2, cond3, true3, false3) {
 		//return _if(cond1, true1, cond2, true2, cond3, true3, false3);
 		return Boolean(cond1) ? true1 : (Boolean(cond2) ? true2 : (Boolean(cond3) ? true3 : false3));
-	});
+	}, 7);
 
 	// ACFinder 互換 extnum
 	db.create_function('EXTNUM', function(pattern, target) {
 		return extnum(pattern, target);
-	});
+	}, 2);
 	db.create_function('EXTNUM', function(pattern, target, def) {
 		return extnum(pattern, target, def);
-	});
+	}, 3);
 
 	// ACFinder 互換 explode
 	db.create_function('EXPLODE', function(dlm, src, num) {
 		return src.split(preg_quote(dlm))[num];
-	});
+	}, 3);
 
 	// ACFinder 互換 strconv (標準であいまい検索 OFF)
 	db.create_function('STRCONV', function(str) {
 		return strconv(str);
-	});
+	}, 1);
 	db.create_function('STRCONV', function(str, opt) {
 		return strconv(str, opt);
-	});
+	}, 2);
 
 	// ACFinder 互換 regexp
 	db.create_function('REGEXP', function(pattern, target) {
 		return _regexp(pattern, target);
-	});
+	}, 2);
 	db.create_function('REGEXP', function(pattern, target, opt) {
 		return _regexp(pattern, target, opt);
-	});
+	}, 3);
 
 /*
 		// values MACTH pattern: json array 対応日本語あいまい検索 LIKE
@@ -950,19 +950,19 @@ function registerCustomFunctions() {
 		return definiteLikeIn(value, patterns);
 	});
 	// LIKE_IN(col, p1, p2 ... ,p10): % ワイルドカードのみ使える複数パターン対象 IN
-	registerMultiArityFunction(db, 'LIKE_IN', 'col', 10, definiteLikeIn);
+	//registerMultiArityFunction(db, 'LIKE_IN', 'col', 10, definiteLikeIn);
 
 	// 正規表現の置換
 	db.create_function('RE_REPLACE', function(pattern, target, replacement) {
 		return target.replace(new RegExp(pattern, 'g'), replacement);
-	});
+	}, 3);
 
 	// ACfinder 互換 concat は廃止 今後は n_concat を使ってね
 	db.create_function('N_CONCAT', function(con, args) {
 		return n_concat(con, args);
 	});
 	// N_CONCAT(con, p1, p2, ... ,p10): ACFinder の scalar concat 相当。重複文字列は連結しない。
-	registerMultiArityFunction(db, 'N_CONCAT', 'con', 10, n_concat);
+	//registerMultiArityFunction(db, 'N_CONCAT', 'con', 10, n_concat);
 
 	// ACfinder 互換 concat2 は廃止 今後は d_concat または sqlite 標準 concat_ws を使ってね
 	// D_CONCAT(con, args): SQLite3 の concat_ws と等価。連結文字列の重複を許容。
@@ -970,7 +970,7 @@ function registerCustomFunctions() {
 		return d_concat(con, args);
 	});
 	// D_CONCAT(con, p1, p2 ... ,p10): ACFinder の scalar concat2 相当
-	registerMultiArityFunction(db, 'D_CONCAT', 'con', 10,d_concat);
+	//registerMultiArityFunction(db, 'D_CONCAT', 'con', 10,d_concat);
 
 	// ACFinder 互換 aggregate concat スカラー関数と重複する名前は使用できないため gn_concat に変更
 	db.create_aggregate('GN_CONCAT', {
@@ -992,7 +992,7 @@ function registerCustomFunctions() {
 			return res;
 		},
 		finalize: res => res
-	});
+	}, 2);
 
 	// ACFinder 互換 aggregate d_concat スカラー関数と重複する名前は使用できないため gd_concat に変更
 	db.create_aggregate('GD_CONCAT', {
@@ -1006,7 +1006,7 @@ function registerCustomFunctions() {
 			return res;
 		},
 		finalize: res => res
-	});
+	}, 2);
 
 	console.log("User defined functions registered.");
 }
@@ -1201,6 +1201,136 @@ function basename(filename) {
 	return parts.length > 1 ? parts.slice(0, -1).join('.') : parts[0];
 }
 
+// SqlJs 互換メソッドラッパー
+function applySqlJsCompat(sqlite3) {
+  const DBProto = sqlite3.oo1.DB.prototype;
+
+  // 二重適用防止
+  if (DBProto._sqlJsCompatApplied) return;
+  DBProto._sqlJsCompatApplied = true;
+
+  const origExec = DBProto.exec;
+
+  // 1. sql.js 互換 exec(sql, params)
+  DBProto.exec = function (sql, params) {
+    if (typeof sql === 'object' && sql !== null) {
+      return origExec.call(this, sql);
+    }
+    const results = [];
+    let currentResult = null;
+    origExec.call(this, {
+      sql: sql,
+      bind: params,
+      rowMode: 'array',
+      callback: function (row, stmt) {
+        const colNames = stmt.getColumnNames();
+        if (!currentResult || currentResult._stmt !== stmt) {
+          currentResult = { columns: colNames, values: [], _stmt: stmt };
+          results.push(currentResult);
+        }
+        currentResult.values.push(row);
+      }
+    });
+    for (const res of results) delete res._stmt;
+    return results;
+  };
+
+  // 2. sql.js 互換 run(sql, params)
+  DBProto.run = function (sql, params) {
+    origExec.call(this, { sql: sql, bind: params });
+    return this;
+  };
+
+  // 3. sql.js 互換 create_function(name, func, numArgs = -1)
+  DBProto.create_function = function (name, func, numArgs = -1) {
+    this.createFunction({
+      name: name,
+      arity: numArgs,
+      deterministic: true,
+      xFunc: (pCtx, ...args) => func(...args)
+    });
+    return this;
+  };
+
+  // 4. sql.js 互換 create_aggregate(name, { init, step, finalize }, numArgs = -1)
+  DBProto.create_aggregate = function (name, { init, step, finalize }, numArgs = -1) {
+    const contexts = new Map();
+    this.createFunction({
+      name: name,
+      arity: numArgs,
+      xStep: (pCtx, ...args) => {
+        const prevState = contexts.has(pCtx)
+          ? contexts.get(pCtx)
+          : (init ? init() : undefined);
+        const nextState = step(prevState, ...args);
+        contexts.set(pCtx, nextState);
+      },
+      xFinal: (pCtx) => {
+        const finalState = contexts.has(pCtx)
+          ? contexts.get(pCtx)
+          : (init ? init() : undefined);
+        try {
+          return finalize ? finalize(finalState) : finalState;
+        } finally {
+          contexts.delete(pCtx);
+        }
+      }
+    });
+    return this;
+  };
+
+  // 5. サブ DB を後からスキーマ名（dbname）付きで読み込むヘルパーメソッド
+  DBProto.attachArrayBuffer = function (data, dbname = 'sub') {
+    if (!data) return this;
+    // 指定スキーマが未アタッチなら空のインメモリ DB として ATTACH
+    origExec.call(this, `ATTACH DATABASE ':memory:' AS "${dbname.replace(/"/g, '""')}"`);
+
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    const pData = sqlite3.wasm.allocFromTypedArray(bytes);
+    const rc = sqlite3.capi.sqlite3_deserialize(
+      this.pointer,
+      dbname,
+      pData,
+      bytes.byteLength,
+      bytes.byteLength,
+      sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_READONLY
+    );
+    if (rc !== sqlite3.capi.SQLITE_OK) {
+      throw new Error(`sqlite3_deserialize (${dbname}) failed: ${rc}`);
+    }
+    return this;
+  };
+
+  // 6. sql.js 互換コンストラクタ: new sqlite3.Database(data, dbname = 'main')
+  sqlite3.Database = function (data, dbname = 'main') {
+    const db = new sqlite3.oo1.DB(':memory:', 'c');
+
+    if (data) {
+      // 'main' 以外のスキーマ名を指定して新規作成された場合は先に ATTACH する
+      if (dbname !== 'main') {
+        origExec.call(db, `ATTACH DATABASE ':memory:' AS "${dbname.replace(/"/g, '""')}"`);
+      }
+
+      const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+      const pData = sqlite3.wasm.allocFromTypedArray(bytes);
+      const rc = sqlite3.capi.sqlite3_deserialize(
+        db.pointer,
+        dbname,
+        pData,
+        bytes.byteLength,
+        bytes.byteLength,
+        sqlite3.capi.SQLITE_DESERIALIZE_FREEONCLOSE | sqlite3.capi.SQLITE_DESERIALIZE_READONLY
+      );
+      if (rc !== sqlite3.capi.SQLITE_OK) {
+        db.close();
+        throw new Error(`sqlite3_deserialize (${dbname}) failed: ${rc}`);
+      }
+    }
+
+    return db;
+  };
+}
+
 // DB ロード(新版): サーバ DB ファイルと IndexedDB 保存ファイルのタイムスタンプを比較して、サーバが新しければサーバからフェッチ、それ以外なら IndexedDB からロード
 async function fetchDB(optiondb = '') {
 	//if (local || db !== null) return Promise.resolve();
@@ -1228,17 +1358,22 @@ async function fetchDB(optiondb = '') {
 		dbStatusCached = results[0].isFallback;
 		console.log('All files fetched/loaded.');
 		
-		// sql-wasm.js のスクリプトタグからパスを特定(ファイル名が sql-wasm.min.js や sql.js の場合にも対応できるよう検索条件を緩和)
+/*
+ 		// sql-wasm.js のスクリプトタグからパスを特定(ファイル名が sql-wasm.min.js や sql.js の場合にも対応できるよう検索条件を緩和)
 		const sqlJsScript = Array.from(document.scripts).find(s => s.src && (s.src.includes('sql-wasm') || s.src.includes('sql.js')));
 		if (!sqlJsScript) {
 			throw new Error("sql.jsのスクリプトタグが見つかりませんでした。");
 		}
 		const sqlJsPath = sqlJsScript.src.substring(0, sqlJsScript.src.lastIndexOf('/') + 1);
 		if (debug) console.log(sqlJsPath);
-		
+*/
+
 		console.log('Initializing SQL.js...');
 		await waiting(true, 'SQLエンジン初期化中...');
-		const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
+		//const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
+		const CDN_BASE = 'https://jsdelivr.net';
+		const SQL = await window.sqlite3InitModule({ locateFile: (file) => CDN_BASE + file });
+		applySqlJsCompat(SQL);
 		
 		//メイン DB ロード
 		console.log('Loading main DB...');
@@ -1255,7 +1390,8 @@ async function fetchDB(optiondb = '') {
 			dbname = basename(files[j].fileName) + '.db';
 			let content = new Uint8Array(await blobs[j].arrayBuffer());
 			if (files[j].fileName.split('.').pop() == 'zip') content = await unzip(content, dbname);
-			attachDB(new SQL.Database(content), basename(files[j].fileName));
+			//attachDB(new SQL.Database(content), basename(files[j].fileName));
+			db.attachArrayBuffer(content, basename(files[j].fileName));
 			console.log(`Sub database attached from ${dbname}.`);
 		}
 		
@@ -1420,7 +1556,8 @@ async function loadHistoricalDB(tag, releaseName) {
 		initDB();
 		// サブDBアタッチ & ビュー作成
 		const specContent = await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db');
-		await attachDB(new SQL.Database(specContent), 'spec');
+		//attachDB(new SQL.Database(specContent), 'spec');
+		db.attachArrayBuffer(specContent, 'spec');
 		//const transformedSql = convTemplate(await sqlBlob.text());
 		//await db.run(transformedSql);
 		await execSQLLoadFromURL('init_create_view.sql');
@@ -1466,7 +1603,8 @@ async function loadLatestFromCache() {
 
 		// サブ DB アタッチ
 		const specContent = await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db');
-		attachDB(new SQL.Database(specContent), 'spec');
+		//attachDB(new SQL.Database(specContent), 'spec');
+		db.attachArrayBuffer(specContent, 'spec');
 
 		// ビュー再構築
 		//const transformedSql = convTemplate(await sqlBlob.text());
