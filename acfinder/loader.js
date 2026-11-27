@@ -1043,7 +1043,7 @@ async function waiting(sw = true, msg = '', msg2 = '') {
 //DBオブジェクト初期化
 function initDB() {
 	registerCustomFunctions(); // ユーザ定義関数を登録
-	db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成
+	//db.run('pragma temp_store = 2;'); // テンポラリファイルをメモリに作成
 	console.log("Database initialized.");
 	lastUpdate = db.exec("select * from info where item = 'LastUpdate'")[0].values[0][1];
 	currentDbUpdate = lastUpdate;
@@ -1335,6 +1335,9 @@ function applySqlJsCompat(sqlite3) {
 	sqlite3.Database = function (data, dbname = 'main') {
 		// 第2引数は省略（デフォルトの読み書き可能インメモリDB）にする
 		const db = new sqlite3.oo1.DB(':memory:');
+
+		// ★ テンポラリ領域（TEMP VIEW / TEMP TABLE / ソート用一時ファイル）を必ずメモリ上に作る
+		origExec.call(db, 'PRAGMA temp_store = 2;');
 
 		if (data) {
 			try {
