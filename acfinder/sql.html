@@ -2018,6 +2018,7 @@ function analyzeSqlContext(text, idx) {
 }
 
 // ---- DB 問い合わせ ----
+/*
 function sqlRows(sql, params) {
 	const stmt = db.prepare(sql);
 	try {
@@ -2029,8 +2030,10 @@ function sqlRows(sql, params) {
 		stmt.free();
 	}
 }
+*/
 
 // スキーマ一覧（名前解決の優先順: temp → main → attach 済み）とテーブル・ビュー一覧を取得
+/*
 function sqlSnapshot() {
 	const names = ["temp", "main"];
 	try {
@@ -2044,6 +2047,28 @@ function sqlSnapshot() {
 		try {
 			sqlRows("SELECT name, type FROM " + master + " WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name")
 				.forEach(r => objs.push({ schema, name: r[0], type: r[1] }));
+		} catch (e) { console.warn("schema " + schema + " not readable:", e); }
+	});
+	return { schemas: names, objs };
+}
+*/
+// スキーマ一覧（名前解決の優先順: temp → main → attach 済み）とテーブル・ビュー一覧を取得
+function sqlSnapshot() {
+	const names = ["temp", "main"];
+	try {
+		db.exec({ sql: "PRAGMA database_list", returnValue: 'resultRows', rowMode: 'object' }).forEach(r => {
+			if (!names.some(n => n.toLowerCase() === String(r.name).toLowerCase())) names.push(r.name);
+		});
+	} catch (e) { console.warn("database_list failed:", e); }
+	const objs = [];
+	names.forEach(schema => {
+		const master = schema.toLowerCase() === "temp" ? "sqlite_temp_master" : '"' + schema.replace(/"/g, '""') + '".sqlite_master';
+		try {
+			db.exec({
+				sql: "SELECT name, type FROM " + master + " WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name",
+				returnValue: 'resultRows',
+				rowMode: 'object'
+			}).forEach(r => objs.push({ schema, name: r.name, type: r.type }));
 		} catch (e) { console.warn("schema " + schema + " not readable:", e); }
 	});
 	return { schemas: names, objs };
@@ -2076,11 +2101,26 @@ function sqlGetColumns(schema, table) {
 }
 
 // pragma function_list から関数の一覧を取得（同名でも引数の数が違うものは別候補。narg が負の値は可変長）
+/*
 function sqlGetFunctions() {
 	const map = new Map();
 	try {
 		sqlRows("PRAGMA function_list").forEach(r => {
 			const name = r[0], type = r[2], narg = r[4];
+			const key = name.toLowerCase() + "\0" + narg;
+			if (!map.has(key)) map.set(key, { name, narg, types: new Set() }); // 文字コード違いの重複を除く
+			map.get(key).types.add(type);
+		});
+	} catch (e) { console.warn("function_list failed:", e); }
+	return Array.from(map.values()).sort((a, b) =>
+		a.name.localeCompare(b.name) || (a.narg < 0 ? 1 : 0) - (b.narg < 0 ? 1 : 0) || a.narg - b.narg);
+}
+*/
+function sqlGetFunctions() {
+	const map = new Map();
+	try {
+		db.exec({ sql: "PRAGMA function_list", returnValue: 'resultRows', rowMode: 'object' }).forEach(r => {
+			const { name, type, narg } = r;
 			const key = name.toLowerCase() + "\0" + narg;
 			if (!map.has(key)) map.set(key, { name, narg, types: new Set() }); // 文字コード違いの重複を除く
 			map.get(key).types.add(type);
