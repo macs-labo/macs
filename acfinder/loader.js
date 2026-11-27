@@ -946,7 +946,7 @@ function registerCustomFunctions() {
 */
 
 	// LIKE_IN(value, patterns): json array 対応 % ワイルドカードのみ使える複数パターン対象 IN
-	db.create_function('LIKE_IN', function(value, patterns) {
+	db.create_function('LIKE_IN', function(value, ...patterns) {
 		return definiteLikeIn(value, patterns);
 	});
 	// LIKE_IN(col, p1, p2 ... ,p10): % ワイルドカードのみ使える複数パターン対象 IN
@@ -958,7 +958,7 @@ function registerCustomFunctions() {
 	}, 3);
 
 	// ACfinder 互換 concat は廃止 今後は n_concat を使ってね
-	db.create_function('N_CONCAT', function(con, args) {
+	db.create_function('N_CONCAT', function(con, ...args) {
 		return n_concat(con, args);
 	});
 	// N_CONCAT(con, p1, p2, ... ,p10): ACFinder の scalar concat 相当。重複文字列は連結しない。
@@ -966,7 +966,7 @@ function registerCustomFunctions() {
 
 	// ACfinder 互換 concat2 は廃止 今後は d_concat または sqlite 標準 concat_ws を使ってね
 	// D_CONCAT(con, args): SQLite3 の concat_ws と等価。連結文字列の重複を許容。
-	db.create_function('D_CONCAT', function(con, args) {
+	db.create_function('D_CONCAT', function(con, ...args) {
 		return d_concat(con, args);
 	});
 	// D_CONCAT(con, p1, p2 ... ,p10): ACFinder の scalar concat2 相当
@@ -1338,7 +1338,39 @@ function applySqlJsCompat(sqlite3) {
 		return this;
 	};
 
-	// 6. sql.js 互換コンストラクタ: new sqlite3.Database(data, dbname = 'main')
+	// 6. sql.js 互換 prepare(sql)
+	const origPrepare = DBProto.prepare;
+	DBProto.prepare = function (sql) {
+		const stmt = origPrepare.call(this, sql);
+
+		// sql.js 互換: stmt.getAsObject(params)
+		stmt.getAsObject = function (params) {
+			if (params !== undefined) {
+				this.bind(params);
+			}
+			return this.get({});
+		};
+
+		// sql.js 互換: stmt.get(params)
+		// ※ 純正の stmt.get() は引数なしで配列を返すが、sql.js は params を渡せるためラップ
+		const origGet = stmt.get;
+		stmt.get = function (params) {
+			if (params !== undefined) {
+				this.bind(params);
+			}
+			return origGet.call(this);
+		};
+
+		// sql.js 互換: stmt.getColumnNames() は純正にも同名メソッドあり
+		// sql.js 互換: stmt.free()
+		stmt.free = function () {
+			return this.finalize();
+		};
+
+		return stmt;
+	};
+
+	// 7. sql.js 互換コンストラクタ: new sqlite3.Database(data, dbname = 'main')
 	sqlite3.Database = function (data, dbname = 'main') {
 		const db = new sqlite3.oo1.DB(':memory:');
 
