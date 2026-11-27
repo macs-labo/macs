@@ -1257,6 +1257,17 @@ function applySqlJsCompat(sqlite3) {
 		return this;
 	};
 
+	// 3. sql.js 互換 create_function(name, func, numArgs = -1)
+	DBProto.create_function = function (name, func, numArgs = -1) {
+		this.createFunction({
+			name: name,
+			arity: numArgs,
+			deterministic: true,
+			xFunc: (pCtx, ...args) => func(...args)
+		});
+		return this;
+	};
+
 	// 4. sql.js 互換 create_aggregate(name, { init, step, finalize }, numArgs = -1)
 	DBProto.create_aggregate = function (name, { init, step, finalize }, numArgs = -1) {
 		const contexts = new Map();
@@ -1342,6 +1353,24 @@ function applySqlJsCompat(sqlite3) {
 	};
 }
 
+// SQLite WASM 初期化共通ヘルパー（<script>タグの src から wasm のパスを自動解決）
+async function getSqliteInstance() {
+	const sqliteScript = Array.from(document.scripts).find(
+		s => s.src && (s.src.includes('sqlite3.js') || s.src.includes('sqlite-wasm'))
+	);
+	if (!sqliteScript) {
+		throw new Error('sqlite3.js のスクリプトタグが見つかりませんでした。');
+	}
+	const sqlitePath = sqliteScript.src.substring(0, sqliteScript.src.lastIndexOf('/') + 1);
+	if (debug) console.log('[SQLite Path]', sqlitePath);
+
+	const SQL = await window.sqlite3InitModule({
+		locateFile: (file) => `${sqlitePath}${file}`
+	});
+	applySqlJsCompat(SQL);
+	return SQL;
+}
+
 // DB ロード(新版): サーバ DB ファイルと IndexedDB 保存ファイルのタイムスタンプを比較して、サーバが新しければサーバからフェッチ、それ以外なら IndexedDB からロード
 async function fetchDB(optiondb = '') {
 	//if (local || db !== null) return Promise.resolve();
@@ -1379,19 +1408,16 @@ async function fetchDB(optiondb = '') {
 		if (debug) console.log(sqlJsPath);
 */
 
-		console.log('Initializing SQL.js...');
+		console.log('Initializing SQLite...');
 		await waiting(true, 'SQLエンジン初期化中...');
 		//const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
-		const CDN_BASE = 'https://jsdelivr.net';
-		const SQL = await window.sqlite3InitModule({ locateFile: (file) => CDN_BASE + file });
-		applySqlJsCompat(SQL);
+		const SQL = await getSqliteInstance();
 		
 		//メイン DB ロード
 		console.log('Loading main DB...');
 		await waiting(true, 'メインデータベース読込中...');
 		var dbname = basename(files[0].fileName) + '.db';
-		//db = new SQL.Database(await unzip(new Uint8Array(await blobs[0].arrayBuffer()), dbname));
-		db = new SQL.Database(await unzip(new Uint8Array(await blobs[0].arrayBuffer())), 'main');
+		db = new SQL.Database(await unzip(new Uint8Array(await blobs[0].arrayBuffer()), dbname));
 		initDB();
 		console.log(`Main database loaded from ${dbname}.`);
 		
@@ -1551,9 +1577,11 @@ async function loadHistoricalDB(tag, releaseName) {
 		if (db) db.close();
 
 		// 4. SQL.js 再構築
-		const sqlJsScript = Array.from(document.scripts).find(s => s.src && (s.src.includes('sql-wasm') || s.src.includes('sql.js')));
-		const sqlJsPath = sqlJsScript.src.substring(0, sqlJsScript.src.lastIndexOf('/') + 1);
-		const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
+		//const sqlJsScript = Array.from(document.scripts).find(s => s.src && (s.src.includes('sql-wasm') || s.src.includes('sql.js')));
+		//const sqlJsPath = sqlJsScript.src.substring(0, sqlJsScript.src.lastIndexOf('/') + 1);
+		//const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
+		// 4. SQLite 再構築
+		const SQL = await getSqliteInstance();
 
 		await waiting(true, '過去データを展開中...');
 		db = new SQL.Database(await unzip(new Uint8Array(await acisBlob.arrayBuffer()), 'acis.db'));
@@ -1597,9 +1625,10 @@ async function loadLatestFromCache() {
 
 		if (db) db.close();
 
-		const sqlJsScript = Array.from(document.scripts).find(s => s.src && (s.src.includes('sql-wasm') || s.src.includes('sql.js')));
-		const sqlJsPath = sqlJsScript.src.substring(0, sqlJsScript.src.lastIndexOf('/') + 1);
-		const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
+		//const sqlJsScript = Array.from(document.scripts).find(s => s.src && (s.src.includes('sql-wasm') || s.src.includes('sql.js')));
+		//const sqlJsPath = sqlJsScript.src.substring(0, sqlJsScript.src.lastIndexOf('/') + 1);
+		//const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
+		const SQL = await getSqliteInstance();
 
 		// メイン DB
 		db = new SQL.Database(await unzip(new Uint8Array(await acisBlob.arrayBuffer()), 'acis.db'));
