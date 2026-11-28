@@ -813,65 +813,6 @@ function vagueMatches(pattern, values) {
 }
 */
 
-function registerMultiArityFunction(db, functionName, valueArgName, maxPatterns, coreLogic) {
-	if (typeof db.create_function !== 'function') {
-		console.error("Provided object is not a valid sql-wasm Database instance.");
-		return;
-	}
-
-	// パターン数 n = 2 から maxPatterns までループ (最小引数 3 = valueArgName + p1 + p2)
-	const MIN_PATTERNS = 2;
-	const coreLogicName = coreLogic.name || 'coreLogic'; // コアロジック関数の名前を取得
-
-	// coreLogic関数をクロージャ（スコープ）に取り込むための処理
-	// このヘルパーを呼び出すスコープに coreLogic が存在する必要があります。
-	// Functionコンストラクタ内でcoreLogicを参照するために、グローバルまたはスコープ内の参照が必要です。
-	// 例：window.coreLogic = coreLogic; 
-	
-	// ただし、Functionコンストラクタは新しいスコープを作るため、この関数内で定義された
-	// coreLogicを直接参照させるのは、通常、安全ではありません。
-	// 解決策として、Functionコンストラクタの最終引数に関数本体を文字列で渡します。
-
-	for (let n = MIN_PATTERNS; n <= maxPatterns; n++) {
-		// ラッパー関数の引数リストを作成
-		// 例: n=3 の場合 ['col', 'p1', 'p2', 'p3']
-		const argNames = [valueArgName].concat(Array.from({ length: n }, (_, i) => `p${i + 1}`));
-		
-		// 関数本体のロジック文字列を生成
-		const functionBody = `
-			// 最初の引数（arguments[0]）がカラム値
-			const value = arguments[0]; 
-			
-			// arguments[1]以降のすべての引数（パターン）を配列に変換
-			const patterns = Array.prototype.slice.call(arguments, 1);
-			
-			// 登録時に渡された実際のコアロジック関数を直接呼び出す
-			return this.coreLogic(value, patterns);
-		`;
-
-		// Function コンストラクタを使って動的に引数を持つ関数を生成
-		// ここで第三引数に functionBody を渡し、最後の引数に this の参照先を渡す必要があります。
-		// sql-wasm の create_function は this コンテキストの制御が複雑なため、
-		// 単純な Function コンストラクタの使用ではなく、外部スコープから coreLogic を
-		// 取得できるようにするのが現実的です。
-		
-		// **最も確実な方法**：登録関数を Function コンストラクタで生成し、
-		// クロージャを介さずに coreLogic へアクセスするため、
-		// 登録時にコアロジックをバインドします。
-		
-		const wrapperFunction = new Function(...argNames, functionBody).bind({ coreLogic });
-
-		// SQLに登録
-		try {
-			db.create_function(functionName, wrapperFunction);
-			
-			//console.log(`Registered function: ${functionName}(${argNames.join(', ')})`);
-		} catch (error) {
-			console.error(`Failed to register ${functionName} with ${argNames.length} args:`, error);
-		}
-	}
-}
-
 //SQLite ユーザ定義関数登録
 function registerCustomFunctions() {
 	if (!db) return;
@@ -942,34 +883,29 @@ function registerCustomFunctions() {
 		return vagueMaches(pattern, values);
 	});
 	// MATCH(pattern, p1, p2 ...): % ワイルドカードのみ使える複数対象対応日本語あいまい検索 LIKE
-	registerMultiArityFunction(db, 'MATCH', 'col', 10, vagueMatches);
 */
 
-	// LIKE_IN(value, patterns): json array 対応 % ワイルドカードのみ使える複数パターン対象 IN
+	// LIKE_IN(col, p1, p2 ... ,p10): % ワイルドカードのみ使える複数パターン対象 IN
 	db.create_function('LIKE_IN', function(value, ...patterns) {
 		return definiteLikeIn(value, patterns);
 	});
-	// LIKE_IN(col, p1, p2 ... ,p10): % ワイルドカードのみ使える複数パターン対象 IN
-	//registerMultiArityFunction(db, 'LIKE_IN', 'col', 10, definiteLikeIn);
 
 	// 正規表現の置換
 	db.create_function('RE_REPLACE', function(pattern, target, replacement) {
 		return target.replace(new RegExp(pattern, 'g'), replacement);
 	}, 3);
 
+	// N_CONCAT(con, p1, p2, ... ,p10): ACFinder の scalar concat 相当。重複文字列は連結しない。
 	// ACfinder 互換 concat は廃止 今後は n_concat を使ってね
 	db.create_function('N_CONCAT', function(con, ...args) {
 		return n_concat(con, args);
 	});
-	// N_CONCAT(con, p1, p2, ... ,p10): ACFinder の scalar concat 相当。重複文字列は連結しない。
-	//registerMultiArityFunction(db, 'N_CONCAT', 'con', 10, n_concat);
 
+	// D_CONCAT(con, p1, p2 ... ,p10): ACFinder の scalar concat2 相当。QLite3 の concat_ws と等価。連結文字列の重複を許容。
 	// ACfinder 互換 concat2 は廃止 今後は d_concat または sqlite 標準 concat_ws を使ってね
-	// D_CONCAT(con, args): SQLite3 の concat_ws と等価。連結文字列の重複を許容。
 	db.create_function('D_CONCAT', function(con, ...args) {
 		return d_concat(con, args);
 	});
-	// D_CONCAT(con, p1, p2 ... ,p10): ACFinder の scalar concat2 相当
 	//registerMultiArityFunction(db, 'D_CONCAT', 'con', 10,d_concat);
 
 	// ACFinder 互換 aggregate concat スカラー関数と重複する名前は使用できないため gn_concat に変更
@@ -1338,57 +1274,7 @@ function applySqlJsCompat(sqlite3) {
 		return this;
 	};
 
-	// 6. sql.js 互換 prepare(sql)
-	const origPrepare = DBProto.prepare;
-	DBProto.prepare = function (sql) {
-		const stmt = origPrepare.call(this, sql);
-		const origGet = stmt.get;
-
-		// sql.js 互換: stmt.get(params) -> カラム値の配列を返す
-		stmt.get = function (params) {
-			if (params !== undefined) {
-				this.bind(params);
-			}
-			const count = this.columnCount;
-			const row = new Array(count);
-			for (let i = 0; i < count; i++) {
-				row[i] = origGet.call(this, i);
-			}
-			return row;
-		};
-
-		// sql.js 互換: stmt.getAsObject(params) -> { カラム名: 値, ... } のオブジェクトを返す
-		stmt.getAsObject = function (params) {
-			if (params !== undefined) {
-				this.bind(params);
-			}
-			const cols = this.getColumnNames();
-			const obj = {};
-			for (let i = 0; i < cols.length; i++) {
-				obj[cols[i]] = origGet.call(this, i);
-			}
-			return obj;
-		};
-
-		// sql.js 互換: step() 前でも確実にカラム名配列を返す
-		stmt.getColumnNames = function () {
-			const count = sqlite3.capi.sqlite3_column_count(this.pointer);
-			const names = new Array(count);
-			for (let i = 0; i < count; i++) {
-				names[i] = sqlite3.capi.sqlite3_column_name(this.pointer, i);
-			}
-			return names;
-		};
-
-		// sql.js 互換: stmt.free()
-		stmt.free = function () {
-			return this.finalize();
-		};
-
-		return stmt;
-	};
-
-	// 7. sql.js 互換コンストラクタ: new sqlite3.Database(data, dbname = 'main')
+	// 6. sql.js 互換コンストラクタ: new sqlite3.Database(data, dbname = 'main')
 	sqlite3.Database = function (data, dbname = 'main') {
 		const db = new sqlite3.oo1.DB(':memory:');
 
@@ -1457,20 +1343,9 @@ async function fetchDB(optiondb = '') {
 		const blobs = results.map(r => r.blob);
 		dbStatusCached = results[0].isFallback;
 		console.log('All files fetched/loaded.');
-		
-/*
- 		// sql-wasm.js のスクリプトタグからパスを特定(ファイル名が sql-wasm.min.js や sql.js の場合にも対応できるよう検索条件を緩和)
-		const sqlJsScript = Array.from(document.scripts).find(s => s.src && (s.src.includes('sql-wasm') || s.src.includes('sql.js')));
-		if (!sqlJsScript) {
-			throw new Error("sql.jsのスクリプトタグが見つかりませんでした。");
-		}
-		const sqlJsPath = sqlJsScript.src.substring(0, sqlJsScript.src.lastIndexOf('/') + 1);
-		if (debug) console.log(sqlJsPath);
-*/
 
 		console.log('Initializing SQLite...');
 		await waiting(true, 'SQLエンジン初期化中...');
-		//const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
 		const SQL = await getSqliteInstance();
 		
 		//メイン DB ロード
@@ -1488,7 +1363,6 @@ async function fetchDB(optiondb = '') {
 			dbname = basename(files[j].fileName) + '.db';
 			let content = new Uint8Array(await blobs[j].arrayBuffer());
 			if (files[j].fileName.split('.').pop() == 'zip') content = await unzip(content, dbname);
-			//attachDB(new SQL.Database(content), basename(files[j].fileName));
 			db.attachArrayBuffer(content, basename(files[j].fileName));
 			console.log(`Sub database attached from ${dbname}.`);
 		}
@@ -1656,10 +1530,7 @@ async function loadHistoricalDB(tag, releaseName) {
 		initDB();
 		// サブDBアタッチ & ビュー作成
 		const specContent = await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db');
-		//attachDB(new SQL.Database(specContent), 'spec');
 		db.attachArrayBuffer(specContent, 'spec');
-		//const transformedSql = convTemplate(await sqlBlob.text());
-		//await db.run(transformedSql);
 		await execSQLLoadFromURL('init_create_view.sql');
 		await setTabViews();
 
@@ -1681,13 +1552,9 @@ async function loadLatestFromCache() {
 		// IndexedDBから全ファイルを取得
 		const acisBlob = await getFileFromCache(fcDB, `${maindb}.zip`);
 		const specBlob = await getFileFromCache(fcDB, `${subdb}.zip`);
-		//const sqlBlob = await getFileFromCache(fcDB, 'init_create_view.sql');
 
 		if (db) db.close();
 
-		//const sqlJsScript = Array.from(document.scripts).find(s => s.src && (s.src.includes('sql-wasm') || s.src.includes('sql.js')));
-		//const sqlJsPath = sqlJsScript.src.substring(0, sqlJsScript.src.lastIndexOf('/') + 1);
-		//const SQL = await initSqlJs({ locateFile: filename => `${sqlJsPath}${filename}` });
 		const SQL = await getSqliteInstance();
 
 		// メイン DB
@@ -1704,7 +1571,6 @@ async function loadLatestFromCache() {
 
 		// サブ DB アタッチ
 		const specContent = await unzip(new Uint8Array(await specBlob.arrayBuffer()), 'spec.db');
-		//attachDB(new SQL.Database(specContent), 'spec');
 		db.attachArrayBuffer(specContent, 'spec');
 
 		// ビュー再構築
